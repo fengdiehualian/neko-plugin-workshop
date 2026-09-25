@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>猫娘日记 · 回忆小盒子</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Serif SC', 'Microsoft YaHei', serif;
+            background: linear-gradient(160deg, #eef5fc 0%, #ffffff 30%, #fef6f9 70%, #f3f8ff 100%);
+            min-height: 100vh;
+            color: #4a6280;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* 漂浮装饰 */
+        .deco-layer {
+            position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+        }
+        .petal {
+            position: absolute; width: 12px; height: 12px; border-radius: 50% 0 50% 50%;
+            opacity: 0.12; animation: drift 18s ease-in-out infinite;
+        }
+        .petal:nth-child(1) { left: 8%; top: -20px; background: #f4a6c0; animation-delay: 0s; }
+        .petal:nth-child(2) { left: 25%; top: -20px; background: #7eb8e8; animation-delay: 3s; width: 8px; height: 8px; }
+        .petal:nth-child(3) { left: 50%; top: -20px; background: #f4a6c0; animation-delay: 6s; width: 14px; height: 14px; }
+        .petal:nth-child(4) { left: 70%; top: -20px; background: #b4a7e8; animation-delay: 9s; width: 10px; height: 10px; }
+        .petal:nth-child(5) { left: 90%; top: -20px; background: #7eb8e8; animation-delay: 12s; }
+        @keyframes drift {
+            0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
+            10%  { opacity: 0.15; }
+            90%  { opacity: 0.1; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
+
+        .container { max-width: 760px; margin: 0 auto; padding: 28px 20px 60px; position: relative; z-index: 1; }
+
+        /* 标题 */
+        .header {
+            text-align: center; padding: 48px 30px 36px; position: relative;
+        }
+        .header h1 {
+            font-size: 2.4em; font-weight: 700; letter-spacing: 3px;
+            background: linear-gradient(135deg, #5ba4e5 0%, #7eb8e8 40%, #f4a6c0 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            margin-bottom: 10px;
+        }
+        .header .subtitle {
+            color: #9bb0c8; font-size: 0.95em; font-weight: 400; letter-spacing: 1px;
+        }
+        .header .subtitle::before { content: '— '; color: #c8d6e8; }
+        .header .subtitle::after { content: ' —'; color: #c8d6e8; }
+
+        /* 导航 */
+        .nav {
+            display: flex; gap: 6px; margin-bottom: 28px;
+            background: rgba(255,255,255,0.7); backdrop-filter: blur(12px);
+            padding: 6px; border-radius: 18px;
+            box-shadow: 0 2px 20px rgba(126,184,232,0.12);
+            border: 1px solid rgba(255,255,255,0.8);
+        }
+        .nav-btn {
+            flex: 1; padding: 11px 16px; border: none; background: transparent;
+            color: #8ba0b8; font-size: 0.95em; font-weight: 600; cursor: pointer;
+            border-radius: 14px; transition: all 0.35s ease; font-family: inherit;
+        }
+        .nav-btn:hover { color: #5ba4e5; }
+        .nav-btn.active {
+            background: linear-gradient(135deg, #6cb4e8 0%, #94c8ef 100%);
+            color: white; box-shadow: 0 3px 14px rgba(108,180,232,0.35);
+        }
+
+        /* 标签页 */
+        .tab-pane { display: none; animation: fadeIn 0.4s ease; }
+        .tab-pane.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 玻璃卡片 */
+        .glass {
+            background: rgba(255,255,255,0.75); backdrop-filter: blur(16px);
+            border-radius: 22px; border: 1px solid rgba(255,255,255,0.9);
+            box-shadow: 0 6px 30px rgba(126,184,232,0.1);
+        }
+
+        /* 写日记 */
+        .write-card { padding: 34px 32px; }
+        .write-card h2 {
+            font-size: 1.3em; color: #5ba4e5; margin-bottom: 24px; font-weight: 600;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .write-card h2::before { content: '✎'; font-size: 1.1em; opacity: 0.6; }
+
+        .field { margin-bottom: 22px; }
+        .field label { display: block; margin-bottom: 8px; font-size: 0.9em; color: #7a92a8; font-weight: 600; }
+        .field input, .field textarea {
+            width: 100%; padding: 13px 16px; border: 2px solid #e8f0f8; border-radius: 14px;
+            font-size: 1em; font-family: inherit; background: rgba(255,255,255,0.8);
+            transition: all 0.3s; color: #4a6280;
+        }
+        .field input:focus, .field textarea:focus {
+            outline: none; border-color: #94c8ef; box-shadow: 0 0 0 4px rgba(108,180,232,0.08);
+            background: white;
+        }
+        .field textarea { resize: vertical; min-height: 130px; line-height: 1.8; }
+
+        /* 心情选择 */
+        .mood-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .mood-chip {
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            padding: 12px 14px; border: 2px solid #e8f0f8; border-radius: 16px;
+            cursor: pointer; transition: all 0.3s; background: rgba(255,255,255,0.6);
+            min-width: 64px;
+        }
+        .mood-chip:hover { border-color: #c8def0; transform: translateY(-2px); }
+        .mood-chip.selected {
+            border-color: #6cb4e8; background: linear-gradient(135deg, #f0f7ff, #fef6f9);
+            box-shadow: 0 4px 16px rgba(108,180,232,0.18); transform: translateY(-2px);
+        }
+        .mood-chip .emoji { font-size: 1.8em; }
+        .mood-chip .name { font-size: 0.78em; color: #8ba0b8; }
+        .mood-chip.selected .name { color: #5ba4e5; }
+
+        /* 标签输入 */
+        .tag-box {
+            display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+            padding: 10px 14px; border: 2px solid #e8f0f8; border-radius: 14px;
+            background: rgba(255,255,255,0.8); min-height: 48px;
+        }
+        .tag-box:focus-within { border-color: #94c8ef; box-shadow: 0 0 0 4px rgba(108,180,232,0.08); }
+        .tag-pill {
+            background: linear-gradient(135deg, #6cb4e8, #94c8ef); color: white;
+            padding: 5px 12px; border-radius: 14px; font-size: 0.85em;
+            display: inline-flex; align-items: center; gap: 6px; font-weight: 500;
+        }
+        .tag-pill .x { cursor: pointer; opacity: 0.7; font-weight: bold; }
+        .tag-pill .x:hover { opacity: 1; }
+        .tag-box input { flex: 1; min-width: 120px; border: none; background: transparent; font-family: inherit; font-size: 0.95em; color: #4a6280; }
+        .tag-box input:focus { outline: none; }
+
+        /* 提交按钮 */
+        .btn-primary {
+            width: 100%; padding: 15px; border: none; border-radius: 16px;
+            background: linear-gradient(135deg, #6cb4e8 0%, #94c8ef 50%, #f4a6c0 100%);
+            color: white; font-size: 1.05em; font-weight: 600; cursor: pointer;
+            font-family: inherit; letter-spacing: 1px; transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(108,180,232,0.28);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(108,180,232,0.38); }
+        .btn-primary:active { transform: translateY(0); }
+
+        /* 日记列表 */
+        .timeline { display: flex; flex-direction: column; gap: 16px; }
+
+        .diary-card {
+            background: rgba(255,255,255,0.8); backdrop-filter: blur(12px);
+            border-radius: 20px; padding: 24px 26px;
+            border: 1px solid rgba(255,255,255,0.9);
+            box-shadow: 0 4px 24px rgba(126,184,232,0.08);
+            transition: all 0.35s ease; position: relative;
+            border-left: 3px solid transparent;
+        }
+        .diary-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(126,184,232,0.15); }
+
+        .dc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .dc-date { font-size: 0.85em; color: #9bb0c8; font-weight: 400; }
+        .dc-mood {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: 14px; font-size: 0.85em; font-weight: 600;
+        }
+        .dc-title { font-size: 1.25em; color: #3a5278; margin-bottom: 10px; font-weight: 600; }
+        .dc-body { color: #5a7090; line-height: 1.9; white-space: pre-wrap; font-size: 1em; }
+        .dc-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+        .dc-tag {
+            background: linear-gradient(135deg, #f0f7ff, #fef6f9);
+            color: #6cb4e8; padding: 4px 11px; border-radius: 12px; font-size: 0.8em; font-weight: 500;
+        }
+        .dc-foot { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f4f8; }
+        .dc-btn {
+            background: transparent; border: 1.5px solid #e8f0f8; padding: 6px 14px;
+            border-radius: 10px; cursor: pointer; font-size: 0.85em; color: #8ba0b8;
+            font-family: inherit; transition: all 0.3s;
+        }
+        .dc-btn:hover { border-color: #f4a6c0; color: #e89ab5; background: rgba(244,166,192,0.05); }
+
+        /* 搜索 */
+        .search-wrap { padding: 20px 24px; margin-bottom: 18px; }
+        .search-wrap input {
+            width: 100%; padding: 13px 16px; border: 2px solid #e8f0f8; border-radius: 14px;
+            font-size: 1em; font-family: inherit; background: rgba(255,255,255,0.8); color: #4a6280;
+            transition: all 0.3s;
+        }
+        .search-wrap input:focus { outline: none; border-color: #94c8ef; box-shadow: 0 0 0 4px rgba(108,180,232,0.08); }
+
+        /* 统计 */
+        .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+        .stat-box { padding: 24px 16px; text-align: center; }
+        .stat-num {
+            font-size: 2.2em; font-weight: 700;
+            background: linear-gradient(135deg, #5ba4e5, #f4a6c0);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            margin-bottom: 4px;
+        }
+        .stat-lbl { color: #9bb0c8; font-size: 0.88em; }
+
+        .mood-stats { padding: 26px 28px; }
+        .mood-stats h3 { font-size: 1.1em; color: #5ba4e5; margin-bottom: 18px; font-weight: 600; }
+        .mood-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        .mood-bar-lbl { min-width: 72px; font-size: 0.88em; font-weight: 500; }
+        .mood-bar-track { flex: 1; height: 20px; background: #f3f8ff; border-radius: 10px; overflow: hidden; }
+        .mood-bar-fill { height: 100%; border-radius: 10px; transition: width 0.6s ease-out; }
+        .mood-bar-num { min-width: 28px; text-align: right; font-weight: 600; color: #6cb4e8; font-size: 0.88em; }
+
+        /* 空状态 */
+        .empty { text-align: center; padding: 70px 20px; color: #b8c8d8; }
+        .empty .ico { font-size: 4em; margin-bottom: 16px; animation: floatUp 3s ease-in-out infinite; }
+        @keyframes floatUp { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .empty p { font-size: 1.05em; }
+
+        .loading { text-align: center; padding: 50px; color: #b8c8d8; font-size: 1em; }
+
+        /* 分页 */
+        .pager { display: flex; justify-content: center; gap: 10px; margin-top: 24px; }
+        .pager button {
+            background: rgba(255,255,255,0.8); border: 1.5px solid #e8f0f8;
+            padding: 9px 18px; border-radius: 12px; cursor: pointer; font-family: inherit;
+            font-size: 0.9em; color: #6cb4e8; transition: all 0.3s;
+        }
+        .pager button:hover:not(:disabled) { border-color: #94c8ef; background: white; }
+        .pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Toast */
+        .toast {
+            position: fixed; top: 24px; right: 24px; z-index: 999;
+            background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
+            padding: 14px 24px; border-radius: 16px; font-weight: 500; font-family: inherit;
+            box-shadow: 0 8px 32px rgba(126,184,232,0.2);
+            border: 1px solid rgba(255,255,255,0.9);
+            animation: toastIn 0.35s ease; font-size: 0.95em;
+        }
+        @keyframes toastIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast.ok { border-left: 3px solid #6cb4e8; color: #4a9fdf; }
+        .toast.err { border-left: 3px solid #f4a6c0; color: #e89ab5; }
+
+        @media (max-width: 600px) {
+            .container { padding: 16px 12px 40px; }
+            .header h1 { font-size: 1.9em; }
+            .stat-row { grid-template-columns: 1fr; }
+            .mood-chip { min-width: 52px; padding: 10px 8px; }
+            .write-card { padding: 24px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="deco-layer">
+        <div class="petal"></div><div class="petal"></div><div class="petal"></div>
+        <div class="petal"></div><div class="petal"></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>猫娘日记</h1>
+            <div class="subtitle">记录每一天的小事，珍藏每一份回忆</div>
+        </div>
+
+        <div class="nav">
+            <button class="nav-btn active" data-tab="write">写日记</button>
+            <button class="nav-btn" data-tab="browse">回忆时光</button>
+            <button class="nav-btn" data-tab="search">寻找回忆</button>
+            <button class="nav-btn" data-tab="stats">心情点滴</button>
+        </div>
+
+        <!-- 写日记 -->
+        <div id="writeTab" class="tab-pane active">
+            <div class="glass write-card">
+                <h2>写下今天</h2>
+                <form id="diaryForm">
+                    <div class="field">
+                        <label>标题（可选）</label>
+                        <input type="text" id="title" placeholder="给今天起个小标题吧">
+                    </div>
+                    <div class="field">
+                        <label>今天的心情</label>
+                        <div class="mood-row" id="moodSelector">
+                            <div class="mood-chip" data-mood="happy"><span class="emoji">😊</span><span class="name">开心</span></div>
+                            <div class="mood-chip" data-mood="calm"><span class="emoji">😌</span><span class="name">平静</span></div>
+                            <div class="mood-chip selected" data-mood="neutral"><span class="emoji">😐</span><span class="name">日常</span></div>
+                            <div class="mood-chip" data-mood="excited"><span class="emoji">🤩</span><span class="name">兴奋</span></div>
+                            <div class="mood-chip" data-mood="sad"><span class="emoji">😢</span><span class="name">难过</span></div>
+                            <div class="mood-chip" data-mood="tired"><span class="emoji">😴</span><span class="name">疲惫</span></div>
+                            <div class="mood-chip" data-mood="angry"><span class="emoji">😠</span><span class="name">生气</span></div>
+                            <div class="mood-chip" data-mood="anxious"><span class="emoji">😰</span><span class="name">焦虑</span></div>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>今天发生了什么</label>
+                        <textarea id="content" placeholder="记下今天的小事，哪怕只是一句话也好" required></textarea>
+                    </div>
+                    <div class="field">
+                        <label>标签（按回车添加）</label>
+                        <div class="tag-box" id="tagsInput">
+                            <input type="text" id="tagInput" placeholder="输入标签后按回车">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary">保存日记</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 浏览日记 -->
+        <div id="browseTab" class="tab-pane">
+            <div id="diaryList" class="timeline">
+                <div class="loading">轻轻翻开日记本...</div>
+            </div>
+            <div class="pager" id="pager" style="display:none;">
+                <button id="prevBtn">上一页</button>
+                <button id="nextBtn">下一页</button>
+            </div>
+        </div>
+
+        <!-- 搜索 -->
+        <div id="searchTab" class="tab-pane">
+            <div class="glass search-wrap">
+                <input type="text" id="searchInput" placeholder="搜索日记内容、标题或标签...">
+            </div>
+            <div id="searchResults" class="timeline"></div>
+        </div>
+
+        <!-- 统计 -->
+        <div id="statsTab" class="tab-pane">
+            <div class="stat-row" id="statRow"><div class="loading">统计中...</div></div>
+            <div class="glass mood-stats" id="moodStats"><div class="loading">加载中...</div></div>
+        </div>
+    </div>
+
+    <script>
+        const PLUGIN_ID = "neko_diary";
+        let selectedMood = 'neutral';
+        let tags = [];
+        let currentOffset = 0;
+        const PAGE_SIZE = 20;
+        let searchTimer = null;
+
+        // ===== 插件 API（/runs 轮询模式） =====
+        async function callPlugin(entry, args) {
+            try {
+                const r = await fetch("/runs", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({plugin_id: PLUGIN_ID, entry_id: entry, args: args || {}}),
+                });
+                if (!r.ok) return {ok: false, error: `HTTP ${r.status}`};
+                const cd = await r.json();
+                const runId = cd.run_id;
+                if (!runId) return {ok: false, error: "未拿到 run_id"};
+                for (let i = 0; i < 200; i++) {
+                    await new Promise(r => setTimeout(r, 100));
+                    const sr = await fetch("/runs/" + runId);
+                    if (!sr.ok) continue;
+                    const sd = await sr.json();
+                    if (sd.status === "succeeded") {
+                        const er = await fetch("/runs/" + runId + "/export");
+                        if (er.ok) {
+                            try {
+                                const ed = await er.json();
+                                if (ed.items && ed.items.length > 0) {
+                                    const ti = ed.items.find(x => x.label === "trigger_response");
+                                    if (ti && ti.json) {
+                                        const j = ti.json;
+                                        if (j && j.success) return {ok: true, value: j.data !== undefined ? j.data : null};
+                                        const e = j && j.error || {};
+                                        return {ok: false, error: String(e.message || e.code || "插件返回失败")};
+                                    }
+                                }
+                            } catch (_) {}
+                        }
+                        return {ok: true, value: null};
+                    } else if (["failed","canceled","timeout"].includes(sd.status)) {
+                        const e = sd.error || {};
+                        return {ok: false, error: String(e.message || e.code || `run ${sd.status}`)};
+                    }
+                }
+                return {ok: false, error: "轮询超时"};
+            } catch (e) {
+                return {ok: false, error: String(e && e.message || e)};
+            }
+        }
+
+        // 导航
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('.tab-pane').forEach(c => c.classList.remove('active'));
+                document.getElementById(tab + 'Tab').classList.add('active');
+                if (tab === 'browse') { currentOffset = 0; loadDiaries(); }
+                if (tab === 'stats') loadStats();
+            });
+        });
+
+        // 心情选择
+        document.getElementById('moodSelector').addEventListener('click', e => {
+            const chip = e.target.closest('.mood-chip');
+            if (!chip) return;
+            document.querySelectorAll('#moodSelector .mood-chip').forEach(c => c.classList.remove('selected'));
+            chip.classList.add('selected');
+            selectedMood = chip.dataset.mood;
+        });
+
+        // 标签
+        document.getElementById('tagInput').addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const v = e.target.value.trim();
+                if (v && !tags.includes(v)) { tags.push(v); renderTags(); e.target.value = ''; }
+            }
+        });
+        function renderTags() {
+            const box = document.getElementById('tagsInput');
+            const input = document.getElementById('tagInput');
+            box.querySelectorAll('.tag-pill').forEach(el => el.remove());
+            tags.forEach((t, i) => {
+                const el = document.createElement('span');
+                el.className = 'tag-pill';
+                el.innerHTML = `${t} <span class="x" data-i="${i}">×</span>`;
+                box.insertBefore(el, input);
+            });
+        }
+        document.getElementById('tagsInput').addEventListener('click', e => {
+            if (e.target.classList.contains('x')) { tags.splice(+e.target.dataset.i, 1); renderTags(); }
+        });
+
+        // 提交
+        document.getElementById('diaryForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const content = document.getElementById('content').value.trim();
+            if (!content) { showToast('日记内容不能为空', 'err'); return; }
+            const title = document.getElementById('title').value.trim();
+            const result = await callPlugin('write', {
+                content, title: title || null, mood: selectedMood,
+                tags: tags.length > 0 ? tags : null,
+            });
+            if (result.ok && result.value) {
+                showToast(result.value.message || '日记已保存', 'ok');
+                document.getElementById('diaryForm').reset();
+                tags = []; renderTags();
+                selectedMood = 'neutral';
+                document.querySelectorAll('#moodSelector .mood-chip').forEach(c => c.classList.remove('selected'));
+                document.querySelector('#moodSelector [data-mood="neutral"]').classList.add('selected');
+            } else {
+                showToast(result.error || '保存失败', 'err');
+            }
+        });
+
+        // 加载日记（前端只查 public）
+        async function loadDiaries() {
+            const el = document.getElementById('diaryList');
+            el.innerHTML = '<div class="loading">轻轻翻开日记本...</div>';
+            const result = await callPlugin('browse', {
+                limit: PAGE_SIZE, offset: currentOffset, visibility: 'public'
+            });
+            if (!result.ok) {
+                el.innerHTML = `<div class="empty"><div class="ico">😿</div><p>${result.error}</p></div>`;
+                return;
+            }
+            const data = result.value || {};
+            if (!data.entries || data.entries.length === 0) {
+                el.innerHTML = '<div class="empty"><div class="ico">📔</div><p>还没有日记呢，快写下第一篇吧</p></div>';
+                document.getElementById('pager').style.display = 'none';
+                return;
+            }
+            renderList(data.entries, 'diaryList');
+            const pager = document.getElementById('pager');
+            if (data.total > PAGE_SIZE) {
+                pager.style.display = 'flex';
+                document.getElementById('prevBtn').disabled = currentOffset === 0;
+                document.getElementById('nextBtn').disabled = currentOffset + PAGE_SIZE >= data.total;
+            } else { pager.style.display = 'none'; }
+        }
+
+        function renderList(entries, containerId) {
+            const c = document.getElementById(containerId);
+            c.innerHTML = entries.map(e => `
+                <div class="diary-card" style="border-left-color: ${e.mood_color || '#94c8ef'};" data-id="${e.id}">
+                    <div class="dc-head">
+                        <span class="dc-date">${fmtDate(e.date, e.created_at)}</span>
+                        <span class="dc-mood" style="background:${(e.mood_color||'#94c8ef')}1a; color:${e.mood_color||'#5ba4e5'}">
+                            ${e.mood_emoji||'😐'} ${e.mood_label||'日常'}
+                        </span>
+                    </div>
+                    ${e.title ? `<div class="dc-title">${esc(e.title)}</div>` : ''}
+                    <div class="dc-body">${esc(e.content)}</div>
+                    ${e.tags && e.tags.length ? `<div class="dc-tags">${e.tags.map(t=>`<span class="dc-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+                    <div class="dc-foot">
+                        <button class="dc-btn" onclick="deleteDiary('${e.id}')">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 搜索
+        document.getElementById('searchInput').addEventListener('input', e => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                const kw = e.target.value.trim();
+                if (kw) searchDiaries(kw);
+                else document.getElementById('searchResults').innerHTML = '';
+            }, 350);
+        });
+        async function searchDiaries(kw) {
+            const el = document.getElementById('searchResults');
+            el.innerHTML = '<div class="loading">搜索中...</div>';
+            const result = await callPlugin('search', { keyword: kw, limit: 50 });
+            if (!result.ok) { el.innerHTML = `<div class="empty"><div class="ico">😿</div><p>${result.error}</p></div>`; return; }
+            const data = result.value || {};
+            if (!data.entries || !data.entries.length) {
+                el.innerHTML = '<div class="empty"><div class="ico">🔍</div><p>没有找到匹配的日记</p></div>';
+                return;
+            }
+            renderList(data.entries, 'searchResults');
+        }
+
+        // 统计
+        async function loadStats() {
+            const result = await callPlugin('get_mood_stats', { days: 30 });
+            const sr = document.getElementById('statRow');
+            const ms = document.getElementById('moodStats');
+            if (!result.ok) { sr.innerHTML = `<div class="empty"><div class="ico">😿</div><p>${result.error}</p></div>`; return; }
+            const d = result.value || {};
+            sr.innerHTML = `
+                <div class="glass stat-box"><div class="stat-num">${d.total_entries||0}</div><div class="stat-lbl">日记总数</div></div>
+                <div class="glass stat-box"><div class="stat-num">${d.dominant_mood?.emoji||'😐'}</div><div class="stat-lbl">主要心情</div></div>
+                <div class="glass stat-box"><div class="stat-num" style="font-size:1.4em;">${d.dominant_mood?.label||'日常'}</div><div class="stat-lbl">最常心情</div></div>
+            `;
+            if (d.mood_distribution && d.mood_distribution.length) {
+                const max = Math.max(...d.mood_distribution.map(m=>m.count));
+                ms.innerHTML = `
+                    <h3>心情分布 · 近30天</h3>
+                    ${d.mood_distribution.map(m => `
+                        <div class="mood-bar">
+                            <div class="mood-bar-lbl">${m.emoji} ${m.label}</div>
+                            <div class="mood-bar-track"><div class="mood-bar-fill" style="width:${m.count/max*100}%;background:${m.color}"></div></div>
+                            <div class="mood-bar-num">${m.count}</div>
+                        </div>
+                    `).join('')}
+                `;
+            } else {
+                ms.innerHTML = '<div class="empty"><div class="ico">📊</div><p>还没有心情数据</p></div>';
+            }
+        }
+
+        // 工具函数
+        function fmtDate(date, created) {
+            const d = new Date(created);
+            const diff = Date.now() - d.getTime();
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return Math.floor(diff/60000) + '分钟前';
+            if (diff < 86400000) return Math.floor(diff/3600000) + '小时前';
+            return date;
+        }
+        function esc(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+
+        async function deleteDiary(id) {
+            if (!confirm('确定要删除这篇日记吗？')) return;
+            const result = await callPlugin('delete', { entry_id: id, permanent: false });
+            if (result.ok && result.value && result.value.success) {
+                showToast(result.value.message || '已删除', 'ok');
+                loadDiaries();
+            } else { showToast(result.error || '删除失败', 'err'); }
+        }
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentOffset > 0) { currentOffset -= PAGE_SIZE; loadDiaries(); }
+        });
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            currentOffset += PAGE_SIZE; loadDiaries();
+        });
+
+        function showToast(msg, type = 'ok') {
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => {
+                t.style.animation = 'toastIn 0.3s ease reverse';
+                setTimeout(() => t.remove(), 300);
+            }, 2800);
+        }
+
+        loadDiaries();
+    </script>
+</body>
+</html>

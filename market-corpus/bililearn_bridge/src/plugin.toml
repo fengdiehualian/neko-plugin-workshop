@@ -1,0 +1,23 @@
+[plugin]
+id = "bililearn_bridge"
+name = "BiliLearn 桥接"
+type = "plugin"
+description = "让 N.E.K.O 猫娘桥接独立的 BiliLearn（B站 AI 学习机器人）程序：以无头模式拉起其 exe（启动不弹面板），并通过 Web API 控制启动/停止/状态与机器人。纯标准库，无需额外依赖。"
+short_description = "猫娘的 BiliLearn 桥：拉起独立程序并控制它。"
+keywords = ["bilibili", "b站", "学习", "bililearn", "bridge", "桥接", "机器人", "video"]
+version = "1.2.0"
+entry = "plugin.plugins.bililearn_bridge:BiliLearnBridgePlugin"
+
+[plugin.author]
+name = "WorkBuddy"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true

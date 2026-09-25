@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check neko_163mail",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check neko_163mail",
+      "options": { "cwd": "${config:nekoPlugin.repoRoot}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r neko_163mail",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r neko_163mail",
+      "options": { "cwd": "${config:nekoPlugin.repoRoot}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build neko_163mail",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build neko_163mail",
+      "options": { "cwd": "${config:nekoPlugin.repoRoot}" },
+      "problemMatcher": []
+    }
+  ]
+}

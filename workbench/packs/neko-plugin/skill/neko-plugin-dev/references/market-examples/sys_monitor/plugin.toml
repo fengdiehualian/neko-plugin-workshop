@@ -1,0 +1,40 @@
+[plugin]
+id = "sys_monitor"
+name = "电脑监控"
+description = "监控 CPU/内存/磁盘/电量，异常时让TA主动提醒你。"
+short_description = "Monitor CPU/RAM/Disk/Battery and let Neko proactively remind you when something is abnormal."
+keywords = [
+    "监控", "CPU", "内存", "磁盘", "电量", "系统", "电脑",
+    "monitor", "system", "cpu", "memory", "disk", "battery", "usage",
+    "モニター", "監視", "시스템", "모니터링"
+]
+version = "0.1.1"
+type = "plugin"
+entry = "plugin.plugins.sys_monitor:SysMonitorPlugin"
+
+[plugin.author]
+name = "xy28816"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = true
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "监控面板"
+entry = "static/index.html"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+[plugin.i18n]
+default_locale = "zh-CN"

@@ -1,0 +1,28 @@
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[mood_state]
+# 总开关：false 时插件加载但不注入任何状态
+enabled = true
+# 首次使用（无持久化状态文件）时的初始值
+initial_mood = 50
+initial_energy = 50
+# 漂移基线：长时间无变化时，心情/精力会缓慢回归到基线
+baseline_mood = 50
+baseline_energy = 50
+# 每小时向基线回归的分数（0 = 关闭漂移）
+drift_per_hour = 2.0
+# 状态块重新注入上下文的最小间隔（分钟），保持 AI 对状态的记忆
+push_refresh_minutes = 30
+# 状态变化（工具自调/手动调整/评估）后是否立即重新注入
+push_on_change = true
+# 主服务地址（用于把状态块写入近期记忆，实现每轮上下文注入）
+main_server_url = "http://127.0.0.1:48911"
+
+# 手动调整原生窗口（PySide6 独立进程，蓝白圆角风格，270° 仪表盘，±1 / Shift±5，
+# 简洁模式只显示"心情：X 精力：Y"，点击恢复；关闭窗口不影响插件功能）
+gui_enabled = true
+gui_port = 48930        # HTTP API 端口，被占用时自动换随机端口，见插件日志
+gui_auto_open = true    # 插件启动时自动弹出原生窗口
+gui_python = ""         # 跑窗口的解释器（需装 PySide6）；留空自动探测

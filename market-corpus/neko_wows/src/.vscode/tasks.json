@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O plugin: test",
+      "type": "shell",
+      "command": "uv run --project ../N.E.K.O pytest -q",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O plugin: release check",
+      "type": "shell",
+      "command": "uv run --project ../N.E.K.O neko-plugin check -r .",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

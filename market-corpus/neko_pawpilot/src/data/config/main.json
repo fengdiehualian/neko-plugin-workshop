@@ -1,0 +1,30 @@
+{
+  "enabled": true,
+  "dry_run": true,
+  "poll_interval_s": 1.0,
+  "speeding_reset_s": 30.0,
+  "speeding_escalate_kmh": 15.0,
+  "event_cooldown_s": 10.0,
+  "time_warn_min": 60,
+  "low_fuel_percent": 15,
+  "crash_damage_delta": 0.05,
+  "hard_brake_force": 0.9,
+  "hard_brake_speed_kmh": 60,
+  "push_visibility": ["chat"],
+  "push_enabled": true,
+  "global_rate_limit_s": 12.0,
+  "critical_cooldown_s": 5.0,
+  "safety_window_s": 60.0,
+  "safety_failure_limit": 5,
+  "safety_auto_stop": true,
+  "broadcast_frequency": "standard",
+  "broadcast_categories": {
+    "safety": true,
+    "task": true,
+    "trip": true,
+    "lifecycle": true,
+    "chatter": false
+  },
+  "telemetry_plugin_rel": "bin/win_x64/plugins/scs-telemetry.dll",
+  "telemetry_bundle_rel": "data/telemetry/scs-telemetry.dll"
+}

@@ -1,0 +1,4 @@
+[project]
+name = "qq_auto_reply"
+version = "0.1.0"
+dependencies = []

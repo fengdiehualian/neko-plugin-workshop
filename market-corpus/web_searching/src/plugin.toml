@@ -1,0 +1,30 @@
+[plugin]
+name = "联网搜索"
+description = "独立开发的联网搜索插件。注册为 LLM 工具。知乎/百度/Bing 首选（国内稳定），长尾关键词精确匹配，空摘要自动从正文提取，英文查询自动扩展结果数，同域名去重。fetch_page_content 工具可抓取任意 URL 正文。"
+short_description = "Multi-engine web search (Zhihu/Baidu/Bing) + smart dedup + snippet fallback + page content extraction."
+keywords = ["搜索", "search", "联网", "web", "知乎", "zhihu", "百度", "baidu", "网络", "internet", "查", "检索", "bing", "fetch", "抓取", "正文"]
+version = "1.6.3"
+id = "web_searching"
+entry = "plugin.plugins.web_searching:WebSearchingPlugin"
+
+[plugin.author]
+name = "N.E.K.O Community"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[search]
+max_results = 8
+timeout_seconds = 25

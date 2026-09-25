@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check neko_mcp_serve",
+      "type": "shell",
+      "command": "uv run neko-plugin check neko_mcp_serve",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync neko_mcp_serve",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync neko_mcp_serve --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r neko_mcp_serve",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r neko_mcp_serve",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build neko_mcp_serve",
+      "type": "shell",
+      "command": "uv run neko-plugin build neko_mcp_serve",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

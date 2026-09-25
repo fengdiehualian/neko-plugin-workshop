@@ -1,0 +1,6 @@
+[project]
+name = "neko_tlm"
+version = "1.0.7"
+dependencies = [
+    "websockets>=15.0.1,<16",
+]

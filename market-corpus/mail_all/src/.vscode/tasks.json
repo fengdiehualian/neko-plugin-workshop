@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check mail_all",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check mail_all",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync mail_all",
+      "type": "shell",
+      "command": "uv run --with pip python -m plugin.neko_plugin_cli.cli sync mail_all --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r mail_all",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r mail_all",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build mail_all",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build mail_all",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

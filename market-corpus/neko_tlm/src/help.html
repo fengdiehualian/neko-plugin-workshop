@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>N.E.K.OxTLM 帮助</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #5f6b7a;
+      --border: #d9dee7;
+      --accent: #2f7d6d;
+      --accent-soft: #e4f3ef;
+      --warn: #9a5a00;
+      --warn-soft: #fff4da;
+      --danger: #b42318;
+      --danger-soft: #fde8e5;
+      --code: #eef1f5;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+    }
+
+    main {
+      width: min(980px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 40px 0 56px;
+    }
+
+    header {
+      margin-bottom: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      line-height: 1.25;
+    }
+
+    h1 {
+      font-size: clamp(28px, 4vw, 40px);
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin-bottom: 14px;
+      font-size: 22px;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+    }
+
+    p {
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    section {
+      margin-top: 18px;
+      padding: 22px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    ul,
+    ol {
+      margin: 8px 0 0;
+      padding-left: 22px;
+    }
+
+    li + li {
+      margin-top: 6px;
+    }
+
+    code {
+      padding: 2px 6px;
+      background: var(--code);
+      border-radius: 5px;
+      font-family: Consolas, "Liberation Mono", monospace;
+      font-size: 0.95em;
+    }
+
+    .summary {
+      max-width: 760px;
+      font-size: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 14px;
+    }
+
+    .box {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fbfcfe;
+    }
+
+    .notice {
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .notice strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .ok {
+      background: var(--accent-soft);
+      border-color: #b7dbd2;
+    }
+
+    .warn {
+      background: var(--warn-soft);
+      border-color: #f0cf88;
+    }
+
+    .danger {
+      background: var(--danger-soft);
+      border-color: #f2b8b0;
+    }
+
+    .steps {
+      counter-reset: step;
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .steps li {
+      position: relative;
+      padding-left: 38px;
+    }
+
+    .steps li::before {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      counter-increment: step;
+      content: counter(step);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    footer {
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    @media (max-width: 720px) {
+      main {
+        width: min(100% - 20px, 980px);
+        padding-top: 24px;
+      }
+
+      section {
+        padding: 18px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>N.E.K.OxTLM 帮助</h1>
+      <p class="summary">这里记录 Minecraft 车万女仆联动插件的基础使用注意事项和常见排错方法。遇到问题时，先按顺序检查连接、端口、女仆绑定和游戏内状态。</p>
+    </header>
+
+    <section>
+      <h2>快速检查</h2>
+      <div class="grid">
+        <div class="notice ok">
+          <strong>正常启动顺序</strong>
+          先启动 Minecraft 和联动模组，再打开 N.E.K.O 插件面板，最后刷新女仆状态。</div>
+        <div class="notice warn">
+          <strong>默认连接地址</strong>
+          插件默认连接 <code>ws://127.0.0.1:48920</code>，游戏和 N.E.K.O 在同一台电脑时通常无需修改。</div>
+      </div>
+      <ol class="steps">
+        <li>确认 Minecraft 已进入世界，车万女仆模组和桥接功能已经加载。</li>
+        <li>确认 N.E.K.O 插件已启用，面板中没有明显的连接错误。</li>
+        <li>点击或执行刷新女仆状态，确认能看到当前女仆信息。</li>
+        <li>如果需要指定女仆，先绑定女仆 ID 或名称，再发出控制指令。</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>使用注意事项</h2>
+      <ul>
+        <li>让女仆执行动作前，尽量先确认女仆在玩家附近，并且没有坐下或卡在不可达位置。</li>
+        <li>切换工作模式、攻击目标、装备物品等操作会受到游戏内物品、距离、权限和当前状态影响。</li>
+        <li>自然语言指令应尽量具体，例如“让当前女仆跟随我”“切换为农耕模式”“攻击附近僵尸”。</li>
+        <li>如果服务器或整合包限制指令、WebSocket 或模组通信，部分功能可能无法生效。</li>
+        <li>修改端口后，需要保证 Minecraft 端桥接端口和插件配置中的端口一致。</li>
+        <li>排错时不要同时改多个设置，建议一次只改一项，方便确认问题来源。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>常见问题</h2>
+      <h3>插件提示连接失败</h3>
+      <ul>
+        <li>确认 Minecraft 已经打开并进入世界，桥接服务通常需要世界加载后才可用。</li>
+        <li>检查端口是否为 <code>48920</code>，如果游戏端改过端口，插件面板也要同步修改。</li>
+        <li>确认本机防火墙、安全软件或启动器没有拦截本地 WebSocket 连接。</li>
+        <li>如果刚改过配置，重启 Minecraft 和 N.E.K.O 后再试。</li>
+      </ul>
+
+      <h3>找不到女仆或状态不刷新</h3>
+      <ul>
+        <li>让女仆靠近玩家，确认女仆已加载在当前维度和区块中。</li>
+        <li>检查女仆是否属于当前玩家，或是否被其他玩家、权限系统、服务器规则限制。</li>
+        <li>先执行刷新状态，再绑定目标女仆，避免使用过期的女仆 ID。</li>
+      </ul>
+
+      <h3>女仆没有执行命令</h3>
+      <ul>
+        <li>确认女仆没有坐下、死亡、被困住，且目标位置可到达。</li>
+        <li>确认女仆背包、装备和工作模式满足当前动作要求。</li>
+        <li>攻击、农耕、剪羊毛、插火把等动作需要附近存在合适目标或可操作方块。</li>
+        <li>尝试改用更明确的指令，并观察面板或游戏日志中的返回信息。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>排错流程</h2>
+      <ol class="steps">
+        <li>先刷新女仆状态，查看是否能获取当前 Minecraft 信息。</li>
+        <li>如果没有状态，检查 Minecraft 端桥接服务和端口。</li>
+        <li>如果有状态但动作失败，检查女仆是否已绑定、是否可见、是否可移动。</li>
+        <li>如果只有特定动作失败，检查该动作需要的物品、目标、距离和工作模式。</li>
+        <li>仍无法解决时，打开诊断功能，记录错误信息、端口、游戏版本和模组版本。</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>需要记录的信息</h2>
+      <p>反馈问题时，建议同时提供这些信息，能更快定位原因：</p>
+      <ul>
+        <li>Minecraft 版本、Forge/Fabric/NeoForge 版本和车万女仆版本。</li>
+        <li>N.E.K.OxTLM 插件版本，以及是否修改过 <code>minecraft_bridge.ws_url</code>。</li>
+        <li>出现问题时执行的自然语言指令和面板返回信息。</li>
+        <li>游戏日志中与 bridge、websocket、maid、touhou little maid 相关的报错。</li>
+      </ul>
+    </section>
+
+    <footer>本页为本地帮助文档，不会连接外部服务。</footer>
+  </main>
+</body>
+</html>

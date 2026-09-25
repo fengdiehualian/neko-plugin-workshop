@@ -1,0 +1,8 @@
+{
+  "plugin.name": "AnySearch 联网搜索",
+  "plugin.description": "在 N.E.K.O 里接入 AnySearch 统一搜索 API",
+  "panel.title": "AnySearch 联网搜索",
+  "panel.search_placeholder": "输入搜索关键词…",
+  "panel.mode_anonymous": "匿名（免费额度）",
+  "panel.mode_apikey": "API Key"
+}

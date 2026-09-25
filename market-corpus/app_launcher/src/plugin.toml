@@ -1,0 +1,34 @@
+[plugin]
+id = "app_launcher"
+name = "应用启动器"
+description = "管理软件快捷方式和可执行文件路径，让猫娘可以帮主人打开指定软件，支持开机自启功能。内置猫娘专属工具：可直接把文件路径发给猫娘完成设置（名称可商量或由猫娘取名）、按精准名称启动、查询可启动应用列表、语音删除已设置应用，操作后前端界面实时同步。"
+short_description = "Register app shortcuts and executables so Neko can launch them for you. Neko can register apps from a path you send, launch by exact name, list available apps, and remove them — with the UI syncing in realtime. Autostart supported."
+keywords = [
+    "应用", "软件", "启动", "打开", "快捷方式", "launcher", "app", "software",
+    "program", "exe", "shortcut", "open", "launch", "开机自启", "autostart",
+    "自动启动", "自動起動", "アプリ", "ソフト", "프로그램", "앱", "приложение", "программа"
+]
+version = "1.4.2"
+type = "plugin"
+entry = "plugin.plugins.app_launcher:AppLauncherPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = true
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.ui]
+enabled = true
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales = ["zh-CN", "zh-TW", "en", "ja", "ko", "ru", "pt", "es"]

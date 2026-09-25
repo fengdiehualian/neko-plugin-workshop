@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# 构建产物：下载的 pywin32 wheels（仅用于提取 vendor，不入库）
+_wheels/
+
+# 运行期数据（自动生成，不入库）
+data/
+log/
+.search_cache/
+store.db
+
+# 临时/编辑器
+.idea/
+*.swp
+.commit_msg.txt

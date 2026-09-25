@@ -1,0 +1,21 @@
+# 电脑监控（sys_monitor）默认配置
+# 用户可运行时调整；此处为出厂默认值
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+# ---- 监控开关（默认全开）----
+[monitor]
+cpu = true
+mem = true
+disk = true
+battery = true
+
+# ---- 推送策略：阈值（%）与间隔（秒）----
+cpu_threshold = 85      # CPU 提醒阈值（紧急 95）
+mem_threshold = 90      # 内存提醒阈值（紧急 97）
+disk_threshold = 95     # C盘占用提醒阈值（紧急 98）
+battery_threshold = 20  # 电量提醒阈值（紧急 5）
+check_interval = 180    # 自动检查间隔（秒）
+repeat_interval = 600   # 同状态重复提醒间隔（秒）

@@ -1,0 +1,39 @@
+# AutoCAD 辅助绘图插件配置
+# 本文件是插件清单，N.E.K.O 据此加载、路由、展示插件。
+# id 必须与文件夹名一致；entry 指向 NekoPluginBase 子类。
+
+[plugin]
+id = "autocad_assistant_tool"
+name = "CAD辅助绘图"
+description = "通过自然语言对话驱动 AutoCAD（及中望CAD/浩辰CAD）绘图与3D建模。连接CAD后，AI角色理解你的绘图意图并逐笔把图形落到画布：直线/矩形/圆/弧/多段线/正多边形/文字/标注/填充/图层管理/3D实体/布尔运算/拉伸旋转等。零系统依赖，即插即用。"
+short_description = "对话式CAD绘图：用自然语言让AI在AutoCAD中画2D工程图与3D模型。"
+keywords = ["autocad", "cad", "绘图", "制图", "画图", "工程图", "建模", "3d", "图层", "dimension", "drawing", "zwcad", "gstarcad"]
+version = "1.0.0"
+entry = "plugin.plugins.autocad_assistant_tool:AutoCADAssistantPlugin"
+passive = false
+
+[plugin.author]
+name = "lingtongxinyv"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "使用指南"
+entry = "docs/guide.md"
+permissions = ["state:read"]
+
+[cad]
+# 连接CAD时是否允许自动启动（找不到运行实例时尝试拉起）
+auto_launch = true
+# 自动启动后等待COM就绪的最长秒数
+launch_wait_sec = 20

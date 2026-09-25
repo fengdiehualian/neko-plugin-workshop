@@ -1,0 +1,318 @@
+from __future__ import annotations
+
+import os
+import re
+import stat as stat_module
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, Iterable
+
+from .process_discovery import hearthstone_executable_paths
+
+MAX_LINE_BYTES = 256 * 1024
+_CURSOR_GUARD_BYTES = 256
+_SPECTATOR_START_MARKERS = (b"Start Spectator Game", b"Begin Spectating 1st player", b"Begin Spectating 2nd player")
+_SPECTATOR_END_MARKERS = (b"End Spectator Mode", b"End Spectator Game")
+_GAMESTATE_CREATE_RE = re.compile(
+    rb"(?m)^[^\r\n]*GameState\.DebugPrintPower\(\)\s+-\s+CREATE_GAME[^\r\n]*\r?$"
+)
+_BARE_CREATE_RE = re.compile(rb"(?m)^\s*CREATE_GAME\s*\r?$")
+
+
+def _expanded_path(value: str) -> Path:
+    return Path(os.path.expandvars(os.path.expanduser(value))).resolve()
+
+
+class PowerLogLocator:
+    def __init__(
+        self,
+        configured_path: str = "",
+        *,
+        executable_paths_provider: Callable[[], Iterable[Path]] = hearthstone_executable_paths,
+        process_scan_interval_seconds: float = 15.0,
+    ) -> None:
+        self.configured_path = configured_path.strip()
+        self._executable_paths_provider = executable_paths_provider
+        self._process_scan_interval_seconds = max(1.0, float(process_scan_interval_seconds))
+        self._process_log_roots: tuple[Path, ...] = ()
+        self._next_process_scan_at = 0.0
+
+    def candidates(self) -> list[Path]:
+        if self.configured_path:
+            configured = _expanded_path(self.configured_path)
+            if configured.is_dir():
+                return self._directory_candidates(configured)
+            return [configured]
+
+        log_roots = self._default_log_roots()
+        log_roots.extend(self._running_game_log_roots())
+        candidates: list[Path] = []
+        for logs_root in log_roots:
+            candidates.extend(self._directory_candidates(logs_root))
+        return list(dict.fromkeys(path.resolve() for path in candidates))
+
+    @staticmethod
+    def _default_log_roots() -> list[Path]:
+        local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
+        if not local_app_data:
+            return []
+        hearthstone_root = Path(local_app_data) / "Blizzard" / "Hearthstone"
+        log_roots = [hearthstone_root / "Logs"]
+        if hearthstone_root.is_dir():
+            try:
+                log_roots.extend(path / "Logs" for path in hearthstone_root.iterdir() if path.is_dir())
+            except OSError:
+                pass
+        return log_roots
+
+    def _running_game_log_roots(self) -> list[Path]:
+        now = time.monotonic()
+        if now < self._next_process_scan_at:
+            return list(self._process_log_roots)
+        self._next_process_scan_at = now + self._process_scan_interval_seconds
+        try:
+            executable_paths = tuple(self._executable_paths_provider())
+        except (OSError, RuntimeError, ValueError):
+            executable_paths = ()
+        roots: list[Path] = []
+        for raw_path in executable_paths:
+            try:
+                path = Path(raw_path)
+                if path.name.casefold() == "hearthstone.exe":
+                    roots.append(path.resolve().parent / "Logs")
+            except (OSError, RuntimeError, TypeError, ValueError):
+                continue
+        self._process_log_roots = tuple(dict.fromkeys(roots))
+        return list(self._process_log_roots)
+
+    @staticmethod
+    def _directory_candidates(root: Path) -> list[Path]:
+        candidates = [root / "Power.log"]
+        if root.is_dir():
+            try:
+                candidates.extend(root.glob("*/Power.log"))
+                candidates.extend(root.glob("*/*/Power.log"))
+            except OSError:
+                pass
+        return candidates
+
+    def resolve(self) -> Path | None:
+        existing: list[tuple[int, Path]] = []
+        for path in self.candidates():
+            try:
+                stat = path.stat()
+                if stat_module.S_ISREG(stat.st_mode):
+                    existing.append((stat.st_mtime_ns, path))
+            except OSError:
+                continue
+        if not existing:
+            return None
+        return max(existing, key=lambda item: item[0])[1]
+
+
+@dataclass(frozen=True, slots=True)
+class TailBatch:
+    lines: tuple[str, ...]
+    path: Path | None
+    bootstrap: bool = False
+    source_reset: bool = False
+    bootstrap_complete: bool = True
+    modified_at: float | None = None
+
+
+class PowerLogTailer:
+    def __init__(self, locator: PowerLogLocator, *, initial_read_max_bytes: int = 64 * 1024 * 1024) -> None:
+        self.locator = locator
+        self.initial_read_max_bytes = max(1024 * 1024, int(initial_read_max_bytes))
+        self.path: Path | None = None
+        self.offset = 0
+        self._partial = b""
+        self._identity: tuple[int, int] | None = None
+        self._discarding_long_line = False
+        self._bootstrap_complete = False
+        self._cursor_guard = b""
+
+    def reset(self) -> None:
+        self.path = None
+        self.offset = 0
+        self._partial = b""
+        self._identity = None
+        self._discarding_long_line = False
+        self._bootstrap_complete = False
+        self._cursor_guard = b""
+
+    def poll(self, *, max_bytes: int = 2 * 1024 * 1024) -> TailBatch:
+        path = self.locator.resolve()
+        if path is None:
+            source_reset = self.path is not None
+            self.reset()
+            return TailBatch((), None, source_reset=source_reset, bootstrap_complete=False)
+
+        if self.path != path:
+            self.path = path
+            self.offset = 0
+            self._partial = b""
+            self._discarding_long_line = False
+            self._cursor_guard = b""
+            return self._bootstrap(path)
+
+        try:
+            stat = path.stat()
+        except OSError:
+            source_reset = self.path is not None
+            self.reset()
+            return TailBatch((), None, source_reset=source_reset, bootstrap_complete=False)
+
+        identity = self._file_identity(stat)
+        if self._identity is not None and identity != self._identity:
+            self.offset = 0
+            self._partial = b""
+            self._discarding_long_line = False
+            self._cursor_guard = b""
+            return self._bootstrap(path, source_reset=True)
+
+        size = stat.st_size
+
+        if size < self.offset:
+            self.offset = 0
+            self._partial = b""
+            self._discarding_long_line = False
+            self._cursor_guard = b""
+            return self._bootstrap(path, source_reset=True)
+        guard_matches = self._cursor_guard_matches(path)
+        if guard_matches is False:
+            self.offset = 0
+            self._partial = b""
+            self._discarding_long_line = False
+            self._cursor_guard = b""
+            return self._bootstrap(path, source_reset=True)
+        if guard_matches is None:
+            return TailBatch(
+                (),
+                path,
+                bootstrap_complete=self._bootstrap_complete,
+                modified_at=float(stat.st_mtime),
+            )
+        if size == self.offset:
+            return TailBatch(
+                (),
+                path,
+                bootstrap_complete=self._bootstrap_complete,
+                modified_at=float(stat.st_mtime),
+            )
+
+        try:
+            with path.open("rb") as handle:
+                handle.seek(self.offset)
+                data = handle.read(max(1, int(max_bytes)))
+                self.offset = handle.tell()
+        except OSError:
+            return TailBatch(
+                (),
+                path,
+                bootstrap_complete=self._bootstrap_complete,
+                modified_at=float(stat.st_mtime),
+            )
+        if data:
+            self._cursor_guard = (self._cursor_guard + data)[-_CURSOR_GUARD_BYTES:]
+        return TailBatch(
+            self._decode_complete_lines(data),
+            path,
+            bootstrap_complete=self._bootstrap_complete,
+            modified_at=float(stat.st_mtime),
+        )
+
+    def _bootstrap(self, path: Path, *, source_reset: bool = True) -> TailBatch:
+        try:
+            with path.open("rb") as handle:
+                stat = os.fstat(handle.fileno())
+                size = stat.st_size
+                start = max(0, size - self.initial_read_max_bytes)
+                handle.seek(start)
+                data = handle.read()
+                self.offset = handle.tell()
+                self._identity = self._file_identity(stat)
+                self._cursor_guard = data[-_CURSOR_GUARD_BYTES:]
+        except OSError:
+            self.reset()
+            return TailBatch((), None, bootstrap_complete=False)
+
+        if start > 0:
+            newline = data.find(b"\n")
+            data = data[newline + 1 :] if newline >= 0 else b""
+        matches = list(_GAMESTATE_CREATE_RE.finditer(data))
+        if not matches:
+            matches = list(_BARE_CREATE_RE.finditer(data))
+        marker = matches[-1].start() if matches else -1
+        self._bootstrap_complete = start == 0 or marker >= 0
+        if marker >= 0:
+            line_start = data.rfind(b"\n", 0, marker)
+            prefix = data[:marker]
+            spectator_start = max(prefix.rfind(item) for item in _SPECTATOR_START_MARKERS)
+            spectator_end = max(prefix.rfind(item) for item in _SPECTATOR_END_MARKERS)
+            if spectator_start > spectator_end:
+                line_start = data.rfind(b"\n", 0, spectator_start)
+            data = data[line_start + 1 :]
+        return TailBatch(
+            self._decode_complete_lines(data),
+            path,
+            bootstrap=True,
+            source_reset=source_reset,
+            bootstrap_complete=self._bootstrap_complete,
+            modified_at=float(stat.st_mtime),
+        )
+
+    def _cursor_guard_matches(self, path: Path) -> bool | None:
+        if not self._cursor_guard:
+            return True
+        start = self.offset - len(self._cursor_guard)
+        if start < 0:
+            return False
+        try:
+            with path.open("rb") as handle:
+                handle.seek(start)
+                current = handle.read(len(self._cursor_guard))
+        except OSError:
+            return None
+        return current == self._cursor_guard
+
+    @staticmethod
+    def _file_identity(stat: os.stat_result) -> tuple[int, int]:
+        return (int(stat.st_dev), int(stat.st_ino))
+
+    def _decode_complete_lines(self, data: bytes, *, flush: bool = False) -> tuple[str, ...]:
+        combined = self._partial + data
+        complete: list[bytes] = []
+        start = 0
+        index = 0
+        while index < len(combined):
+            byte = combined[index]
+            if byte == 10:  # LF
+                complete.append(combined[start:index])
+                start = index + 1
+            elif byte == 13:  # CR or the first half of CRLF
+                if index + 1 >= len(combined) and not flush:
+                    break
+                complete.append(combined[start:index])
+                if index + 1 < len(combined) and combined[index + 1] == 10:
+                    index += 1
+                start = index + 1
+            index += 1
+        self._partial = combined[start:]
+        if flush and self._partial:
+            complete.append(self._partial.rstrip(b"\r\n"))
+            self._partial = b""
+        decoded: list[str] = []
+        for chunk in complete:
+            if self._discarding_long_line:
+                self._discarding_long_line = False
+                continue
+            if len(chunk) <= MAX_LINE_BYTES:
+                decoded.append(chunk.decode("utf-8", "replace"))
+        if len(self._partial) > MAX_LINE_BYTES:
+            self._partial = b""
+            self._discarding_long_line = True
+        if flush:
+            self._discarding_long_line = False
+        return tuple(decoded)

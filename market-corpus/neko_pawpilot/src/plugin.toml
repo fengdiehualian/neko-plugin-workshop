@@ -1,0 +1,66 @@
+[plugin]
+id = "neko_pawpilot"
+name = "猫爪副驾"
+description = "欧卡2陪玩：遥测感知驾驶、事故急救、超时提醒、路线规划、画面畅聊，让每趟长途都有猫娘陪伴。"
+short_description = "ETS2 catgirl copilot companion."
+keywords = ["ets2", "欧卡2", "欧卡", "副驾驶", "驾驶", "卡车", "euro truck", "truck", "copilot", "陪玩", "开车"]
+version = "0.0.1"
+entry = "plugin.plugins.neko_pawpilot:NekoPawpilotPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "猫爪副驾"
+entry = "static/index.html"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "guide"
+title = "使用指南"
+entry = "docs/ui/guide.md"
+mode = "markdown"
+permissions = ["state:read"]
+
+# 运行参数（宿主配置系统读取，改这里即时生效）
+[neko_pawpilot]
+enabled = true
+dry_run = true
+poll_interval_s = 1.0
+speeding_reset_s = 30.0
+speeding_escalate_kmh = 15.0
+event_cooldown_s = 10.0
+time_warn_min = 60
+low_fuel_percent = 15
+crash_damage_delta = 0.05
+hard_brake_force = 0.9
+hard_brake_speed_kmh = 60
+global_rate_limit_s = 12.0
+critical_cooldown_s = 5.0
+safety_window_s = 60.0
+safety_failure_limit = 5
+safety_auto_stop = true
+broadcast_frequency = "standard"
+broadcast_categories = { safety = true, task = true, trip = true, lifecycle = true, chatter = false }
+telemetry_plugin_rel = "bin/win_x64/plugins/scs-telemetry.dll"
+telemetry_bundle_rel = "data/telemetry/scs-telemetry.dll"

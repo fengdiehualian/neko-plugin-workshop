@@ -1,0 +1,21 @@
+[project]
+name = "n-e-k-o-plugin-hitokoto"
+version = "0.1.0"
+description = "Random and daily quotes from Hitokoto for N.E.K.O, with categories, daily greeting, caching, and a settings panel."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Alumin-Hydro" },
+]
+keywords = ["neko", "plugin", "hitokoto", "quote", "daily-quote"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Alumin-Hydro/n.e.k.o_plugin_hitokoto"
+Repository = "https://github.com/Alumin-Hydro/n.e.k.o_plugin_hitokoto"
+Plugin = "https://market.project-neko.cn/"

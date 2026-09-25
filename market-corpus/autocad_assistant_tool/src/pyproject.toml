@@ -1,0 +1,14 @@
+[project]
+name = "autocad_assistant_tool"
+version = "1.0.0"
+description = "N.E.K.O 插件：对话式CAD辅助绘图（AutoCAD/中望/浩辰），零系统依赖即插即用"
+requires-python = ">=3.11,<3.14"
+# 运行期依赖通过 vendor/ + vendor_cpXY/ 随插件分发，不在此声明运行期依赖，
+# 以保证目标机器无需 pip 安装即可使用。
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["plugins.autocad_assistant_tool"]

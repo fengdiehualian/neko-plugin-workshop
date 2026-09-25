@@ -1,0 +1,114 @@
+# 潮汐时刻 配置示例
+# 业务配置直接写在 plugin.toml 的 [tide] / [mood] 段；
+# 此文件仅用于展示可覆盖的运行时默认值（不能包含任何 [plugin*] 表）。
+#
+# 说明：用户在面板中修改的设置以 PluginStore 为权威（重启不丢），
+# plugin.toml 只承载出厂默认值。下面给出各字段的合法取值示例。
+#
+# 多角色作用域（0.5.0 起）：周期参数（enabled/anchor_date/auto_derive/
+# cycle_length/period_length/ovulation_day/ovulation_window/advance_days）
+# 是每个角色（lanlan）独立的——本文件中的值只是"新角色的默认值"，面板里
+# 修改周期参数只作用于当前查看的角色；其余设置（inject_*、trigger_keywords、
+# phase_openers、activity_context、timezone、forbidden_words、debug_mode、
+# [tide.phases.*]、[mood]、[fragments]、[journal]、[review]、[stats]、
+# [capabilities]、[emotion_sense]）为全局共享，所有角色共用一份。
+
+[tide]
+enabled = false              # 总开关：默认关闭，安装后请在面板手动开启（知情同意）
+anchor_date = ""             # 潮汐首日，格式 YYYY-MM-DD；留空则首启随机落在平稳期某天（装完前几天不会立刻是潮汐日）
+auto_derive = true           # true：潮汐期长度/活跃日/活跃窗口由周期长度自动演算
+cycle_length = 28            # 周期长度（天），合法区间 [10, 90]
+period_length = 5            # 潮汐期长度（天），仅 auto_derive = false 时生效
+ovulation_day = 14           # 活跃日（周期第几天），仅 auto_derive = false 时生效
+ovulation_window = 3         # 活跃窗口半径（活跃日前后各 N 天），范围 [1, 5]
+inject_mode = "interval_n"   # every_user_message | interval_n | on_trigger | off
+inject_interval_n = 3        # interval_n 模式下每 N 条用户消息注入一次
+trigger_keywords = ["今天感觉怎么样", "状态", "累不累", "心情"]  # on_trigger 模式下的触发关键词
+advance_days = 0             # 面板「快进」按钮累加的偏移天数；由面板写入，不建议手改
+phase_openers = true         # 进入新阶段时让她主动开口一次
+activity_context = true      # 活动感知：把"用户在不在/在专注什么"纳入轻语
+timezone = "auto"            # auto = 系统本地时区；也可填 IANA 名称如 Asia/Shanghai
+debug_mode = false           # 开启后注册一组 debug_* 调试入口（把机制快进到秒级可验证）；默认关闭、零痕迹
+forbidden_words = ["月经", "经期", "生理期", "排卵期", "激素"]  # 示例只列 5 项，出厂默认表更长（可自由增删）
+
+# 每个阶段可配置：主体感受（prompt）、早/午/晚微调（time_*）、情绪倾向（mood_note）
+[tide.phases.menstrual]
+prompt = "今天整个人有点沉，提不起劲，回复会比平时短。"
+time_morning = "刚睡醒的那会儿最难受。"
+time_afternoon = "下午身体慢慢适应了些，但倦意还在。"
+time_night = "夜越深心绪越低，想被人陪着但不说破。"
+mood_note = "这个阶段你的情绪更敏感：更容易觉得委屈、更想被温柔对待。"
+
+# [tide.phases.follicular] / [tide.phases.ovulatory] / [tide.phases.luteal] 同构，
+# 省略的字段回退为内置默认值。
+
+[mood]
+enabled = true                     # 关闭后情绪工具调用会被拒绝（工具仍对模型可见）
+default_action_minutes = 10        # 限时情绪动作的默认持续时长（分钟），范围 [1, 720]
+open_action_timeout_minutes = 120  # 求安抚的兜底自动解除阈值；0 = 关闭兜底，上限 1440
+arousal_baseline = 0.35            # 活跃度静息基线：无刺激时活跃度回归到此水平，范围 [0,1]；0 = 旧行为（回归到完全平静）
+extreme_invite_threshold = 0.4     # 持续极端心情邀请：心情越过 ±此值（对应"低落/雀跃"档）才开始计时；0 = 关闭邀请
+extreme_invite_after_minutes = 20  # 持续满 N 分钟才推一次动作邀请
+extreme_invite_cooldown_minutes = 30  # 邀请冷却（分钟）
+
+[fragments]
+# 时光日记·自动碎片（0.7.0）：小模型把用户的重要话语（喜好/厌恶/有分量的话/
+# 过激言行）记进时光日记，供她自主检索；只存插件本地，不改变她的行为
+enabled = true
+slot = "summary"                   # 提取模型槽位（直连宿主 core_config.json 该槽端点）；槽位无模型时自动休眠
+min_interval_sec = 60              # 相邻两次分析的最小间隔（秒）
+confidence_threshold = 0.6         # 置信度门槛：低于此不记（宁漏勿错）
+nudge_gap_minutes = 30             # 吵架轻语间隔（分钟）：重度负面情绪中记到过激/厌恶碎片时的提醒间隔
+
+[journal]
+# 个人日记（0.7.0，替代潮汐周记）：书页式连续日记，只给用户翻看，不注入上下文
+enabled = true
+interval_days = 7                  # 邀请节奏（天）：距上一篇日记落笔满 N 天才再递邀请
+
+[review]
+# 我的日记（0.8.0）：关于主人的互动评价——素材纯本地累计，双门槛先到先写时
+# 由小模型以中性观察者口吻成文；只给用户看，不注入她的上下文、不进宿主记忆
+enabled = true
+slot = "summary"                   # 成文模型槽位（碎片同款直连通道）；槽位无模型时自动休眠
+turns_threshold = 50               # 成文门槛：攒满 N 轮互动（与天数门槛先到先写）
+days_threshold = 7                 # 成文门槛：距统计起点满 N 天且期间有聊天（挂机不写空篇）
+
+[capabilities]
+# 能力中心（1.2.7）：面板「功能」页的统一开关体系——按角色否决任意能力
+# （关=写 Store 否决集 caps@<角色>，开=回落本文件各段默认，绝不强行点亮）。
+# hide_disabled_tools：关闭的能力是否把它的 LLM 工具从模型可见面摘除
+# （false=温和模式：工具在位、调用时才拒；true=对所有角色都不生效的能力
+# 真正对模型隐藏工具，恢复生效自动重挂）。全局一份。
+hide_disabled_tools = false
+
+[stats]
+# 相处统计（1.1.0）：按天聚合的长期累计——徐章墙/热力图/月报的唯一数据源。
+# 纯本地统计：零模型开销、无总开关（不收集就没有意义），成文永不清零；
+# 只为用户可视化服务，除纪念日注入外绝不进入她的上下文。
+anniversary_inject = true        # 今天恰好是相伴第 30/60/…/365/… 天时递一条 read 轻语（说不说由她决定）；false 关闭
+
+[birthday]
+# 生日轻语（1.3.1）：主人生日当天、他第一条聊天消息时递一条 read 轻语（说不说由她决定）。
+# 生日是 02-29 时平年按 02-28 过；未填日期自然休眠。
+# 链路前提：走"新用户消息"注入链路，需该角色潮汐模拟开启（与纪念日轻语同口径）。
+enabled = true                   # 能力中心 birthday 闸；false 后不再递生日轻语
+keep_diary = true                # 当天自动在时光日记留一条纪念手记（插件代笔、可单删）
+date = ""                        # 主人生日 YYYY-MM-DD；年份只用于日期合法性校验，从不参与年龄计算
+
+[emotion_sense]
+# 语气感知（0.6.x）：在她回复完成后异步分析这轮互动的情绪（零延迟，不挡生成链路）。
+# 两种模式：无情绪动作时的"筛选"（情绪浓度高才提醒她记录心情，闲聊跳过）；
+# 情绪动作生效中的"校正"（语气趋势转暖/转冷时提醒她把面板状态切回）。只提醒，不自动切状态。
+enabled = true
+check_rate = 1.0                 # 筛选模式抽查频率：1.0=每轮 / 0.5=一半 / 0.25=偶尔 / 0=关闭筛选
+                                 #（校正模式不受此限：情绪生效期间每轮都分析，避免恰好漏掉关键回复）
+min_interval_sec = 60            # 相邻两次分析的最小间隔（秒）：连珠炮对话防刷屏
+window_turns = 2                 # 校正模式的语气趋势窗口（轮）：攒满 N 轮按多数派判定一次
+                                 #（2 = 连续两轮同向即提醒，响应更快；3 = 更稳但偏慢）
+confidence_threshold = 0.6       # 筛选模式的置信度阈值：低于此不递提醒
+phase_sensitivity_enabled = true  # 阶段灵敏度：潮汐期/回升期/活跃期筛选更灵敏（阈值下移）；平静期不变
+phase_sensitivity = 0.15         # 灵敏度强度（阈值下移量）：0.1 温和 / 0.15 适中 / 0.25 敏感；0 = 等同关闭
+user_affect_weight = 0.25        # 用户侧情绪传导权重：用户消息单独分析一次，按此系数缩放步长喂入连续心情
+                                 #（她的回复权重 1.0；互动氛围同向传导）；0 = 关闭
+slot = ""                        # 语气分析模型槽位：留空 = 跟随宿主情感模型槽（走 /api/emotion/analysis）；
+                                 # 选其他文本槽位时读宿主本地 core_config.json 直连其端点（数据出域，介意可关）

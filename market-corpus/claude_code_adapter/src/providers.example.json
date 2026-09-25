@@ -1,0 +1,29 @@
+{
+  "active_provider": "",
+  "providers": [
+    {
+      "name": "anthropic",
+      "display_name": "Anthropic 官方",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.anthropic.com",
+        "ANTHROPIC_AUTH_TOKEN": "sk-ant-xxxx"
+      }
+    },
+    {
+      "name": "relay-example",
+      "display_name": "第三方中转（示例）",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://your-relay.example.com",
+        "ANTHROPIC_AUTH_TOKEN": "your-token"
+      }
+    },
+    {
+      "name": "openrouter",
+      "display_name": "OpenRouter（示例）",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://openrouter.ai/api/v1",
+        "OPENROUTER_API_KEY": "sk-or-xxxx"
+      }
+    }
+  ]
+}

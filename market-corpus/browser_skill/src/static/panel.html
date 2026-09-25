@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BrowserSkill 控制台</title>
+  <link rel="stylesheet" href="style.css?v=20260805-5">
+  <style>
+    /* Kept inline so the plugin panel cannot pair fresh HTML with stale cached CSS. */
+    .field-caption{display:flex;align-items:center;justify-content:flex-start;gap:6px;min-height:18px}
+    .field-caption label{min-width:0}
+    .toggle-item{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:6px!important;min-width:0}
+    .toggle-item label{min-width:0}
+    .help-tip{position:relative!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 18px!important;width:18px!important;height:18px!important;margin:0!important;padding:0!important;border:1px solid #cbd2dc!important;border-radius:50%!important;background:transparent!important;color:#6c7685!important;font-size:11px!important;font-weight:700!important;line-height:1!important;cursor:help!important}
+    .help-tip:hover,.help-tip:focus-visible{border-color:#5865f2!important;color:#5865f2!important;outline:none}
+    .help-tip::before,.help-tip::after{position:absolute;z-index:100;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .14s ease,transform .14s ease}
+    .help-tip::before{content:"";right:3px;bottom:calc(100% + 4px);border:6px solid transparent;border-top-color:#202632;transform:translateY(3px)}
+    .help-tip::after{content:attr(data-tip);right:-8px;bottom:calc(100% + 15px);width:min(330px,70vw);padding:11px 12px;border-radius:9px;background:#202632;color:#fff;box-shadow:0 10px 28px rgba(0,0,0,.22);font-size:12px;font-weight:500;line-height:1.65;text-align:left;white-space:normal;transform:translateY(3px)}
+    .toggle-item:nth-child(3n+1) .help-tip::before{left:3px;right:auto}
+    .toggle-item:nth-child(3n+1) .help-tip::after{left:-8px;right:auto}
+    .help-tip.open-right::before{left:3px!important;right:auto!important}
+    .help-tip.open-right::after{left:-8px!important;right:auto!important}
+    .help-tip:hover::before,.help-tip:hover::after,.help-tip:focus-visible::before,.help-tip:focus-visible::after{opacity:1;visibility:visible;transform:translateY(0)}
+    @media(max-width:700px){.toggle-item .help-tip::before{left:3px;right:auto}.toggle-item .help-tip::after{left:-8px;right:auto}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <p class="eyebrow">N.E.K.O PLUGIN</p>
+        <h1>BrowserSkill 控制台</h1>
+        <p class="subtitle">连接状态、主 LLM 路由与浏览会话策略</p>
+      </div>
+      <span id="readyBadge" class="badge neutral">检查中</span>
+    </header>
+
+    <section class="status-grid">
+      <article><span>CLI</span><strong id="cliVersion">—</strong></article>
+      <article><span>浏览器</span><strong id="browserState">—</strong></article>
+      <article><span>有效路由</span><strong id="effectiveRoute">—</strong></article>
+      <article><span>后台任务</span><strong id="taskCount">0</strong></article>
+      <article><span>最近 Agent Token</span><strong id="tokenCount">—</strong></article>
+    </section>
+
+    <div id="notice" class="notice" hidden></div>
+
+    <section class="panel">
+      <div class="panel-title">
+        <div><h2>连接与路由</h2><p>修改后会安全关闭当前插件任务和会话，再加载新设置。</p></div>
+        <div class="actions compact">
+          <button id="refreshBtn" class="secondary">刷新</button>
+          <button id="daemonBtn" class="secondary">启动 daemon</button>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field wide">
+          <div class="field-caption"><label for="bskExecutable">bsk 路径</label><button type="button" class="help-tip open-right" aria-label="查看 bsk 路径说明" data-tip="默认显示当前系统对应的内置 bsk CLI 0.1.10 真实绝对路径，位于插件自身的 bin/平台目录。支持 macOS Intel/Apple Silicon、Linux x64/ARM64 和 Windows x64。也可改为其他 bsk 的绝对路径；留空时从系统 PATH 查找。">?</button></div>
+          <input id="bskExecutable" type="text" spellcheck="false" placeholder="自动显示当前平台的内置 bsk 绝对路径">
+        </div>
+        <div class="field">
+          <div class="field-caption"><label for="browserLabel">浏览器标签 / instance ID</label><button type="button" class="help-tip open-right" aria-label="查看浏览器实例说明" data-tip="用于多个 Chrome 或 Edge 同时连接时指定目标浏览器。可填写扩展中设置的浏览器标签，或诊断区域显示的 instance ID。只有一个浏览器时建议留空，由插件自动选择。">?</button></div>
+          <input id="browserLabel" type="text" spellcheck="false" placeholder="只有一个浏览器时可留空">
+        </div>
+        <div class="field">
+          <div class="field-caption"><label for="routingMode">路由模式</label><button type="button" class="help-tip" aria-label="查看路由模式说明" data-tip="自动：按主对话模型能力选择，推荐使用。原生：只允许主 LLM 直接调用工具。后备：只使用插件任务路由。双通道：原生和后备同时启用，由插件对同一请求去重。">?</button></div>
+          <select id="routingMode">
+            <option value="auto">自动（推荐）</option>
+            <option value="native">仅主 LLM 原生工具</option>
+            <option value="fallback">仅宿主后备路由</option>
+            <option value="hybrid">双通道</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="field-caption"><label for="sessionScope">会话复用范围</label><button type="button" class="help-tip open-right" aria-label="查看会话复用范围说明" data-tip="决定哪些任务共享 BrowserSkill 会话。插件共用一个窗口最稳定；按角色会让不同角色分别复用；按对话会让不同聊天分别复用。希望始终只开一个 Agent Window 时请选择“插件共用一个窗口”。">?</button></div>
+          <select id="sessionScope">
+            <option value="plugin">插件共用一个窗口（推荐）</option>
+            <option value="lanlan">按角色复用</option>
+            <option value="conversation">按对话复用</option>
+          </select>
+        </div>
+        <div class="toggle-item switch-row"><label><input id="autoStartDaemon" type="checkbox"><span>连接失败时自动启动 daemon</span></label><button type="button" class="help-tip" aria-label="查看 daemon 自动启动说明" data-tip="当 bsk CLI 已安装但本地 daemon 没有运行时，插件自动执行 bsk daemon start 后重试连接。它不会安装或更新 BrowserSkill；停用插件时只关闭本插件登记的会话，不会停止可能由其他客户端共享的 daemon。">?</button></div>
+      </div>
+      <p id="routeHint" class="hint"></p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><div><h2>执行策略</h2><p>动作上限是检查点，不代表一定执行这么多步。</p></div></div>
+      <div class="form-grid numeric">
+        <div class="field"><div class="field-caption"><label for="maxSteps">动作检查点上限</label><button type="button" class="help-tip open-right" aria-label="查看动作检查点说明" data-tip="单轮任务最多允许 Browser Agent 自动执行的动作数量。到达上限后不会继续盲目操作，而是保留可复用会话并让主 LLM 或用户决定继续、修改方向或关闭。它不是任务必须执行的步数。">?</button></div><input id="maxSteps" type="number" min="1" max="50"></div>
+        <div class="field"><div class="field-caption"><label for="activeTimeout">自动执行秒数</label><button type="button" class="help-tip" aria-label="查看自动执行时间说明" data-tip="单轮浏览器自动操作允许消耗的最长时间。等待用户处理验证码、登录或确认期间不计入该时间。超时后任务停止自动动作，避免无限运行。">?</button></div><input id="activeTimeout" type="number" min="10" max="1800"></div>
+        <div class="field"><div class="field-caption"><label for="duplicateSeconds">重复抑制秒数</label><button type="button" class="help-tip open-right" aria-label="查看重复抑制说明" data-tip="在这段时间内，相同会话、相同目标和相同起始网址的重复调用会复用正在执行的任务或返回最近结果，防止主 LLM 与后备路由重复创建操作队列。">?</button></div><input id="duplicateSeconds" type="number" min="0" max="120"></div>
+        <div class="field"><div class="field-caption"><label for="keepaliveSeconds">会话保活秒数</label><button type="button" class="help-tip" aria-label="查看会话保活说明" data-tip="任务结束并保留窗口后，插件按此间隔发送只读命令维持 BrowserSkill session，避免 daemon 因空闲回收会话。设为 0 会关闭插件保活。">?</button></div><input id="keepaliveSeconds" type="number" min="0" max="240"></div>
+        <div class="field"><div class="field-caption"><label for="plannerTokens">规划输出 token</label><button type="button" class="help-tip open-right" aria-label="查看规划输出 token 说明" data-tip="Browser Agent 每次生成一个动作的最大输出 token，默认 1200。旧版本硬编码为 800，复杂动作 JSON 可能被截断。">?</button></div><input id="plannerTokens" type="number" min="256" max="4096"></div>
+        <div class="field"><div class="field-caption"><label for="correctionTokens">纠错输出 token</label><button type="button" class="help-tip open-right" aria-label="查看纠错输出 token 说明" data-tip="动作 JSON 首次被截断或不符合 schema 时，单次紧凑纠错所用的输出上限，默认 1600。纠错只允许一次，避免无限重试。">?</button></div><input id="correctionTokens" type="number" min="256" max="8192"></div>
+        <div class="field"><div class="field-caption"><label for="snapshotTokens">深度观察 token</label><button type="button" class="help-tip open-right" aria-label="查看页面观察 token 说明" data-tip="Agent 显式选择 observe 时使用的页面观察上限，默认 8000。首次打开、点击或导航后的常规 snapshot 会自动限制在最多 4000；紧凑视图不够时，由 Agent 自己升级到这里配置的深度观察。连续滚动仍使用独立的低成本额度。">?</button></div><input id="snapshotTokens" type="number" min="500" max="32000"></div>
+        <div class="field"><div class="field-caption"><label for="scrollMaxPages">单次滚动屏数</label><button type="button" class="help-tip" aria-label="查看单屏滚动说明" data-tip="固定为 1。Agent 每次只滚动一个视口，立即读取新画面后再决定是否继续，确保内容与上一屏连续，避免跳过短暂出现的元素。">?</button></div><input id="scrollMaxPages" type="number" min="1" max="1" readonly aria-readonly="true"></div>
+        <div class="field"><div class="field-caption"><label for="scrollTokens">滚动观察 token</label><button type="button" class="help-tip open-right" aria-label="查看滚动观察 token 说明" data-tip="每滚动一屏后读取新画面所允许的最大 token。插件只把变化片段交给 Agent。推荐 1500–2500；复杂页面可提高。">?</button></div><input id="scrollTokens" type="number" min="500" max="8000"></div>
+        <div class="field"><div class="field-caption"><label for="scrollSettleMs">滚动等待毫秒</label><button type="button" class="help-tip open-right" aria-label="查看滚动等待说明" data-tip="每次滚动后等待页面加载的时间。普通页面推荐 300ms；无限列表加载较慢时可提高到 500–1000ms。">?</button></div><input id="scrollSettleMs" type="number" min="50" max="2000"></div>
+        <div class="field"><div class="field-caption"><label for="livePageChars">实时页面摘要字符</label><button type="button" class="help-tip open-right" aria-label="查看实时页面摘要说明" data-tip="执行期间注入给主 LLM 的页面观察长度。推荐 1200；显式 inspect 和任务终态仍可获得更完整页面信息。">?</button></div><input id="livePageChars" type="number" min="300" max="5000"></div>
+      </div>
+      <div class="toggles">
+        <div class="toggle-item">
+          <label><input id="reuseWindow" type="checkbox">跨调用复用已有 Agent Window</label>
+          <button type="button" class="help-tip" aria-label="查看跨调用窗口复用说明" data-tip="开启后，后续浏览器任务会继续使用插件已经创建的 Agent Window 和当前标签页，不会每次重新打开窗口。建议保持开启。关闭后，不同调用可能各自创建浏览器会话。">?</button>
+        </div>
+        <div class="toggle-item">
+          <label><input id="releaseIdleControl" type="checkbox">空闲时把浏览器交还用户</label>
+          <button type="button" class="help-tip" aria-label="查看空闲控制权说明" data-tip="开启后，Agent 暂停、取消、失败或任务结束但保留窗口时，会通过 BrowserSkill 的人工接管机制把窗口操作权交给用户。下一个任务开始前插件会自动收回控制并重新读取当前页面，不会销毁 session 或登录状态。建议保持开启。">?</button>
+        </div>
+        <div class="toggle-item">
+          <label><input id="allowExtraTabs" type="checkbox">允许用户明确要求时新建标签页</label>
+          <button type="button" class="help-tip" aria-label="查看新建标签页说明" data-tip="开启后，只有当用户明确说“新标签页打开”“保留当前页面再打开”等要求时，Agent 才能创建额外标签页。关闭时，模型即使输出 tab_create，插件也会改为复用当前标签页。建议默认关闭。">?</button>
+        </div>
+        <div class="toggle-item">
+          <label><input id="allowTabBorrow" type="checkbox">允许确认后借用用户标签页</label>
+          <button type="button" class="help-tip" aria-label="查看借用用户标签页说明" data-tip="允许插件在逐次确认后，临时操作你自己打开的普通标签页，用于复用该页面的登录状态。每次最多借用一个，任务结束、失败或取消时会归还。密码、验证码、CAPTCHA 等仍必须由用户手动处理。">?</button>
+        </div>
+        <div class="toggle-item">
+          <label><input id="visionFallback" type="checkbox">允许视觉模型回退</label>
+          <button type="button" class="help-tip" aria-label="查看视觉模型回退说明" data-tip="当 DOM、可访问性树和 HTML 都不足以识别页面时，插件可以临时截图并调用 N.E.K.O 的 vision 模型解释画面。视觉模型只负责观察，最终动作仍由 Agent 模型决定；临时截图在分析后删除。">?</button>
+        </div>
+        <div class="toggle-item">
+          <label><input id="keepMedia" type="checkbox">媒体播放时默认保留窗口</label>
+          <button type="button" class="help-tip" aria-label="查看媒体窗口保留说明" data-tip="播放视频、音乐或直播后，任务完成时默认保留浏览器窗口，避免媒体被关闭而中断。用户或主 LLM 仍可随后明确关闭浏览器。建议需要播放媒体时开启。">?</button>
+        </div>
+        <div class="toggle-item">
+          <label><input id="debugLogging" type="checkbox">记录脱敏 Debug 日志</label>
+          <button type="button" class="help-tip" aria-label="查看 Debug 日志说明" data-tip="记录插件调用、会话复用、动作类型、CLI 耗时、错误类型和页面域名，便于排查问题。不会记录页面正文、标签标题、URL 参数、输入值、截图、凭据或模型原始输出。">?</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel diagnostics">
+      <div class="panel-title"><div><h2>诊断</h2><p id="modelInfo">主对话模型：—</p></div></div>
+      <div id="browserList" class="browser-list"><p class="muted">暂无浏览器信息</p></div>
+    </section>
+
+    <section class="panel diagnostics">
+      <div class="panel-title"><div><h2>最近 Debug 事件</h2><p>每轮记录输入/输出/总 token；端点未返回 usage 时会标记 estimated。仅显示脱敏后的最近 100 条。</p></div></div>
+      <pre id="debugEvents" class="debug-events">等待插件重载后产生 Debug 事件…</pre>
+    </section>
+
+    <footer class="actions">
+      <button id="closeBtn" class="danger">关闭插件任务与会话</button>
+      <button id="saveBtn" class="primary">保存并应用</button>
+    </footer>
+  </main>
+  <script src="app.js?v=20260810-4"></script>
+</body>
+</html>

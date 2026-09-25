@@ -1,0 +1,8 @@
+{
+  "id": "neko-plugin",
+  "name": "N.E.K.O. 插件",
+  "version": "0.1.0",
+  "description": "生成符合 N.E.K.O. 插件规范的 Python 插件:创建、开发、检查、发布全流程。",
+  "language": "python",
+  "docs": "../../neko-docs/"
+}

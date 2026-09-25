@@ -1,0 +1,113 @@
+[plugin]
+name = "Claude Code Adapter"
+type = "plugin"
+description = """让猫娘指挥 Claude Code 干活的适配器插件（全异步，专为长任务设计）。
+
+【快速上手：怎么和猫娘说】
+- 执行任务：直接说「用 Claude Code 帮我把 xxx 项目的 xxx 功能实现一下」。猫娘会提交后台异步任务后立即告诉你「任务正在执行」；任务完成后插件会自动把结果推送给猫娘，她会主动来汇报——全程无超时限制，半小时到一小时以上的长任务也完全没问题。
+- 盯进度：想提前知道进展就说「Claude Code 任务跑到哪了」，猫娘会查实时进度（已输出的消息数/最近动态）告诉你。
+- 会话控制：每个 Claude Code 会话都有唯一 UUID（即工具返回的 session_id）。同一项目的多轮迭代默认自动续跑同一会话；想强制新开就说「开个新会话去做」；想接回某个历史会话，把插件面板或 claude_code_list_sessions(include_history=true) 里看到的会话 UUID 发给猫娘，说「继续这个会话：<UUID>」即可，插件会自动定位会话归属目录，无需指定路径。
+- 执行中纠正：任务跑到一半发现方向有偏差，直接跟猫娘说「让 Claude Code 改一下：xxx」，猫娘会调用 claude_code_followup 在同一会话里追加纠正指令（自动中断当前跑偏的任务，保留已有上下文续发）。
+- 供应商切换：说「切换 Claude 供应商到 xxx」即可在官方/中转/第三方端点间切换（cc-switch 风格，仅注入子进程环境变量，不改全局配置）。
+
+【工具集】
+- claude_code_submit：唯一的执行入口，提交后台异步任务（无超时限制），立即返回 task_id + session_id（会话 UUID）；新会话会短暂等待 CLI 返回 UUID（通常 1-3s），resume 会话立即返回。完成后插件自动推送结果给猫娘（带 UUID 与轮询时间）
+- claude_code_wait / claude_code_poll / claude_code_cancel：提前盯进度（含实时进度，单次最多 55s 可反复调用）/ 单次查询 / 取消
+- claude_code_followup：在同一会话中追加补充/纠正指令（任务执行中会自动中断当前任务后续发，已完成的会话直接续发）
+- claude_code_list_tasks：列出当前活跃会话/任务列表（与正在执行的 Claude Code 进程一一对应，最多 2 个），含 task_id、session_id、轮询时间、实时进度
+- claude_code_clear_session：清理会话列表——取消活跃任务并杀掉对应 CC 进程（支持按 task_id/session_id/cwd 定向或全清）
+- claude_code_set_poll_interval：调整轮询安全网间隔（默认 5 分钟），可改默认值或单个任务
+- claude_code_list_sessions / check_health / get_config：会话与环境管理（list_sessions 支持 include_history=true 列出所有历史会话 UUID）
+- claude_code_list_providers / switch_provider / remove_provider：多供应商切换
+
+【前端面板】内置 cc-switch 风格的会话管理界面：左侧会话列表、右侧对话详情，可查看每个会话的 UUID、完整对话内容，支持一键复制 UUID 和删除会话。
+
+【注意事项】需要本机已安装 Claude Code CLI（npm install -g @anthropic-ai/claude-code）。失败时插件会自动用 session_id 续跑而非重开会话，尽量保留上下文。v0.6.0 起不再提供同步执行（同步会被网关超时卡死，且 Claude Code 本就擅长长任务）。
+
+【v0.7.0 会话与轮询机制】
+- 每个会话以 Claude Code 原生 UUID 为唯一标识（session_id 即 UUID）。开新会话后猫娘立即拿到该 UUID（submit 短暂等待 CLI init 事件）；开新会话拿到的 UUID 必与当前所有 UUID 绝对不同——以此作为「新会话/同一会话」的唯一判断标准。
+- 任务列表（claude_code_list_tasks）与正在执行的 Claude Code 进程一一对应，猫娘最多同时管理 2 个会话。
+- 插件每次重启/重载后会话列表为空，绝不因旧会话在用户不知情下突然续跑；历史会话仍可凭 UUID 显式回到。
+- 内置轮询安全网：默认每 5 分钟检测会话是否仍在进行，若已结束且未推送则补推结果给猫娘；猫娘可用 claude_code_set_poll_interval 或提交时的 poll_interval_sec 按预期任务时长调整。任务完成即从列表释放，猫娘可继续传同一 UUID 维持会话并再次进入任务列表。每次完成推送都带会话 UUID 与轮询时间。"""
+short_description = "让猫娘指挥 Claude Code 干活：全异步执行无超时限制、开新会话立即拿到UUID、完成自动推送结果(带UUID与轮询时间)、内置5分钟轮询安全网(可调)、活跃会话列表与CC进程一一对应(最多2个)、重启后列表清空、执行中同会话追加纠正指令、基于Claude原生UUID的会话维持/新开/历史回溯、cc-switch风格多供应商切换与会话管理面板。"
+keywords = [
+    "claude",
+    "claude-code",
+    "cli",
+    "agent",
+    "coding",
+    "developer",
+    "llm_tool",
+    "adapter",
+    "catgirl",
+    "猫娘",
+    "cc-switch",
+    "provider",
+    "session-manager",
+]
+version = "0.7.0"
+id = "claude_code_adapter"
+entry = "plugin.plugins.claude_code_adapter._plugin_main:ClaudeCodeAdapterPlugin"
+
+[plugin.author]
+name = "N.E.K.O Community"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+# ---------------------------------------------------------------------------
+# 前端 UI（cc-switch 风格会话管理面板）
+# 注意：缺少此声明时面板不会在前端显示（v0.5.0 修复）
+# ---------------------------------------------------------------------------
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "CC Switch"
+entry = "ui/panel.tsx"
+context = "dashboard"
+permissions = ["state:read", "action:call", "config:read"]
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin_state]
+backend = "file"
+persist_mode = "auto"
+
+# 启用 PluginStore（SQLite KV 存储），用于持久化会话记录
+[plugin.store]
+enabled = true
+
+# ---------------------------------------------------------------------------
+# Claude Code Adapter 配置
+# ---------------------------------------------------------------------------
+[claude_code]
+# Claude CLI 可执行文件路径。留空则自动检测（PATH 上的 `claude`）。
+command = ""
+# 默认模型（留空使用 Claude CLI 默认值）。例如 "sonnet" / "opus" / "claude-sonnet-4-5-20250929"。
+model = ""
+# 推理努力级别："" | "low" | "medium" | "high"。
+effort = ""
+# 单次执行最大轮次（0 = 使用 CLI 默认值）。
+max_turns_per_run = 0
+# 跳过权限提示（与 Paperclip 行为一致；仅用于受信任的本地开发场景）。
+dangerously_skip_permissions = true
+# 单次执行超时（秒）。0 = 不限制（默认）：Claude Code 常执行半小时以上的长任务，
+# 异步后台执行不受网关调用超时影响，无需限制；仅在需要强制兜底时显式设置。
+timeout_sec = 0
+# 默认工作目录（留空 = 当前插件进程 cwd）。猫娘调用时可覆盖。
+cwd = ""
+# 附加系统提示文件路径（留空则不附加）。
+append_system_prompt_file = ""
+# 技能目录（留空则不注入 --add-dir）。
+skills_dir = ""
+# 失败后自动重试新会话的次数。
+max_retries = 1

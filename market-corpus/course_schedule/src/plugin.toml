@@ -1,0 +1,59 @@
+[plugin]
+id = "course_schedule"
+name = "猫娘课程表"
+description = "猫娘陪你管理课表：周重复 + 例外时间模型，支持手动录入、Excel（.xlsx/.xls 合并单元格自动展开）/教务系统导入、重复导入不产生重复数据、上课时间自定义、AI 对话查询、上课提醒、作业考试管理、周数与倒计时。喵~"
+short_description = "Catgirl course schedule: weekly recurring + exceptions, manual/file/academic import (xls merged-cell aware, idempotent re-import), custom period times, AI query, reminders, homework, exams, countdown."
+keywords = ["课表", "课程表", "课程", "schedule", "timetable", "class", "上课", "提醒", "remind", "作业", "homework", "考试", "exam", "周数", "countdown", "倒计时", "学期", "semester", "教务", "时间表", "猫娘", "catgirl", "课程"]
+version = "0.2.1"
+entry = "plugin.plugins.course_schedule:CourseSchedulePlugin"
+
+[plugin.author]
+name = "lingtongxinyv"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.3.0"
+supported = ">=0.1.0,<0.4.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.store]
+enabled = true
+
+[plugin.database]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "猫娘课程表"
+entry = "ui/panel.tsx"
+context = "dashboard"
+permissions = [
+    "state:read",
+    "config:read",
+    "action:call",
+]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "使用指南"
+entry = "docs/guide.md"
+permissions = ["state:read"]
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[course]
+# 默认时区
+timezone = "Asia/Shanghai"
+# 上课提醒提前分钟数
+remind_lead_minutes = 10
+# 是否启用上课提醒
+remind_enabled = false
+# 提醒定时检查间隔（秒）
+remind_check_interval_seconds = 60

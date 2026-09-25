@@ -1,0 +1,26 @@
+[plugin]
+name = "NEKO Speak Serve"
+type = "adapter"
+description = "对外提供 HTTP 端点 (127.0.0.1:48930)，允许外部程序驱动猫娘说话"
+short_description = "External HTTP endpoint to make N.E.K.O. speak"
+keywords = ["mcp", "adapter", "speak", "external", "http"]
+version = "0.1.0"
+id = "neko_mcp_serve"
+entry = "plugin.plugins.neko_mcp_serve:NekoMcpServePlugin"
+
+[plugin.author]
+name = "xy28816"
+
+[plugin.i18n]
+default_locale = "zh"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = false

@@ -1,0 +1,69 @@
+[plugin]
+type = "plugin"
+id = "luogu"
+name = "洛谷"
+description = "面向算法竞赛刷题的个性化成长助手：基于洛谷登录用户的提交记录做成长分析（AC/通过率、薄弱与未涉及的算法标签），每天生成针对性题单，并给出点到为止的解题思路提示（不含代码），兼具查题/详情/比赛/用户公开资料等基础查询。成为OIer吧！"
+short_description = "个性化刷题成长：提交分析、成长报告、每日题单、思路提示。"
+keywords = ["洛谷", "luogu", "OJ", "刷题", "题单", "算法竞赛", "OI", "acm", "成长", "每日题单", "思路提示"]
+version = "0.1.0"
+entry = "plugin.plugins.luogu:LuoguPlugin"
+
+[plugin.author]
+name = "Zhaijiu"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.ui]
+enabled = true
+
+# 关键：mode="static" 的 panel 才能让静态页走 /hosted-ui/action；显式声明
+# action:call 权限，否则静态页无法调用 save/clear 凭证动作。
+# index.html 是前置页（卡片 hub），点「登录凭据」卡片跳到 config.html（登录配置页）。
+[[plugin.ui.panel]]
+id = "main"
+title = "洛谷"
+entry = "static/index.html"
+mode = "static"
+context = "credentials"
+permissions = ["state:read", "config:read", "action:call"]
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[luogu]
+# --- 抓取 ---
+timeout_seconds = 15
+min_interval_seconds = 1.0
+retry_attempts = 2
+cookie_ttl_seconds = 240        # C3VK ~5 分钟过期，提前到 240s 预热
+default_user = ""               # 未指定 uid 时默认查询的用户（登录态下自动取登录者）
+
+# --- 每日题单 / 成长策略 ---
+daily_push_enabled = false
+daily_push_time = "08:00"
+daily_push_timezone = "Asia/Shanghai"
+daily_problem_count = 3
+daily_difficulty_min = 2
+daily_difficulty_max = 5
+weak_attempt_threshold = 3      # 尝试 >= 此值仍未 AC 视为薄弱标签
+
+# --- 要链接的推送插件（运行时逐个 call_entry，留空则跳过） ---
+# 示例：把今日题单主动发到 QQ 群。需先启用 qq_auto_reply 插件。
+# [[luogu.push_entries]]
+# entry_ref = "qq_auto_reply:send_group_proactive_message"
+# params = { group_id = "123456789", message = "{TEXT}" }
+#
+# 私聊：
+# [[luogu.push_entries]]
+# entry_ref = "qq_auto_reply:send_private_proactive_message"
+# params = { target = "12345", message = "{TEXT}" }

@@ -1,0 +1,11 @@
+[project]
+name = "neko-plugin-sys-monitor"
+version = "0.1.0"
+description = "电脑监控插件：监控CPU/内存/磁盘/电量，异常时让猫娘主动提醒"
+requires-python = ">=3.10"
+dependencies = [
+    "psutil>=5.9",
+]
+
+[tool.ruff.lint]
+ignore = ["I001"]

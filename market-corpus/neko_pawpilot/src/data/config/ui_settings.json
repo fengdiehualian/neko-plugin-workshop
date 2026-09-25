@@ -1,0 +1,20 @@
+{
+  "dry_run": false,
+  "voice_styles": [
+    "default"
+  ],
+  "broadcast_frequency": "active",
+  "broadcast_categories": {
+    "safety": true,
+    "task": true,
+    "trip": true,
+    "lifecycle": true,
+    "chatter": true
+  },
+  "llm": {
+    "provider": "",
+    "model": "",
+    "api_key": "",
+    "base_url": ""
+  }
+}

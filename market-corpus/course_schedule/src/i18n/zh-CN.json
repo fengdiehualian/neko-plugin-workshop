@@ -1,0 +1,19 @@
+{
+  "today": "今日课表",
+  "tomorrow": "明日课表",
+  "week": "本周课表",
+  "next_class": "下节课",
+  "week_info": "周数与进度",
+  "no_class": "无课",
+  "no_semester": "没有当前学期",
+  "add_homework": "添加作业",
+  "list_homework": "作业列表",
+  "done_homework": "完成作业",
+  "delete_homework": "删除作业",
+  "add_exam": "添加考试",
+  "list_exams": "考试列表",
+  "delete_exam": "删除考试",
+  "get_countdown": "倒计时",
+  "class_reminder": "上课提醒",
+  "reminder_text": "⏰ 下节课提醒：{name} {time}（{location}），约 {minutes} 分钟后开始"
+}

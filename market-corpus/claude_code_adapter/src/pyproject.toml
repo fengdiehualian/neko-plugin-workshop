@@ -1,0 +1,4 @@
+[project]
+name = "claude_code_adapter"
+version = "0.1.0"
+dependencies = []

@@ -1,0 +1,23 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "ruff check",
+            "type": "shell",
+            "command": "ruff check --isolated --select E4,E7,E9,F,I --exclude vendor .",
+            "problemMatcher": []
+        },
+        {
+            "label": "ruff fix",
+            "type": "shell",
+            "command": "ruff check --isolated --select E4,E7,E9,F,I --exclude vendor --fix .",
+            "problemMatcher": []
+        },
+        {
+            "label": "test smoke",
+            "type": "shell",
+            "command": "python -m pytest tests/test_smoke.py -v",
+            "problemMatcher": []
+        }
+    ]
+}

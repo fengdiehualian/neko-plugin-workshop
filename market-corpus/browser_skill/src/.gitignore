@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-cache-files-*/
+tests/.pytest_tmp/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+vendor/
+dist/
+build/
+*.egg-info/
+store.db
+.env
+.DS_Store
+
+# Materialized by scripts/fetch_bsk.py before tests and packaging.
+/bin/darwin-arm64/bsk
+/bin/darwin-x64/bsk
+/bin/linux-arm64/bsk
+/bin/linux-x64/bsk
+/bin/windows-x64/bsk.exe

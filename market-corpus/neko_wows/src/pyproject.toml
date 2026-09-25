@@ -1,0 +1,42 @@
+[project]
+name = "neko-wows-plugin"
+version = "0.1.2"
+description = "Standalone N.E.K.O World of Warships companion plugin."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0,<10.0",
+    "pytest-asyncio>=0.24,<2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-p no:anyio --import-mode=importlib"
+markers = [
+    "unit: mark a test as a unit test",
+    "plugin_unit: mark a plugin unit test",
+]
+
+[tool.neko.build]
+exclude_dirs = [
+    ".github",
+    ".vscode",
+    ".venv",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "scripts",
+    "tests",
+]
+exclude_files = [
+    ".gitignore",
+    "LICENSE",
+    "README.md",
+    "ruff.toml",
+    "uv.lock",
+]

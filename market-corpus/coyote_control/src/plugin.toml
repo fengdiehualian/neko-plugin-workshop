@@ -1,0 +1,43 @@
+[plugin]
+id = "coyote_control"
+name = "郊狼控制"
+type = "plugin"
+description = "让猫娘根据对话情境自主控制 DG-Lab 郊狼设备：支持 V4 WebSocket 协议、按情绪模式下发波形、直接设置强度，内置安全上限与 Web 管理面板。"
+short_description = "让猫娘自主控制 DG-Lab 郊狼设备"
+keywords = ["郊狼", "coyote", "DG-?Lab", "dglab", "电击", "波形", "强度"]
+version = "0.3.9"
+entry = "plugin.plugins.coyote_control:CoyoteControlPlugin"
+
+[plugin.author]
+name = "Venlacy"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.3.0"
+supported = ">=0.1.0"
+
+[plugin.store]
+enabled = true
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "dashboard"
+title = "郊狼控制面板"
+entry = "ui/panel.tsx"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "快速开始"
+entry = "docs/quickstart.md"
+permissions = ["state:read"]

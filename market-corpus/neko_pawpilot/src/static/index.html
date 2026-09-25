@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猫爪副驾</title>
+<style>
+:root {
+  --bg:#070b16; --bg2:#0a101f; --bg3:#0f172a;
+  --glass:rgba(255,255,255,0.045);
+  --glass-hover:rgba(255,255,255,0.08);
+  --border:rgba(255,255,255,0.08);
+  --border-hover:rgba(255,255,255,0.18);
+  --text:#eaf0ff; --text2:#a3b1cc; --text3:#5d6b8a;
+  --accent:#ff9ec7; --accent2:#8b9dff; --accent3:#6ee7d8;
+  --gold:#ffd27a; --green:#4ade80; --red:#f87171; --amber:#fbbf24;
+  --accent-soft:rgba(255,158,199,0.13);
+  --accent-glow:rgba(255,158,199,0.55);
+  --accent-border:rgba(255,158,199,0.35);
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 4px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03);
+  --sidebar-bg:rgba(10,16,31,0.9);
+  --grad-accent:linear-gradient(135deg,#ff9ec7,#8b9dff);
+  --bg-radial-1:rgba(255,158,199,0.09);
+  --bg-radial-2:rgba(139,157,255,0.08);
+  --bg-radial-3:rgba(110,231,216,0.05);
+}
+[data-theme="light"] {
+  --bg:#f6f1ea; --bg2:#fbf7f0; --bg3:#f3ece2;
+  --glass:rgba(255,253,250,0.72);
+  --glass-hover:rgba(255,253,250,0.9);
+  --border:rgba(190,175,152,0.35);
+  --border-hover:rgba(170,150,130,0.5);
+  --text:#3d3326; --text2:#83745e; --text3:#b2a18a;
+  --accent:#c98a5a; --accent2:#8a6fa8; --accent3:#4e9a8a;
+  --gold:#c98a5a; --green:#6fa05c; --red:#d06666; --amber:#c9923e;
+  --accent-soft:rgba(201,138,90,0.14);
+  --accent-glow:rgba(201,138,90,0.4);
+  --accent-border:rgba(201,138,90,0.35);
+  --shadow:0 4px 24px rgba(120,96,60,0.12), 0 0 0 1px rgba(214,200,182,0.3);
+  --sidebar-bg:rgba(251,247,240,0.9);
+  --grad-accent:linear-gradient(135deg,#c98a5a,#8a6fa8);
+  --bg-radial-1:rgba(201,138,90,0.12);
+  --bg-radial-2:rgba(138,111,168,0.08);
+  --bg-radial-3:rgba(78,154,138,0.06);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:-apple-system,'PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;
+  background:var(--bg); color:var(--text); min-height:100vh; display:flex; overflow-x:hidden;
+}
+body::before {
+  content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(1100px 600px at 85% -10%, var(--bg-radial-1), transparent 55%),
+    radial-gradient(900px 500px at -8% 108%, var(--bg-radial-2), transparent 50%),
+    radial-gradient(700px 400px at 50% 50%, var(--bg-radial-3), transparent 60%);
+}
+.sidebar {
+  width:208px; height:100vh; position:fixed; left:0; top:0; z-index:10;
+  background:var(--sidebar-bg); backdrop-filter:blur(24px) saturate(170%);
+  -webkit-backdrop-filter:blur(24px) saturate(170%);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column;
+}
+.sidebar-header { padding:20px 16px 14px; display:flex; align-items:center; gap:11px; border-bottom:1px solid var(--border); }
+.sidebar-logo { width:40px; height:40px; border-radius:12px; background:var(--grad-accent); display:grid; place-items:center; font-size:1.25rem; box-shadow:0 0 18px var(--accent-glow); }
+.sidebar-title { font-size:0.95rem; font-weight:700; letter-spacing:0.02em; }
+.sidebar-sub { font-size:0.64rem; color:var(--text3); margin-top:2px; }
+.sidebar-status { padding:11px 16px; display:flex; align-items:center; gap:8px; font-size:0.72rem; color:var(--text2); border-bottom:1px solid var(--border); }
+.dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.dot.on { background:var(--green); box-shadow:0 0 9px var(--green); }
+.dot.off { background:#4a4a55; }
+.nav-menu { padding:14px 10px; flex:1; overflow-y:auto; }
+.nav-section { padding:10px 10px 6px; font-size:0.62rem; color:var(--text3); letter-spacing:0.08em; }
+.nav-item { display:flex; align-items:center; gap:9px; padding:10px 11px; border-radius:9px; color:var(--text2); font-size:0.8rem; cursor:pointer; margin-bottom:2px; transition:all 0.18s; }
+.nav-item:hover { background:var(--glass); color:var(--text); }
+.nav-item.active { background:var(--accent-soft); color:var(--text); font-weight:600; box-shadow:inset 0 0 0 1px var(--accent-border); }
+.nav-item .icon { font-size:1.02rem; }
+.badge { margin-left:auto; background:var(--accent-soft); color:var(--accent); border-radius:999px; padding:1px 8px; font-size:0.66rem; font-weight:600; }
+.main { margin-left:208px; flex:1; padding:26px 30px; min-height:100vh; max-width:1100px; }
+.topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+.topbar h1 { font-size:1.3rem; font-weight:700; }
+.theme-btn { width:36px; height:36px; border-radius:10px; border:1px solid var(--border); background:var(--glass); color:var(--text2); cursor:pointer; font-size:0.92rem; transition:all 0.2s; }
+.theme-btn:hover { border-color:var(--border-hover); }
+.pill { display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; background:var(--glass); border:1px solid var(--border); font-size:0.72rem; color:var(--text2); }
+.stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); gap:13px; margin-bottom:22px; }
+.stat-card { background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); padding:17px; backdrop-filter:blur(10px); transition:border-color 0.2s, transform 0.2s; }
+.stat-card:hover { border-color:var(--border-hover); transform:translateY(-1px); }
+.stat-card .label { font-size:0.68rem; color:var(--text3); margin-bottom:7px; letter-spacing:0.03em; }
+.stat-card .value { font-size:1.35rem; font-weight:750; font-variant-numeric:tabular-nums; }
+.stat-card .value.green { color:var(--green); }
+.stat-card .value.red { color:var(--red); }
+.stat-card .value.amber { color:var(--amber); }
+.stat-card .value.grad { background:var(--grad-accent); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.stat-card .hint { font-size:0.66rem; color:var(--text3); margin-top:5px; }
+.card { background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; backdrop-filter:blur(10px); }
+.card h2 { font-size:0.92rem; margin-bottom:14px; display:flex; align-items:center; gap:9px; }
+.card h2 .line { flex:1; height:1px; background:var(--border); }
+.row { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:9px 0; border-top:1px solid var(--border); font-size:0.83rem; color:var(--text2); }
+.row:first-of-type { border-top:0; }
+.row .k { color:var(--text3); flex-shrink:0; }
+.row .v { text-align:right; overflow-wrap:anywhere; font-weight:550; color:var(--text); }
+.btn { padding:9px 17px; border-radius:9px; border:1px solid var(--border); background:var(--glass); color:var(--text); cursor:pointer; font-size:0.8rem; transition:all 0.2s; font-family:inherit; }
+.btn:hover { border-color:var(--border-hover); background:var(--glass-hover); }
+.btn-accent { border-color:var(--accent-border); background:var(--accent-soft); }
+.btn-accent:hover { box-shadow:0 0 14px var(--accent-glow); }
+.btn-ghost { background:transparent; }
+.btn-danger { border-color:rgba(248,113,113,0.4); color:var(--red); }
+.btn-danger:hover { background:rgba(248,113,113,0.1); }
+.btn-group { display:flex; gap:9px; flex-wrap:wrap; }
+.mode-chip { padding:7px 15px; border-radius:999px; border:1px solid var(--border); background:var(--glass); color:var(--text2); font-size:0.76rem; cursor:pointer; transition:all 0.18s; font-family:inherit; }
+.mode-chip:hover { border-color:var(--border-hover); }
+.mode-chip.active { border-color:var(--accent); color:var(--text); background:var(--accent-soft); font-weight:600; box-shadow:0 0 12px var(--accent-glow); }
+.freq-chip { padding:6px 14px; border-radius:999px; border:1px solid var(--border); background:var(--glass); color:var(--text2); font-size:0.74rem; cursor:pointer; font-family:inherit; }
+.freq-chip.active { border-color:var(--accent2); color:var(--text); background:rgba(139,157,255,0.12); font-weight:600; }
+.act-list { display:grid; gap:8px; }
+.act-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 13px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--glass); font-size:0.78rem; }
+.act-item .t { color:var(--text); font-weight:550; }
+.act-item .d { color:var(--text3); font-size:0.7rem; margin-top:2px; }
+.act-item .time { color:var(--text3); font-size:0.68rem; flex-shrink:0; font-variant-numeric:tabular-nums; }
+.act-mark { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.act-mark.t0 { background:var(--red); box-shadow:0 0 8px var(--red); }
+.act-mark.t1 { background:var(--amber); }
+.act-mark.t2 { background:var(--accent); }
+.act-mark.t3 { background:var(--text3); }
+.tag { display:inline-block; padding:3px 9px; border-radius:999px; font-size:0.68rem; background:var(--glass); border:1px solid var(--border); color:var(--text2); margin:3px; }
+.empty { color:var(--text3); font-size:0.78rem; padding:16px 0; text-align:center; }
+.diag-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+.diag-item { padding:13px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--glass); }
+.diag-item .n { font-size:0.68rem; color:var(--text3); margin-bottom:5px; }
+.diag-item .s { font-size:0.85rem; font-weight:650; }
+.diag-item .s.good { color:var(--green); }
+.diag-item .s.bad { color:var(--red); }
+.diag-item .s.warn { color:var(--amber); }
+.diag-item .desc { font-size:0.68rem; color:var(--text3); margin-top:4px; line-height:1.5; }
+.log-item { display:flex; gap:8px; align-items:center; padding:7px 0; border-top:1px solid var(--border); font-size:0.75rem; color:var(--text2); }
+.log-item:first-child { border-top:0; }
+.log-item .res { font-weight:650; }
+.log-item .res.ok { color:var(--green); }
+.log-item .res.no { color:var(--amber); }
+.log-item .why { color:var(--text3); margin-left:auto; font-size:0.68rem; }
+.toast { position:fixed; bottom:26px; right:26px; z-index:100; padding:13px 19px; border-radius:11px; background:var(--bg3); border:1px solid var(--accent); color:var(--text); font-size:0.8rem; opacity:0; transform:translateY(10px); transition:all 0.3s; box-shadow:var(--shadow); }
+.toast.show { opacity:1; transform:translateY(0); }
+.toast.error { border-color:var(--red); }
+@media (max-width:780px) {
+  .sidebar { width:64px; }
+  .sidebar-header { justify-content:center; padding:14px 6px; }
+  .sidebar-logo { width:36px; height:36px; }
+  .sidebar-title,.sidebar-sub,.nav-section,.nav-item span:not(.icon),.sidebar-status span:last-child { display:none; }
+  .nav-item { justify-content:center; padding:11px 0; }
+  .main { margin-left:64px; padding:18px 14px; }
+  .stat-grid { grid-template-columns:repeat(2,1fr); }
+  .diag-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">🐾</div>
+    <div><div class="sidebar-title">猫爪副驾</div><div class="sidebar-sub">欧卡2 陪玩</div></div>
+  </div>
+  <div class="sidebar-status"><span class="dot" id="sDot"></span><span id="sText">加载中</span></div>
+  <nav class="nav-menu">
+    <div class="nav-section">驾驶</div>
+    <a class="nav-item active" onclick="switchNav('drive',this)"><span class="icon">🚚</span> 驾驶状态</a>
+    <a class="nav-item" onclick="switchNav('activity',this)"><span class="icon">📋</span> 最近活动 <span class="badge" id="navBadge">0</span></a>
+    <a class="nav-item" onclick="switchNav('diagnostics',this)"><span class="icon">🩺</span> 诊断</a>
+    <div class="nav-section">副驾驶</div>
+    <a class="nav-item" onclick="switchNav('map',this)"><span class="icon">🗺️</span> 地图</a>
+    <a class="nav-item" onclick="switchNav('memory',this)"><span class="icon">🧠</span> 陪玩记忆</a>
+    <a class="nav-item" onclick="switchNav('settings',this)"><span class="icon">⚙️</span> 设置</a>
+  </nav>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <h1 id="mainTitle">🚚 驾驶状态</h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="theme-btn" onclick="toggleTheme()" id="themeBtn" title="切换主题">🌙</button>
+      <span class="pill"><span class="dot" id="statusDot"></span><span id="statusText">加载中</span></span>
+    </div>
+  </div>
+
+  <!-- 驾驶 -->
+  <div id="view-drive">
+    <div class="stat-grid" id="driveGrid"></div>
+    <div class="card">
+      <h2>📦 当前任务 <span class="line"></span></h2>
+      <div class="row"><span class="k">货物</span><span class="v" id="taskCargo">-</span></div>
+      <div class="row"><span class="k">路线</span><span class="v" id="taskRoute">-</span></div>
+      <div class="row"><span class="k">进度</span><span class="v" id="taskProgress">-</span></div>
+      <div class="row"><span class="k">交付剩余</span><span class="v" id="taskDelivery">-</span></div>
+      <div class="row"><span class="k">货物完好</span><span class="v" id="taskCargoDamage">-</span></div>
+    </div>
+    <div class="card">
+      <h2>🐈 猫娘状态 <span class="line"></span></h2>
+      <div class="row"><span class="k">情绪</span><span class="v" id="mood">-</span></div>
+      <div class="row"><span class="k">猫娘</span><span class="v" id="mode">-</span></div>
+      <div class="row"><span class="k">驾驶场景</span><span class="v" id="scenario">-</span></div>
+      <div class="row"><span class="k">播报</span><span class="v" id="broadcast">-</span></div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-ghost" onclick="installTelemetry()">📥 导入遥测</button>
+      <button class="btn btn-accent" onclick="testSay()">🔊 测试开口</button>
+    </div>
+    <div class="btn-group" style="margin-top:10px;" id="pilotBtns"></div>
+  </div>
+
+  <!-- 活动 -->
+  <div id="view-activity" style="display:none;">
+    <div class="card">
+      <h2>📋 最近活动 <span class="line"></span></h2>
+      <div class="act-list" id="activityList"></div>
+    </div>
+  </div>
+
+  <!-- 诊断 -->
+  <div id="view-diagnostics" style="display:none;">
+    <div class="btn-group" style="margin-bottom:14px;">
+      <button class="btn btn-accent" onclick="installTelemetry()">📥 导入遥测文件</button>
+      <button class="btn btn-ghost" onclick="reparseMap()">🗺️ 重新解析地图</button>
+    </div>
+    <div class="diag-grid" id="diagGrid"></div>
+    <div class="card" style="margin-top:16px;">
+      <h2>📊 决策日志 <span class="line"></span></h2>
+      <div id="decisionLog"><div class="empty">暂无决策记录</div></div>
+    </div>
+  </div>
+
+  <!-- 记忆 -->
+  <div id="view-memory" style="display:none;">
+    <div class="stat-grid" id="memoryGrid"></div>
+    <div class="card">
+      <h2>🏙 常去城市 <span class="line"></span></h2>
+      <div id="cityTags" class="empty">还没有城市记忆，跑一单就有了喵</div>
+    </div>
+    <div class="card">
+      <h2>📦 常运货物 <span class="line"></span></h2>
+      <div id="cargoTags" class="empty">还没有货物记忆</div>
+    </div>
+    <div class="card">
+      <h2>🏆 成就里程碑 <span class="line"></span></h2>
+      <div id="milestones" class="empty">还没有成就，继续跑吧喵</div>
+    </div>
+  </div>
+
+  <!-- 地图 -->
+  <div id="view-map" style="display:none;">
+    <div class="stat-grid" id="mapGrid"></div>
+    <div class="card">
+      <h2>📍 实时定位 <span class="line"></span></h2>
+      <div class="row"><span class="k">道路等级</span><span class="v" id="mapRoad">-</span></div>
+      <div class="row"><span class="k">前方服务区</span><span class="v" id="mapService">-</span></div>
+      <div class="row"><span class="k">世界坐标</span><span class="v" id="mapCoord">-</span></div>
+    </div>
+    <div class="card">
+      <h2>📸 美景相册 <span class="line"></span></h2>
+      <div id="photoList" class="empty">还没有拍到美景，跑长途时留意天空喵</div>
+    </div>
+  </div>
+
+  <!-- 设置 -->
+  <div id="view-settings" style="display:none;">
+    <div class="card">
+      <h2>🐱 猫娘人设（宿主导入） <span class="line"></span></h2>
+      <div class="btn-group" id="modeGroup"></div>
+      <div style="color:var(--text3);font-size:0.72rem;margin-top:11px;">人设来自宿主，此处仅展示。</div>
+    </div>
+    <div class="card">
+      <h2>🗣️ 播报口吻 <span class="line"></span></h2>
+      <div class="btn-group" id="voiceGroup"></div>
+      <div style="color:var(--text3);font-size:0.72rem;margin-top:11px;">叠加在宿主人设上的说话风格，切换立即生效并持久保存。</div>
+    </div>
+    <div class="card">
+      <h2>📢 播报设置 <span class="line"></span></h2>
+      <div class="row"><span class="k">播报模式</span><span class="v" id="dryRunLabel">-</span></div>
+      <div class="btn-group" style="margin-top:8px;">
+        <button class="btn btn-accent" onclick="toggleDryRun()">切换播报模式</button>
+        <button class="btn btn-danger" id="pauseBtn" onclick="togglePause()">急停</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>🎚 播报频率 <span class="line"></span></h2>
+      <div class="btn-group" id="freqGroup"></div>
+      <div style="color:var(--text3);font-size:0.72rem;margin-top:11px;">quiet 安静 / standard 标准 / active 活跃，影响各类事件冷却。</div>
+    </div>
+    <div class="card">
+      <h2>📑 播报类别 <span class="line"></span></h2>
+      <div class="btn-group" id="catGroup"></div>
+      <div style="color:var(--text3);font-size:0.72rem;margin-top:11px;">关闭的类别不推送（危急驾驶安全始终保留）。</div>
+    </div>
+    <div class="card">
+      <h2>🤖 LLM 配置 <span class="line"></span></h2>
+      <div style="color:var(--text3);font-size:0.72rem;margin-bottom:8px;" id="llmStatus">未配置（自动用模板/宿主演绎）</div>
+      <div class="config-field"><label>Provider</label>
+        <select id="llm-provider" style="width:100%;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--glass);color:var(--text);font-family:inherit;">
+          <option value="">（不配置）</option>
+          <option value="openai_compatible">OpenAI 兼容（DeepSeek/Ollama 等）</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="gemini">Gemini</option>
+        </select>
+      </div>
+      <div class="config-field" style="margin-top:8px;"><label>模型 Model</label><input id="llm-model" placeholder="如 deepseek-chat / gpt-4o / qwen2.5" style="width:100%;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--glass);color:var(--text);"></div>
+      <div class="config-field" style="margin-top:8px;"><label>API Key</label><input id="llm-api_key" type="password" placeholder="sk-...（本地可留空）" style="width:100%;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--glass);color:var(--text);"></div>
+      <div class="config-field" style="margin-top:8px;"><label>Base URL</label><input id="llm-base_url" placeholder="https://api.deepseek.com 或 http://127.0.0.1:11434/v1" style="width:100%;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--glass);color:var(--text);"></div>
+      <div class="btn-group" style="margin-top:10px;">
+        <button class="btn btn-accent" onclick="saveLlmConfig()">💾 保存 LLM 配置</button>
+        <button class="btn btn-ghost" onclick="clearLlmConfig()">🗑 清空（用模板）</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PLUGIN_ID = 'neko_pawpilot', RUNS_URL = '/runs', POLL_MS = 300, TIMEOUT_MS = 10000;
+let state = {};
+let activityCache = [];
+
+const MOOD_LABELS = { excitement:'兴奋', worry:'担忧', sleepy:'困倦', sympathy:'心疼', proud:'得意', calm:'平静' };
+const SCENARIO_LABELS = {
+  IDLE:'空闲', JOB_PICKUP:'接货', DRIVING:'行驶中', URBAN:'市区',
+  HIGHWAY:'高速', DELIVERY:'卸货', SETTLE:'结算'
+};
+const FREQ_LABELS = { quiet:'安静', standard:'标准', active:'活跃' };
+const CAT_LABELS = { safety:'驾驶安全', task:'任务', trip:'旅程', lifecycle:'启停', chatter:'闲聊' };
+const VOICE_STYLES = [
+  { id:'default', label:'自然' }, { id:'tsundere', label:'傲娇' }, { id:'yandere', label:'病娇' },
+  { id:'loli', label:'萝莉' }, { id:'onee', label:'御姐' }, { id:'genki', label:'元气少女' },
+  { id:'cold', label:'冰山' }, { id:'chatty', label:'话痨' }, { id:'gentle', label:'温柔' },
+  { id:'playful', label:'调皮' }, { id:'strict', label:'严厉' }, { id:'quiet', label:'安静' },
+  { id:'kuudere', label:'三无' }, { id:'sister', label:'妹系' }, { id:'ojousama', label:'大小姐' },
+];
+
+function delay(ms) { return new Promise(r=>setTimeout(r,ms)); }
+function toast(msg, isErr) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' error' : '');
+  setTimeout(()=>{ t.className = 'toast'; }, 2600);
+}
+
+async function callEntry(eid, p, timeoutMs) {
+  try {
+    var r = await fetch(RUNS_URL, { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ plugin_id: PLUGIN_ID, entry_id: eid, args: p || {} }) });
+    if (!r.ok) return {};
+    var d = await r.json(), rid = d.run_id;
+    if (!rid) return {};
+    var dl = Date.now() + (timeoutMs || TIMEOUT_MS);
+    while (Date.now() < dl) {
+      var p2 = await fetch(RUNS_URL + '/' + rid);
+      if (!p2.ok) { await delay(POLL_MS); continue; }
+      var rec = await p2.json();
+      if (rec.status === 'succeeded') {
+        var e = await fetch(RUNS_URL + '/' + rid + '/export');
+        if (!e.ok) { await delay(POLL_MS); continue; }
+        var ed = await e.json(), items = ed.items || [];
+        var ti = items.find(x=>x.label==='trigger_response') || items.find(x=>x.type==='json'&&x.json) || items[0] || {};
+        var jd = ti.json || {}, pr = jd.plugin_response || jd;
+        if (pr && typeof pr==='object' && pr.success !== undefined) {
+          var a = pr.data;
+          while (a && typeof a==='object' && !Array.isArray(a) && Object.keys(a).length===1 && a.value!==undefined) a = a.value;
+          return a || {};
+        }
+        return pr || {};
+      }
+      if (rec.status === 'failed' || rec.status === 'canceled' || rec.status === 'cancelled') return {};
+      await delay(POLL_MS);
+    }
+  } catch (e) { /* 忽略 */ }
+  return {};
+}
+
+function statCard(label, val, cls, hint) {
+  return '<div class="stat-card"><div class="label">' + label + '</div><div class="value ' + (cls||'') + '">' + val + '</div>' + (hint ? '<div class="hint">' + hint + '</div>' : '') + '</div>';
+}
+
+function renderDrive() {
+  var s = state;
+  var speedTone = s.is_speeding ? 'red' : '';
+  var connTxt = s.connected ? '已连接' : (s.game_running ? '游戏运行中' : '未检测到游戏');
+  var connCls = s.connected ? 'green' : (s.game_running ? 'amber' : 'red');
+  var connDesc = s.connected ? '遥测正常' : (s.game_running ? '在主菜单，进入驾驶后连接' : '启动游戏后自动连接');
+  document.getElementById('driveGrid').innerHTML =
+    statCard('连接', connTxt, connCls, connDesc) +
+    statCard('车速', s.speed_kmh !== undefined ? Math.round(s.speed_kmh) + ' km/h' : '-', speedTone, s.is_speeding ? '超速中！' : '') +
+    statCard('限速', s.speed_limit_kmh !== undefined ? Math.round(s.speed_limit_kmh) + ' km/h' : '-') +
+    statCard('油量', s.fuel_percent !== undefined ? Math.round(s.fuel_percent) + '%' : '-', s.fuel_percent !== undefined && s.fuel_percent < 15 ? 'amber' : '', s.fuel_percent !== undefined && s.fuel_percent < 15 ? '该加油了' : '') +
+    statCard('续航', s.fuel_range_km !== undefined ? Math.round(s.fuel_range_km) + ' km' : '-') +
+    statCard('损伤', s.damage !== undefined ? Math.round(s.damage) + '%' : '-', s.damage !== undefined && s.damage > 30 ? 'red' : '') +
+    statCard('车辆', s.truck || '-', 'grad') +
+    statCard('动力', s.power_type === 'electric' ? '电动' : s.power_type === 'diesel' ? '柴油' : '-');
+
+  document.getElementById('taskCargo').textContent = s.cargo || '-';
+  document.getElementById('taskRoute').textContent = s.on_job ? (s.city_src || '-') + ' → ' + (s.city_dst || '-') : '无任务';
+  document.getElementById('taskProgress').textContent = s.on_job ? Math.round(s.progress_percent || 0) + '%（剩 ' + Math.round(s.remaining_km || 0) + ' km）' : '-';
+  document.getElementById('taskDelivery').textContent = s.delivery_remaining_min != null ? s.delivery_remaining_min + ' 分钟' : '-';
+  document.getElementById('taskCargoDamage').textContent = s.cargo_damage !== undefined ? Math.round((1 - s.cargo_damage) * 100) + '%' : '-';
+
+  document.getElementById('mood').textContent = MOOD_LABELS[s.mood] || s.mood || '-';
+  document.getElementById('mode').textContent = (s.catgirl || {}).name || '-';
+  document.getElementById('scenario').textContent = SCENARIO_LABELS[s.scenario] || s.scenario || '-';
+  document.getElementById('broadcast').textContent = s.dry_run ? 'dry_run（试运行）' : '已开启';
+  // 猫娘智驾按钮（按状态显示）
+  var pst = (s.pilot || {}).state || 'idle';
+  var pb = document.getElementById('pilotBtns');
+  if (!pb) return;
+  if (!(s.pilot || {}).available) {
+    pb.innerHTML = '<span style="color:var(--text3);font-size:0.72rem;">智驾不可用（输入组件缺失）</span>';
+  } else if (pst === 'engaged') {
+    pb.innerHTML = '<button class="btn btn-danger" onclick="pilotRelease()">🛑 交还驾驶</button>' +
+      '<span style="color:var(--text3);font-size:0.72rem;align-self:center;">猫娘驾驶中…被抢 3 次会自动交还</span>';
+  } else if (pst === 'offer') {
+    pb.innerHTML = '<button class="btn btn-accent" onclick="pilotAccept()">✅ 同意猫娘开车</button>' +
+      '<button class="btn btn-ghost" onclick="pilotDecline()">❌ 不用了</button>';
+  } else {
+    pb.innerHTML = '<button class="btn btn-ghost" onclick="pilotOffer()">🤖 猫娘帮我开会儿</button>';
+  }
+}
+
+function renderMemory() {
+  var s = state, counts = s.memory || {};
+  var prof = s.profile || {}, pstats = prof.stats || {};
+  var led = s.ledger || {};
+  document.getElementById('memoryGrid').innerHTML =
+    statCard('城市足迹', counts.cities || 0) +
+    statCard('货物偏好', counts.cargos || 0) +
+    statCard('总里程', pstats.total_km !== undefined ? Math.round(pstats.total_km) + ' km' : '-', 'grad') +
+    statCard('完成单数', pstats.trips || 0) +
+    statCard('本月净赚', led.net !== undefined ? Math.round(led.net) + ' €' : '-', 'green') +
+    statCard('驾驶画像', prof.label || '-');
+  var cities = s.top_cities || [], cargos = s.top_cargos || [];
+  document.getElementById('cityTags').innerHTML = cities.length
+    ? cities.map(c => '<span class="tag">' + (c.key || '') + ' · ' + (c.count || 0) + ' 次</span>').join('')
+    : '<div class="empty">还没有城市记忆，跑一单就有了喵</div>';
+  document.getElementById('cargoTags').innerHTML = cargos.length
+    ? cargos.map(c => '<span class="tag">' + (c.key || '') + ' · ' + (c.count || 0) + ' 次</span>').join('')
+    : '<div class="empty">还没有货物记忆</div>';
+  var ms = document.getElementById('milestones');
+  if (ms) ms.innerHTML = (prof.milestones || []).length
+    ? (prof.milestones || []).map(m => '<span class="tag">🏆 ' + m + '</span>').join('')
+    : '<div class="empty">还没有成就，继续跑吧喵</div>';
+}
+
+function renderMap() {
+  var s = state, mk = s.map || {}, ph = s.photos || {};
+  document.getElementById('mapGrid').innerHTML =
+    statCard('地图知识库', mk.loaded ? '已加载' : '静态降级', mk.loaded ? 'green' : 'amber',
+      mk.loaded ? '版本 ' + (mk.version || '') : 'TruckLib 导出后加载') +
+    statCard('道路段', mk.roads || 0) +
+    statCard('设施点', mk.facilities || 0) +
+    statCard('相册', ph.count || 0, ph.count ? 'green' : '');
+  document.getElementById('mapRoad').textContent = s.road_level || '-';
+  document.getElementById('mapService').textContent = s.nearest_service || '-';
+  document.getElementById('mapCoord').textContent = s.world ? ('x=' + Math.round(s.world.x || 0) + ' z=' + Math.round(s.world.z || 0)) : '-';
+  var recent = ph.recent || [];
+  document.getElementById('photoList').innerHTML = recent.length
+    ? recent.map(p => '<span class="tag">📸 ' + (p.scene || '') + ' · ' + new Date(p.ts * 1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + '</span>').join('')
+    : '<div class="empty">还没有拍到美景，跑长途时留意天空喵</div>';
+}
+
+function renderActivity() {
+  var list = activityCache;
+  document.getElementById('navBadge').textContent = list.length;
+  var toneMap = { '车祸':'t0','急刹':'t1','超速':'t1','交付时间警告':'t1','超时':'t1','罚款':'t1','接单':'t2','到货':'t2','加油':'t3','进入游戏':'t3','退出游戏':'t3' };
+  document.getElementById('activityList').innerHTML = list.length
+    ? list.map(a => '<div class="act-item"><span class="act-mark ' + (toneMap[a.title]||'t3') + '"></span><div style="flex:1;min-width:0;"><div class="t">' + a.title + '</div><div class="d">' + (a.detail || '') + '</div></div><span class="time">' + (a.time || '') + '</span></div>').join('')
+    : '<div class="empty">暂无活动记录</div>';
+}
+
+function renderDiagnostics() {
+  var s = state, safety = s.safety || {};
+  var items = [];
+  items.push({ n:'游戏连接', s: s.connected ? '正常' : (s.game_running ? '主菜单' : '未检测到'), cls: s.connected ? 'good' : (s.game_running ? 'warn' : 'bad'), d: s.connected ? '遥测共享内存已连接' : (s.game_running ? '游戏运行中，进入驾驶后连接' : '启动游戏后自动连接') });
+  var tl = s.telemetry_install || {};
+  var tlMap = { ok:['已就绪','good','遥测插件已自动导入'], installed:['待重启','warn','已安装，重启游戏生效'], updated:['待重启','warn','已更新，重启游戏生效'], locked:['被占用','bad','游戏运行中无法写入，关闭游戏后重试'], no_game:['未找到游戏','bad','未检测到欧卡2安装目录'], no_bundle:['缺文件','bad','插件缺少捆绑遥测文件'] };
+  var tls = tlMap[tl.status] || ['未知', 'warn', tl.detail || ''];
+  items.push({ n:'遥测插件', s: tls[0], cls: tls[1], d: tls[2] });
+  if (s.game_dir) items.push({ n:'游戏目录', s: '已匹配', cls: 'good', d: s.game_dir });
+  items.push({ n:'驾驶场景', s: SCENARIO_LABELS[s.scenario] || '-', cls: 'good', d: '当前驾驶状态机' });
+  items.push({ n:'播报模式', s: s.dry_run ? '试运行' : '正式', cls: s.dry_run ? 'warn' : 'good', d: s.dry_run ? '只记录不推送' : '事件会推送给猫娘' });
+  items.push({ n:'安全门', s: safety.status === 'running' ? '正常' : safety.status === 'paused' ? '已急停' : '自动急停', cls: safety.status === 'running' ? 'good' : 'bad', d: '失败计数 ' + (safety.failures || 0) });
+  items.push({ n:'播报频率', s: FREQ_LABELS[s.broadcast_frequency] || '-', cls: 'good', d: '事件冷却倍率' });
+  items.push({ n:'限流剩余', s: (safety.rate_limit_remaining || 0) + 's', cls: 'good', d: '全局限流时钟' });
+  document.getElementById('diagGrid').innerHTML = items.map(i =>
+    '<div class="diag-item"><div class="n">' + i.n + '</div><div class="s ' + i.cls + '">' + i.s + '</div><div class="desc">' + i.d + '</div></div>').join('');
+  var log = s.decision_log || [];
+  document.getElementById('decisionLog').innerHTML = log.length
+    ? log.map(l => '<div class="log-item"><span class="res ' + (l.result === 'spoken' ? 'ok' : 'no') + '">' + (l.result === 'spoken' ? '说' : '不说') + '</span><span>' + (l.event_id || '') + '</span><span class="why">' + (l.reason || '') + '</span></div>').join('')
+    : '<div class="empty">暂无决策记录</div>';
+}
+
+function renderSettings() {
+  var s = state, cg = s.catgirl || {};
+  // 人设来自宿主导入：显示名字/特质/口头禅
+  var traits = (cg.traits || []).slice(0, 3).join('、');
+  document.getElementById('modeGroup').innerHTML =
+    '<div class="diag-item"><div class="n">' + (cg.name || '猫娘') + '</div>' +
+    '<div class="s good">宿主导入</div><div class="desc">' +
+    (traits || '宿主未配置人设特质') + '</div></div>' +
+    (cg.description ? '<div class="desc" style="margin-top:6px">口头禅：' + cg.description + '</div>' : '');
+  var vss = (cg.voice_styles && cg.voice_styles.length) ? cg.voice_styles : [(cg.voice_style || 'default')];
+  document.getElementById('voiceGroup').innerHTML = VOICE_STYLES.map(v =>
+    '<button class="mode-chip' + (vss.indexOf(v.id) >= 0 ? ' active' : '') + '" onclick="toggleVoiceStyle(\'' + v.id + '\')">' + v.label + '</button>').join('');
+  document.getElementById('dryRunLabel').textContent = s.dry_run ? '试运行（不真发）' : '正式播报';
+  var paused = (s.safety || {}).status === 'paused' || (s.safety || {}).status === 'tripped';
+  document.getElementById('pauseBtn').textContent = paused ? '恢复' : '急停';
+  var freq = s.broadcast_frequency || 'standard';
+  document.getElementById('freqGroup').innerHTML = ['quiet','standard','active'].map(f =>
+    '<button class="freq-chip' + (f === freq ? ' active' : '') + '" onclick="setFrequency(\'' + f + '\')">' + FREQ_LABELS[f] + '</button>').join('');
+  var cats = s.broadcast_categories || {};
+  document.getElementById('catGroup').innerHTML = Object.keys(cats).map(c =>
+    '<button class="mode-chip' + (cats[c] ? ' active' : '') + '" onclick="toggleCategory(\'' + c + '\',' + cats[c] + ')">' + (CAT_LABELS[c] || c) + '</button>').join('');
+  loadLlmForm();
+}
+
+function loadLlmForm() {
+  callEntry('get_llm_config', {}).then(function(r) {
+    if (!r || !r.config) return;
+    var c = r.config || {};
+    var p = document.getElementById('llm-provider'); if (p) p.value = c.provider || '';
+    var m = document.getElementById('llm-model'); if (m) m.value = c.model || '';
+    var k = document.getElementById('llm-api_key'); if (k) k.value = c.api_key || '';
+    var b = document.getElementById('llm-base_url'); if (b) b.value = c.base_url || '';
+    var st = document.getElementById('llmStatus');
+    if (st) st.textContent = (r.configured ? ('✅ 已配置 ' + (c.provider || '') + '/' + (c.model || '') + '（优先用自建 LLM，失败自动降级）') : '未配置（自动用模板/宿主演绎）');
+  }).catch(function(){});
+}
+
+async function saveLlmConfig() {
+  var cfg = {
+    provider: document.getElementById('llm-provider').value,
+    model: document.getElementById('llm-model').value.trim(),
+    api_key: document.getElementById('llm-api_key').value.trim(),
+    base_url: document.getElementById('llm-base_url').value.trim()
+  };
+  var r = await callEntry('save_llm_config', { config: cfg });
+  if (r && r.saved) { toast(r.configured ? 'LLM 配置已保存，自建 LLM 优先' : '已保存（未填完整，将用模板降级）'); }
+  else toast('保存 LLM 配置失败', true);
+  loadLlmForm();
+}
+
+async function clearLlmConfig() {
+  var r = await callEntry('save_llm_config', { config: { provider:'', model:'', api_key:'', base_url:'' } });
+  toast('已清空 LLM 配置，用模板/宿主演绎');
+  loadLlmForm();
+}
+
+function render() {
+  renderDrive();
+  renderMemory();
+  renderMap();
+  renderActivity();
+  renderDiagnostics();
+  renderSettings();
+  document.getElementById('sDot').className = 'dot ' + (state.connected ? 'on' : 'off');
+  document.getElementById('sText').textContent = state.connected ? '已连接游戏' : '未连接游戏';
+  document.getElementById('statusDot').className = 'dot ' + (state.connected ? 'on' : 'off');
+  document.getElementById('statusText').textContent = state.connected ? '在线' : '离线';
+}
+
+async function loadState() {
+  var s = await callEntry('get_panel_state', {});
+  if (s && typeof s === 'object' && Object.keys(s).length) {
+    state = s;
+    if (s.recent_activity && Array.isArray(s.recent_activity)) activityCache = s.recent_activity;
+    render();
+  }
+}
+
+async function installTelemetry() {
+  var r = await callEntry('install_telemetry', {});
+  if (r && r.status === 'ok') toast('遥测插件已就绪');
+  else if (r && (r.status === 'installed' || r.status === 'updated')) toast('已写入，重启游戏生效');
+  else toast((r && r.detail) || '导入遥测失败', true);
+  setTimeout(loadState, 800);
+}
+
+async function reparseMap() {
+  if (!confirm('重新解析地图需要 1-3 分钟，期间面板会等待。继续吗？')) return;
+  toast('开始解析地图…');
+  var r = await callEntry('reparse_map', {}, 240000);
+  if (r && r.ok) toast(r.detail || '地图解析完成');
+  else toast((r && r.detail) || '地图解析失败', true);
+  setTimeout(loadState, 800);
+}
+
+async function testSay() {
+  var r = await callEntry('test_say', {});
+  toast(r && r.pushed ? '测试消息已发出（dry_run 时仅记录）' : '测试开口失败', !(r && r.pushed));
+}
+
+async function toggleVoiceStyle(style) {
+  var cg = (state.catgirl || {});
+  var cur = (cg.voice_styles && cg.voice_styles.length) ? cg.voice_styles.slice() : [(cg.voice_style || 'default')];
+  if (style === 'default') {
+    // 选自然 = 清空其他
+    await callEntry('set_voice_style', { styles: ['default'] });
+  } else {
+    var idx = cur.indexOf(style);
+    if (idx >= 0) cur.splice(idx, 1);       // 取消选中
+    else { cur = cur.filter(s => s !== 'default'); cur.push(style); }  // 选中并移除 default
+    if (!cur.length) cur = ['default'];
+    await callEntry('set_voice_style', { styles: cur });
+  }
+  toast('口吻已更新');
+  setTimeout(loadState, 600);
+}
+
+async function pilotOffer() {
+  var r = await callEntry('pilot_offer', {});
+  if (r && r.reply) toast(r.reply);
+  else toast('智驾提议失败', true);
+  setTimeout(loadState, 600);
+}
+
+async function pilotAccept() {
+  var r = await callEntry('pilot_accept', {});
+  if (r && r.reply) toast(r.reply);
+  else toast('接管失败', true);
+  setTimeout(loadState, 600);
+}
+
+async function pilotDecline() {
+  var r = await callEntry('pilot_release', {});
+  if (r && r.reply) toast('好的喵');
+  setTimeout(loadState, 600);
+}
+
+async function pilotRelease() {
+  var r = await callEntry('pilot_release', {});
+  if (r && r.reply) toast(r.reply);
+  else toast('交还失败', true);
+  setTimeout(loadState, 600);
+}
+
+async function toggleDryRun() {
+  await callEntry('set_dry_run', { value: !state.dry_run });
+  toast('播报模式已切换');
+  setTimeout(loadState, 600);
+}
+
+async function togglePause() {
+  var paused = (state.safety || {}).status === 'paused' || (state.safety || {}).status === 'tripped';
+  await callEntry(paused ? 'resume' : 'pause', {});
+  toast(paused ? '已恢复' : '已急停');
+  setTimeout(loadState, 600);
+}
+
+async function setFrequency(f) {
+  await callEntry('set_frequency', { frequency: f });
+  toast('播报频率已更新');
+  setTimeout(loadState, 600);
+}
+
+async function toggleCategory(c, cur) {
+  await callEntry('set_category', { category: c, enabled: !cur });
+  setTimeout(loadState, 600);
+}
+
+function switchNav(name, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  ['drive','activity','diagnostics','map','memory','settings'].forEach(v => {
+    document.getElementById('view-' + v).style.display = v === name ? '' : 'none';
+  });
+  var titles = { drive:'🚚 驾驶状态', activity:'📋 最近活动', diagnostics:'🩺 诊断', map:'🗺️ 地图', memory:'🧠 陪玩记忆', settings:'⚙️ 设置' };
+  document.getElementById('mainTitle').textContent = titles[name];
+}
+
+function toggleTheme() {
+  var cur = document.documentElement.getAttribute('data-theme');
+  var next = cur === 'light' ? '' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  document.getElementById('themeBtn').textContent = next === 'light' ? '☀️' : '🌙';
+}
+
+loadState();
+setInterval(loadState, 3000);
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "panel.subtitle": "View DG-Lab device connection status and test functionality",
+  "status.serverStopped": "Server Stopped",
+  "status.connected": "Connected",
+  "status.waiting": "Waiting",
+  "section.status": "Server Status",
+  "section.qrCode": "Connection QR Code",
+  "section.clients": "Connected Devices",
+  "section.test": "Test Connection",
+  "field.serverStatus": "Server Status",
+  "field.wsUrl": "WebSocket URL",
+  "field.localIp": "Local IP",
+  "clients.empty": "No devices connected",
+  "clients.id": "Device ID",
+  "clients.battery": "Battery",
+  "clients.signal": "Signal Strength",
+  "qr.instruction": "Scan this QR code with DG-Lab APP to connect",
+  "qr.unavailable": "QR code unavailable (server not running)",
+  "test.description": "Send a 10-power pulse waveform for 5 seconds to verify device connection",
+  "test.button": "Test Connection",
+  "test.unavailable": "Test function unavailable"
+}

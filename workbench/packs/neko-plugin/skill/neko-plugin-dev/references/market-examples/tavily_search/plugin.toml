@@ -1,0 +1,13 @@
+[plugin]
+id = "tavily_search"
+name = "Tavily 搜索"
+description = "使用 Tavily 搜索互联网并提取指定网页内容。"
+short_description = "Search the web and extract pages through Tavily."
+keywords = ["搜索", "联网", "网页", "新闻", "Tavily", "search", "web search"]
+version = "0.1.1"
+type = "plugin"
+entry = "plugin.plugins.tavily_search:TavilySearchPlugin"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"

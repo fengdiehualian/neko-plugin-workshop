@@ -1,0 +1,53 @@
+[plugin]
+name = "猫娘命令操作器"
+description = "让猫娘在对话里执行 Shell / CMD / PowerShell 命令，并管理本地文件。支持超时、危险命令拦截、输出截断等安全围栏。"
+short_description = "Catgirl shell/cmd operator: run Shell/CMD/PowerShell in chat, manage local files, with timeout & dangerous-command guard."
+keywords = ["shell", "cmd", "命令", "猫娘", "catgirl", "powershell", "文件", "操作器"]
+version = "1.0.1"
+id = "shell_cmd"
+entry = "plugins.shell_cmd:ShellCmdPlugin"
+
+[plugin.author]
+name = "baixiangyuan"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[shell_cmd]
+# 命令执行超时（秒）
+timeout = 30
+# 工作目录，留空则使用 N.E.K.O 运行目录
+workdir = ""
+# 是否允许危险命令（默认 false，强烈建议保持 false）
+allow_dangerous = false
+# 单条命令输出最大行数，超出截断
+max_output_lines = 200
+# 危险命令黑名单（子串匹配，命中即拒绝执行）
+blacklist = [
+    "rm -rf /",
+    "format ",
+    "mkfs",
+    "shutdown",
+    "restart",
+    ":(){",
+    "dd if=",
+    "> /dev/sda",
+    "chmod -R 000",
+    "del /f /s /q",
+    "rd /s /q",
+    "rmdir /s /q",
+    "curl | sh",
+    "wget | sh",
+]

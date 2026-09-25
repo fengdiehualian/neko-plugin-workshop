@@ -1,0 +1,4 @@
+{
+  "plugin.name": "Web Searching",
+  "plugin.description": "Independent web search plugin. Multi-strategy: DDG Instant Answer API + Wikipedia API + HTML scraping fallback."
+}

@@ -1,0 +1,38 @@
+[plugin]
+name = "猫娘日记"
+description = "让猫娘记录每天的小事，标记心情，像回忆小盒子一样珍藏每一天。清新诗意的前端界面，支持i18n多语言。"
+short_description = "Catgirl diary — record daily moments, mark moods, cherish every memory."
+keywords = ["日记", "diary", "心情", "mood", "回忆", "memory", "猫娘", "日記", "일기", "дневник", "diario"]
+version = "0.1.1"
+id = "neko_diary"
+entry = "plugin.plugins.neko_diary:NekoDiaryPluginEntry"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[neko_diary]
+# 数据库存储路径（留空则使用插件默认路径）
+db_path = ""
+# 猫娘对用户的称呼
+master_name = "主人"
+# 猫娘的自称
+catgirl_name = "喵喵"
+# 默认心情（可选：happy, sad, angry, anxious, calm, excited, tired, neutral）
+default_mood = "neutral"
+# 每页显示日记数量
+page_size = 20

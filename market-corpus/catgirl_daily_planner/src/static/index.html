@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🐱 猫娘每日计划</title>
+<style>
+  * { box-sizing: border-box; }
+  :root {
+    --pink: #ff8db4;
+    --peach: #ffb88c;
+    --pink-soft: #ffe4ec;
+    --peach-soft: #fff5e6;
+    --ink: #4a3a3a;
+    --ink-soft: #8a7070;
+    --line: #ffd1e0;
+    --line-soft: #ffe1ec;
+    --bg: linear-gradient(135deg, #ffe4ec 0%, #fff5e6 100%);
+    --card: rgba(255, 255, 255, 0.86);
+    --card-solid: #ffffff;
+    --accent: #d4638a;
+    --good: #7ec890;
+    --warn: #f0a23a;
+    --bad: #ff6b6b;
+    --shadow: 0 6px 24px rgba(255, 128, 168, 0.18);
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    margin: 0; padding: 24px;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  h1 { margin: 0 0 4px 0; font-size: 26px; display: flex; align-items: center; gap: 8px; }
+  h1 .badge {
+    font-size: 13px; color: var(--accent);
+    background: var(--pink-soft); padding: 4px 10px;
+    border-radius: 999px; font-weight: 500;
+  }
+  h1 .streak {
+    font-size: 12px; color: #b85b00;
+    background: #fff3e0; padding: 3px 10px;
+    border-radius: 999px; font-weight: 600;
+  }
+  .sub { color: var(--ink-soft); font-size: 13px; margin-bottom: 18px; }
+  .topbar {
+    display: flex; gap: 8px; align-items: center;
+    flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .tabs {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    background: var(--card);
+    border-radius: 14px; padding: 6px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+  }
+  .tab {
+    cursor: pointer; padding: 8px 14px;
+    border-radius: 10px; font-size: 13px; font-weight: 600;
+    color: var(--ink-soft);
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .tab:hover { background: var(--pink-soft); color: var(--accent); }
+  .tab.active {
+    background: linear-gradient(135deg, var(--pink), var(--peach));
+    color: white; box-shadow: 0 2px 8px rgba(255,128,168,0.4);
+  }
+  .panel {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow);
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+  }
+  .panel-head h3 { margin: 0; font-size: 16px; }
+  .panel-head .hint { font-size: 12px; color: var(--ink-soft); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .row.tight { margin-bottom: 6px; }
+  .row input, .row textarea, .row select {
+    padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+    font-size: 14px; background: #fff; font-family: inherit;
+  }
+  .row input.time { width: 110px; }
+  .row input.title, .row input.flex1 { flex: 1; min-width: 160px; }
+  .row textarea { width: 100%; resize: vertical; min-height: 50px; }
+  .row .field-label { min-width: 64px; color: var(--ink-soft); font-size: 13px; }
+  button {
+    cursor: pointer; border: none; border-radius: 10px;
+    padding: 8px 16px; font-size: 14px; font-weight: 600;
+    background: linear-gradient(135deg, var(--pink), var(--peach));
+    color: white; transition: transform 0.1s, box-shadow 0.1s;
+    font-family: inherit;
+  }
+  button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,128,168,0.4); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  button.ghost { background: #f4dde4; color: #8a4a5e; }
+  button.ghost:hover { background: #ecc5d2; }
+  button.danger { background: var(--bad); }
+  button.danger:hover { box-shadow: 0 4px 12px rgba(255,107,107,0.4); }
+  button.tiny { padding: 4px 10px; font-size: 12px; }
+  button.link {
+    background: none; color: var(--accent); padding: 0;
+    text-decoration: underline; box-shadow: none;
+  }
+  button.link:hover { transform: none; box-shadow: none; }
+  .stats-grid {
+    display: grid; gap: 12px; margin-bottom: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+  .stat {
+    background: var(--card);
+    border-radius: 14px; padding: 14px 16px;
+    box-shadow: var(--shadow);
+    position: relative; overflow: hidden;
+  }
+  .stat .num { font-size: 26px; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .stat .lbl { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+  .stat .sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+  .stat.warn .num { color: var(--warn); }
+  .stat.good .num { color: var(--good); }
+
+  .task-list { list-style: none; padding: 0; margin: 0; }
+  .task-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; margin-bottom: 8px;
+    background: var(--card-solid); border-radius: 10px;
+    border-left: 4px solid var(--peach);
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .task-item:hover { transform: translateX(2px); }
+  .task-item.done { opacity: 0.55; border-left-color: var(--good); }
+  .task-item.done .title { text-decoration: line-through; }
+  .task-item.skipped { opacity: 0.4; border-left-color: #d0d0d0; text-decoration: line-through; }
+  .task-item.fired { box-shadow: inset 3px 0 0 var(--good); }
+  .task-item .time {
+    font-weight: 700; font-size: 16px; color: var(--accent);
+    min-width: 56px; font-family: "SF Mono", Consolas, monospace;
+  }
+  .task-item .body { flex: 1; min-width: 0; }
+  .task-item .body .title { font-weight: 600; word-break: break-word; }
+  .task-item .body .desc { font-size: 12px; color: var(--ink-soft); margin-top: 2px; word-break: break-word; }
+  .task-item .body .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .task-item .actions { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tag {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 999px; font-size: 11px; font-weight: 600;
+    background: var(--pink-soft); color: var(--accent);
+  }
+  .tag.prio-1 { background: #ffd6d6; color: #c44444; }
+  .tag.prio-2 { background: #ffe5c2; color: #b07700; }
+  .tag.prio-3 { background: #d9f0d9; color: #3e8a4a; }
+  .tag.recurring { background: #e1deff; color: #5a4ec0; }
+  .empty {
+    text-align: center; color: #b89a9a; padding: 40px 20px;
+    font-size: 14px;
+  }
+  .footer-info { font-size: 12px; color: var(--ink-soft); margin-top: 16px; text-align: center; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: rgba(74, 58, 58, 0.94); color: white;
+    padding: 10px 20px; border-radius: 24px; font-size: 13px;
+    opacity: 0; transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none; z-index: 200;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.error { background: rgba(255, 107, 107, 0.95); }
+
+  /* 早晚播报设置 */
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .schedule-cell {
+    background: var(--card-solid);
+    border-radius: 12px; padding: 12px 14px;
+    border: 1px solid var(--line-soft);
+  }
+  .schedule-cell .cell-title {
+    font-size: 13px; color: var(--ink-soft);
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  }
+  .time-inputs { display: flex; align-items: center; gap: 4px; font-size: 16px; color: var(--accent); font-weight: 600; }
+  .time-inputs input {
+    width: 56px; text-align: center; font-size: 16px; font-weight: 700;
+    color: var(--accent); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 4px;
+  }
+  .schedule-cell input.nickname {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: 8px; font-size: 14px;
+  }
+  .reset-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); margin-top: 10px; }
+  .reset-row input[type=checkbox] { transform: scale(1.1); }
+
+  /* 年历 / 月历 */
+  .cal-controls {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .cal-nav { display: flex; align-items: center; gap: 4px; }
+  .cal-nav button { padding: 4px 10px; font-size: 12px; }
+  .cal-title { font-weight: 600; color: var(--accent); min-width: 120px; text-align: center; }
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  }
+  .cal-cell, .cal-head {
+    aspect-ratio: 1 / 1;
+    background: var(--card-solid);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex; flex-direction: column;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid transparent;
+  }
+  .cal-head {
+    aspect-ratio: auto; padding: 8px 4px;
+    background: var(--pink-soft);
+    color: var(--accent);
+    font-size: 12px; font-weight: 600;
+    text-align: center; cursor: default;
+    border-radius: 6px;
+  }
+  .cal-cell:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,128,168,0.3); }
+  .cal-cell.empty { background: transparent; cursor: default; }
+  .cal-cell.empty:hover { transform: none; box-shadow: none; }
+  .cal-cell.today { border: 2px solid var(--accent); }
+  .cal-cell .dnum { font-size: 13px; font-weight: 700; color: var(--ink); }
+  .cal-cell .dnum.muted { color: #c9b8b8; }
+  .cal-cell .pill {
+    align-self: flex-start; padding: 1px 6px; border-radius: 6px;
+    font-size: 10px; font-weight: 700; margin-top: 2px;
+    background: var(--pink-soft); color: var(--accent);
+  }
+  .cal-cell .pill.good { background: #d9f0d9; color: #3e8a4a; }
+  .cal-cell .pill.warn { background: #ffe5c2; color: #b07700; }
+  .cal-cell .pill.bad { background: #ffd6d6; color: #c44444; }
+  .cal-cell .dots {
+    display: flex; gap: 2px; margin-top: auto; flex-wrap: wrap;
+  }
+  .cal-cell .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .cat-work     { background: #5b9dd9; }
+  .cat-study    { background: #9775d4; }
+  .cat-life     { background: #7ec890; }
+  .cat-rest     { background: #f0a23a; }
+  .cat-exercise { background: #e85d75; }
+  .cat-fun      { background: #ffc857; }
+  .cat-other    { background: #b8b8b8; }
+
+  /* 年历概览 */
+  .year-grid {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+  .year-month {
+    background: var(--card-solid);
+    border-radius: 10px; padding: 10px;
+    cursor: pointer; transition: all 0.15s;
+    border: 1px solid var(--line-soft);
+  }
+  .year-month:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,128,168,0.3); border-color: var(--accent); }
+  .year-month .mname { font-weight: 700; color: var(--accent); font-size: 14px; margin-bottom: 6px; }
+  .year-month .nums { display: flex; gap: 8px; font-size: 12px; }
+  .year-month .nums .done { color: var(--good); font-weight: 700; }
+  .year-month .nums .total { color: var(--ink-soft); }
+  .year-month .bar { height: 6px; background: var(--pink-soft); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .year-month .bar-fill { height: 100%; background: linear-gradient(90deg, var(--pink), var(--peach)); border-radius: 3px; transition: width 0.4s; }
+
+  /* 图表 */
+  .chart-box { background: var(--card-solid); border-radius: 12px; padding: 14px; }
+  .chart-title { font-size: 13px; color: var(--ink-soft); margin-bottom: 8px; font-weight: 600; }
+  .bars { display: flex; gap: 4px; align-items: flex-end; height: 120px; padding-top: 6px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+  .bar-stack { display: flex; flex-direction: column-reverse; width: 100%; max-width: 28px; height: 100%; gap: 1px; justify-content: flex-end; }
+  .bar-seg { width: 100%; border-radius: 2px 2px 0 0; min-height: 1px; }
+  .bar-seg.done { background: var(--good); }
+  .bar-seg.pending { background: var(--peach); }
+  .bar-seg.skipped { background: #d0d0d0; }
+  .bar-label { font-size: 10px; color: var(--ink-soft); }
+  .pie-wrap { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .pie { width: 120px; height: 120px; flex-shrink: 0; }
+  .pie-legend { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 6px; }
+  .pie-legend .item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .pie-legend .item .swatch { width: 12px; height: 12px; border-radius: 3px; }
+  .pie-legend .item .name { flex: 1; }
+  .pie-legend .item .val { color: var(--ink-soft); font-weight: 600; }
+
+  /* 模板卡片 */
+  .tpl-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .tpl-card {
+    background: var(--card-solid); border-radius: 12px; padding: 14px;
+    border: 1px solid var(--line-soft);
+    transition: all 0.15s; cursor: pointer;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .tpl-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,128,168,0.3); border-color: var(--accent); }
+  .tpl-card .tname { font-size: 15px; font-weight: 700; color: var(--accent); }
+  .tpl-card .tdesc { font-size: 12px; color: var(--ink-soft); }
+  .tpl-card .tcount { font-size: 11px; color: var(--ink-soft); }
+
+  /* 重复任务 */
+  .recur-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; margin-bottom: 6px;
+    background: var(--card-solid); border-radius: 10px;
+  }
+  .recur-item .rinfo { flex: 1; min-width: 0; }
+  .recur-item .rtitle { font-weight: 600; }
+  .recur-item .rmeta { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .weekday-chips { display: flex; gap: 4px; }
+  .weekday-chip {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--pink-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    user-select: none; transition: all 0.1s;
+    border: 2px solid transparent;
+  }
+  .weekday-chip:hover { background: #f4dde4; }
+  .weekday-chip.on { background: linear-gradient(135deg, var(--pink), var(--peach)); color: white; border-color: white; box-shadow: 0 1px 4px rgba(255,128,168,0.4); }
+
+  /* 弹窗 */
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(74,58,58,0.5);
+    display: none; align-items: center; justify-content: center;
+    z-index: 300; padding: 20px;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    background: white; border-radius: 16px; padding: 20px;
+    max-width: 520px; width: 100%;
+    max-height: 80vh; overflow: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal h3 { margin: 0 0 14px 0; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  /* 使用指南折叠面板 */
+  .guide-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer; padding: 6px 14px;
+    background: var(--card); border-radius: 999px;
+    font-size: 13px; font-weight: 600; color: var(--accent);
+    box-shadow: var(--shadow); margin-bottom: 12px;
+    user-select: none; transition: all 0.2s;
+    border: 1px solid var(--line-soft);
+  }
+  .guide-toggle:hover { background: var(--pink-soft); transform: translateY(-1px); }
+  .guide-toggle .arrow {
+    display: inline-block; transition: transform 0.3s;
+    font-size: 11px;
+  }
+  .guide-toggle.open .arrow { transform: rotate(180deg); }
+  .guide-panel {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 0;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.4s ease, opacity 0.3s ease, padding 0.3s ease;
+  }
+  .guide-panel.open {
+    max-height: 2000px;
+    opacity: 1;
+    padding: 20px;
+  }
+  .guide-panel h4 {
+    margin: 0 0 10px 0; font-size: 14px; color: var(--accent);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .guide-panel h4:not(:first-child) { margin-top: 14px; }
+  .guide-section { margin-bottom: 8px; }
+  .guide-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  .guide-table th {
+    text-align: left; padding: 6px 10px;
+    background: var(--pink-soft); color: var(--accent);
+    font-weight: 600; border-radius: 6px;
+  }
+  .guide-table td {
+    padding: 6px 10px; border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+  }
+  .guide-table tr:last-child td { border-bottom: none; }
+  .guide-table .tool-name {
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 12px; color: var(--accent); font-weight: 600;
+    white-space: nowrap;
+  }
+  .guide-example {
+    background: var(--card-solid); border-radius: 10px;
+    padding: 10px 14px; margin-top: 6px;
+    border-left: 3px solid var(--pink);
+    font-size: 13px; line-height: 1.6;
+  }
+  .guide-example .you { color: var(--accent); font-weight: 600; }
+  .guide-example .cat { color: var(--good); font-weight: 600; }
+  .guide-tip {
+    background: var(--peach-soft); border-radius: 10px;
+    padding: 10px 14px; font-size: 13px; color: #8a6040;
+    border-left: 3px solid var(--peach);
+    margin-top: 8px;
+  }
+
+  .hidden { display: none !important; }
+
+  /* 筛选条 */
+  .filter-bar {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .filter-chip {
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+    background: var(--card-solid); color: var(--ink-soft);
+    border: 1px solid var(--line-soft);
+    cursor: pointer; user-select: none;
+    transition: all 0.1s;
+  }
+  .filter-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-chip.on { background: linear-gradient(135deg, var(--pink), var(--peach)); color: white; border-color: transparent; }
+</style>
+</head>
+<body>
+  <h1>
+    🐱 猫娘每日计划
+    <span class="badge" id="dateLabel">--</span>
+    <span class="streak hidden" id="streakBadge">🔥 连续 0 天</span>
+  </h1>
+  <div class="sub" id="greeting">主人~让猫娘看看今天要做些什么吧~ 喵呜~</div>
+
+  <!-- 使用指南折叠按钮 -->
+  <div class="guide-toggle" id="guideToggle" onclick="toggleGuide()">
+    <span>📖 猫娘使用指南</span>
+    <span class="arrow">▼</span>
+  </div>
+
+  <!-- 使用指南面板 -->
+  <div class="guide-panel" id="guidePanel">
+    <h4>📅 计划管理</h4>
+    <div class="guide-section">
+      <table class="guide-table">
+        <tr><th>工具名</th><th>功能</th><th>使用场景</th></tr>
+        <tr><td class="tool-name">catgirl_planner_create_plan</td><td>创建/覆盖某天的完整计划</td><td>"帮我制定今天的学习计划"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_add_task</td><td>给某天添加一条任务</td><td>"下午3点加个健身任务"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_list_today</td><td>查看某天/今天的完整计划</td><td>"我今天有什么安排？"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_delete_task</td><td>删除某条任务</td><td>"取消明天的早会"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_clear_plan</td><td>清空某天的所有任务</td><td>"今天计划全取消"</td></tr>
+      </table>
+    </div>
+
+    <h4>✅ 任务状态管理</h4>
+    <div class="guide-section">
+      <table class="guide-table">
+        <tr><th>工具名</th><th>功能</th><th>使用场景</th></tr>
+        <tr><td class="tool-name">catgirl_planner_mark_done</td><td>标记任务为完成/跳过/恢复</td><td>"数学复习做完了"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_set_task_meta</td><td>修改任务的分类/优先级/描述</td><td>"把那个任务改成高优先级"</td></tr>
+      </table>
+      <div class="guide-tip">💡 任务状态：<b>done</b> = 已完成 ✓ | <b>skipped</b> = 已跳过 ⊘ | <b>pending</b> = 待办（恢复）○</div>
+    </div>
+
+    <h4>🔔 自动播报</h4>
+    <div class="guide-section">
+      <table class="guide-table">
+        <tr><th>工具名</th><th>功能</th><th>使用场景</th></tr>
+        <tr><td class="tool-name">catgirl_planner_trigger_morning</td><td>立即触发早安播报</td><td>"猫娘，给我播报今天的计划"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_trigger_goodnight</td><td>立即触发晚安复盘</td><td>"总结一下今天完成情况"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_get_schedule</td><td>查看当前播报时间配置</td><td>"现在几点播报？"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_set_schedule</td><td>修改播报时间/昵称</td><td>"改成7点叫我起床"</td></tr>
+      </table>
+    </div>
+
+    <h4>📋 模板快速铺计划</h4>
+    <div class="guide-section">
+      <table class="guide-table">
+        <tr><th>工具名</th><th>功能</th><th>使用场景</th></tr>
+        <tr><td class="tool-name">catgirl_planner_list_templates</td><td>查看所有内置模板</td><td>"有哪些模板可以用？"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_apply_template</td><td>应用模板到某天</td><td>"明天用工作日模板"</td></tr>
+      </table>
+      <div class="guide-tip">🎯 内置模板：<b>workday</b> = 工作日（朝九晚五）| <b>weekend</b> = 休息日（轻松安排）| <b>study</b> = 学习日（专注学习）| <b>fitness</b> = 健身日（运动为主）</div>
+    </div>
+
+    <h4>🔁 重复任务规则</h4>
+    <div class="guide-section">
+      <table class="guide-table">
+        <tr><th>工具名</th><th>功能</th><th>使用场景</th></tr>
+        <tr><td class="tool-name">catgirl_planner_add_recurring</td><td>添加按星期重复的任务</td><td>"每周一三五早上8点背单词"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_list_recurring</td><td>查看所有重复规则</td><td>"我有哪些重复任务？"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_delete_recurring</td><td>删除重复规则</td><td>"取消每周健身"</td></tr>
+      </table>
+    </div>
+
+    <h4>📊 统计与打卡</h4>
+    <div class="guide-section">
+      <table class="guide-table">
+        <tr><th>工具名</th><th>功能</th><th>使用场景</th></tr>
+        <tr><td class="tool-name">catgirl_planner_get_stats</td><td>查看月度/近期完成率</td><td>"这个月完成了多少？"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_get_year_overview</td><td>查看年历概览</td><td>"今年打卡情况如何？"</td></tr>
+        <tr><td class="tool-name">catgirl_planner_list_calendar</td><td>查看某周/某月的计划</td><td>"这周有什么安排？"</td></tr>
+      </table>
+    </div>
+
+    <h4>💬 对话示例</h4>
+    <div class="guide-example">
+      <div><span class="you">你：</span>猫娘，帮我安排明天的学习计划，早上复习高数，下午写论文，晚上健身</div>
+      <div><span class="cat">猫娘：</span>调用 create_plan → 自动创建3个任务并设置提醒</div>
+    </div>
+    <div class="guide-example">
+      <div><span class="you">你：</span>今天任务完成了吗？</div>
+      <div><span class="cat">猫娘：</span>调用 list_today → 列出所有任务及状态</div>
+    </div>
+    <div class="guide-example">
+      <div><span class="you">你：</span>每周一三五早上8点背单词</div>
+      <div><span class="cat">猫娘：</span>调用 add_recurring → 创建重复规则，每天自动铺任务到计划里</div>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="today">📋 今日</div>
+    <div class="tab" data-tab="month">🗓 月历</div>
+    <div class="tab" data-tab="year">📆 年历</div>
+    <div class="tab" data-tab="stats">📊 统计</div>
+    <div class="tab" data-tab="template">🎯 模板</div>
+    <div class="tab" data-tab="recurring">🔁 重复</div>
+    <div class="tab" data-tab="settings">⚙️ 设置</div>
+  </div>
+
+  <!-- ====== 今日 Tab ====== -->
+  <div class="tabpane" data-pane="today">
+    <div class="stats-grid">
+      <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">总任务</div></div>
+      <div class="stat good"><div class="num" id="statDone">0</div><div class="lbl">已完成</div></div>
+      <div class="stat warn"><div class="num" id="statPending">0</div><div class="lbl">待办</div></div>
+      <div class="stat"><div class="num" id="statSkipped">0</div><div class="lbl">跳过</div></div>
+      <div class="stat good"><div class="num" id="statRate">0%</div><div class="lbl">完成率</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>📋 今日任务清单 <span class="hint" id="dayHint"></span></h3>
+        <div class="row" style="margin: 0;">
+          <button class="ghost tiny" onclick="triggerMorning()">🌅 早安播报</button>
+          <button class="ghost tiny" onclick="triggerGoodnight()">🌙 晚安复盘</button>
+          <button class="danger tiny" onclick="clearToday()">🧹 清空</button>
+        </div>
+      </div>
+      <div class="filter-bar" id="todayFilter">
+        <span class="filter-chip on" data-cat="">全部</span>
+      </div>
+      <ul class="task-list" id="taskList">
+        <li class="empty">还没任务哦,快加一条吧~</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3 style="margin: 0 0 12px 0;">➕ 添加任务</h3>
+      <div class="row">
+        <span class="field-label">时间</span>
+        <input class="time" id="newTime" type="time" value="09:00" />
+        <span class="field-label">标题</span>
+        <input class="title" id="newTitle" type="text" placeholder="比如:写日报" />
+        <button onclick="addTask()">添加</button>
+      </div>
+      <div class="row">
+        <span class="field-label">分类</span>
+        <select id="newCategory"></select>
+        <span class="field-label">优先级</span>
+        <select id="newPriority">
+          <option value="1">🔥 紧急</option>
+          <option value="2" selected>⭐ 重要</option>
+          <option value="3">🌿 一般</option>
+        </select>
+      </div>
+      <div class="row">
+        <span class="field-label">描述</span>
+        <textarea id="newDesc" placeholder="提醒详情(可选)"></textarea>
+      </div>
+      <div class="row">
+        <span class="field-label">猫娘话</span>
+        <input class="title" id="newMsg" type="text" placeholder="自定义提醒文案(可选)"></input>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 月历 Tab ====== -->
+  <div class="tabpane hidden" data-pane="month">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="cal-controls">
+          <div class="cal-nav">
+            <button class="ghost tiny" onclick="calShift(-1)">← 上月</button>
+            <span class="cal-title" id="calTitle">--</span>
+            <button class="ghost tiny" onclick="calShift(1)">下月 →</button>
+          </div>
+          <button class="ghost tiny" onclick="calToday()">回到今天</button>
+        </div>
+        <span class="hint">点击日期查看当天的任务</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+    <div class="panel hidden" id="calDayDetail">
+      <div class="panel-head">
+        <h3 id="calDayTitle">--</h3>
+        <button class="ghost tiny" onclick="closeCalDay()">关闭</button>
+      </div>
+      <ul class="task-list" id="calDayTasks"></ul>
+    </div>
+  </div>
+
+  <!-- ====== 年历 Tab ====== -->
+  <div class="tabpane hidden" data-pane="year">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="cal-controls">
+          <div class="cal-nav">
+            <button class="ghost tiny" onclick="yearShift(-1)">← 上一年</button>
+            <span class="cal-title" id="yearTitle">--</span>
+            <button class="ghost tiny" onclick="yearShift(1)">下一年 →</button>
+          </div>
+          <button class="ghost tiny" onclick="yearToday()">今年</button>
+        </div>
+        <span class="hint" id="yearSummary">--</span>
+      </div>
+      <div class="year-grid" id="yearGrid"></div>
+    </div>
+  </div>
+
+  <!-- ====== 统计 Tab ====== -->
+  <div class="tabpane hidden" data-pane="stats">
+    <div class="stats-grid">
+      <div class="stat good"><div class="num" id="monthDone">0</div><div class="lbl">本月已完成</div><div class="sub" id="monthTotal">--</div></div>
+      <div class="stat warn"><div class="num" id="monthRate">0%</div><div class="lbl">本月完成率</div></div>
+      <div class="stat good"><div class="num" id="monthStreak">0</div><div class="lbl">连续打卡(天)</div></div>
+      <div class="stat"><div class="num" id="monthSkipped">0</div><div class="lbl">本月跳过</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>📈 最近 14 天</h3></div>
+      <div class="chart-box">
+        <div class="bars" id="barsChart"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>🥧 分类占比(本月)</h3></div>
+      <div class="chart-box">
+        <div class="pie-wrap">
+          <svg class="pie" viewBox="0 0 36 36" id="pieChart"></svg>
+          <div class="pie-legend" id="pieLegend"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 模板 Tab ====== -->
+  <div class="tabpane hidden" data-pane="template">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>🎯 一日模板</h3>
+        <span class="hint">点击应用到指定日期</span>
+      </div>
+      <div class="tpl-grid" id="tplGrid"></div>
+    </div>
+  </div>
+
+  <!-- ====== 重复任务 Tab ====== -->
+  <div class="tabpane hidden" data-pane="recurring">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>🔁 重复任务规则</h3>
+        <button class="tiny" onclick="openRecurEditor()">➕ 新建规则</button>
+      </div>
+      <div id="recurList"><div class="empty">还没有重复任务规则~</div></div>
+    </div>
+  </div>
+
+  <!-- ====== 设置 Tab ====== -->
+  <div class="tabpane hidden" data-pane="settings">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>⏰ 早晚播报设置</h3>
+        <span class="hint">改完保存后立即生效,已过去的今日播报不会被补播</span>
+      </div>
+      <div class="schedule-grid">
+        <div class="schedule-cell">
+          <div class="cell-title">🌅 早安播报</div>
+          <div class="time-inputs">
+            <input id="wakeHour" type="number" min="0" max="23" value="08" />
+            <span class="colon">:</span>
+            <input id="wakeMin" type="number" min="0" max="59" value="00" />
+          </div>
+        </div>
+        <div class="schedule-cell">
+          <div class="cell-title">🌙 晚安复盘</div>
+          <div class="time-inputs">
+            <input id="gnHour" type="number" min="0" max="23" value="22" />
+            <span class="colon">:</span>
+            <input id="gnMin" type="number" min="0" max="59" value="00" />
+          </div>
+        </div>
+        <div class="schedule-cell">
+          <div class="cell-title">🐱 猫娘昵称</div>
+          <input id="catgirlName" class="nickname" type="text" placeholder="比如:喵喵 / 小喵" maxlength="16" />
+        </div>
+        <div class="schedule-cell">
+          <div class="cell-title">👤 主人称呼</div>
+          <input id="masterName" class="nickname" type="text" placeholder="比如:主人 / 哥哥" maxlength="16" />
+        </div>
+      </div>
+      <div class="reset-row">
+        <label>
+          <input id="resetFlags" type="checkbox" />
+          保存后把今日早安/晚安标志位重置(改了时间想立刻重播就勾上)
+        </label>
+      </div>
+      <div class="row" style="margin-top: 12px; justify-content: flex-end;">
+        <button onclick="saveSchedule()">💾 保存设置</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>🛠 维护</h3>
+      </div>
+      <div class="row" style="justify-content: flex-end; gap: 8px;">
+        <button class="ghost tiny" onclick="rebuildStats()">🔧 重建本月统计</button>
+        <button class="ghost tiny" onclick="cleanupHistory()">🧹 清理 1 年前的历史</button>
+        <button class="ghost tiny" onclick="loadMeta()">🔄 刷新分类/优先级</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-info">
+    数据持久化在本地,重启 N.E.K.O 不丢失。本地 ticker 每分钟巡检作为提醒兜底,即使 memo_reminder 异常也能按时推。
+  </div>
+
+  <!-- 弹窗 -->
+  <div class="modal-mask" id="modalMask">
+    <div class="modal" id="modal">
+      <h3 id="modalTitle">--</h3>
+      <div id="modalBody"></div>
+      <div class="modal-actions" id="modalActions"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  // ===== 基础工具 =====
+  const PLUGIN_ID = "catgirl_daily_planner";
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => document.querySelectorAll(s);
+  const taskList = $("#taskList");
+  const CATEGORY_COLORS = {
+    work: "cat-work", study: "cat-study", life: "cat-life",
+    rest: "cat-rest", exercise: "cat-exercise", fun: "cat-fun", other: "cat-other",
+  };
+  const PRIORITY_LABELS = { 1: "🔥紧急", 2: "⭐重要", 3: "🌿一般" };
+  const CATEGORY_LABELS = {
+    work: "💼 工作", study: "📚 学习", life: "🏠 生活",
+    rest: "☕ 休息", exercise: "💪 运动", fun: "🎮 娱乐", other: "📌 其他",
+  };
+  const WEEKDAY_LABELS_FULL = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+
+  let META = { categories: [], priorities: [], weekday_labels: [], templates: [] };
+  let CATS_CACHE = [];      // 当前所有分类,含颜色
+  let CURRENT_FILTER = "";  // 今日 Tab 的分类筛选
+  let CAL_DATE = new Date(); // 月历当前月
+  let YEAR_DATE = new Date().getFullYear();
+
+  function showToast(msg, isError) {
+    const t = $("#toast");
+    t.textContent = msg;
+    t.classList.toggle("error", !!isError);
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2400);
+  }
+
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function clampInt(v, lo, hi, fallback) {
+    const n = parseInt(v, 10);
+    if (isNaN(n)) return fallback;
+    return Math.max(lo, Math.min(hi, n));
+  }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+  function fmtDate(d, withWeekday) {
+    const dt = d ? new Date(d) : new Date();
+    const w = ["日", "一", "二", "三", "四", "五", "六"][dt.getDay()];
+    const base = `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`;
+    return withWeekday ? `${base} 周${w}` : base;
+  }
+  function todayStr() { return fmtDate(new Date(), false); }
+  function ymKey(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; }
+  function isToday(d) {
+    const t = new Date();
+    return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
+  }
+
+  // ===== API 调用 =====
+  async function callPlugin(entry, args) {
+    try {
+      const r = await fetch("/runs", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({plugin_id: PLUGIN_ID, entry_id: entry, args: args || {}}),
+      });
+      if (!r.ok) return {ok: false, error: `HTTP ${r.status}: ${r.statusText}`};
+      const cd = await r.json();
+      const runId = cd.run_id;
+      if (!runId) return {ok: false, error: "未拿到 run_id"};
+      for (let i = 0; i < 100; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        const sr = await fetch("/runs/" + runId);
+        if (!sr.ok) continue;
+        const sd = await sr.json();
+        if (sd.status === "succeeded") {
+          const er = await fetch("/runs/" + runId + "/export");
+          if (er.ok) {
+            try {
+              const ed = await er.json();
+              if (ed.items && ed.items.length > 0) {
+                const ti = ed.items.find((x) => x.label === "trigger_response");
+                if (ti && ti.json) {
+                  const j = ti.json;
+                  if (j && j.success) {
+                    return {ok: true, value: j.data !== undefined ? j.data : null};
+                  }
+                  const errObj = j && j.error || {};
+                  const errMsg = (errObj && (errObj.message || errObj.code)) || "插件返回失败";
+                  return {ok: false, error: String(errMsg)};
+                }
+              }
+            } catch (_) {}
+          }
+          return {ok: true, value: null};
+        } else if (["failed", "canceled", "timeout"].includes(sd.status)) {
+          const errObj = sd.error || {};
+          const errMsg = (errObj && (errObj.message || errObj.code)) || `run ${sd.status}`;
+          return {ok: false, error: String(errMsg)};
+        }
+      }
+      return {ok: false, error: "轮询超时"};
+    } catch (e) {
+      return {ok: false, error: String(e && e.message || e)};
+    }
+  }
+  const apiCall = (entry, args) => callPlugin(entry, args);
+
+  // ===== 顶栏问候 =====
+  function updateGreeting(plan) {
+    const el = $("#greeting");
+    if (!plan) { el.textContent = "主人~让猫娘看看今天要做些什么吧~ 喵呜~"; return; }
+    if (plan.evening_recap_done) { el.textContent = "今日晚安已播报过啦~"; return; }
+    if (plan.morning_announced) { el.textContent = "早安已播报过啦~主人"; return; }
+    el.textContent = "主人~让猫娘看看今天要做些什么吧~ 喵呜~";
+  }
+
+  // ===== 今日 Tab =====
+  function renderFilterBar() {
+    const bar = $("#todayFilter");
+    const cats = (META.categories && META.categories.length) ? META.categories : Object.keys(CATEGORY_LABELS).map(k => ({id: k, label: CATEGORY_LABELS[k]}));
+    bar.innerHTML = `<span class="filter-chip ${CURRENT_FILTER === "" ? "on" : ""}" data-cat="">全部</span>` +
+      cats.map(c => `<span class="filter-chip ${CURRENT_FILTER === c.id ? "on" : ""}" data-cat="${c.id}">${c.label}</span>`).join("");
+    bar.querySelectorAll(".filter-chip").forEach(ch => {
+      ch.onclick = () => { CURRENT_FILTER = ch.dataset.cat; renderFilterBar(); renderTasks(LAST_TODAY.tasks || []); };
+    });
+  }
+  function renderTasks(tasks) {
+    if (!tasks || tasks.length === 0) {
+      taskList.innerHTML = '<li class="empty">还没任务哦,快加一条吧~</li>';
+      return;
+    }
+    const filtered = CURRENT_FILTER ? tasks.filter(t => t.category === CURRENT_FILTER) : tasks;
+    if (filtered.length === 0) {
+      taskList.innerHTML = '<li class="empty">该分类下没有任务</li>';
+      return;
+    }
+    taskList.innerHTML = "";
+    for (const t of filtered) {
+      const li = document.createElement("li");
+      const catColor = CATEGORY_COLORS[t.category] || "cat-other";
+      li.className = "task-item " + (t.status || "pending") + (t.local_fired_at ? " fired" : "");
+      li.innerHTML = `
+        <div class="time">${t.time}</div>
+        <div class="body">
+          <div class="title">${escapeHtml(t.title)}</div>
+          ${t.description ? `<div class="desc">${escapeHtml(t.description)}</div>` : ""}
+          <div class="tags">
+            <span class="tag ${catColor}" style="background: var(--pink-soft);">${(CATEGORY_LABELS[t.category] || t.category || "其他")}</span>
+            <span class="tag prio-${t.priority || 2}">${PRIORITY_LABELS[t.priority || 2]}</span>
+            ${t.recurring_id ? '<span class="tag recurring">🔁 重复</span>' : ''}
+            ${t.local_fired_at ? '<span class="tag" style="background:#d9f0d9;color:#3e8a4a;">⏰ 已提醒</span>' : ''}
+            ${!t.reminder_id && t.status === "pending" ? '<span class="tag" style="background:#fff3e0;color:#b85b00;">⚠ 提醒未创建</span>' : ''}
+          </div>
+        </div>
+        <div class="actions">
+          ${t.status !== "done" ? `<button class="tiny" onclick="mark('${t.id}','done')">✅</button>` : ""}
+          ${t.status !== "skipped" ? `<button class="tiny ghost" onclick="mark('${t.id}','skipped')">⏭</button>` : ""}
+          ${(t.status === "done" || t.status === "skipped") ? `<button class="tiny ghost" onclick="mark('${t.id}','pending')">↩</button>` : ""}
+          <button class="tiny danger" onclick="del('${t.id}')">🗑</button>
+        </div>
+      `;
+      taskList.appendChild(li);
+    }
+  }
+
+  let LAST_TODAY = { tasks: [] };
+  async function refreshToday() {
+    const res = await apiCall("list_today", {});
+    if (!res || !res.ok) { showToast("加载失败: " + ((res && res.error) || "未知错误"), true); return; }
+    const data = res.value || {};
+    $("#dateLabel").textContent = data.date || "";
+    $("#statTotal").textContent = data.task_count || 0;
+    $("#statDone").textContent = data.done_count || 0;
+    $("#statPending").textContent = data.pending_count || 0;
+    $("#statSkipped").textContent = data.skipped_count || 0;
+    const rate = (data.task_count > 0) ? Math.round((data.done_count / data.task_count) * 100) : 0;
+    $("#statRate").textContent = rate + "%";
+    updateGreeting(data);
+    LAST_TODAY = data;
+    renderTasks(data.tasks || []);
+  }
+
+  async function addTask() {
+    const time = $("#newTime").value;
+    const title = $("#newTitle").value.trim();
+    const desc = $("#newDesc").value.trim();
+    const msg = $("#newMsg").value.trim();
+    const cat = $("#newCategory").value || "";
+    const prio = parseInt($("#newPriority").value, 10) || 2;
+    if (!title) { showToast("标题不能为空喵~", true); return; }
+    const res = await apiCall("add_task", {
+      time, title, description: desc, catgirl_message: msg,
+      category: cat, priority: prio,
+    });
+    if (res && res.ok) {
+      $("#newTitle").value = ""; $("#newDesc").value = ""; $("#newMsg").value = "";
+      const v = res.value || {};
+      const ok = v.scheduled ? "已设好定时提醒 ✨" : "已添加(本地 ticker 兜底)";
+      showToast("添加成功喵~ " + ok);
+      refreshToday();
+    } else {
+      showToast("失败: " + ((res && res.error) || "未知错误"), true);
+    }
+  }
+
+  async function mark(taskId, status) {
+    const res = await apiCall("mark_done", { task_id: taskId, status });
+    if (res && res.ok) { showToast("已更新喵~"); refreshToday(); }
+    else showToast("失败: " + ((res && res.error) || "未知错误"), true);
+  }
+  async function del(taskId) {
+    if (!confirm("确定删除这条任务吗?")) return;
+    const res = await apiCall("delete_task", { task_id: taskId });
+    if (res && res.ok) { showToast("已删除喵~"); refreshToday(); }
+    else showToast("失败: " + ((res && res.error) || "未知错误"), true);
+  }
+  async function clearToday() {
+    if (!confirm("确认清空今日所有任务?")) return;
+    const res = await apiCall("clear_plan", {});
+    if (res && res.ok) { showToast("已清空喵~"); refreshToday(); }
+    else showToast("失败: " + ((res && res.error) || "未知错误"), true);
+  }
+  async function triggerMorning() {
+    const res = await apiCall("trigger_morning", {});
+    if (res && res.ok) { showToast("已推送早安播报~"); refreshToday(); }
+    else showToast("失败: " + ((res && res.error) || "未知错误"), true);
+  }
+  async function triggerGoodnight() {
+    const res = await apiCall("trigger_goodnight", {});
+    if (res && res.ok) { showToast("已推送晚安复盘~"); refreshToday(); }
+    else showToast("失败: " + ((res && res.error) || "未知错误"), true);
+  }
+
+  // ===== 月历 =====
+  async function renderMonth() {
+    const year = CAL_DATE.getFullYear();
+    const month = CAL_DATE.getMonth();
+    $("#calTitle").textContent = `${year} 年 ${pad2(month+1)} 月`;
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 0);
+    const startWeekday = (start.getDay() + 6) % 7; // 周一=0
+    const daysInMonth = end.getDate();
+
+    const startStr = fmtDate(start);
+    const endStr = fmtDate(end);
+    const res = await apiCall("list_calendar", { start: startStr, end: endStr, include_tasks: false });
+    const days = (res && res.ok && res.value && res.value.days) || [];
+    const byDate = {};
+    days.forEach(d => { byDate[d.date] = d; });
+
+    const grid = $("#calGrid");
+    grid.innerHTML = "";
+    // header
+    ["一","二","三","四","五","六","日"].forEach(w => {
+      const h = document.createElement("div");
+      h.className = "cal-head";
+      h.textContent = w;
+      grid.appendChild(h);
+    });
+    for (let i = 0; i < startWeekday; i++) {
+      const e = document.createElement("div");
+      e.className = "cal-cell empty";
+      grid.appendChild(e);
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      const ds = fmtDate(d);
+      const info = byDate[ds] || {};
+      const cell = document.createElement("div");
+      cell.className = "cal-cell" + (isToday(d) ? " today" : "");
+      const tc = info.task_count || 0;
+      const dn = info.done_count || 0;
+      let pillCls = "", pillText = "";
+      if (tc === 0) { pillText = ""; }
+      else if (dn >= tc) { pillCls = "good"; pillText = `${dn}/${tc}`; }
+      else if (dn > 0) { pillCls = "warn"; pillText = `${dn}/${tc}`; }
+      else { pillCls = "bad"; pillText = `${tc}`; }
+      const cats = info.by_category || {};
+      const dotsHtml = Object.keys(cats).slice(0, 6).map(c => {
+        const cls = CATEGORY_COLORS[c] || "cat-other";
+        return `<span class="dot ${cls}" title="${CATEGORY_LABELS[c] || c}: ${cats[c]}"></span>`;
+      }).join("");
+      cell.innerHTML = `
+        <div class="dnum">${day}</div>
+        ${pillText ? `<span class="pill ${pillCls}">${pillText}</span>` : ""}
+        <div class="dots">${dotsHtml}</div>
+      `;
+      cell.onclick = () => showCalDay(ds);
+      grid.appendChild(cell);
+    }
+  }
+  function calShift(delta) {
+    CAL_DATE = new Date(CAL_DATE.getFullYear(), CAL_DATE.getMonth() + delta, 1);
+    renderMonth();
+  }
+  function calToday() {
+    CAL_DATE = new Date();
+    renderMonth();
+  }
+  async function showCalDay(dateStr) {
+    $("#calDayDetail").classList.remove("hidden");
+    $("#calDayTitle").textContent = fmtDate(dateStr, true);
+    const res = await apiCall("list_calendar", { start: dateStr, end: dateStr, include_tasks: true });
+    const ul = $("#calDayTasks");
+    ul.innerHTML = '<li class="empty">加载中…</li>';
+    if (!res || !res.ok) { ul.innerHTML = `<li class="empty">加载失败: ${(res && res.error) || "未知"}</li>`; return; }
+    const day = (res.value && res.value.days && res.value.days[0]) || null;
+    if (!day || !day.tasks || day.tasks.length === 0) {
+      ul.innerHTML = '<li class="empty">当天没有任务</li>';
+      return;
+    }
+    ul.innerHTML = "";
+    day.tasks.sort((a,b) => (a.time || "").localeCompare(b.time || ""));
+    for (const t of day.tasks) {
+      const li = document.createElement("li");
+      li.className = "task-item " + (t.status || "pending");
+      const catColor = CATEGORY_COLORS[t.category] || "cat-other";
+      li.innerHTML = `
+        <div class="time">${t.time}</div>
+        <div class="body">
+          <div class="title">${escapeHtml(t.title)}</div>
+          ${t.description ? `<div class="desc">${escapeHtml(t.description)}</div>` : ""}
+          <div class="tags">
+            <span class="tag">${(CATEGORY_LABELS[t.category] || t.category || "其他")}</span>
+            <span class="tag prio-${t.priority || 2}">${PRIORITY_LABELS[t.priority || 2]}</span>
+            ${t.status === "done" ? '<span class="tag" style="background:#d9f0d9;color:#3e8a4a;">已完成</span>' : ''}
+            ${t.status === "skipped" ? '<span class="tag" style="background:#d0d0d0;color:#666;">已跳过</span>' : ''}
+          </div>
+        </div>
+      `;
+      ul.appendChild(li);
+    }
+    document.getElementById("calDayDetail").scrollIntoView({behavior: "smooth", block: "start"});
+  }
+  function closeCalDay() { $("#calDayDetail").classList.add("hidden"); }
+
+  // ===== 年历 =====
+  async function renderYear() {
+    const y = YEAR_DATE;
+    $("#yearTitle").textContent = `${y} 年`;
+    const res = await apiCall("get_year_overview", { year: y });
+    if (!res || !res.ok) { showToast("年历加载失败: " + ((res && res.error) || "未知"), true); return; }
+    const data = res.value || {};
+    const months = data.months || [];
+    const grandTotal = data.grand_total || 0;
+    const grandDone = data.grand_done || 0;
+    const rate = grandTotal > 0 ? Math.round((grandDone / grandTotal) * 100) : 0;
+    $("#yearSummary").textContent = `全年 ${grandDone}/${grandTotal} (${rate}%) · 当前连续 ${data.current_streak || 0} 天`;
+
+    // streak badge
+    const streak = data.current_streak || 0;
+    const sb = $("#streakBadge");
+    if (streak > 0) { sb.textContent = `🔥 连续 ${streak} 天`; sb.classList.remove("hidden"); }
+    else { sb.classList.add("hidden"); }
+
+    const grid = $("#yearGrid");
+    grid.innerHTML = "";
+    months.forEach((m, idx) => {
+      const div = document.createElement("div");
+      div.className = "year-month";
+      const total = m.total || 0;
+      const done = m.done || 0;
+      const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+      div.innerHTML = `
+        <div class="mname">${pad2(idx+1)} 月</div>
+        <div class="nums"><span class="done">${done}</span><span class="total">/ ${total}</span><span class="total" style="margin-left:auto;">${rate}%</span></div>
+        <div class="bar"><div class="bar-fill" style="width:${rate}%"></div></div>
+      `;
+      div.onclick = () => {
+        CAL_DATE = new Date(y, idx, 1);
+        switchTab("month");
+        renderMonth();
+      };
+      grid.appendChild(div);
+    });
+  }
+  function yearShift(delta) { YEAR_DATE += delta; renderYear(); }
+  function yearToday() { YEAR_DATE = new Date().getFullYear(); renderYear(); }
+
+  // ===== 统计 =====
+  async function renderStats() {
+    const res = await apiCall("get_stats", { recent_days: 14 });
+    if (!res || !res.ok) { showToast("统计加载失败: " + ((res && res.error) || "未知"), true); return; }
+    const s = res.value || {};
+    const total = s.total || 0;
+    const done = s.done || 0;
+    const rate = s.completion_rate || 0;
+    $("#monthDone").textContent = done;
+    $("#monthTotal").textContent = `共 ${total} 项 · 月份 ${s.month}`;
+    $("#monthRate").textContent = rate + "%";
+    $("#monthStreak").textContent = s.current_streak || 0;
+    $("#monthSkipped").textContent = s.skipped || 0;
+
+    // 14 天柱状图
+    const days = s.recent_days || [];
+    const max = Math.max(1, ...days.map(d => (d.done || 0) + (d.pending || 0) + (d.skipped || 0)));
+    const bars = $("#barsChart");
+    bars.innerHTML = "";
+    days.forEach(d => {
+      const dn = d.done || 0, pn = d.pending || 0, sn = d.skipped || 0;
+      const totalH = dn + pn + sn;
+      const col = document.createElement("div");
+      col.className = "bar-col";
+      const segH = (n) => Math.max(1, Math.round((n / max) * 100));
+      col.innerHTML = `
+        <div class="bar-stack" title="${d.date}: done=${dn} pending=${pn} skipped=${sn}">
+          ${dn > 0 ? `<div class="bar-seg done" style="height:${segH(dn)}%"></div>` : ""}
+          ${pn > 0 ? `<div class="bar-seg pending" style="height:${segH(pn)}%"></div>` : ""}
+          ${sn > 0 ? `<div class="bar-seg skipped" style="height:${segH(sn)}%"></div>` : ""}
+        </div>
+        <div class="bar-label">${pad2(new Date(d.date).getMonth()+1)}/${pad2(new Date(d.date).getDate())}</div>
+      `;
+      bars.appendChild(col);
+    });
+
+    // 分类饼图
+    const byCat = s.by_category || {};
+    const entries = Object.entries(byCat).filter(([k,v]) => v > 0);
+    const totalCat = entries.reduce((a, [k,v]) => a + v, 0) || 1;
+    const pie = $("#pieChart");
+    const legend = $("#pieLegend");
+    if (entries.length === 0) {
+      pie.innerHTML = `<circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#eee" stroke-width="3"></circle>
+                        <text x="18" y="20" text-anchor="middle" font-size="4" fill="#bbb">暂无数据</text>`;
+      legend.innerHTML = '<div class="empty" style="padding:10px;">本月还没有任务数据</div>';
+    } else {
+      let acc = 0;
+      const segs = entries.map(([cat, n]) => {
+        const pct = (n / totalCat) * 100;
+        const start = acc;
+        acc += pct;
+        const color = (CATEGORY_COLORS[cat] || "cat-other").replace("cat-", "");
+        const colorMap = {work:"#5b9dd9",study:"#9775d4",life:"#7ec890",rest:"#f0a23a",exercise:"#e85d75",fun:"#ffc857",other:"#b8b8b8"};
+        const fill = colorMap[color] || "#b8b8b8";
+        return {cat, n, pct, start, fill};
+      });
+      let pieHtml = `<circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#eee" stroke-width="6"></circle>`;
+      segs.forEach(s => {
+        const c = 2 * Math.PI * 15.915;
+        const dash = (s.pct / 100) * c;
+        const offset = -((s.start / 100) * c);
+        pieHtml += `<circle cx="18" cy="18" r="15.915" fill="transparent"
+                          stroke="${s.fill}" stroke-width="6"
+                          stroke-dasharray="${dash} ${c - dash}"
+                          stroke-dashoffset="${offset}"></circle>`;
+      });
+      pie.innerHTML = pieHtml;
+      legend.innerHTML = segs.sort((a,b) => b.n - a.n).map(s =>
+        `<div class="item">
+          <span class="swatch" style="background:${s.fill}"></span>
+          <span class="name">${CATEGORY_LABELS[s.cat] || s.cat}</span>
+          <span class="val">${s.n} (${s.pct.toFixed(0)}%)</span>
+        </div>`).join("");
+    }
+  }
+
+  // ===== 模板 =====
+  async function renderTemplates() {
+    const grid = $("#tplGrid");
+    grid.innerHTML = '<div class="empty">加载中…</div>';
+    const res = await apiCall("list_templates", {});
+    if (!res || !res.ok) { grid.innerHTML = `<div class="empty">加载失败: ${(res && res.error) || "未知"}</div>`; return; }
+    const list = (res.value && res.value.templates) || [];
+    grid.innerHTML = "";
+    list.forEach(t => {
+      const c = document.createElement("div");
+      c.className = "tpl-card";
+      c.innerHTML = `
+        <div class="tname">${t.icon} ${t.name}</div>
+        <div class="tdesc">${t.desc}</div>
+        <div class="tcount">共 ${t.task_count} 项任务</div>
+        <div class="row" style="margin: 4px 0 0 0;">
+          <button class="tiny" onclick="applyTpl('${t.id}','today')">应用到今天</button>
+          <button class="tiny ghost" onclick="applyTpl('${t.id}','tomorrow')">应用到明天</button>
+        </div>
+      `;
+      grid.appendChild(c);
+    });
+  }
+  async function applyTpl(tplId, when) {
+    const date = when === "tomorrow"
+      ? fmtDate(new Date(Date.now() + 86400000))
+      : todayStr();
+    if (!confirm(`确认将模板应用到 ${date}?(将覆盖当日已有任务)`)) return;
+    const res = await apiCall("apply_template", { template_id: tplId, date, mode: "overwrite" });
+    if (res && res.ok) { showToast("已应用模板~"); refreshToday(); }
+    else showToast("应用失败: " + ((res && res.error) || "未知错误"), true);
+  }
+
+  // ===== 重复任务 =====
+  async function renderRecurring() {
+    const list = $("#recurList");
+    list.innerHTML = '<div class="empty">加载中…</div>';
+    const res = await apiCall("list_recurring", {});
+    if (!res || !res.ok) { list.innerHTML = `<div class="empty">加载失败: ${(res && res.error) || "未知"}</div>`; return; }
+    const rules = (res.value && res.value.rules) || [];
+    if (rules.length === 0) { list.innerHTML = '<div class="empty">还没有重复任务规则~</div>'; return; }
+    list.innerHTML = "";
+    rules.forEach(r => {
+      const wds = (r.weekdays || []).map(w => WEEKDAY_LABELS_FULL[w]).join("、");
+      const div = document.createElement("div");
+      div.className = "recur-item";
+      div.innerHTML = `
+        <div class="rinfo">
+          <div class="rtitle">⏰ ${r.time} - ${escapeHtml(r.title)}</div>
+          <div class="rmeta">${wds} · ${(CATEGORY_LABELS[r.category] || r.category || "其他")} · ${PRIORITY_LABELS[r.priority || 2]}</div>
+        </div>
+        <button class="tiny danger" onclick="delRecur('${r.id}')">删除</button>
+      `;
+      list.appendChild(div);
+    });
+  }
+  async function delRecur(rid) {
+    if (!confirm("确定删除这条重复任务规则吗?(已铺到具体某天的任务不会自动删除)")) return;
+    const res = await apiCall("delete_recurring", { recurring_id: rid });
+    if (res && res.ok) { showToast("已删除喵~"); renderRecurring(); }
+    else showToast("删除失败: " + ((res && res.error) || "未知错误"), true);
+  }
+
+  // 弹窗式新建规则
+  function openRecurEditor() {
+    const selWeekdays = new Set();
+    const cats = (META.categories && META.categories.length) ? META.categories : Object.keys(CATEGORY_LABELS).map(k => ({id: k, label: CATEGORY_LABELS[k]}));
+    const catOptions = cats.map(c => `<option value="${c.id}">${c.label}</option>`).join("");
+    const body = `
+      <div class="row"><span class="field-label">时间</span><input class="time" id="recurTime" type="time" value="09:00" /></div>
+      <div class="row"><span class="field-label">标题</span><input class="flex1" id="recurTitle" type="text" placeholder="比如:晨读" /></div>
+      <div class="row"><span class="field-label">分类</span><select id="recurCat">${catOptions}</select>
+        <span class="field-label">优先级</span>
+        <select id="recurPrio">
+          <option value="1">🔥 紧急</option>
+          <option value="2" selected>⭐ 重要</option>
+          <option value="3">🌿 一般</option>
+        </select>
+      </div>
+      <div class="row"><span class="field-label">星期</span>
+        <div class="weekday-chips" id="recurWd">
+          ${[0,1,2,3,4,5,6].map(i => `<span class="weekday-chip" data-wd="${i}">${["一","二","三","四","五","六","日"][i]}</span>`).join("")}
+        </div>
+      </div>
+      <div class="row"><span class="field-label">猫娘话</span><input class="flex1" id="recurMsg" type="text" placeholder="可选,到点提醒的额外文案" /></div>
+    `;
+    showModal("🔁 新建重复任务", body, [
+      {label: "取消", cls: "ghost", onclick: closeModal},
+      {label: "保存", cls: "", onclick: async () => {
+        const time = $("#recurTime").value;
+        const title = $("#recurTitle").value.trim();
+        const cat = $("#recurCat").value;
+        const prio = parseInt($("#recurPrio").value, 10) || 2;
+        const msg = $("#recurMsg").value.trim();
+        if (!title) { showToast("标题不能为空喵~", true); return; }
+        if (selWeekdays.size === 0) { showToast("至少选一个星期", true); return; }
+        const res = await apiCall("add_recurring", {
+          weekdays: [...selWeekdays].sort(),
+          time, title, description: "", catgirl_message: msg, category: cat, priority: prio,
+        });
+        if (res && res.ok) { showToast("已创建重复任务~"); closeModal(); renderRecurring(); refreshToday(); }
+        else showToast("创建失败: " + ((res && res.error) || "未知错误"), true);
+      }},
+    ]);
+    $$("#recurWd .weekday-chip").forEach(ch => {
+      ch.onclick = () => {
+        const w = parseInt(ch.dataset.wd, 10);
+        if (selWeekdays.has(w)) { selWeekdays.delete(w); ch.classList.remove("on"); }
+        else { selWeekdays.add(w); ch.classList.add("on"); }
+      };
+    });
+  }
+
+  // ===== 弹窗 =====
+  function showModal(title, bodyHtml, actions) {
+    $("#modalTitle").textContent = title;
+    $("#modalBody").innerHTML = bodyHtml;
+    const a = $("#modalActions");
+    a.innerHTML = "";
+    (actions || []).forEach(act => {
+      const b = document.createElement("button");
+      b.className = act.cls || "";
+      b.textContent = act.label;
+      b.onclick = act.onclick;
+      a.appendChild(b);
+    });
+    $("#modalMask").classList.add("show");
+  }
+  function closeModal() { $("#modalMask").classList.remove("show"); }
+  $("#modalMask").addEventListener("click", (e) => { if (e.target.id === "modalMask") closeModal(); });
+
+  // ===== 设置 =====
+  function showCurrentSchedule(v) {
+    if (!v) return;
+    if (v.wake_at) {
+      const [h, m] = v.wake_at.split(":");
+      $("#wakeHour").value = pad2(parseInt(h, 10) || 0);
+      $("#wakeMin").value = pad2(parseInt(m, 10) || 0);
+    }
+    if (v.goodnight_at) {
+      const [h, m] = v.goodnight_at.split(":");
+      $("#gnHour").value = pad2(parseInt(h, 10) || 0);
+      $("#gnMin").value = pad2(parseInt(m, 10) || 0);
+    }
+    if (v.catgirl_nickname) $("#catgirlName").value = v.catgirl_nickname;
+    if (v.master_nickname) $("#masterName").value = v.master_nickname;
+  }
+  async function loadSchedule() {
+    const res = await apiCall("get_schedule", {});
+    if (res && res.ok) showCurrentSchedule(res.value || {});
+    else { $("#wakeHour").value="08"; $("#wakeMin").value="00"; $("#gnHour").value="22"; $("#gnMin").value="00"; }
+  }
+  async function saveSchedule() {
+    const wh = clampInt($("#wakeHour").value, 0, 23, 8);
+    const wm = clampInt($("#wakeMin").value, 0, 59, 0);
+    const gh = clampInt($("#gnHour").value, 0, 23, 22);
+    const gm = clampInt($("#gnMin").value, 0, 59, 0);
+    $("#wakeHour").value = pad2(wh); $("#wakeMin").value = pad2(wm);
+    $("#gnHour").value = pad2(gh); $("#gnMin").value = pad2(gm);
+    const args = {
+      wake_hour: wh, wake_minute: wm,
+      goodnight_hour: gh, goodnight_minute: gm,
+      catgirl_nickname: $("#catgirlName").value.trim() || undefined,
+      master_nickname: $("#masterName").value.trim() || undefined,
+      reset_today_flags: !!$("#resetFlags").checked,
+    };
+    const res = await apiCall("set_schedule", args);
+    if (res && res.ok) {
+      const v = res.value || {};
+      showCurrentSchedule(v);
+      $("#resetFlags").checked = false;
+      showToast("已保存喵~ 早安 " + (v.wake_at || "?") + " / 晚安 " + (v.goodnight_at || "?"));
+    } else showToast("保存失败: " + ((res && res.error) || "未知错误"), true);
+  }
+  async function cleanupHistory() {
+    if (!confirm("清理 1 年前的历史计划(只删统计,不影响 reminder)?")) return;
+    // 暂用 list_calendar 删除 1 年前的数据 — 后端没有入口,直接提示未实现
+    showToast("暂未实现(数据保留即可,占用空间很小)");
+  }
+  async function rebuildStats() {
+    if (!confirm("重建本月统计数据?\n这会从实际计划数据重新计算,修复统计数字不准确的问题。")) return;
+    showToast("正在重建统计...");
+    const res = await apiCall("rebuild_stats", {});
+    if (res && res.ok) {
+      const v = res.value || {};
+      showToast(`重建完成: ${v.month} 共 ${v.total} 项,完成 ${v.done} 项`);
+      renderStats(); // 刷新统计页
+    } else {
+      showToast("重建失败: " + ((res && res.error) || "未知错误"), true);
+    }
+  }
+
+  // ===== 分类下拉填充 =====
+  function fillCategorySelect() {
+    const sel = $("#newCategory");
+    const cats = (META.categories && META.categories.length) ? META.categories : Object.keys(CATEGORY_LABELS).map(k => ({id: k, label: CATEGORY_LABELS[k]}));
+    sel.innerHTML = cats.map(c => `<option value="${c.id}">${c.label}</option>`).join("");
+  }
+
+  // ===== Meta =====
+  async function loadMeta() {
+    const res = await apiCall("get_meta", {});
+    if (res && res.ok) {
+      META = res.value || META;
+      fillCategorySelect();
+      renderFilterBar();
+      showToast("已刷新分类/优先级");
+    } else showToast("加载 meta 失败: " + ((res && res.error) || "未知"), true);
+  }
+
+  // ===== Tab 切换 =====
+  function switchTab(name) {
+    $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+    $$(".tabpane").forEach(p => p.classList.toggle("hidden", p.dataset.pane !== name));
+    if (name === "month") renderMonth();
+    else if (name === "year") renderYear();
+    else if (name === "stats") renderStats();
+    else if (name === "template") renderTemplates();
+    else if (name === "recurring") renderRecurring();
+  }
+  $$(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
+
+  // ===== 使用指南折叠/展开 =====
+  function toggleGuide() {
+    const toggle = $("#guideToggle");
+    const panel = $("#guidePanel");
+    toggle.classList.toggle("open");
+    panel.classList.toggle("open");
+  }
+
+  // ===== 启动 =====
+  $("#dateLabel").textContent = fmtDate(new Date(), true);
+  loadMeta();      // 拉取 meta,同时初始化分类下拉
+  loadSchedule();  // 拉取设置
+  refreshToday();  // 拉取今日
+  setInterval(refreshToday, 60_000);
+</script>
+</body>
+</html>

@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>电脑监控 · 监控面板</title>
+<style>
+  :root {
+    --bg: #60d0fe;
+    --bg-soft: #dff4ff;
+    --card: rgba(255, 255, 255, 0.72);
+    --card-solid: #f4fbff;
+    --border: rgba(255, 255, 255, 0.85);
+    --border-soft: rgba(112, 168, 200, 0.35);
+    --text: #1e3a5f;
+    --muted: #5c7a99;
+    --green: #22a06b;
+    --red: #e14d4d;
+    --yellow: #d98a1f;
+    --accent: #4ab8f0;
+    --accent-deep: #2f9ede;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(165deg, #60d0fe 0%, #8edcff 60%, #bdeaff 100%);
+    background-attachment: fixed;
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .badge {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.4);
+    color: #2b5a80;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 8px 24px rgba(31, 102, 148, 0.12);
+    backdrop-filter: blur(6px);
+  }
+  .stat .label {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .stat .value {
+    font-size: 28px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .value.ok { color: var(--green); }
+  .stat .value.warn { color: var(--yellow); }
+  .stat .value.bad { color: var(--red); }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 8px 24px rgba(31, 102, 148, 0.12);
+    backdrop-filter: blur(6px);
+    margin-bottom: 16px;
+  }
+  .panel:last-child { margin-bottom: 0; }
+  .panel h2 {
+    font-size: 16px;
+    margin-bottom: 14px;
+  }
+  .switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .switch-row:last-child { border-bottom: none; }
+  .switch-row .info .name { font-size: 15px; }
+  .switch {
+    position: relative;
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    inset: 0;
+    background: #c8e3f2;
+    box-shadow: inset 0 1px 3px rgba(60, 120, 160, 0.25);
+    border-radius: 26px;
+    cursor: pointer;
+    transition: 0.25s;
+  }
+  .slider::before {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: 0.25s;
+  }
+  .switch input:checked + .slider { background: linear-gradient(135deg, #7dd8ff, #4ab8f0); box-shadow: inset 0 1px 3px rgba(31, 102, 148, 0.2); }
+  .switch input:checked + .slider::before { transform: translateX(22px); }
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .actions button { flex: 1; }
+  button {
+    font-size: 13px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-soft);
+    background: rgba(255, 255, 255, 0.65);
+    color: #2b5a80;
+    cursor: pointer;
+    transition: 0.2s;
+    box-shadow: 0 2px 8px rgba(31, 102, 148, 0.08);
+  }
+  button:hover { background: rgba(255, 255, 255, 0.92); }
+  button.primary {
+    background: linear-gradient(135deg, #7dd8ff, #4ab8f0);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(74, 184, 240, 0.3);
+  }
+  button.primary:hover { filter: brightness(1.05); background: linear-gradient(135deg, #8bddff, #55bff5); }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 24px rgba(31, 102, 148, 0.18);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--text);
+    opacity: 0;
+    transition: 0.3s;
+    z-index: 10;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .loading { color: var(--muted); font-size: 14px; }
+  .policy-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 14px;
+  }
+  .policy-row:last-child { border-bottom: none; }
+  .policy-row .k { color: var(--muted); }
+  .policy-row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>电脑监控</h1>
+    <span class="badge">sys_monitor</span>
+  </div>
+
+  <div class="grid" id="stats">
+    <div class="stat"><div class="label">CPU</div><div class="value loading">--</div></div>
+    <div class="stat"><div class="label">内存</div><div class="value loading">--</div></div>
+    <div class="stat"><div class="label">C盘</div><div class="value loading">--</div></div>
+    <div class="stat"><div class="label">电量</div><div class="value loading">--</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>监控开关</h2>
+    <div id="switches">
+      <div class="loading">加载中…</div>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="saveSettings()">保存设置</button>
+      <button onclick="refreshAll()">刷新</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>监控策略</h2>
+    <div id="policy">
+      <div class="loading">加载中…</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const PLUGIN_ID = "sys_monitor";
+const RUNS_URL = "/runs";
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function unwrapPluginResponse(raw) {
+  let cur = raw;
+  for (let i = 0; i < 10; i++) {
+    if (!cur || typeof cur !== "object") break;
+    if (cur.success === false) throw new Error("插件返回失败");
+    if (!Object.prototype.hasOwnProperty.call(cur, "data")) return cur;
+    const next = cur.data;
+    if (next === null || next === undefined) return {};
+    if (typeof next !== "object") return next;
+    cur = next;
+  }
+  return cur || {};
+}
+
+function extractErrorMessage(rec, fallback) {
+  if (!rec || typeof rec !== "object") return fallback;
+  return String(rec.error || rec.message || rec.reason || fallback);
+}
+
+async function callEntry(entryId, args = {}, timeoutMs = 60000) {
+  const resp = await fetch(RUNS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plugin_id: PLUGIN_ID, entry_id: entryId, args }),
+  });
+  if (!resp.ok) throw new Error("创建任务失败: HTTP " + resp.status);
+  const data = await resp.json().catch(() => ({}));
+  const runId = data.run_id || data.id;
+  if (!runId) throw new Error("未拿到 run_id");
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await sleep(230);
+    const pr = await fetch(RUNS_URL + "/" + runId);
+    if (!pr.ok) continue;
+    const rec = await pr.json().catch(() => ({}));
+    const st = String(rec.status || "").toLowerCase();
+    if (st === "succeeded") {
+      const er = await fetch(RUNS_URL + "/" + runId + "/export");
+      if (!er.ok) return {};
+      const ex = await er.json().catch(() => ({}));
+      const items = Array.isArray(ex.items) ? ex.items : [];
+      let payload = {};
+      for (const it of items) {
+        if (!it || typeof it !== "object") continue;
+        if (it.type === "json" && it.json) { payload = it.json; break; }
+        if (it.type === "text" && typeof it.text === "string") {
+          try { payload = JSON.parse(it.text); break; } catch (_e) {}
+        }
+      }
+      return unwrapPluginResponse(payload);
+    }
+    if (st === "failed" || st === "canceled" || st === "timeout") {
+      throw new Error(extractErrorMessage(rec, "任务" + st));
+    }
+  }
+  throw new Error("任务超时");
+}
+
+async function refreshStatus() {
+  const data = await callEntry("b_status");
+  const cards = document.querySelectorAll("#stats .stat .value");
+  const text = data.status || data.text || "";
+  // status 返回形如 "CPU 32% | 内存 45% | C盘 60% | 电量 80% (电池)"
+  const m = text.match(/CPU\s*([\d.]+)%/i);
+  const mm = text.match(/内存\s*([\d.]+)%/i);
+  const md = text.match(/C盘\s*([\d.]+)%/i);
+  const mb = text.match(/电量\s*([\d.]+)%(?:\s*\(([^)]*)\))?/i);
+  const set = (i, v, cls) => { cards[i].textContent = v; cards[i].className = "value " + cls; };
+  if (m) set(0, m[1] + "%", pct(m[1]));
+  if (mm) set(1, mm[1] + "%", pct(mm[1]));
+  if (md) set(2, md[1] + "%", pct(md[1]));
+  if (mb) set(3, mb[1] + "%", /充电/.test(mb[2] || "") ? "ok" : "warn");
+}
+
+function pct(v) {
+  const n = parseFloat(v);
+  if (n > 85) return "bad";
+  if (n > 70) return "warn";
+  return "ok";
+}
+
+const SWITCH_DEFS = [
+  { key: "cpu", name: "CPU 监控" },
+  { key: "mem", name: "内存监控" },
+  { key: "disk", name: "磁盘监控" },
+  { key: "battery", name: "电量监控" },
+];
+
+const POLICY_DEFS = [
+  { key: "cpu_threshold", name: "CPU 阈值", suffix: "%" },
+  { key: "mem_threshold", name: "内存阈值", suffix: "%" },
+  { key: "disk_threshold", name: "C盘占用阈值", suffix: "%" },
+  { key: "battery_threshold", name: "电量阈值", suffix: "%" },
+  { key: "check_interval", name: "检查间隔", suffix: " 秒" },
+  { key: "repeat_interval", name: "重复提醒间隔", suffix: " 秒" },
+];
+
+async function loadPolicy() {
+  const data = await callEntry("policy");
+  const box = document.getElementById("policy");
+  const compare = (data && data["策略对比"]) || {};
+  box.innerHTML = "";
+  for (const def of POLICY_DEFS) {
+    const item = compare[def.key];
+    let v = item && item["当前值"];
+    if (v === undefined && item) v = item["原值"];
+    const row = document.createElement("div");
+    row.className = "policy-row";
+    row.innerHTML = `<span class="k">${def.name}</span><span class="v">${v === undefined || v === null ? "--" : v + def.suffix}</span>`;
+    box.appendChild(row);
+  }
+}
+
+let current = { cpu: true, mem: true, disk: true, battery: true };
+
+async function loadSettings() {
+  // 先默认读取；settings 入口在无参数时会返回当前配置
+  const data = await callEntry("settings");
+  if (data && data.settings) current = data.settings;
+  renderSwitches();
+}
+
+function renderSwitches() {
+  const box = document.getElementById("switches");
+  box.innerHTML = "";
+  for (const def of SWITCH_DEFS) {
+    const row = document.createElement("div");
+    row.className = "switch-row";
+    row.innerHTML = `
+      <div class="info">
+        <div class="name">${def.name}</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-key="${def.key}" ${current[def.key] ? "checked" : ""}>
+        <span class="slider"></span>
+      </label>`;
+    box.appendChild(row);
+  }
+}
+
+async function saveSettings() {
+  const args = {};
+  for (const def of SWITCH_DEFS) {
+    const el = document.querySelector(`input[data-key="${def.key}"]`);
+    args[def.key] = !!el.checked;
+  }
+  try {
+    const data = await callEntry("settings", args);
+    if (data && data.settings) current = data.settings;
+    renderSwitches();
+    toast("设置已保存，猫娘已收到通知！");
+  } catch (e) {
+    toast("保存失败: " + e.message);
+  }
+}
+
+async function refreshAll() {
+  try {
+    await refreshStatus();
+    await loadSettings();
+    await loadPolicy();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+refreshAll();
+setInterval(refreshStatus, 15000);
+</script>
+</body>
+</html>

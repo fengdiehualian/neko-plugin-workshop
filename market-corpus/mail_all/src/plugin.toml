@@ -1,0 +1,32 @@
+[plugin]
+name = "猫娘邮件"
+description = "让猫娘帮你收发邮件的插件。支持任意 SMTP / IMAP / POP3 邮箱（QQ、163、Gmail、Outlook、企业邮箱等），可配置多个账号，定时查收并喵一声提醒主人，也能代主人发信。"
+short_description = "Catgirl mail plugin: send/receive email via any SMTP/IMAP/POP3 account. Multi-account, auto-check, meow notifications."
+keywords = ["邮件", "email", "邮箱", "猫娘", "catgirl", "imap", "pop3", "smtp", "收发邮件", "メール", "이메일"]
+version = "0.1.0"
+id = "mail_all"
+entry = "plugins.mail_all:MailAllPlugin"
+
+[plugin.author]
+name = "baixiangyuan"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.store]
+enabled = true
+
+[mail_all]
+# 自动查信间隔（秒），默认 300 秒（5 分钟）
+check_interval = 300
+# 是否用猫娘语气推送提醒
+meow = true

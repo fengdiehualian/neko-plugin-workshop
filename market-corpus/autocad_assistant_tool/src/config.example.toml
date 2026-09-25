@@ -1,0 +1,8 @@
+# CAD辅助绘图插件 — 示例配置
+# 复制为 config.toml 后按需修改；未提供时使用代码内默认值。
+
+[cad]
+# 连接CAD时是否允许自动启动（找不到运行实例时尝试从注册表拉起）
+auto_launch = true
+# 自动启动后轮询COM接口就绪的最长秒数
+launch_wait_sec = 20

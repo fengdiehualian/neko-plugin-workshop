@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "neko-plugin: check",
+      "type": "shell",
+      "command": "neko-plugin check bililearn_bridge",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "neko-plugin: check --release",
+      "type": "shell",
+      "command": "neko-plugin check bililearn_bridge --release",
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "pytest",
+      "type": "shell",
+      "command": "pytest -q",
+      "problemMatcher": [],
+      "group": "test"
+    }
+  ]
+}

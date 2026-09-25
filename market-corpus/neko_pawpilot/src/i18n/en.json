@@ -1,0 +1,10 @@
+{
+  "panel.title": "Neko Pawpilot",
+  "panel.subtitle": "ETS2 catgirl copilot companion",
+  "nav.drive": "Driving",
+  "nav.activity": "Activity",
+  "nav.diagnostics": "Diagnostics",
+  "nav.map": "Map",
+  "nav.memory": "Memory",
+  "nav.settings": "Settings"
+}

@@ -1,0 +1,20 @@
+[plugin]
+id = "xiyin_pavilion"
+name = "汐音阁"
+description = "汐音阁 · XiYin Pavilion —— 本地音乐推送插件。用户在 Web UI 上传音频文件后，猫娘可获取已上传歌曲列表，按歌名/歌手精准选歌推送到主对话播放，支持定时队列与歌词绑定。✨ 小巧思：上传歌曲时可选绑定歌词，之后每次猫娘推送歌曲时，会随机提取歌词片段内容与用户雅俗共赏。使用流程：① 打开 Web UI 上传音频（可选绑定歌词）→ http://127.0.0.1:48916/plugin/xiyin_pavilion/ui/ ；② 告诉猫娘想听什么歌，猫娘会自动从已上传歌曲中选择并推送播放。"
+version = "0.1.2"
+entry = "plugin.plugins.xiyin_pavilion:XiYinPavilionPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.store]
+enabled = true

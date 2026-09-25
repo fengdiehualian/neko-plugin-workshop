@@ -1,0 +1,4 @@
+{
+  "plugin.name": "Plugin Store Search",
+  "plugin.description": "Search and discover plugins from the N.E.K.O plugin store. Supports keyword search by name, tags, author, and returns detailed plugin info (rating, downloads, repo URL, etc.)."
+}

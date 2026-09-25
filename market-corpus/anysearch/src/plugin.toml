@@ -1,0 +1,51 @@
+[plugin]
+name = "AnySearch 联网搜索"
+description = "在 N.E.K.O 里接入 AnySearch（api.anysearch.com）统一搜索 API，让猫娘在聊天里直接联网搜索，并在面板里可视化检索。支持匿名模式（无需 Key，按 IP 每日免费额度）与 API Key 模式。纯标准库 urllib 实现，零第三方依赖。"
+short_description = "Plug AnySearch unified web search into N.E.K.O: let your catgirl search the web from chat, with a visual panel."
+keywords = ["search", "anysearch", "联网搜索", "搜索", "web", "agent", "猫娘", "catgirl"]
+version = "0.1.0"
+id = "anysearch"
+entry = "plugins.anysearch:AnySearchPlugin"
+
+[plugin.author]
+name = "baixiangyuan"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "AnySearch 联网搜索"
+entry = "ui/panel.tsx"
+context = "main"
+permissions = ["state:read", "action:call"]
+
+[anysearch]
+# AnySearch API Key（可选）。留空则使用匿名模式：按客户端 IP 每日免费额度（约 1000 次/天）。
+# 获取：https://anysearch.com/console/api-keys
+api_key = ""
+# 默认搜索区域：cn（国内）/ intl（国际）
+default_zone = "cn"
+# 默认偏好语言
+default_language = "zh-CN"
+# 默认返回结果数量
+default_max_results = 5
+# 单次搜索超时（秒）
+search_timeout = 15
+# 面板里保留的最近搜索条数
+max_recent = 20

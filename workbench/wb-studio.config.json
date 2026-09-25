@@ -1,0 +1,13 @@
+{
+  "port": 5099,
+  "server": "http://127.0.0.1:4096",
+  "workspace": "C:\\Users\\Administrator\\dev\\wb-projects",
+  "model": "sensenova/kimi-k3",
+  "engineMode": "exe",
+  "engineExe": "C:\\Users\\Administrator\\dev\\opencode\\packages\\desktop\\resources\\opencode-cli.exe",
+  "opencodeRepo": "C:\\Users\\Administrator\\dev\\opencode",
+  "bunPath": "C:\\Users\\Administrator\\.bun\\bin\\bun.exe",
+  "enginePort": 4096,
+  "timeoutSec": 1500,
+  "openBrowser": false
+}

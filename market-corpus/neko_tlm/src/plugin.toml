@@ -1,0 +1,80 @@
+[plugin]
+id = "neko_tlm"
+name = "酒狐插件"
+description = "一个联动插件，为《车万女仆》(Touhou Little Maid) 模组与《N.E.K.O》建立兼容与交互桥梁，可以用N.E.K.O用自然语言控制游戏内女仆行为"
+short_description = "控制车万女仆：跟随、坐下、切换工作模式、攻击目标、装备物品、执行指令、触发技能"
+keywords = [
+    "minecraft", "touhou-little-maid", "bridge", "game",
+    "女仆", "跟随", "驻守", "坐下", "站起", "工作", "模式", "任务",
+    "攻击", "打怪", "装备", "物品", "指令", "技能", "日程",
+    "切换", "执行", "农耕", "甘蔗", "待机", "喂食", "剪羊毛", "插火把",
+    "苦力怕", "僵尸", "骷髅",
+    "挖矿", "采矿", "找矿", "挖.*(煤|铁|金|钻石|红石|青金石|绿宝石|下界石英|远古残骸)",
+    "砍树", "砍.*(树|木|原木)", "树.*砍", "采集", "收集",
+    "过来", "到我", "跟我", "跟着", "寻路", "导航", "坐标", "地面", "矿道",
+    "follow", "sit", "attack", "equip", "skill", "command", "task", "schedule",
+    "maid", "farm", "idle", "feed", "shear", "torch", "creeper", "zombie", "skeleton",
+    "mine", "mining", "gather", "chop", "navigate", "pathfind", "come here", "follow me"
+]
+version = "1.0.7_1"
+entry = "plugin.plugins.neko_tlm:NekoMinecraftPlugin"
+
+[plugin.author]
+name = "ggg233m"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "Minecraft Bridge"
+entry = "ui/panel.tsx"
+context = "dashboard"
+permissions = ["state:read", "action:call", "config:read"]
+
+[[plugin.ui.guide]]
+id = "mod-download"
+title = "下载 Mod"
+entry = "MOD_DOWNLOAD_GUIDE.md"
+permissions = ["state:read"]
+
+[minecraft_bridge]
+ws_url = "ws://127.0.0.1:48920"
+heartbeat_interval = 30
+reconnect_interval = 5
+max_reconnect_interval = 60
+assigned_maid_id = ""
+assigned_maid_name = ""
+companion_mode = "standard"
+awareness_interval = 5
+playmate_memory_items = 24
+playmate_memory_summary_length = 120
+playmate_memory_inject_items = 8
+playmate_memory_inject_chars = 700
+playmate_activity_debounce_checks = 2
+playmate_activity_cooldown = 120
+playmate_quiet_stable_seconds = 90
+playmate_quiet_cooldown = 300
+playmate_aggregate_window = 8
+playmate_throttle_window = 30
+playmate_throttle_limit = 6
+playmate_minigame_feedback_cooldown = 90
+playmate_minigame_context_chars = 90
+playmate_suggestion_cooldown = 600
+playmate_debug_log_enabled = false
+playmate_debug_log_max_bytes = 262144

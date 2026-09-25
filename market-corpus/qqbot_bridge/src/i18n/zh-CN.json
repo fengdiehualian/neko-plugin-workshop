@@ -1,0 +1,16 @@
+{
+  "plugin.name": "QQ机器人桥接",
+  "panel.title": "QQ机器人桥接",
+  "panel.status.connected": "已连接",
+  "panel.status.disconnected": "未连接",
+  "panel.send": "发送消息",
+  "panel.reconnect": "重连",
+  "panel.recent": "最近消息",
+  "panel.no_messages": "暂无消息",
+  "panel.target_type": "目标类型",
+  "panel.target_id": "目标 ID",
+  "panel.content": "消息内容",
+  "panel.reply_mode": "回复模式",
+  "panel.webhook_url": "Webhook 地址",
+  "panel.error": "错误"
+}

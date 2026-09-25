@@ -1,0 +1,17 @@
+[project]
+name = "luogu"
+version = "0.1.0"
+dependencies = [
+    "httpx>=0.27",
+    "cryptography>=42",
+]
+
+[tool.pytest.ini_options]
+# 仓库根目录本身带 __init__.py（是插件包），pytest 默认会把它当作包去收集、
+# 进而导入根 __init__.py（相对导入失败）。以 tests/ 为 confcutdir 让 pytest
+# 不再向上寻找包/conftest，默认 `pytest tests/` 即可从本目录直接跑通。
+addopts = "--confcutdir=tests"
+testpaths = ["tests"]
+markers = [
+    "plugin_unit: plugin unit tests.",
+]

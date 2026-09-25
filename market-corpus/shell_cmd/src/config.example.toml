@@ -1,0 +1,33 @@
+# 猫娘命令操作器 - 配置示例
+# 复制本文件为 plugin.toml 同级的 config.toml 并按需修改
+
+[shell_cmd]
+# 单条命令最长执行时间（秒）
+timeout = 30
+
+# 工作目录（留空 = 插件数据目录）
+workdir = ""
+
+# 是否放行危险命令（默认 false，强烈建议保持 false）
+allow_dangerous = false
+
+# 输出最多返回行数（超出截断）
+max_output_lines = 200
+
+# 危险命令黑名单片段（命中即拦截）
+blacklist = [
+    "rm -rf /",
+    "format ",
+    "mkfs",
+    "shutdown",
+    "restart",
+    ":(){",
+    "dd if=",
+    "> /dev/sda",
+    "chmod -R 000",
+    "del /f /s /q",
+    "rd /s /q",
+    "rmdir /s /q",
+    "curl | sh",
+    "wget | sh",
+]

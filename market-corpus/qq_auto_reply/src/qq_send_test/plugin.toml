@@ -1,0 +1,31 @@
+[plugin]
+name = "QQ 发送测试"
+description = "向指定 QQ 群发送一条测试消息，验证「其它插件 ↔ QQ」链路（call_entry → qq_auto_reply 发送入口）。"
+short_description = "其它插件向 QQ 群发测试消息"
+keywords = ["qq", "send", "test", "bridge"]
+passive = true
+version = "0.1.0"
+id = "qq_send_test"
+type = "plugin"
+entry = "plugin.plugins.qq_send_test:QQSendTestPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "QQ 发送测试"
+entry = "static/index.html"
+context = "qq_send_test"
+permissions = ["state:read", "action:call"]
+
+[plugin_runtime]
+enabled = true
+auto_start = true

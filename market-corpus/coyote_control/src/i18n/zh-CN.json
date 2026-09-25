@@ -1,0 +1,22 @@
+{
+  "panel.subtitle": "查看郊狼设备连接状态和测试功能",
+  "status.serverStopped": "服务器已停止",
+  "status.connected": "已连接",
+  "status.waiting": "等待连接",
+  "section.status": "服务器状态",
+  "section.qrCode": "连接二维码",
+  "section.clients": "已连接设备",
+  "section.test": "测试连接",
+  "field.serverStatus": "服务器状态",
+  "field.wsUrl": "WebSocket 地址",
+  "field.localIp": "本机 IP",
+  "clients.empty": "暂无设备连接",
+  "clients.id": "设备 ID",
+  "clients.battery": "电量",
+  "clients.signal": "信号强度",
+  "qr.instruction": "使用郊狼 APP 扫描此二维码连接",
+  "qr.unavailable": "二维码不可用（服务器未启动）",
+  "test.description": "发送 10 功率的脉冲波形持续 5 秒，用于验证设备连接",
+  "test.button": "测试连接",
+  "test.unavailable": "测试功能不可用"
+}

@@ -1,0 +1,14 @@
+[project]
+name = "proactive_recommender"
+version = "0.4.1"
+requires-python = "==3.11.*"
+# aiohttp is part of the supported N.E.K.O host runtime. Keeping native
+# extensions out of vendor/ makes one release artifact portable across the
+# Windows, macOS, and Linux N.E.K.O distributions.
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "pytest>=9.0.2",
+  "ruff>=0.12.4",
+]

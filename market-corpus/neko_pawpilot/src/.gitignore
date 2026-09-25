@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-cache-files-*/
+.tmp_*_test/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+vendor/
+dist/
+build/
+*.egg-info/
+store.db
+.env
+.DS_Store
+*.neko-plugin
+*.neko-bundle
+
+# C# 地图提取器编译产物
+adapters/map_extractor/bin/
+adapters/map_extractor/obj/
+adapters/map_extractor/publish/

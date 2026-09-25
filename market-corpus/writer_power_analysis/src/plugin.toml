@@ -1,0 +1,55 @@
+[plugin]
+id = "writer_power_analysis"
+name = "文本分析"
+description = "输入文本，调用模型生成结构化分析、评分与改进建议。"
+short_description = "AI text analysis, scoring, and improvement suggestions."
+keywords = [
+    "作家",
+    "写作",
+    "文本分析",
+    "战力分析",
+    "评分",
+    "Ink Battles",
+    "writer",
+    "analysis",
+]
+version = "0.1.0"
+entry = "plugin.plugins.writer_power_analysis:WriterPowerAnalysisPlugin"
+
+[plugin.author]
+name = "ZhaiJiu"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "文本分析"
+entry = "static/index.html"
+context = "writer_power_analysis"
+permissions = [
+    "state:read",
+    "action:call",
+]
+
+[plugin.store]
+enabled = true
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[writer_power_analysis]
+base_url = ""
+api_key = ""
+model_list_path = ""
+default_model = ""
+fallback_models = []
+timeout_seconds = 10000
+max_article_chars = 1000000
+temperature = 0.35
+json_mode = false
