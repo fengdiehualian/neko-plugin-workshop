@@ -1,0 +1,16 @@
+# 猫娘小游戏屋 - 配置示例
+# 复制本文件为 plugin.toml 同级的 config.toml 并按需修改
+
+[mini_games]
+# 抽卡保底：连续多少抽必出 SSR 及以上（0 表示不保底）
+pity_ssr = 50
+
+# 十连保底最低稀有度（保证十连至少出一张该稀有度及以上的卡）
+ten_pull_floor = "R"
+
+# 骰子默认面数 / 颗数
+dice_sides = 6
+dice_count = 1
+
+# 卡池稀有度权重（每 1000 份中的占比，数字越大概率越高）
+rarity_weights = { N = 600, R = 280, SR = 90, SSR = 25, UR = 5 }

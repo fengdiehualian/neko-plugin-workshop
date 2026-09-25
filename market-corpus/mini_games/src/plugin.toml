@@ -1,0 +1,38 @@
+[plugin]
+name = "猫娘小游戏屋"
+description = "猫娘陪你玩的迷你小游戏合集：抽卡 Gacha（单抽 / 十连 / 保底 / 图鉴）、今日运势、摇骰子。适合在聊天里打发时间、欧气比拼、和猫娘一起玩。"
+short_description = "Catgirl mini-games: Gacha pulls (single/ten-pull/pity/collection), daily fortune, dice roll."
+keywords = ["小游戏", "游戏", "抽卡", "gacha", "猫娘", "运势", "骰子", "catgirl", "game", "爆款"]
+version = "0.1.0"
+id = "mini_games"
+entry = "plugins.mini_games:MiniGamesPlugin"
+
+[plugin.author]
+name = "baixiangyuan"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[mini_games]
+# 抽卡保底：连续多少抽必出 SSR 及以上（0 表示不保底）
+pity_ssr = 50
+# 十连保底最低稀有度
+ten_pull_floor = "R"
+# 骰子默认面数
+dice_sides = 6
+# 骰子默认颗数
+dice_count = 1
+# 卡池稀有度权重（每 1000 份中的占比，可自由调整概率）
+rarity_weights = { N = 600, R = 280, SR = 90, SSR = 25, UR = 5 }

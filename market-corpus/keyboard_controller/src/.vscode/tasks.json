@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check keyboard_controller",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check keyboard_controller",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync keyboard_controller",
+      "type": "shell",
+      "command": "uv run --with pip python -m plugin.neko_plugin_cli.cli sync keyboard_controller --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r keyboard_controller",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r keyboard_controller",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build keyboard_controller",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build keyboard_controller",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

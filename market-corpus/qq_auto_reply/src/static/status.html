@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="ui.status.title">QQ 一键部署</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f0f2f5; color:#1a1a2e; padding:20px; }
+.wrap { max-width:760px; margin:0 auto; }
+header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+header h1 { font-size:20px; flex:1 1 auto; }
+button, .btn { padding:7px 14px; border:none; border-radius:8px; background:#6366f1; color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+button.ghost { background:#fff; color:#4b5563; border:1px solid #e2e8f0; }
+button:disabled { opacity:.5; cursor:default; }
+label.auto { font-size:13px; color:#4b5563; display:flex; align-items:center; gap:6px; cursor:pointer; }
+.card { background:#fff; border-radius:12px; padding:16px 18px; border:1px solid #e8ecf1; margin-bottom:14px; }
+.card > h2 { font-size:14px; margin-bottom:12px; color:#4b5563; font-weight:700; }
+
+.row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.row input { flex:1 1 200px; min-width:0; padding:7px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; }
+
+#err { display:none; background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; border-radius:12px; padding:12px 16px; font-size:13px; margin-bottom:14px; white-space:pre-wrap; word-break:break-all; }
+
+#deploy-log { margin-top:10px; font-size:12px; font-family:ui-monospace,Consolas,monospace; color:#475569; max-height:260px; overflow:auto; }
+#deploy-log div { padding:3px 0; border-bottom:1px dashed #eef1f5; }
+#deploy-log div:last-child { border-bottom:none; }
+
+#qrbox { display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
+#qrbox img { width:150px; height:150px; image-rendering:pixelated; border:1px solid #e8ecf1; border-radius:10px; background:#fff; }
+#qrbox .empty { color:#94a3b8; font-size:13px; }
+.muted { color:#94a3b8; font-size:12px; }
+
+/* 连接方式：按钮卡片，当前生效的那张高亮 */
+.modes { display:flex; gap:10px; flex-wrap:wrap; }
+button.mode { flex:1 1 170px; min-width:150px; text-align:left; background:#fff; color:#4b5563;
+  border:2px solid #e8ecf1; border-radius:10px; padding:10px 13px; cursor:pointer;
+  font-size:13px; font-weight:400; line-height:1.5; transition:border-color .15s, background .15s; }
+button.mode:hover:not(:disabled) { border-color:#c7d2fe; }
+button.mode.active { border-color:#6366f1; background:#f5f6ff; color:#1a1a2e; }
+button.mode b { display:block; font-weight:700; font-size:13px; }
+button.mode span { display:block; font-size:11px; color:#94a3b8; margin-top:3px; }
+button.mode.active span { color:#6366f1; }
+
+/* 信任名单 */
+select { padding:7px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; background:#fff; color:#4b5563; }
+ul.list { list-style:none; margin-top:10px; }
+ul.list li { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px dashed #eef1f5; font-size:13px; }
+ul.list li:last-child { border-bottom:none; }
+ul.list .id { font-family:ui-monospace,Consolas,monospace; }
+ul.list .lv { color:#94a3b8; font-size:12px; }
+ul.list .del { margin-left:auto; padding:3px 10px; font-size:12px; background:#fff; color:#b91c1c; border:1px solid #fecaca; border-radius:6px; cursor:pointer; }
+ul.list .empty { color:#94a3b8; font-size:12px; padding:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="title" data-i18n="ui.status.title">QQ 一键部署</h1>
+    <label class="auto"><input type="checkbox" id="auto" checked><span data-i18n="ui.status.auto">自动刷新</span></label>
+    <button class="ghost" id="btn-refresh" data-i18n="ui.status.refresh">刷新</button>
+    <button class="ghost" id="btn-qr" data-i18n="ui.status.refresh_qr">刷新二维码</button>
+    <a class="btn" href="index.html" style="text-decoration:none" data-i18n="ui.status.back">返回</a>
+  </header>
+
+  <div id="err"></div>
+
+  <!-- 连接方式：整页内容跟着它翻。运行中切换会按新模式停掉重连（见 runtime.set_mode） -->
+  <div class="card">
+    <h2 data-i18n="ui.status.mode">连接方式</h2>
+    <div class="modes" id="modes">
+      <button class="mode" data-mode="napcat">
+        <b data-i18n="ui.status.mode_napcat">OneBot（NapCat）</b>
+        <span data-i18n="ui.status.mode_napcat_hint">插件监听端口，NapCat 启动后拨进来</span>
+      </button>
+      <button class="mode" data-mode="open_platform">
+        <b data-i18n="ui.status.mode_openplat">QQ 开放平台</b>
+        <span data-i18n="ui.status.mode_openplat_hint">官方 Bot API，不需要额外进程</span>
+      </button>
+    </div>
+
+    <!-- 流程小字 + 管理员提醒。两种模式的流程不同，按当前模式显示其中一条。
+         "配管理员"这步最容易漏：漏了的现象是"连上了、也收到消息了，但她一声不吭"。 -->
+    <div class="muted" style="margin-top:12px;line-height:1.8">
+      <span id="mode-hint-napcat" data-i18n="ui.status.flow_napcat">流程：部署 NapCat → 扫码登录 → 自动补写配置并启动自动回复。<b>记得在下方「信任名单」把自己的 QQ 号设为管理员</b> —— 管理员才是「主人」，其余人只是好友。</span>
+      <span id="mode-hint-openplat" style="display:none" data-i18n="ui.status.flow_openplat">流程：扫码绑定 → 自动写入凭据并启动自动回复，<b>扫码的人会自动成为管理员</b>。群里其他人的 openid 与 QQ 号对不上，需要手动「合并身份」才会被当成同一个人。</span>
+    </div>
+  </div>
+
+  <!-- 自启：整机级自动化开关 —— 开了之后每次插件启动都拉起 NapCat 并接上自动回复 -->
+  <div class="card">
+    <h2 data-i18n="ui.status.autostart">开机自启</h2>
+    <div class="muted" style="margin-bottom:10px;line-height:1.7">
+      开启后每次插件启动都会自动拉起 NapCat 并启动自动回复，不必再手动点。
+    </div>
+    <label class="auto"><input type="checkbox" id="autostart"><span data-i18n="ui.status.autostart_on">启动插件时自动拉起 NapCat 并开启自动回复</span></label>
+  </div>
+
+  <!-- NapCat / OneBot 那一套：部署 + 登录二维码。开放平台模式下整块隐藏 -->
+  <div id="sec-napcat">
+  <div class="card">
+    <h2 data-i18n="ui.status.deploy">一键部署</h2>
+    <div class="row">
+      <input id="uin" inputmode="numeric" placeholder="机器人 QQ 号（选填）" data-i18n-ph="ui.status.uin_ph">
+      <button id="btn-deploy" data-i18n="ui.status.deploy_btn">一键部署</button>
+      <button class="ghost" id="btn-apply" data-i18n="ui.status.apply_btn">补写 OneBot 配置</button>
+    </div>
+    <div id="deploy-log"><span class="muted" data-i18n="ui.status.deploy_idle">尚未执行</span></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="ui.qrcode.title">登录二维码</h2>
+    <!-- 这句放在码**上面**：得先读到再扫。扫错号的代价是"登录成功了，却发现
+         没人和她说话"。 -->
+    <div class="muted" style="margin-bottom:12px;line-height:1.8">
+      <span data-i18n="ui.qrcode.which_account">用「猫娘要登录的那个 QQ 号」扫码</span><br>
+      <span data-i18n="ui.qrcode.chat_with_other">然后用「另一个 QQ 号」去找她聊天 —— 她自己那个号没法跟自己聊</span>
+    </div>
+    <div id="qrbox">
+      <img id="qr" alt="QR" style="display:none">
+      <div class="empty" id="qr-empty" data-i18n="ui.qrcode.empty">暂未检测到二维码，请先启动 NapCat。</div>
+    </div>
+  </div>
+  </div>
+
+  <!-- QQ 开放平台那一套：扫码绑定 → 校验凭据 → 启动自动回复。NapCat 模式下整块隐藏。
+       绑定只在这一处；机器人账本/切换在「QQ 开放平台」配置页。 -->
+  <div id="sec-openplat" style="display:none">
+  <div class="card">
+    <h2 data-i18n="ui.status.bind">扫码绑定机器人</h2>
+    <div class="muted" style="margin-bottom:10px;line-height:1.8">
+      <span data-i18n="ui.openplat.scan_hint">用「需要和猫娘交流的那个 QQ 号」扫码</span><br>
+      <span data-i18n="ui.openplat.bind_desc">扫码后由平台下发凭据并自动写入配置；连接页会让你选是「创建新的机器人」还是「选择已有的机器人」。</span>
+    </div>
+    <div class="row">
+      <button id="btn-bind" data-i18n="ui.status.bind_btn">开始扫码绑定</button>
+      <span id="bind-status" class="muted"></span>
+    </div>
+    <div id="bind-qr" style="display:none;margin-top:12px;gap:14px;align-items:flex-start;flex-wrap:wrap">
+      <img id="bind-qr-img" alt="QR" style="width:150px;height:150px;image-rendering:pixelated;border:1px solid #e8ecf1;border-radius:10px;background:#fff;display:none">
+      <div class="muted" style="flex:1 1 200px;min-width:0;line-height:1.7">
+        <div>用手机 QQ 扫码完成绑定 —— 扫完自动获取凭据、写入配置并启动自动回复。</div>
+        <div id="bind-qr-raw" style="margin-top:6px;word-break:break-all;font-size:11px"></div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="ui.status.lists">信任名单</h2>
+
+    <div class="row">
+      <input id="u-qq" inputmode="numeric" placeholder="QQ 号" data-i18n-ph="ui.status.qq_ph">
+      <select id="u-level">
+        <option value="trusted" data-i18n="ui.status.u_trusted">信任用户（私聊回复）</option>
+        <option value="admin" data-i18n="ui.status.u_admin">管理员</option>
+        <option value="normal" data-i18n="ui.status.u_normal">普通（仅转发）</option>
+      </select>
+      <button id="btn-add-user" data-i18n="ui.status.add_user">添加用户</button>
+    </div>
+    <ul class="list" id="user-list"></ul>
+
+    <div class="row" style="margin-top:14px">
+      <input id="g-id" inputmode="numeric" placeholder="群号" data-i18n-ph="ui.status.group_ph">
+      <select id="g-level">
+        <option value="trusted" data-i18n="ui.status.g_trusted">信任群（被点名才回）</option>
+        <option value="open" data-i18n="ui.status.g_open">开放群（按概率回复）</option>
+        <option value="normal" data-i18n="ui.status.g_normal">普通群（仅转发）</option>
+      </select>
+      <button id="btn-add-group" data-i18n="ui.status.add_group">添加群聊</button>
+    </div>
+    <ul class="list" id="group-list"></ul>
+  </div>
+</div>
+
+<script src="i18n.js?v=2"></script>
+<script src="ui-sse.js?v=2"></script>
+<script>
+const P = 'qq_auto_reply', RUNS = '/runs';
+function t(k, fb) { return (window.I18n && typeof I18n.t === 'function') ? I18n.t(k, fb) : (fb || k); }
+
+/* 与 napcat.html 相同的调用约定：POST /runs 拿 run_id → SSE 等完成 → 取 export 解包 Ok。
+   opts.timeout 透传给 UISSE.awaitRun；不传就是它的 20 秒默认。
+   一键部署要下载 + 解包 + 启动 NapCat + 等二维码，20 秒必然不够 —— 那个默认值
+   会把一次成功的部署报成「失败：timeout」（后端其实还在跑）。 */
+async function call(entry, args, opts) {
+  const r = await fetch(RUNS, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plugin_id: P, entry_id: entry, args: args || {} }),
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json(), id = d.run_id || d.id;
+  if (!id) throw new Error('no run_id');
+  const status = await UISSE.awaitRun(id, Object.assign({
+    fetchStatus: async (runId) => {
+      try {
+        const p = await fetch(RUNS + '/' + runId);
+        if (!p.ok) return null;
+        const rec = await p.json();
+        return ['succeeded', 'failed', 'canceled', 'timeout'].includes(rec.status) ? rec.status : null;
+      } catch (e) { return null; }
+    },
+  }, opts || {}));
+  if (status !== 'succeeded') throw new Error(status);
+  const exp = await fetch(RUNS + '/' + id + '/export');
+  if (!exp.ok) return {};
+  const { items = [] } = await exp.json();
+  const item = items.find(i => i.type === 'json' && i.json) || items[0];
+  if (!item) return {};
+  let raw = item.json || {};
+  while (raw && raw.data && typeof raw.data === 'object' && ('success' in raw.data || 'error' in raw.data)) raw = raw.data;
+  if (raw && raw.success && raw.data && typeof raw.data === 'object') raw = raw.data;
+  return raw;
+}
+
+function showErr(msg) {
+  const e = document.getElementById('err');
+  if (!msg) { e.style.display = 'none'; e.textContent = ''; return; }
+  e.style.display = 'block'; e.textContent = msg;
+}
+function deployLog(text) {
+  const el = document.getElementById('deploy-log');
+  const idle = el.querySelector('.muted');
+  if (idle) el.innerHTML = '';
+  const d = document.createElement('div');
+  d.textContent = new Date().toLocaleTimeString() + '  ' + text;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+function busy(btn, on) { const b = document.getElementById(btn); if (b) b.disabled = on; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const LEVEL_LABEL = { admin: '管理员', trusted: '信任', normal: '普通', open: '开放' };
+
+/* 名单是插件自己的权限数据，服务端存字符串；这里只做展示与增删 */
+function renderLists(perms) {
+  const users = perms.trusted_users || [];
+  const groups = perms.trusted_groups || [];
+  const ul = document.getElementById('user-list');
+  ul.innerHTML = users.length
+    ? users.map(u =>
+        `<li><span class="id">${esc(u.qq)}</span>` +
+        (u.nickname ? ` <span class="lv">${esc(u.nickname)}</span>` : '') +
+        `<span class="lv">${esc(LEVEL_LABEL[u.level] || u.level || '')}</span>` +
+        `<button class="del" data-qq="${esc(u.qq)}">移除</button></li>`).join('')
+    : '<li class="empty">暂无信任用户</li>';
+
+  const gl = document.getElementById('group-list');
+  gl.innerHTML = groups.length
+    ? groups.map(g =>
+        `<li><span class="id">${esc(g.group_id)}</span>` +
+        `<span class="lv">${esc(LEVEL_LABEL[g.level] || g.level || '')}</span>` +
+        `<button class="del" data-gid="${esc(g.group_id)}">移除</button></li>`).join('')
+    : '<li class="empty">暂无信任群聊</li>';
+
+  ul.querySelectorAll('.del').forEach(b => {
+    b.onclick = () => act(b, 'trust', {action:'user_remove',  qq_number: b.dataset.qq });
+  });
+  gl.querySelectorAll('.del').forEach(b => {
+    b.onclick = () => act(b, 'trust', {action:'group_remove',  group_id: b.dataset.gid });
+  });
+}
+
+async function act(btn, entry, args) {
+  btn.disabled = true;
+  try { await call(entry, args); showErr(''); await load(); }
+  catch (e) { showErr('操作失败：' + ((e && e.message) ? e.message : e)); btn.disabled = false; }
+}
+
+/* 这页按当前连接模式切换两套自动化：NapCat 部署 或 开放平台扫码绑定。
+   标题 / 按钮 / 区块一起翻，页面上不留当前模式用不上的控件。 */
+let lastMode = null;
+function applyMode(mode) {
+  const openplat = mode === 'open_platform';
+  /* 卡片高亮始终对齐真实值 —— 切换失败时可以靠它把 UI 滚回去 */
+  document.querySelectorAll('#modes .mode').forEach(b => {
+    /* 这页只提供 OneBot / 开放平台两张卡。正向（napcat_forward）仍能从 NapCat
+       配置页切，落回这张页时归到 OneBot 那张 —— 否则两张都不亮，像没选。 */
+    const on = b.dataset.mode === 'napcat' ? mode !== 'open_platform' : b.dataset.mode === mode;
+    b.classList.toggle('active', on);
+  });
+  const hintNapcat = document.getElementById('mode-hint-napcat');
+  const hintOpen = document.getElementById('mode-hint-openplat');
+  if (hintNapcat) hintNapcat.style.display = openplat ? 'none' : '';
+  if (hintOpen) hintOpen.style.display = openplat ? '' : 'none';
+  if (mode === lastMode) return openplat;
+  lastMode = mode;
+  document.getElementById('sec-napcat').style.display = openplat ? 'none' : '';
+  document.getElementById('sec-openplat').style.display = openplat ? '' : 'none';
+  document.getElementById('btn-qr').style.display = openplat ? 'none' : '';
+  document.getElementById('title').textContent = openplat ? 'QQ 开放平台接入' : 'QQ 一键部署';
+  /* 切走时停掉绑定轮询 —— 别在后台空转着打接口 */
+  if (!openplat) stopBindPoll();
+  return openplat;
+}
+
+/* 只读区：二维码 + 启动异常 —— 一键流程需要它们判断下一步（扫码/排错） */
+async function load() {
+  let d;
+  try { d = await call('query', {action:'dashboard'}); }
+  catch (e) { showErr('读取状态失败：' + ((e && e.message) ? e.message : e)); return; }
+  /* 每一段各自 try：页面刚打开时任何一段抛了都不该把后面全带下去 ——
+     那种"开页空白、点一下刷新才出来"的现象就是这么来的。 */
+  const st = d.settings || {};
+  const openplat = applyMode(st.qq_connection_mode || 'napcat');
+  const ast = document.getElementById('autostart');
+  if (ast) ast.checked = st.auto_start_on_launch === true;
+  const rt = d.runtime || {};
+  try {
+    if (!openplat) {
+      /* NapCat 登录二维码只对 OneBot 那套有意义 */
+      const qr = rt.qrcode_url || '';
+      const img = document.getElementById('qr');
+      if (img) {
+        img.style.display = qr ? '' : 'none';
+        if (qr) img.src = qr + '?_ts=' + Date.now();
+      }
+      const empty = document.getElementById('qr-empty');
+      if (empty) empty.style.display = qr ? 'none' : '';
+    }
+  } catch (e) { /* 二维码区失败不该挡住下面的名单 */ }
+  try { renderLists(d.permissions || {}); } catch (e) { /* 同上 */ }
+  const err = rt.startup_error;
+  if (err) showErr(err); else showErr('');
+}
+
+/* ── 开放平台扫码绑定 ──────────────────────────────────────
+   原在 open_platform.html；按"绑定只留一份"搬过来。那边现在只留配置项 / 机器人账本 /
+   切换，不再有绑定入口。校验与启动的收尾由 qq_official_bind_poll 在服务端做。 */
+let bindTimer = null;
+function bindStatus(msg) { document.getElementById('bind-status').textContent = msg || ''; }
+function stopBindPoll() { if (bindTimer) { clearInterval(bindTimer); bindTimer = null; } }
+
+async function startBind() {
+  stopBindPoll();
+  bindStatus('正在申请绑定任务…');
+  try {
+    const d = await call('deploy', {action:'bind_start'});
+    const img = document.getElementById('bind-qr-img');
+    document.getElementById('bind-qr').style.display = 'flex';
+    if (d.qrcode_url) { img.src = d.qrcode_url + '?_ts=' + Date.now(); img.style.display = ''; }
+    document.getElementById('bind-qr-raw').textContent = d.qrcode || '';
+    /* 账本里已有机器人时给个提示：新建还是复用由手机连接页决定，这里不分流，
+       但告诉用户"选「已有的」就能复用" —— 扫码会轮换 AppSecret，能不重扫就别重扫。 */
+    bindStatus(d.existing_bots > 0
+      ? '等待扫码…（账本里已有 ' + d.existing_bots + ' 个机器人'
+        + (d.reusable_appid ? '，选「已有的机器人」可复用 ' + d.reusable_appid : '') + '）'
+      : '等待扫码…');
+    bindTimer = setInterval(async () => {
+      let r;
+      try { r = await call('deploy', {action:'bind_poll'}); } catch (e) { return; }  /* 单次失败下个周期再试 */
+      if (r.status === 'completed') {
+        stopBindPoll();
+        document.getElementById('bind-qr').style.display = 'none';
+        /* 凭据已经写入配置（绑定会轮换 AppSecret，旧密钥此刻已废，不写更糟）；verified 只能说
+           "这对凭据现在能不能换到 token"，auto_started 是运行状态 —— 都不影响"配置已写入"。 */
+        let msg = '已启用机器人 ' + r.appid;
+        if (r.verified === true) msg += ' · 凭据校验通过';
+        else msg += ' · 凭据校验未通过：' + (r.verify_error || '未知原因');
+        if (r.auto_started === true) msg += ' · 自动回复已启动';
+        else if (r.auto_start_error) msg += ' · 自动回复未启动：' + r.auto_start_error;
+        msg += '（切换机器人请到「QQ 开放平台」页）';
+        bindStatus(msg);
+        await load();
+      } else if (r.status === 'expired' || r.status === 'failed') {
+        stopBindPoll();
+        bindStatus(r.status === 'expired' ? '二维码已过期，请重新开始' : '失败: ' + (r.error || ''));
+      }
+    }, Math.max(1, (d.interval || 2)) * 1000);
+  } catch (e) {
+    bindStatus('失败: ' + ((e && e.message) || e));
+  }
+}
+
+document.getElementById('btn-bind').addEventListener('click', startBind);
+
+/* 自启开关。与缓冲开关同一写法：无论成败都重新 load()，失败时勾选会退回真实值。 */
+document.getElementById('autostart').addEventListener('change', async (e) => {
+  const el = e.target;
+  el.disabled = true;
+  try {
+    await call('config', { action: 'save', auto_start_on_launch: el.checked });
+    showErr('');
+  } catch (err) {
+    showErr('保存自启开关失败：' + ((err && err.message) ? err.message : err));
+  } finally {
+    el.disabled = false;
+    await load();
+  }
+});
+
+/* ── 切换连接方式 ──────────────────────────────────────────
+   服务端在运行中会按新模式停掉重连；只存设置的话，跑着的连接仍是旧模式建的，
+   看着配置对了却不生效。所以把结果如实报出来，失败不让卡片停在假的高亮上。 */
+async function switchMode(mode) {
+  const btns = Array.from(document.querySelectorAll('#modes .mode'));
+  btns.forEach(b => { b.disabled = true; });
+  try {
+    const r = await call('runtime', { action: 'set_mode', mode: mode });
+    showErr(r.status === 'reconnect_failed'
+      ? '连接方式已切换，但按新模式重连失败：' + (r.error || '未知原因') : '');
+  } catch (err) {
+    showErr('切换连接方式失败：' + ((err && err.message) ? err.message : err));
+  } finally {
+    btns.forEach(b => { b.disabled = false; });
+    /* 无论成败都按服务端真实值重画 —— 失败时高亮会退回原模式 */
+    await load();
+  }
+}
+
+document.querySelectorAll('#modes .mode').forEach(btn => {
+  btn.addEventListener('click', () => {
+    /* 点当前生效的那张不必重连（重复调 runtime.set_mode 会白停一次连接） */
+    if (btn.classList.contains('active')) return;
+    switchMode(btn.dataset.mode);
+  });
+});
+
+let timer = null;
+function setAuto(on) {
+  if (timer) { clearInterval(timer); timer = null; }
+  if (on) timer = setInterval(load, 5000);
+}
+
+document.getElementById('auto').addEventListener('change', e => setAuto(e.target.checked));
+document.getElementById('btn-refresh').addEventListener('click', load);
+document.getElementById('btn-qr').addEventListener('click', async () => {
+  busy('btn-qr', true);
+  try { await call('deploy', {action:'qrcode_sync'}); await load(); }
+  catch (e) { showErr('刷新二维码失败：' + ((e && e.message) ? e.message : e)); }
+  finally { busy('btn-qr', false); }
+});
+
+document.getElementById('btn-add-user').addEventListener('click', async () => {
+  const qq = document.getElementById('u-qq').value.trim();
+  if (!qq) { showErr('请先填写 QQ 号'); return; }
+  busy('btn-add-user', true);
+  try {
+    await call('trust', {action:'user_add',  qq_number: qq, level: document.getElementById('u-level').value });
+    document.getElementById('u-qq').value = '';
+    showErr('');
+    await load();
+  } catch (e) { showErr('添加用户失败：' + ((e && e.message) ? e.message : e)); }
+  finally { busy('btn-add-user', false); }
+});
+
+document.getElementById('btn-add-group').addEventListener('click', async () => {
+  const gid = document.getElementById('g-id').value.trim();
+  if (!gid) { showErr('请先填写群号'); return; }
+  busy('btn-add-group', true);
+  try {
+    await call('trust', {action:'group_add',  group_id: gid, level: document.getElementById('g-level').value });
+    document.getElementById('g-id').value = '';
+    showErr('');
+    await load();
+  } catch (e) { showErr('添加群聊失败：' + ((e && e.message) ? e.message : e)); }
+  finally { busy('btn-add-group', false); }
+});
+
+/* 部署反馈走 SSE：下载可能几十秒起步，没有实时输出用户会以为卡死。
+   这个页面只剩自动化相关的东西 —— 进度/运行状态/流水那些只读面板已移除。 */
+if (window.UISSE && typeof UISSE.on === 'function') {
+  UISSE.on('deploy_progress', ev => {
+    const d = (ev && ev.data) || {};
+    const label = d.label || d.step || '';
+    const pct = (typeof d.progress === 'number') ? ` ${d.progress}%` : '';
+    deployLog(`[${label}]${pct} ${d.message || (ev && ev.text) || ''}`);
+  });
+}
+
+/* ── 等扫码登录 ────────────────────────────────────────────
+   一键部署出码之后，用户还得拿手机扫 —— 这段时间没人盯着，以前得靠用户自己
+   想起来点「补写 OneBot 配置」。这里替用户盯着：每 5 秒问一次后端"登录了没"，
+   登录成功就由后端把收尾做完（补写配置 → 设自动登录 → 起自动回复）。
+   后端对同一个号有防重入，所以重复轮询不会反复重启 NapCat。 */
+let loginPollTimer = null;
+function stopLoginPoll(){ if (loginPollTimer) { clearInterval(loginPollTimer); loginPollTimer = null; } }
+function startLoginPoll(){
+  stopLoginPoll();
+  let asked = 0;
+  loginPollTimer = setInterval(async () => {
+    asked += 1;
+    let r;
+    try { r = await call('deploy', {action:'login_poll'}); } catch (e) { return; }
+    if (r.status === 'completed') {
+      stopLoginPoll();
+      deployLog('检测到登录成功（' + (r.uin || '?') + '）：已记下自动登录账号并完成收尾');
+      await load();
+    } else if (r.status === 'already') {
+      stopLoginPoll();          /* 已经收尾过了，别再打接口 */
+    } else if (asked % 12 === 0) {
+      deployLog('仍在等待扫码登录…');   /* 约每分钟提一次，免得日志刷屏 */
+    }
+  }, 5000);
+}
+
+/* 一键部署的后端上限是 300 秒（plugin/settings.py 的 RUN_EXECUTION_TIMEOUT 默认值），
+   前端等到这个数就够 —— 别再用 UISSE 那 20 秒的默认值，那会把正在正常跑的部署
+   报成「失败：timeout」。 */
+const DEPLOY_TIMEOUT_MS = 300000;
+
+document.getElementById('btn-deploy').addEventListener('click', async () => {
+  stopLoginPoll();
+  busy('btn-deploy', true);
+  document.getElementById('deploy-log').innerHTML = '';
+  deployLog('开始一键部署（首次需要下载 NapCat，可能需要几分钟）…');
+  try {
+    const r = await call('deploy', {action:'one_click',  uin: document.getElementById('uin').value.trim() },
+                         { timeout: DEPLOY_TIMEOUT_MS });
+    deployLog(r.qrcode_ready ? '完成：二维码已就绪，请扫码登录' : '完成：暂未出现二维码，可稍后点「刷新二维码」');
+    /* 登录成功后要记自动登录、补写配置、起自动回复 —— 以前这步要用户自己点
+       「补写 OneBot 配置」。现在开一个轮询替用户盯着，扫完就自动收尾。
+
+       **填没填 QQ 号都要盯**。填了的话配置在部署阶段就写好了、NapCat 登录后会直接
+       拨进来，看似不用管；但"记下自动登录账号"这步仍然在等登录确认（后端按 self_id
+       判，那时才拿得到真正登进去的号 —— 用户手填的未必就是它）。 */
+    deployLog(r.needs_uin
+      ? '未填 QQ 号 —— 扫码登录后会自动收尾，不必手动点「补写 OneBot 配置」'
+      : '登录成功后会自动记下自动登录账号');
+    startLoginPoll();
+    /* 自动回复的收尾结果单独报：反向模式下它是"先监听、等 NapCat 登录后自动接上"，
+       所以此刻报"未启动"多半只是正向模式还没登录，不是部署失败。 */
+    if (r.auto_started === true) deployLog('自动回复已启动（' + (r.auto_start_status || 'ok') + '）');
+    else if (r.auto_start_error) deployLog('自动回复暂未启动：' + r.auto_start_error);
+    await load();
+  } catch (e) {
+    const m = (e && e.message) ? e.message : e;
+    deployLog('失败：' + m);
+    showErr('一键部署失败：' + m);
+  } finally { busy('btn-deploy', false); }
+});
+
+document.getElementById('btn-apply').addEventListener('click', async () => {
+  stopLoginPoll();   /* 手动补写了，轮询就别再收一次尾 */
+  busy('btn-apply', true);
+  deployLog('补写 OneBot 配置…');
+  try {
+    const r = await call('deploy', {action:'apply_onebot',  uin: document.getElementById('uin').value.trim() });
+    deployLog(`已写入账号 ${r.uin} 的配置，NapCat 已重启: ${r.restarted}`);
+    if (r.auto_started === true) deployLog('自动回复已启动（' + (r.auto_start_status || 'ok') + '）');
+    else if (r.auto_start_error) deployLog('自动回复暂未启动：' + r.auto_start_error);
+    await load();
+  } catch (e) {
+    deployLog('失败：' + ((e && e.message) ? e.message : e));
+  } finally { busy('btn-apply', false); }
+});
+
+(async () => {
+  await load();
+  setAuto(true);
+  /* 开页补一次二维码同步。`load()` 只读静态缓存里的那张码，而 NapCat 可能已经
+     换过码 —— 不补这一下，刚打开看到的可能是过期的二维码，得手动点「刷新二维码」。
+     开放平台那套没有登录码，跳过。 */
+  if (lastMode !== 'open_platform') {
+    try {
+      await call('deploy', {action: 'qrcode_sync'});
+      await load();
+    } catch (e) { /* 补同步失败不影响页面已经渲染出的内容 */ }
+  }
+})();
+</script>
+</body>
+</html>

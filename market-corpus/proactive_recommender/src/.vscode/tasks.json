@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check proactive_recommender",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check proactive_recommender",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync proactive_recommender",
+      "type": "shell",
+      "command": "uv run --with pip python -m plugin.neko_plugin_cli.cli sync proactive_recommender --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r proactive_recommender",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r proactive_recommender",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build proactive_recommender",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build proactive_recommender",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

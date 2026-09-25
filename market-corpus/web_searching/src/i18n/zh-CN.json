@@ -1,0 +1,4 @@
+{
+  "plugin.name": "Web Searching",
+  "plugin.description": "独立开发的联网搜索插件。多策略搜索：DDG Instant Answer + Wikipedia + HTML 抓取 fallback。注册为 LLM 工具。"
+}

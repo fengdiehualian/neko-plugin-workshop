@@ -1,0 +1,7 @@
+fix: 修复歌曲URL被前端安全拦截的问题
+
+- 在插件内创建独立HTTP服务器，提供 /api/plugin/{plugin_id}/music/{filename} 路由
+- 修改 _build_ui_file_url 生成 /api/ 开头的URL，绕过前端安全拦截
+- 添加 MusicFileHandler 处理音乐文件请求
+- 在 on_start 和 on_shutdown 中管理HTTP服务器生命周期
+- 版本更新至 0.2.0

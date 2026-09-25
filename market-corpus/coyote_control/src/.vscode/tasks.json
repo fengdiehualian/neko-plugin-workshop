@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check coyote_control",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check coyote_control",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r coyote_control",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r coyote_control",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build coyote_control",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build coyote_control",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

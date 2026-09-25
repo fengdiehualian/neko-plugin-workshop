@@ -1,0 +1,11 @@
+{
+  "actions.save.label": "Save settings",
+  "actions.import_skill.label": "Import skill",
+  "actions.scan_skill_dirs.label": "Scan skill folders",
+  "actions.read_file.label": "Read file",
+  "actions.code_review.label": "Code review",
+  "actions.error_fix.label": "Fix suggestions",
+  "actions.project_summary.label": "Project summary",
+  "actions.multi_file_summary.label": "Multi-file summary",
+  "actions.quick_audit.label": "Quick audit"
+}

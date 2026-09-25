@@ -1,0 +1,8 @@
+[project]
+name = "bilibili_integration"
+version = "1.2.4"
+requires-python = ">=3.11"
+dependencies = [
+  "bilibili-api-dev==18.0.0a1",
+  "httpx>=0.28.1",
+]

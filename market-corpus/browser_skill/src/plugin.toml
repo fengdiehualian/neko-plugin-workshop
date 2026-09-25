@@ -1,0 +1,84 @@
+[plugin]
+name = "BrowserSkill 浏览器"
+description = "浏览器任务插件。使用 BrowserSkill 控制用户已登录的 Chrome/Edge，处理网页搜索、页面阅读、点击、填表、登录态操作、多步骤网站流程和 Web UI 测试。所有需要浏览器访问或网页交互的任务都会调用本插件。"
+short_description = "面向所有网页任务的浏览器自动化插件，通过 BrowserSkill 使用用户已登录的 Chrome 或 Edge。"
+keywords = [
+    "浏览器",
+    "网页",
+    "网站",
+    "搜索",
+    "查找",
+    "打开.*(页面|网站|链接)",
+    "点击",
+    "填表",
+    "登录",
+    "browser",
+    "browse",
+    "website",
+    "web page",
+    "search",
+    "click",
+    "fill.*form",
+    "logged.?in",
+    "chrome",
+    "edge",
+    "BrowserSkill",
+    "浏览器进度",
+    "修改浏览任务",
+    "改成.*(搜索|打开|网页|网站)",
+    "steer browser",
+    "browser progress",
+]
+version = "0.1.4"
+id = "browser_skill"
+entry = "plugin.plugins.browser_skill:BrowserSkillPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "BrowserSkill 控制台"
+entry = "static/panel.html"
+context = "browser_skill"
+permissions = ["state:read", "action:call"]
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[browser_skill]
+bsk_executable = "bundled"
+browser_label = ""
+routing_mode = "auto"
+auto_start_daemon = true
+session_scope = "plugin"
+reuse_existing_window = true
+allow_additional_agent_tabs = false
+max_steps = 20
+active_timeout_seconds = 300
+duplicate_suppression_seconds = 20
+session_keepalive_seconds = 120
+release_control_when_idle = true
+llm_timeout_seconds = 45
+planner_max_completion_tokens = 1200
+planner_correction_max_completion_tokens = 1600
+help_timeout_seconds = 300
+snapshot_max_depth = 16
+snapshot_max_tokens = 8000
+scroll_max_pages = 1
+scroll_snapshot_max_tokens = 2000
+scroll_settle_ms = 300
+live_page_max_chars = 1200
+html_max_bytes = 65536
+allow_tab_borrow = true
+enable_vision_fallback = true
+keep_session_for_media = true
+debug_logging = true

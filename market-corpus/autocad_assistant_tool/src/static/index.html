@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAD辅助绘图</title>
+<style>
+  :root { --bg:#1e1e2e; --panel:#2a2b3d; --accent:#89b4fa; --ok:#a6e3a1; --err:#f38ba8; --muted:#a6adc8; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Microsoft YaHei",sans-serif; background:var(--bg); color:#cdd6f4; padding:20px; }
+  h1 { font-size:1.25rem; margin:0 0 16px; }
+  .card { background:var(--panel); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  button { background:var(--accent); color:#11111b; border:0; border-radius:8px; padding:8px 16px; font-weight:600; cursor:pointer; }
+  button:hover { filter:brightness(1.1); }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .pill { display:inline-block; padding:3px 10px; border-radius:99px; font-size:.8rem; }
+  .pill.on { background:var(--ok); color:#11111b; }
+  .pill.off { background:var(--err); color:#11111b; }
+  .muted { color:var(--muted); font-size:.85rem; }
+  #status { white-space:pre-wrap; }
+  table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid #313244; }
+  th { color:var(--muted); }
+  code { background:#11111b; padding:1px 5px; border-radius:4px; font-size:.8rem; }
+</style>
+</head>
+<body>
+<h1>CAD辅助绘图 · 状态面板</h1>
+
+<div class="card">
+  <div class="row">
+    <button id="btn-connect">连接CAD</button>
+    <button id="btn-status" class="ghost">刷新状态</button>
+    <button id="btn-caps" class="ghost">查看命令</button>
+    <span id="conn-pill" class="pill off">未连接</span>
+  </div>
+  <pre id="status" class="muted">点击「连接CAD」开始（请先手动打开AutoCAD）。</pre>
+</div>
+
+<div class="card" id="caps-card" style="display:none">
+  <h2 style="font-size:1rem;margin:0 0 10px">可用绘图命令</h2>
+  <table>
+    <thead><tr><th>action</th><th>说明</th></tr></thead>
+    <tbody id="caps-body"></tbody>
+  </table>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

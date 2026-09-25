@@ -1,0 +1,4 @@
+{
+  "plugin.name": "Mood & Energy State",
+  "plugin.description": "Gives the catgirl a persistent mood/energy inner state: tiered prompts are injected into the conversation context by score, the LLM can self-adjust via tools, and the owner can tune it manually, so her tone shifts naturally with her state."
+}

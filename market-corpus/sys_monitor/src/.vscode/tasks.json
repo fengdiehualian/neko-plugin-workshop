@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check sys_monitor",
+      "type": "shell",
+      "command": "uv run neko-plugin check sys_monitor",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync sys_monitor",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync sys_monitor --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r sys_monitor",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r sys_monitor",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build sys_monitor",
+      "type": "shell",
+      "command": "uv run neko-plugin build sys_monitor",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

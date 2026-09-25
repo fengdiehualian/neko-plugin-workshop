@@ -1,0 +1,82 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: release gate (full chain)",
+      "type": "shell",
+      "command": "uv run python tools/release_gate.py",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: pytest",
+      "type": "shell",
+      "command": "uv run python -m pytest tests -q",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: ruff",
+      "type": "shell",
+      "command": "uv run ruff check .",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: hosted link check",
+      "type": "shell",
+      "command": "node tools/check_hosted_link.mjs",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: neko-plugin check",
+      "type": "shell",
+      "command": "uv run neko-plugin check \"${workspaceFolder}\"",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: neko-plugin sync",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync \"${workspaceFolder}\" --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: neko-plugin check -r (release)",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r \"${workspaceFolder}\"",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: neko-plugin build",
+      "type": "shell",
+      "command": "uv run neko-plugin build \"${workspaceFolder}\"",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

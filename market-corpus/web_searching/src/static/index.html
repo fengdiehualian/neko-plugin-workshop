@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Web Searching · 搜索记录</title>
+    <link rel="stylesheet" href="./style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+</head>
+<body>
+    <!-- 樱花飘落容器 -->
+    <div id="petals"></div>
+
+    <!-- 主容器 -->
+    <div class="app-container">
+        <!-- 标题区 -->
+        <header class="page-header">
+            <div class="header-deco">
+                <span class="header-emoji">🌸</span>
+            </div>
+            <h1 class="page-title">Web Searching</h1>
+            <p class="page-subtitle">每一朵樱花，都是一次探索世界的旅程</p>
+        </header>
+
+        <!-- 搜索框 -->
+        <section class="search-section">
+            <div class="search-box">
+                <input
+                    type="text"
+                    id="searchInput"
+                    class="search-input"
+                    placeholder="输入关键词，开启一段新的探索..."
+                    autocomplete="off"
+                >
+                <button id="searchBtn" class="search-btn">
+                    <span class="btn-icon">🔍</span>
+                    <span class="btn-text">搜索</span>
+                </button>
+            </div>
+            <div class="search-hint" id="searchHint"></div>
+        </section>
+
+        <!-- 统计卡片 -->
+        <section class="stats-section">
+            <div class="stat-card stat-searches">
+                <div class="stat-icon">📖</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="totalSearches">0</div>
+                    <div class="stat-label">累计搜索</div>
+                </div>
+            </div>
+            <div class="stat-card stat-engine">
+                <div class="stat-icon">🌐</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="currentEngine">--</div>
+                    <div class="stat-label">搜索引擎</div>
+                </div>
+            </div>
+            <div class="stat-card stat-results">
+                <div class="stat-icon">✨</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="totalResults">0</div>
+                    <div class="stat-label">检索结果</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 搜索结果展示区 -->
+        <section class="results-section" id="resultsSection" style="display:none;">
+            <div class="section-header">
+                <h2 class="section-title">🌷 搜索结果</h2>
+                <button class="close-results-btn" id="closeResultsBtn">收起</button>
+            </div>
+            <div id="resultsList" class="results-list"></div>
+        </section>
+
+        <!-- 历史记录区 -->
+        <section class="history-section">
+            <div class="section-header">
+                <h2 class="section-title">📜 搜索记录</h2>
+                <div class="history-actions">
+                    <button class="refresh-btn" id="refreshBtn" title="刷新">🔄</button>
+                    <button class="clear-btn" id="clearBtn" title="清空记录">🗑️</button>
+                </div>
+            </div>
+
+            <!-- 空状态 -->
+            <div class="empty-state" id="emptyState">
+                <div class="empty-icon">🫧</div>
+                <p class="empty-text">还没有搜索记录呢</p>
+                <p class="empty-subtext">让猫娘去探索这个世界吧～</p>
+            </div>
+
+            <!-- 历史列表 -->
+            <div id="historyList" class="history-list"></div>
+        </section>
+
+        <!-- 底部 -->
+        <footer class="page-footer">
+            <p class="footer-text">月光洒落，星光指引 · 猫娘的每一次搜索，都是与世界温柔的对话</p>
+        </footer>
+    </div>
+
+    <!-- 加载遮罩 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-petals">
+                <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <p class="loading-text">正在搜索中...</p>
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="./script.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[store]
+api_base_url = "https://market.project-neko.cn/api/v1"
+page_size = 100
+timeout_seconds = 15

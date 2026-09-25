@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check hitokoto",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check hitokoto",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r hitokoto",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r hitokoto",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build hitokoto",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build hitokoto",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

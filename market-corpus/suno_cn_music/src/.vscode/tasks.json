@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check suno_cn_music",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check suno_cn_music",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync suno_cn_music",
+      "type": "shell",
+      "command": "uv run --with pip python -m plugin.neko_plugin_cli.cli sync suno_cn_music --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r suno_cn_music",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r suno_cn_music",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build suno_cn_music",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build suno_cn_music",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

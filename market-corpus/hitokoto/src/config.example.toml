@@ -1,0 +1,24 @@
+# Hitokoto plugin runtime configuration template.
+# N.E.K.O copies this file to the user data directory as config/plugin.toml
+# the first time the plugin runs. Later edits here do not overwrite the
+# user's existing configuration.
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[hitokoto]
+# HTTP timeout when calling https://v1.hitokoto.cn/
+timeout_seconds = 10.0
+
+# Default Hitokoto category code (a..l), empty means "any category".
+default_category = ""
+
+# Maximum quote length accepted from the API.
+max_length = 80
+
+# Cache the daily quote per local calendar day.
+daily_cache = true
+
+# Share today's quote the first time the user chats each day.
+daily_greeting = true

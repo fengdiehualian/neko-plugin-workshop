@@ -1,0 +1,15 @@
+[bilibili_integration]
+# Keep credentials empty here. Configure them from the plugin panel instead.
+sesdata = ""
+bili_jct = ""
+buvid3 = ""
+dedeuserid = ""
+ac_time_value = ""
+permission_mode = "allow_list"
+enable_comment_notifications = true
+notification_poll_interval_seconds = 20
+notification_max_items = 20
+max_concurrent_messages = 3
+ai_connect_timeout_seconds = 10.0
+ai_turn_timeout_seconds = 60.0
+handler_shutdown_timeout_seconds = 10.0

@@ -1,0 +1,8 @@
+[project]
+name = "browser_skill"
+version = "0.1.4"
+dependencies = []
+
+[tool.neko.build]
+exclude_dirs = ["scripts", "tests", ".vscode", ".ruff_cache", ".package-tmp"]
+exclude_files = [".gitignore", "ruff.toml"]

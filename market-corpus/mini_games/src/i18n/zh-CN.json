@@ -1,0 +1,16 @@
+{
+  "plugin.name": "猫娘小游戏屋",
+  "plugin.description": "猫娘陪你玩的迷你小游戏合集：抽卡、今日运势、摇骰子。",
+  "entry.gacha_pull.name": "抽卡·单抽",
+  "entry.gacha_pull.description": "抽一次卡，返回稀有度与道具",
+  "entry.gacha_ten.name": "抽卡·十连",
+  "entry.gacha_ten.description": "十连抽，保底至少 R",
+  "entry.gacha_status.name": "抽卡·图鉴",
+  "entry.gacha_status.description": "查看抽卡进度与图鉴",
+  "entry.gacha_reset.name": "抽卡·重置",
+  "entry.gacha_reset.description": "重置抽卡进度与图鉴",
+  "entry.fortune.name": "今日运势",
+  "entry.fortune.description": "今日运势占卜",
+  "entry.dice.name": "摇骰子",
+  "entry.dice.description": "掷骰子，返回每颗结果与合计"
+}

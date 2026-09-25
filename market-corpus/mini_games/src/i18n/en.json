@@ -1,0 +1,16 @@
+{
+  "plugin.name": "Catgirl Mini-Games",
+  "plugin.description": "A mini-game collection for the catgirl to play with you: Gacha, daily fortune, dice.",
+  "entry.gacha_pull.name": "Gacha · Single Pull",
+  "entry.gacha_pull.description": "Pull once, returns rarity and item",
+  "entry.gacha_ten.name": "Gacha · Ten Pull",
+  "entry.gacha_ten.description": "Ten-pull, guaranteed at least R",
+  "entry.gacha_status.name": "Gacha · Collection",
+  "entry.gacha_status.description": "View pull progress and collection",
+  "entry.gacha_reset.name": "Gacha · Reset",
+  "entry.gacha_reset.description": "Reset pull progress and collection",
+  "entry.fortune.name": "Daily Fortune",
+  "entry.fortune.description": "Daily fortune divination",
+  "entry.dice.name": "Roll Dice",
+  "entry.dice.description": "Roll dice, returns each result and sum"
+}

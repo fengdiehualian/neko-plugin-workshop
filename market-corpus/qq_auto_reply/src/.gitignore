@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+vendor/
+dist/
+build/
+*.egg-info/
+store.db
+.env
+.DS_Store
+
+# 一键部署把 NapCat 装在这里（解压后 90MB+、690 个文件）。它是运行时产物，
+# 不该进插件仓库 —— 主仓库的 .gitignore 早就有一条对应的 plugin/plugins/qq_auto_reply/NapCat.Shell/*。
+NapCat.Shell/
+
+# 登录二维码缓存：每次同步都会重写，入库只会不停弄脏工作区。
+static/cache/

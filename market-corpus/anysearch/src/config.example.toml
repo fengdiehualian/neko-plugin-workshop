@@ -1,0 +1,22 @@
+# AnySearch 联网搜索 - 配置示例
+# 复制本文件为 config.toml 并修改，或在 plugin.toml 的 [anysearch] 段直接填写。
+
+[anysearch]
+# AnySearch API Key（可选）。留空则使用匿名模式：按客户端 IP 每日免费额度（约 1000 次/天）。
+# 获取：https://anysearch.com/console/api-keys
+api_key = ""
+
+# 默认搜索区域：cn（国内）/ intl（国际）
+default_zone = "cn"
+
+# 默认偏好语言
+default_language = "zh-CN"
+
+# 默认返回结果数量
+default_max_results = 5
+
+# 单次搜索超时（秒）
+search_timeout = 15
+
+# 面板里保留的最近搜索条数
+max_recent = 20

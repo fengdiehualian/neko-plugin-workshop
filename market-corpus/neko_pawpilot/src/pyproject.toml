@@ -1,0 +1,35 @@
+[project]
+name = "neko_pawpilot"
+version = "0.0.1"
+description = "ETS2 catgirl copilot companion."
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = []
+
+[tool.neko.build]
+exclude_dirs = [
+    ".vscode",
+    ".venv",
+    ".pytest_cache",
+    ".ruff_cache",
+    "tests",
+    "adapters/map_extractor/bin",
+    "adapters/map_extractor/obj",
+    "adapters/map_extractor/publish",
+]
+exclude_files = [
+    ".gitignore",
+    "README.md",
+    "ruff.toml",
+    "LICENSE",
+    "*.neko-plugin",
+    "*.neko-bundle",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]

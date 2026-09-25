@@ -1,0 +1,23 @@
+[plugin]
+id = "store_search"
+name = "插件商店搜索"
+description = "从 N.E.K.O 插件商店搜索可用插件。支持按名称、标签、作者等关键词搜索，并返回插件的详细信息（评分、下载量、仓库地址等）。"
+short_description = "Search and discover plugins from the N.E.K.O plugin store."
+keywords = ["插件", "plugin", "商店", "store", "搜索", "search", "marketplace"]
+version = "0.1.4"
+type = "plugin"
+entry = "plugin.plugins.store_search:PluginStoreSearchPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.store]
+enabled = false

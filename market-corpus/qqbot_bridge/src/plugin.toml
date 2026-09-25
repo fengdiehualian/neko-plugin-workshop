@@ -1,0 +1,62 @@
+[plugin]
+name = "QQ机器人桥接"
+description = "在 N.E.K.O 里连接官方 QQ 机器人（q.qq.com / api.sgroup.qq.com），实现双向桥接：接收群@、私聊、频道@消息，把消息交给回复源（echo / webhook 到 N.E.K.O Agent）生成回复并发回 QQ；并提供 qq_send 让猫娘主动给 QQ 发消息。零第三方依赖，协议用标准库实现。"
+short_description = "Bridge the official QQ bot into N.E.K.O: receive/send messages, auto-reply via echo or a webhook to your N.E.K.O agent."
+keywords = ["qq", "qq机器人", "qqbot", "官方机器人", "桥接", "bridge", "猫娘", "catgirl", "消息"]
+version = "0.1.0"
+id = "qqbot_bridge"
+entry = "plugins.qqbot_bridge:QqbotBridgePlugin"
+
+[plugin.author]
+name = "baixiangyuan"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "QQ机器人桥接"
+entry = "ui/panel.tsx"
+context = "main"
+permissions = ["state:read", "action:call"]
+
+[qqbot_bridge]
+# ── QQ 机器人凭据（在 https://q.qq.com 创建机器人后获取）──
+# 应用 AppID
+app_id = ""
+# 应用密钥 Client Secret（用于自动换取 access_token，二选一）
+client_secret = ""
+# 或直接使用已获取的 Bot Token（留空则自动用 client_secret 换取）
+bot_token = ""
+# 订阅的意图位掩码：群@消息(1<<25) | 私聊消息(1<<27)。一般不需要改。
+intents = 33554432
+
+# ── 回复模式 ──
+# echo     : 把收到的消息原样返回（便于测试连通性）
+# webhook  : 把消息 POST 到 webhook_url（你的 N.E.K.O Agent 端点），把返回值发回 QQ
+# none     : 只接收并展示，不自动回复
+reply_mode = "webhook"
+# N.E.K.O Agent 端点：收到 QQ 消息时，会以 POST {message, meta} 调用它，
+# 期望返回 JSON {"reply": "..."} 或纯文本，作为发回 QQ 的回复。
+webhook_url = ""
+# 可选的 Bearer 鉴权令牌
+webhook_auth = ""
+# 是否自动回复
+auto_reply = true
+# 面板/状态里保留的最近消息条数
+max_recent = 50

@@ -1,0 +1,10 @@
+{
+  "plugin.name": "Catgirl Shell Operator",
+  "plugin.description": "Let the catgirl run Shell / CMD / PowerShell commands and manage local files from chat.",
+  "entry.run": "Run Command",
+  "entry.list_dir": "List Directory",
+  "entry.read_file": "Read File",
+  "entry.write_file": "Write File",
+  "entry.get_status": "Show Status",
+  "notify.ready": "Meow~ Shell operator is ready. Anything you want me to run, master?"
+}

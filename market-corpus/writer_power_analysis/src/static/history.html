@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分析历史 · 文本分析</title>
+<link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+<div id="toast" class="toast"></div>
+<div class="container">
+
+<a href="index.html" class="back-link">← 返回首页</a>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+  <div>
+    <h1 style="font-size:22px;margin-bottom:4px;">分析历史</h1>
+    <p style="color:#94a3b8;font-size:13px;">浏览和管理已完成的分析记录。</p>
+  </div>
+  <button class="btn btn-danger btn-sm" id="clearAllBtn" onclick="clearAll()">清空全部历史</button>
+</div>
+
+<div id="historyList"></div>
+
+<!-- Detail view (hidden by default) -->
+<div id="detailView" style="display:none;">
+  <a href="javascript:void(0)" class="back-link" onclick="hideDetail()">← 返回列表</a>
+  <div id="detailContent"></div>
+</div>
+
+</div>
+
+<script src="app.js?v=6"></script>
+<script>
+// ── Load history ───────────────────────────────────────────
+let history = LS.get('history', []);
+
+function renderHistory() {
+  const el = document.getElementById('historyList');
+  if (!history.length) {
+    el.innerHTML = '<div class="card"><div class="card-title">暂无记录</div><p style="font-size:13px;color:#94a3b8;">完成分析后记录会自动出现在这里。<a href="analyze.html" style="color:#6366f1;">去分析 →</a></p></div>';
+    document.getElementById('clearAllBtn').style.display = 'none';
+    return;
+  }
+  document.getElementById('clearAllBtn').style.display = '';
+  let html = '';
+  history.forEach((entry, idx) => {
+    const date = entry.time ? (typeof entry.time === 'number' ? fmtDate(entry.time) : entry.time) : '-';
+    html += `<div class="history-card" onclick="showDetail(${idx})">
+      <div class="meta">
+        <span>${esc(date)}</span>
+        <span class="badge ${SCORE_CLASS[scoreTone(entry.overallScore)]}">${entry.overallScore ?? '-'} 分</span>
+        <span>${esc(entry.model || '-')}</span>
+        <span>${esc(entry.modeLabel || entry.mode || '-')}</span>
+        <span>${entry.articleChars || 0} 字</span>
+      </div>
+      <div class="title">${esc(entry.analysis?.title || '未命名分析')}</div>
+      <div class="tagline">${esc(entry.ratingTag || '-')}</div>
+      <div class="btn-group" style="margin-top:8px;">
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();showDetail(${idx})">查看详情</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeEntry('${entry.id}')">删除</button>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+function showDetail(idx) {
+  const entry = history[idx];
+  if (!entry) return;
+  const a = entry.analysis || {};
+  const dims = Array.isArray(a.dimensions) ? a.dimensions : [];
+
+  let html = `<div class="card"><div class="card-title">${esc(a.title || '未命名分析')}</div>`;
+  html += `<div class="stats">
+    <div class="stat"><div class="stat-label">综合评分</div><div class="stat-value"><span class="badge ${SCORE_CLASS[scoreTone(entry.overallScore)]}">${entry.overallScore ?? '-'}</span></div></div>
+    <div class="stat"><div class="stat-label">评分模式</div><div class="stat-value" style="font-size:14px;">${esc(entry.modeLabel || entry.mode || '-')}</div></div>
+    <div class="stat"><div class="stat-label">最终标签</div><div class="stat-value" style="font-size:14px;">${esc(a.finalTag || '-')}</div></div>
+    <div class="stat"><div class="stat-label">模型</div><div class="stat-value" style="font-size:14px;">${esc(entry.model || '-')}</div></div>
+    <div class="stat"><div class="stat-label">字数</div><div class="stat-value">${entry.articleChars || 0}</div></div>
+  </div>`;
+
+  html += '<div class="row"><div class="col-2 detail-section"><h3>作品概述</h3><p style="font-size:13px;color:#475569;">' + esc(a.summary || entry.summary || '-') + '</p></div>';
+  html += '<div class="col-2 detail-section"><h3>综合评价</h3><p style="font-size:13px;color:#475569;">' + esc(a.overallAssessment || '-') + '</p></div></div>';
+  html += renderVisualReport(a);
+
+  if (dims.length) {
+    html += '<div class="detail-section"><h3>维度评分</h3>';
+    dims.forEach(d => {
+      const max = String(d.name || '').includes('经典') ? 2 : (String(d.name || '').includes('新锐') ? 1.5 : 5);
+      const raw = typeof d.score === 'number' ? d.score : 0;
+      const pct = Math.max(0, Math.min(100, Math.round((raw / max) * 100)));
+      html += `<div class="dimension-row">
+        <span class="dimension-name">${esc(d.name || '未命名')}</span>
+        <div class="dimension-bar"><div class="dimension-fill" style="width:${pct}%;"></div></div>
+        <span class="dimension-score">${raw}/${max}</span>
+      </div>`;
+      html += `<div style="font-size:11px;color:#94a3b8;margin:-4px 0 8px 142px;">${esc(d.description || '-')}</div>`;
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="row"><div class="col-2 detail-section"><h3>优势</h3>';
+  if ((a.strengths || []).length) a.strengths.forEach(s => { html += `<p style="font-size:13px;color:#475569;">- ${esc(s)}</p>`; });
+  else html += '<p style="font-size:13px;color:#94a3b8;">-</p>';
+  html += '</div><div class="col-2 detail-section"><h3>改进建议</h3>';
+  if ((a.improvements || []).length) a.improvements.forEach(s => { html += `<p style="font-size:13px;color:#475569;">- ${esc(s)}</p>`; });
+  else html += '<p style="font-size:13px;color:#94a3b8;">-</p>';
+  html += '</div></div>';
+
+  if (entry.report_markdown) {
+    html += '<div class="detail-section"><h3>Markdown 报告</h3>';
+    html += `<pre style="background:#f8fafc;padding:16px;border-radius:8px;font-size:13px;white-space:pre-wrap;max-height:400px;overflow-y:auto;">${esc(entry.report_markdown)}</pre>`;
+    html += '</div>';
+  }
+
+  html += '</div>';
+  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('historyList').style.display = 'none';
+  document.getElementById('detailView').style.display = '';
+  document.getElementById('clearAllBtn').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function hideDetail() {
+  document.getElementById('historyList').style.display = '';
+  document.getElementById('detailView').style.display = 'none';
+  if (history.length) document.getElementById('clearAllBtn').style.display = '';
+}
+
+function removeEntry(id) {
+  history = history.filter(h => h.id !== id);
+  LS.set('history', history);
+  renderHistory();
+  notify('已删除', 'success');
+}
+
+function clearAll() {
+  if (!confirm('确定清空全部历史记录？此操作不可恢复。')) return;
+  history = [];
+  LS.set('history', []);
+  renderHistory();
+  notify('历史已清空', 'success');
+}
+
+renderHistory();
+</script>
+</body>
+</html>

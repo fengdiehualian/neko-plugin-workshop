@@ -1,0 +1,44 @@
+[plugin]
+name = "猫娘每日计划"
+description = "猫娘每日为主人定制专属计划,并在指定时间提醒主人该做什么事。支持早安播报、任务清单、复盘收尾。"
+short_description = "Catgirl daily planner — generates a daily schedule and sends timed reminders for each task."
+keywords = ["计划", "日程", "提醒", "猫娘", "planner", "schedule", "reminder", "daily", "todo", "agenda", "タスク", "リマインダー", "일정", "계획", "расписание", "план", "планировщик", "recordatorio", "agenda"]
+version = "0.1.2"
+id = "catgirl_daily_planner"
+entry = "plugin.plugins.catgirl_daily_planner:CatgirlDailyPlannerPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[planner]
+# 默认唤醒时间(24h,本地时区)
+wake_hour = 8
+wake_minute = 0
+# 默认晚安播报时间
+goodnight_hour = 22
+goodnight_minute = 0
+# 是否启用自动每日重新生成计划
+auto_daily_regenerate = true
+# 单日最多任务条数
+max_tasks_per_day = 30
+# 时区
+timezone = "Asia/Shanghai"
+# 猫娘昵称(用于在播报中自称)
+catgirl_nickname = "喵喵"
+# 主人称呼
+master_nickname = "主人"

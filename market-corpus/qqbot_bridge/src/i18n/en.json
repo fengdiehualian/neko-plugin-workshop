@@ -1,0 +1,16 @@
+{
+  "plugin.name": "QQ Bot Bridge",
+  "panel.title": "QQ Bot Bridge",
+  "panel.status.connected": "Connected",
+  "panel.status.disconnected": "Disconnected",
+  "panel.send": "Send Message",
+  "panel.reconnect": "Reconnect",
+  "panel.recent": "Recent Messages",
+  "panel.no_messages": "No messages yet",
+  "panel.target_type": "Target Type",
+  "panel.target_id": "Target ID",
+  "panel.content": "Message Content",
+  "panel.reply_mode": "Reply Mode",
+  "panel.webhook_url": "Webhook URL",
+  "panel.error": "Error"
+}

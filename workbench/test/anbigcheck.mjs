@@ -1,0 +1,5 @@
+const t = await Bun.file(process.env.TEMP + "/anbig.txt").text()
+console.log("cache_read 19931:", t.includes('"cache_read_input_tokens":19931'))
+console.log("has thinking:", t.includes("thinking"))
+console.log("content blocks:")
+for (const m of t.matchAll(/content_block_start[^]*?type":"(\w+)"/g)) console.log("  -", m[1])

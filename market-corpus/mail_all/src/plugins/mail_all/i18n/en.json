@@ -1,0 +1,20 @@
+{
+  "plugin.name": "Catgirl Mail",
+  "plugin.description": "Let the catgirl handle your mail. Supports any SMTP / IMAP / POP3 mailbox, multiple accounts, auto-check with a meow notification, and send-on-your-behalf.",
+  "add_account.name": "Add mail account",
+  "add_account.description": "Configure a mailbox account (IMAP/POP3 receive + SMTP send) so the catgirl can send/receive mail for you.",
+  "list_accounts.name": "List mail accounts",
+  "list_accounts.description": "List all configured mail accounts (passwords hidden).",
+  "remove_account.name": "Remove mail account",
+  "remove_account.description": "Remove a configured mail account.",
+  "send_mail.name": "Send mail",
+  "send_mail.description": "Send an email from a chosen account; the catgirl delivers it for you.",
+  "check_mail.name": "Check mail",
+  "check_mail.description": "Immediately check for new mail (IMAP unseen / POP3 recent).",
+  "read_mail.name": "Read mail",
+  "read_mail.description": "Read the full content of a specific email.",
+  "inbox_summary.name": "Inbox summary",
+  "inbox_summary.description": "Summarize unread mail across all accounts.",
+  "auto_check.name": "Auto check",
+  "auto_check.description": "Periodically check for new mail and meow a notification to the owner."
+}

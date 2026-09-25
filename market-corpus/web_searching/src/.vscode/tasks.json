@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Ruff Check",
+      "type": "shell",
+      "command": "uvx ruff==0.12.4 check --ignore-noqa --isolated --target-version py311 --line-length 120 --select E4,E7,E9,F,I --exclude vendor .",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "python",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": {
+            "regexp": "^(.+):(\\d+):(\\d+): (\\w+) (\\w+) (.+)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "severity": 4,
+            "code": 5,
+            "message": 6
+          }
+        }
+      ]
+    },
+    {
+      "label": "Ruff Check (Fix)",
+      "type": "shell",
+      "command": "uvx ruff==0.12.4 check --fix --ignore-noqa --isolated --target-version py311 --line-length 120 --select E4,E7,E9,F,I --exclude vendor .",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Smoke Tests",
+      "type": "shell",
+      "command": "python tests/test_smoke.py",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

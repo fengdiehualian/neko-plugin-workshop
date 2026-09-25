@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开始分析 · 文本分析</title>
+<link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+<div id="toast" class="toast"></div>
+<div class="container">
+
+<a href="index.html" class="back-link">← 返回首页</a>
+<h1 style="font-size:22px;margin-bottom:4px;">开始分析</h1>
+<p style="color:#94a3b8;font-size:13px;margin-bottom:20px;">配置平台、粘贴作品正文，开始 AI 评分。</p>
+
+<!-- Stats -->
+<div class="stats" id="stats"></div>
+
+<div class="card">
+<div class="card-title">使用平台</div>
+
+<div id="platform-toggles"></div>
+
+<!-- Custom config (hidden when neko active) -->
+<div id="custom-config" style="display:none">
+  <div class="row" style="margin-top:16px;">
+    <div class="col-2 form-group">
+      <label class="form-label">平台名称</label>
+      <input class="form-input" id="platformName" placeholder="例如：主力中转 / DeepSeek 备用">
+      <div class="form-hint">只用于显示和保存，不影响请求地址。</div>
+    </div>
+    <div class="col-2 form-group">
+      <label class="form-label">Base URL</label>
+      <input class="form-input" id="baseUrl" placeholder="https://api.openai.com">
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-2 form-group">
+      <label class="form-label">API Key</label>
+      <input class="form-input" id="apiKey" placeholder="sk-..." type="password">
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-2 form-group">
+      <label class="form-label">模型列表路径</label>
+      <input class="form-input" id="modelListPath" placeholder="/v1/models" value="/v1/models">
+    </div>
+    <div class="col-2 form-group">
+      <label class="form-label">模型 ID</label>
+      <select class="form-select" id="modelSelect">
+        <option value="">加载中...</option>
+      </select>
+      <div class="form-hint">也可手动输入模型 ID</div>
+      <input class="form-input" id="customModel" placeholder="gpt-4.1-mini / your-model" style="display:none;margin-top:6px;">
+    </div>
+  </div>
+  <div class="btn-group">
+    <button class="btn btn-sm btn-default" onclick="refreshModels()">刷新模型列表</button>
+    <button class="btn btn-sm btn-default" id="savePresetBtn" onclick="savePreset()">保存为预设</button>
+  </div>
+</div>
+
+<div class="form-group" style="margin-top:16px;">
+  <label class="form-label">评分模式</label>
+  <select class="form-select" id="analysisMode">
+    <option value="standard">标准模式 — 客观中立全维度评分</option>
+    <option value="beginner">初窥门径 — 未出版作品保守上限</option>
+    <option value="strict">严苛编辑 — 收紧标准压力测试</option>
+    <option value="reader">宽容读者 — 放大亮点早期反馈</option>
+    <option value="judge">文本法官 — 可引用文本证据</option>
+    <option value="fan">热血粉丝 — 允许情感偏好</option>
+    <option value="anti-modern">反现代主义者 — 降低实验性权重</option>
+    <option value="quick">速写视角 — 聚焦核心维度</option>
+    <option value="fragment">碎片主义护法 — 强化先锋实验</option>
+  </select>
+</div>
+</div>
+
+<div class="card">
+<div class="card-title">作品正文</div>
+<div class="form-group">
+  <textarea class="form-textarea" id="articleText" placeholder="在这里粘贴要分析的作品正文..."></textarea>
+  <div class="form-hint">建议粘贴完整章节、片段或样章；长文本会直接传给后端。</div>
+</div>
+<div class="btn-group">
+  <button class="btn btn-primary" id="analyzeBtn" onclick="submitAnalysis()">开始战力分析</button>
+  <button class="btn btn-default" onclick="clearForm()">清空</button>
+</div>
+<div id="progressArea" style="display:none;margin-top:12px;">
+  <div id="progressLabel" style="font-size:13px;color:#475569;margin-bottom:6px;"></div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:10%;"></div></div>
+  <div id="taskList" class="task-list"></div>
+</div>
+</div>
+
+<!-- Results -->
+<div id="resultsArea"></div>
+
+</div>
+
+<script src="app.js?v=6"></script>
+<script>
+// ── State ──────────────────────────────────────────────────
+let platformMode = LS.get('platformMode', 'neko');
+let savedPlatforms = LS.get('savedPlatforms', []);
+let nekoInfo = LS.get('nekoInfo', null);
+let platformName = LS.get('platformName', '');
+let pendingPresetModel = '';
+let activeTasks = {};
+
+function currentModeLabel() {
+  const sel = $q('#analysisMode');
+  if (!sel) return '-';
+  return sel.options[sel.selectedIndex]?.text || sel.value || '-';
+}
+
+function renderTaskList() {
+  const ids = Object.keys(activeTasks);
+  const area = document.getElementById('progressArea');
+  const list = document.getElementById('taskList');
+  if (!area || !list) return;
+  if (!ids.length) {
+    area.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  area.style.display = '';
+  const running = ids.filter(id => activeTasks[id].status === 'running').length;
+  const queued = ids.filter(id => activeTasks[id].status === 'queued').length;
+  document.getElementById('progressLabel').textContent = `后台任务：${running} 个分析中，${queued} 个排队中`;
+  document.getElementById('progressFill').style.width = running ? '50%' : '20%';
+  list.innerHTML = ids.map(id => {
+    const task = activeTasks[id];
+    const status = task.status === 'running' ? '分析中' : task.status === 'queued' ? '排队中' : task.status;
+    return `<div class="task-item">
+      <span class="badge ${task.status === 'running' ? 'badge-blue' : 'badge-gray'}">${esc(status)}</span>
+      <span>${esc(task.modeLabel || task.mode || '-')}</span>
+      <span>${esc(task.model || '-')}</span>
+      <span>${task.articleChars || 0} 字</span>
+      <span class="task-id">${esc(id)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Render stats ──────────────────────────────────────────
+function renderStats() {
+  const mode = platformMode;
+  let platformLabel = 'N.E.K.O 内置';
+  if (mode !== 'neko') {
+    if (mode === 'custom') platformLabel = (platformName || '').trim() || '自定义平台';
+    else { const p = savedPlatforms.find(x => x.id === mode); platformLabel = p ? (p.label || '自定义平台') : '自定义平台'; }
+  }
+  const modelLabel = mode === 'neko' ? (nekoInfo?.model || 'Neko 当前模型') : ($q('#customModel').style.display === 'none' ? $q('#modelSelect').value : $q('#customModel').value) || '-';
+  const chars = ($q('#articleText').value || '').length;
+  document.getElementById('stats').innerHTML =
+    `<div class="stat"><div class="stat-label">当前平台</div><div class="stat-value" style="font-size:14px;">${esc(platformLabel)}</div></div>
+     <div class="stat"><div class="stat-label">当前模型</div><div class="stat-value" style="font-size:14px;">${esc(modelLabel)}</div></div>
+     <div class="stat"><div class="stat-label">输入字数</div><div class="stat-value">${chars}</div></div>`;
+}
+
+// ── Platform toggles ──────────────────────────────────────
+function renderPlatformToggles() {
+  const container = document.getElementById('platform-toggles');
+  const presets = savedPlatforms;
+  let html = `<div class="toggle-row">
+    <input type="radio" name="platform" id="plat-neko" value="neko" ${platformMode === 'neko' ? 'checked' : ''} onchange="switchPlatform('neko')">
+    <label class="toggle-label" for="plat-neko">${platformMode === 'neko' && nekoInfo ? `跟随 Neko · ${esc(nekoInfo.model || '')}` : '跟随 Neko'}</label>
+  </div>`;
+  html += `<div class="toggle-row">
+    <input type="radio" name="platform" id="plat-custom" value="custom" ${platformMode === 'custom' ? 'checked' : ''} onchange="switchPlatform('custom')">
+    <label class="toggle-label" for="plat-custom">${platformMode === 'custom' && platformName ? `自定义 · ${esc(platformName)}` : '自定义平台'}</label>
+  </div>`;
+  presets.forEach(p => {
+    html += `<div class="toggle-row">
+      <input type="radio" name="platform" id="plat-${p.id}" value="${p.id}" ${platformMode === p.id ? 'checked' : ''} onchange="switchPlatform('${p.id}')">
+      <label class="toggle-label" for="plat-${p.id}">${esc(p.label)} <span class="del" onclick="event.stopPropagation();removePreset('${p.id}')">×</span></label>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function switchPlatform(mode) {
+  const wasNeko = document.getElementById('custom-config').style.display === 'none';
+  platformMode = mode;
+  LS.set('platformMode', mode);
+  if (mode === 'neko' && !nekoInfo) loadNekoInfo().catch(() => {});
+  if (mode === 'custom') {
+    clearCustomPlatformForm();
+  } else if (mode !== 'neko') {
+    const p = savedPlatforms.find(x => x.id === mode);
+    if (p) applyPreset(p);
+  }
+  document.getElementById('custom-config').style.display = (mode === 'neko') ? 'none' : '';
+  if (mode !== 'neko' && mode !== 'custom') {
+    if (wasNeko) refreshModels().catch(e => console.warn('[switchPlatform] refresh failed:', e.message));
+  }
+  renderPlatformToggles();
+  renderStats();
+}
+
+// ── Presets ────────────────────────────────────────────────
+function applyPreset(p) {
+  platformName = p.label || '';
+  LS.set('platformName', platformName);
+  $q('#platformName').value = platformName;
+  $q('#baseUrl').value = p.baseUrl || '';
+  $q('#modelListPath').value = p.modelListPath || '/v1/models';
+  pendingPresetModel = p.model || '';
+  if (pendingPresetModel) {
+    $q('#customModel').value = pendingPresetModel;
+    setModelSelectValue(pendingPresetModel);
+  }
+  if (p.apiKey) { $q('#apiKey').value = p.apiKey; }
+}
+
+function clearCustomPlatformForm() {
+  platformName = '';
+  pendingPresetModel = '';
+  LS.set('platformName', '');
+  $q('#platformName').value = '';
+  $q('#baseUrl').value = '';
+  $q('#apiKey').value = '';
+  $q('#modelListPath').value = '/v1/models';
+  $q('#customModel').value = '';
+  populateModelSelect(FALLBACK_MODELS, false);
+}
+
+async function savePreset() {
+  const url = ($q('#baseUrl').value || '').trim();
+  if (!url) { notify('请先填写 Base URL', 'error'); return; }
+  const label = ($q('#platformName').value || '').trim() || '自定义平台';
+  platformName = label;
+  LS.set('platformName', platformName);
+  const id = 'preset-' + Date.now();
+  const apiKey = ($q('#apiKey').value || '').trim();
+  const preset = { id, label, baseUrl: url, modelListPath: ($q('#modelListPath').value || '').trim() || '/v1/models', model: getCurrentModel(), apiKey };
+  try {
+    const r = await callPlugin('save_platform_preset', preset, 10000);
+    console.log('[savePreset] response:', r);
+    if (r && Array.isArray(r.presets)) {
+      savedPlatforms = r.presets;
+      LS.set('savedPlatforms', savedPlatforms);
+    } else {
+      // backend returned unexpected shape, merge locally
+      savedPlatforms = [...savedPlatforms.filter(p => p.baseUrl !== url), preset];
+      LS.set('savedPlatforms', savedPlatforms);
+    }
+    notify('已保存预设: ' + label, 'success');
+  } catch (e) {
+    console.error('[savePreset] backend failed, saving locally:', e.message);
+    savedPlatforms = [...savedPlatforms.filter(p => p.baseUrl !== url), preset];
+    LS.set('savedPlatforms', savedPlatforms);
+    notify('已保存预设（仅本地）: ' + label, 'warning');
+  }
+  platformMode = 'custom';
+  LS.set('platformMode', 'custom');
+  clearCustomPlatformForm();
+  renderPlatformToggles();
+  renderStats();
+}
+
+async function removePreset(id) {
+  // always remove locally first for instant UI feedback
+  savedPlatforms = savedPlatforms.filter(p => p.id !== id);
+  LS.set('savedPlatforms', savedPlatforms);
+  if (platformMode === id) { platformMode = 'neko'; LS.set('platformMode', 'neko'); }
+  renderPlatformToggles();
+  renderStats();
+  // then sync to backend
+  try {
+    const r = await callPlugin('delete_platform_preset', { preset_id: id }, 10000);
+    if (r && Array.isArray(r.presets)) { savedPlatforms = r.presets; LS.set('savedPlatforms', savedPlatforms); }
+  } catch (e) { console.warn('[removePreset] backend failed:', e.message); }
+}
+
+// ── Models ─────────────────────────────────────────────────
+const FALLBACK_MODELS = ['gpt-5.4','deepseek-v4-pro','glm-4.1','claude-sonnet-5'];
+
+function getCurrentModel() {
+  const cm = $q('#customModel');
+  if (cm.style.display !== 'none') return cm.value.trim();
+  return $q('#modelSelect').value;
+}
+
+async function refreshModels() {
+  const btn = window.event?.target;
+  if (btn && btn.tagName === 'BUTTON') { btn.disabled = true; btn.textContent = '刷新中...'; }
+  try {
+    const r = await callPlugin('list_models', {
+      api_key: ($q('#apiKey').value || '').trim(),
+      base_url: ($q('#baseUrl').value || '').trim(),
+      model_list_path: ($q('#modelListPath').value || '').trim() || '/v1/models',
+    }, 30000);
+    console.log('[refreshModels] raw result:', r);
+    // The response may nest models under different keys
+    let models = Array.isArray(r?.models) ? r.models
+      : Array.isArray(r?.data?.models) ? r.data.models
+      : Array.isArray(r?.result?.models) ? r.result.models
+      : null;
+    if (models && models.length > 0) {
+      populateModelSelect(models);
+      notify(`已加载 ${models.length} 个模型`, 'success');
+      renderStats();
+    } else {
+      console.warn('[refreshModels] no models in response, using fallback. r keys:', Object.keys(r || {}));
+      populateModelSelect(FALLBACK_MODELS);
+      notify('模型列表获取为空，已加载内置候选', 'warning');
+    }
+  } catch (e) {
+    console.error('[refreshModels] error:', e);
+    populateModelSelect(FALLBACK_MODELS);
+    notify('刷新失败: ' + e.message, 'error');
+  }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '刷新模型列表'; } }
+}
+
+function modelId(m) { return typeof m === 'string' ? m : (m.id || m.model || ''); }
+
+function setModelSelectValue(model) {
+  const sel = $q('#modelSelect');
+  if (!sel || !model) return false;
+  const exists = Array.from(sel.options).some(option => option.value === model);
+  if (!exists) sel.insertAdjacentHTML('afterbegin', `<option value="${esc(model)}">${esc(model)}（预设）</option>`);
+  sel.value = model;
+  renderStats();
+  return true;
+}
+
+function populateModelSelect(models, preserveCurrent = true) {
+  const sel = $q('#modelSelect');
+  if (!sel) return;
+  const current = preserveCurrent ? (pendingPresetModel || sel.value) : '';
+  sel.innerHTML = models.map(m => `<option value="${esc(modelId(m))}">${esc(modelId(m))}</option>`).join('');
+  const found = current && models.some(m => modelId(m) === current);
+  if (found) sel.value = current;
+  else if (current) setModelSelectValue(current);
+  else if (models.length) sel.value = modelId(models[0]);
+  const cm = $q('#customModel');
+  if (cm) cm.value = current || cm.value || (models.length ? modelId(models[0]) : '');
+}
+
+// ── Neko info ──────────────────────────────────────────────
+async function loadNekoInfo() {
+  try {
+    const r = await callPlugin('get_neko_model', {}, 10000);
+    nekoInfo = r; LS.set('nekoInfo', r);
+    renderPlatformToggles();
+    renderStats();
+  } catch (_) {}
+}
+
+// ── Analysis ───────────────────────────────────────────────
+async function submitAnalysis() {
+  const text = ($q('#articleText').value || '').trim();
+  if (!text) { notify('请先输入要分析的作品正文', 'error'); return; }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.textContent = '提交中...';
+  const mode = $q('#analysisMode').value;
+  const modeLabel = currentModeLabel();
+  const model = getCurrentModel();
+  const articleChars = text.length;
+
+  try {
+    const r = await callPlugin('analyze_text', {
+      article_text: text,
+      mode,
+      model,
+      api_key: ($q('#apiKey').value || '').trim(),
+      base_url: ($q('#baseUrl').value || '').trim(),
+      model_list_path: ($q('#modelListPath').value || '').trim() || '/v1/models',
+      use_neko_model: platformMode === 'neko',
+    }, 30000);
+    console.log('[submitAnalysis] response:', r);
+    if (r && r.task_id) {
+      activeTasks[r.task_id] = { status: 'queued', mode, modeLabel, model, articleChars, text };
+      renderTaskList();
+      pollTask(r.task_id, 0, activeTasks[r.task_id]);
+      notify('任务已提交，可继续提交新的分析', 'success');
+    } else if (r && r.overallScore !== undefined) {
+      // direct result (no queue)
+      const resultWithMode = { ...r, mode, modeLabel };
+      displayResult(resultWithMode);
+      saveToHistory(resultWithMode, text);
+      notify('分析完成', 'success');
+    } else {
+      throw new Error('提交响应异常: ' + JSON.stringify(r));
+    }
+  } catch (e) {
+    notify('提交失败: ' + e.message, 'error');
+  } finally {
+    btn.textContent = Object.keys(activeTasks).length ? '继续提交分析' : '开始战力分析';
+  }
+}
+
+async function pollTask(taskId, attempt, meta) {
+  attempt = (attempt || 0) + 1;
+  const MAX_ATTEMPTS = 1200; // queued analyses can wait behind long 400k-char jobs
+  if (attempt > MAX_ATTEMPTS) {
+    notify('分析超时，请稍后查看历史记录', 'warning');
+    delete activeTasks[taskId];
+    renderTaskList();
+    return;
+  }
+  try {
+    const s = await callPlugin('get_analysis_status', { task_id: taskId }, 10000);
+    console.log('[pollTask] attempt', attempt, 'status:', s?.status, 'hasResult:', !!s?.result);
+    if (activeTasks[taskId] && s?.status) {
+      activeTasks[taskId].status = s.status;
+      renderTaskList();
+    }
+    if (s && s.status === 'done' && s.result) {
+      const taskMeta = meta || activeTasks[taskId] || {};
+      const resultWithMode = { ...s.result, mode: taskMeta.mode, modeLabel: taskMeta.modeLabel };
+      displayResult(resultWithMode);
+      saveToHistory(resultWithMode, taskMeta.text || '');
+      delete activeTasks[taskId];
+      renderTaskList();
+      document.getElementById('analyzeBtn').textContent = Object.keys(activeTasks).length ? '继续提交分析' : '开始战力分析';
+      notify('分析完成', 'success');
+      return;
+    }
+    if (s && s.status === 'error') {
+      notify(s.error || '分析失败', 'error');
+      delete activeTasks[taskId];
+      renderTaskList();
+      document.getElementById('analyzeBtn').textContent = Object.keys(activeTasks).length ? '继续提交分析' : '开始战力分析';
+      return;
+    }
+    setTimeout(() => pollTask(taskId, attempt, meta), 3000);
+  } catch (e) {
+    console.warn('[pollTask] attempt', attempt, 'error:', e.message);
+    // retry on transient errors, but with longer backoff
+    const backoff = Math.min(attempt * 1000, 10000);
+    setTimeout(() => pollTask(taskId, attempt, meta), backoff);
+  }
+}
+
+function saveToHistory(result, text) {
+  const history = LS.get('history', []);
+  history.unshift({ ...result, id: 'hist-' + Date.now(), time: Date.now(), articleChars: (text || '').length });
+  LS.set('history', history);
+}
+
+function currentAuthorStyleRequestOptions() {
+  return {
+    model: getCurrentModel(),
+    api_key: ($q('#apiKey').value || '').trim(),
+    base_url: ($q('#baseUrl').value || '').trim(),
+    model_list_path: ($q('#modelListPath').value || '').trim() || '/v1/models',
+    use_neko_model: platformMode === 'neko',
+    timeoutMs: 120000,
+  };
+}
+
+async function refreshModelAuthorStyleProfile(articleProfile) {
+  const box = document.getElementById('authorStyleProfileBox');
+  if (!box || !hasArticleStyleProfile(articleProfile)) return;
+  const fallbackHtml = box.innerHTML;
+  const localProfile = buildAuthorStyleProfile(articleProfile);
+  if (localProfile) {
+    box.innerHTML = renderAuthorStyleProfileData(localProfile, '模型统合中');
+  }
+  try {
+    const profile = await synthesizeAuthorStyleProfile(articleProfile, currentAuthorStyleRequestOptions());
+    if (profile) box.innerHTML = renderAuthorStyleProfileData(profile, '模型统合');
+  } catch (e) {
+    console.warn('[authorStyleProfile] synthesis failed:', e.message);
+    box.innerHTML = fallbackHtml || box.innerHTML;
+  }
+}
+
+// ── Results ────────────────────────────────────────────────
+function displayResult(r) {
+  if (!r || typeof r !== 'object') {
+    notify('分析结果为空，请重试', 'error');
+    return;
+  }
+  const a = r.analysis || {};
+  // Try nested unwrap: if result.analysis is missing but there's an inner result
+  if (!a.overallScore && r.result && typeof r.result === 'object') {
+    console.warn('[displayResult] result wrapped, unwrapping inner result');
+    return displayResult(r.result);
+  }
+  const dims = Array.isArray(a.dimensions) ? a.dimensions : [];
+  const score = a.overallScore ?? r.overallScore ?? 0;
+  const title = a.title || r.title || '未命名分析';
+  const summary = a.summary || r.summary || '';
+  const overallAssessment = a.overallAssessment || '';
+  const finalTag = a.finalTag || r.ratingTag || '';
+  const model = r.model || '';
+  const modeLabel = r.modeLabel || r.mode || currentModeLabel();
+
+  let html = '<div class="card"><div class="card-title">分析结果</div>';
+  html += `<div class="stats">
+    <div class="stat"><div class="stat-label">作品标题</div><div class="stat-value" style="font-size:14px;">${esc(title)}</div></div>
+    <div class="stat"><div class="stat-label">综合评分</div><div class="stat-value"><span class="badge ${SCORE_CLASS[scoreTone(score)]}">${score !== 0 ? score : '-'}</span></div></div>
+    <div class="stat"><div class="stat-label">评分模式</div><div class="stat-value" style="font-size:14px;">${esc(modeLabel || '-')}</div></div>
+    <div class="stat"><div class="stat-label">最终标签</div><div class="stat-value" style="font-size:14px;">${esc(finalTag || '-')}</div></div>
+    <div class="stat"><div class="stat-label">模型</div><div class="stat-value" style="font-size:14px;">${esc(model || '-')}</div></div>
+  </div>`;
+
+  html += '<div class="row"><div class="col-2 detail-section"><h3>作品概述</h3><p style="font-size:13px;color:#475569;">' + esc(summary || '-') + '</p></div>';
+  html += '<div class="col-2 detail-section"><h3>综合评价</h3><p style="font-size:13px;color:#475569;">' + esc(overallAssessment || '-') + '</p></div></div>';
+  html += renderVisualReport(a);
+
+  if (dims.length) {
+    html += '<div class="detail-section"><h3>维度评分</h3>';
+    dims.forEach(d => {
+      if (!d || !d.name) return;
+      const max = String(d.name || '').includes('经典') ? 2 : (String(d.name || '').includes('新锐') ? 1.5 : 5);
+      const raw = typeof d.score === 'number' ? d.score : 0;
+      const pct = Math.max(0, Math.min(100, Math.round((raw / max) * 100)));
+      html += `<div class="dimension-row">
+        <span class="dimension-name">${esc(d.name || '未命名')}</span>
+        <div class="dimension-bar"><div class="dimension-fill" style="width:${pct}%;"></div></div>
+        <span class="dimension-score">${raw}/${max}</span>
+      </div>`;
+      if (d.description) {
+        html += `<div style="font-size:11px;color:#94a3b8;margin:-4px 0 8px 142px;">${esc(d.description)}</div>`;
+      }
+    });
+    html += '</div>';
+  }
+
+  const strengths = Array.isArray(a.strengths) ? a.strengths : [];
+  const improvements = Array.isArray(a.improvements) ? a.improvements : [];
+  html += '<div class="row"><div class="col-2 detail-section"><h3>优势</h3>';
+  if (strengths.length) strengths.forEach(s => { html += `<p style="font-size:13px;color:#475569;">- ${esc(typeof s === 'string' ? s : s.text || s.desc || '')}</p>`; });
+  else html += '<p style="font-size:13px;color:#94a3b8;">-</p>';
+  html += '</div><div class="col-2 detail-section"><h3>改进建议</h3>';
+  if (improvements.length) improvements.forEach(s => { html += `<p style="font-size:13px;color:#475569;">- ${esc(typeof s === 'string' ? s : s.text || s.desc || '')}</p>`; });
+  else html += '<p style="font-size:13px;color:#94a3b8;">-</p>';
+  html += '</div></div>';
+
+  if (r.report_markdown) {
+    html += '<div class="detail-section"><h3>Markdown 报告</h3>';
+    html += `<pre style="background:#f8fafc;padding:16px;border-radius:8px;font-size:13px;white-space:pre-wrap;max-height:400px;overflow-y:auto;">${esc(r.report_markdown)}</pre>`;
+    html += '</div>';
+  }
+
+  html += '</div>';
+  document.getElementById('resultsArea').innerHTML = html;
+  document.getElementById('resultsArea').scrollIntoView({ behavior: 'smooth' });
+  refreshModelAuthorStyleProfile(a.articleStyleProfile).catch(e => console.warn('[authorStyleProfile] refresh failed:', e.message));
+}
+
+function clearForm() {
+  $q('#articleText').value = '';
+  document.getElementById('resultsArea').innerHTML = '';
+  renderStats();
+}
+
+// ── Init ────────────────────────────────────────────────────
+async function init() {
+  // load presets from backend first
+  try {
+    const r = await callPlugin('load_platform_presets', {}, 8000);
+    if (Array.isArray(r.presets) && r.presets.length > 0) {
+      savedPlatforms = r.presets;
+      LS.set('savedPlatforms', savedPlatforms);
+    }
+  } catch (e) {
+    console.warn('[init] load presets failed, using local cache:', e.message);
+  }
+
+  if (platformMode === 'custom') {
+    clearCustomPlatformForm();
+  }
+  renderPlatformToggles();
+  document.getElementById('custom-config').style.display = (platformMode === 'neko') ? 'none' : '';
+  $q('#articleText').addEventListener('input', renderStats);
+  $q('#platformName').value = platformName;
+  $q('#platformName').addEventListener('input', () => {
+    platformName = ($q('#platformName').value || '').trim();
+    LS.set('platformName', platformName);
+    renderPlatformToggles();
+    renderStats();
+  });
+  $q('#modelSelect').addEventListener('change', () => {
+    pendingPresetModel = '';
+    renderStats();
+  });
+  $q('#customModel').addEventListener('input', () => {
+    pendingPresetModel = '';
+    renderStats();
+  });
+
+  if (platformMode === 'neko') {
+    loadNekoInfo().finally(() => { renderPlatformToggles(); renderStats(); });
+  }
+  if (platformMode !== 'neko' && platformMode !== 'custom') {
+    const p = savedPlatforms.find(x => x.id === platformMode);
+    if (p) applyPreset(p);
+  }
+  if (platformMode !== 'neko' && platformMode !== 'custom') {
+    // show fallback immediately, then try real list
+    populateModelSelect(FALLBACK_MODELS);
+    refreshModels().finally(() => renderStats());
+  } else {
+    // pre-fill fallback so select isn't empty when user switches to custom
+    populateModelSelect(FALLBACK_MODELS);
+  }
+  renderStats();
+}
+init();
+</script>
+</body>
+</html>

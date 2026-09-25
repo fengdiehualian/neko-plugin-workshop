@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "component": "bsk",
+  "version": "0.1.10",
+  "release_url": "https://github.com/Tencent/BrowserSkill/releases/tag/cli-v0.1.10",
+  "assets": {
+    "darwin-arm64": {
+      "archive": "bsk-v0.1.10-aarch64-apple-darwin.tar.gz",
+      "url": "https://github.com/Tencent/BrowserSkill/releases/download/cli-v0.1.10/bsk-v0.1.10-aarch64-apple-darwin.tar.gz",
+      "archive_sha256": "50403691584243a48398d9b0c9084c562fef047878f0826dcdc70a01c4baec9f",
+      "member_basename": "bsk",
+      "path": "darwin-arm64/bsk",
+      "sha256": "357452c2d9e15f3b24a088767eb4447dc56134ee0e32bf89c815e7b543ba987e"
+    },
+    "darwin-x64": {
+      "archive": "bsk-v0.1.10-x86_64-apple-darwin.tar.gz",
+      "url": "https://github.com/Tencent/BrowserSkill/releases/download/cli-v0.1.10/bsk-v0.1.10-x86_64-apple-darwin.tar.gz",
+      "archive_sha256": "90e6eb5bddf69e4463dc87851b7f592ef14968cc16ce93a7f2576d72e6b93fdd",
+      "member_basename": "bsk",
+      "path": "darwin-x64/bsk",
+      "sha256": "ce96809704657e9d18cb51a80d856bc49e41a22767cb3177f6d27e10a1ab275a"
+    },
+    "linux-arm64": {
+      "archive": "bsk-v0.1.10-aarch64-unknown-linux-musl.tar.gz",
+      "url": "https://github.com/Tencent/BrowserSkill/releases/download/cli-v0.1.10/bsk-v0.1.10-aarch64-unknown-linux-musl.tar.gz",
+      "archive_sha256": "52b3f1c1ce4b20f1fb88d982a6e42fc625ed898c17ba377be5cfb55c5d529445",
+      "member_basename": "bsk",
+      "path": "linux-arm64/bsk",
+      "sha256": "e4839a89b68ea49f96612da19f7869c2e298f5c7517f70d9dd85f57559325cbc"
+    },
+    "linux-x64": {
+      "archive": "bsk-v0.1.10-x86_64-unknown-linux-musl.tar.gz",
+      "url": "https://github.com/Tencent/BrowserSkill/releases/download/cli-v0.1.10/bsk-v0.1.10-x86_64-unknown-linux-musl.tar.gz",
+      "archive_sha256": "ff896add42b4b8d4678d0beda44ad20926847729dd7e32ae528c7aa2140d0e8e",
+      "member_basename": "bsk",
+      "path": "linux-x64/bsk",
+      "sha256": "7d94b5cabb82a5fc36d7af2032e7672cf41d6e625541dd4ce242ed80c5056f4d"
+    },
+    "windows-x64": {
+      "archive": "bsk-v0.1.10-x86_64-pc-windows-msvc.zip",
+      "url": "https://github.com/Tencent/BrowserSkill/releases/download/cli-v0.1.10/bsk-v0.1.10-x86_64-pc-windows-msvc.zip",
+      "archive_sha256": "83c1332686f448a8568d25d8528bba92e2fb53fcbaf0ed6b5e36a452dfa88360",
+      "member_basename": "bsk.exe",
+      "path": "windows-x64/bsk.exe",
+      "sha256": "e24090da00c9523eef484ef60ff932e8281183ab59b90ec95d6b22b9ee5a3e37"
+    }
+  }
+}

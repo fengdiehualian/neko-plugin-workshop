@@ -1,0 +1,13 @@
+{
+    "python.analysis.extraPaths": [
+        "./vendor",
+        "./vendor_cp311",
+        "./vendor_cp312",
+        "./vendor_cp313"
+    ],
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.ruff_cache": true,
+        "_wheels": true
+    }
+}

@@ -1,0 +1,39 @@
+[plugin]
+id = "mood_state"
+name = "心情精力状态"
+description = "为猫娘注入持久的心情/精力双维度内在状态：按 0~100 分数每 10 分一档选取提示词注入对话上下文，LLM 可通过工具自评自调，主人也可手动加减分，让她的语气随状态自然变化。Ported from Open-LLM-VTuber mood/energy state system."
+short_description = "Persistent mood/energy inner state with tiered prompts, LLM self-adjustment and manual tuning."
+keywords = ["心情", "mood", "精力", "energy", "情绪", "emotion", "状态", "state", "気分", "エネルギー", "기분"]
+version = "0.1.0"
+entry = "plugin.plugins.mood_state:MoodStatePlugin"
+
+[plugin.author]
+name = "mood_state contributors"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[mood_state]
+enabled = true
+initial_mood = 50
+initial_energy = 50
+baseline_mood = 50
+baseline_energy = 50
+drift_per_hour = 2.0
+push_refresh_minutes = 30
+push_on_change = true
+main_server_url = "http://127.0.0.1:48911"
+gui_enabled = true
+gui_port = 48930
+gui_auto_open = true
+# 跑原生窗口的解释器（需装 PySide6）；留空则自动探测 PATH 上的 python
+gui_python = ""

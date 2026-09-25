@@ -1,0 +1,1908 @@
+{
+  "ok": true,
+  "data": {
+    "url": "https://market.project-neko.cn/#/my-plugins",
+    "title": "N.E.K.O. Plugin Market",
+    "tree": [
+      [
+        {
+          "role": "image",
+          "name": "Download"
+        },
+        {
+          "role": "image"
+        }
+      ],
+      [
+        [
+          {
+            "role": "banner",
+            "children": [
+              {
+                "role": "link",
+                "name": "猫娘计划首页",
+                "ref": "@e1",
+                "children": [
+                  {
+                    "role": "image",
+                    "name": "猫娘计划"
+                  }
+                ]
+              },
+              {
+                "role": "form",
+                "children": [
+                  {
+                    "role": "textbox",
+                    "name": "搜索插件...",
+                    "ref": "@e2"
+                  }
+                ]
+              },
+              {
+                "role": "navigation",
+                "children": [
+                  {
+                    "role": "link",
+                    "name": "插件",
+                    "ref": "@e3",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "插件",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "插件"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "link",
+                    "name": "上传",
+                    "ref": "@e4",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "上传",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "上传"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "link",
+                    "name": "我的插件",
+                    "ref": "@e5",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "我的插件",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "我的插件"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "link",
+                    "name": "文档",
+                    "ref": "@e6",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "文档",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "文档"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "link",
+                    "ref": "@e7"
+                  },
+                  {
+                    "role": "button",
+                    "name": "打开通知",
+                    "ref": "@e8",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "1",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "1"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "button",
+                    "name": "打开用户菜单",
+                    "ref": "@e9",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "S",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "S"
+                          }
+                        ]
+                      },
+                      {
+                        "role": "StaticText",
+                        "name": "StarrySerendipity",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "StarrySerendipity"
+                          },
+                          {
+                            "role": "InlineTextBox",
+                            "name": "StarrySerendip"
+                          },
+                          {
+                            "role": "InlineTextBox",
+                            "name": "…"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "role": "main",
+            "children": [
+              {
+                "role": "link",
+                "name": "返回插件列表",
+                "ref": "@e10",
+                "children": [
+                  {
+                    "role": "StaticText",
+                    "name": "返回插件列表",
+                    "children": [
+                      {
+                        "role": "InlineTextBox",
+                        "name": "返回插件列表"
+                      }
+                    ]
+                  }
+                ]
+              },
+              [
+                {
+                  "role": "heading",
+                  "name": "提交插件申请",
+                  "children": [
+                    {
+                      "role": "StaticText",
+                      "name": "提交插件申请",
+                      "children": [
+                        {
+                          "role": "InlineTextBox",
+                          "name": "提交插件申请"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "paragraph",
+                  "children": [
+                    {
+                      "role": "StaticText",
+                      "name": "填写 GitHub 仓库地址和展示信息。提交后，你可以在“我的插件”中查看检查结果和审核进度。",
+                      "children": [
+                        {
+                          "role": "InlineTextBox",
+                          "name": "填写 GitHub 仓库地址和展示信息。提交后，你可以在“我的插件”中查看检查结果和审核进度。"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              [
+                {
+                  "role": "heading",
+                  "name": "提交前准备",
+                  "children": [
+                    {
+                      "role": "StaticText",
+                      "name": "提交前准备",
+                      "children": [
+                        {
+                          "role": "InlineTextBox",
+                          "name": "提交前准备"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "paragraph",
+                  "children": [
+                    {
+                      "role": "StaticText",
+                      "name": "准备一个可以公开访问的 GitHub 插件仓库。填写地址后，我们会自动读取仓库信息并检查是否符合投稿要求。",
+                      "children": [
+                        {
+                          "role": "InlineTextBox",
+                          "name": "准备一个可以公开访问的 GitHub 插件仓库。填写地址后，我们会自动读取仓库信息并检查是否符合投"
+                        },
+                        {
+                          "role": "InlineTextBox",
+                          "name": "稿要求。"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "list",
+                  "children": [
+                    {
+                      "role": "listitem",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "• ",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "• "
+                            }
+                          ]
+                        },
+                        {
+                          "role": "StaticText",
+                          "name": "仓库名需要符合 n.e.k.o_plugin_<plugin_id>",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "仓库名需要符合 n.e.k.o_plugin_<plugin_id>"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "listitem",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "• ",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "• "
+                            }
+                          ]
+                        },
+                        {
+                          "role": "StaticText",
+                          "name": "仓库根目录需要有 plugin.toml",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "仓库根目录需要有 plugin.toml"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "paragraph",
+                  "children": [
+                    {
+                      "role": "StaticText",
+                      "name": "建议提交前在 N.E.K.O 本体目录中运行 uv run neko-plugin check --release /path/to/plugin-repo。",
+                      "children": [
+                        {
+                          "role": "InlineTextBox",
+                          "name": "建议提交前在 N.E.K.O 本体目录中运行 uv run neko-plugin check --release /path/to/plugin-repo。"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                [
+                  {
+                    "role": "paragraph",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "第一次创建插件仓库？请在 N.E.K.O 本体目录中打开终端，使用内置 Plugin CLI：",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "第一次创建插件仓库？请在 N.E.K.O 本体目录中打开终端，使用内置 Plugin CLI："
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "code",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "uv run neko-plugin init-repo <plugin_id>",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "uv run neko-plugin init-repo <plugin_id>"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              ],
+              {
+                "role": "form",
+                "children": [
+                  [
+                    {
+                      "role": "heading",
+                      "name": "GitHub 仓库",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "GitHub 仓库",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "GitHub 仓库"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "paragraph",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "插件源代码仓库地址",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "插件源代码仓库地址"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  [
+                    {
+                      "role": "LabelText",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "仓库 URL",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "仓库 URL"
+                            }
+                          ]
+                        },
+                        {
+                          "role": "StaticText",
+                          "name": "*",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "*"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "textbox",
+                      "name": "仓库 URL *",
+                      "ref": "@e11"
+                    },
+                    [
+                      {
+                        "role": "button",
+                        "name": "读取仓库信息",
+                        "ref": "@e12",
+                        "children": [
+                          {
+                            "role": "StaticText",
+                            "name": "读取仓库信息",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "读取仓库信息"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "StaticText",
+                        "name": "通过 GitHub API 读取投稿所需信息，不会克隆仓库或运行插件代码",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "通过 GitHub API 读取投稿所需信息，不会克隆仓库或运行插件代码"
+                          }
+                        ]
+                      }
+                    ]
+                  ],
+                  [
+                    {
+                      "role": "heading",
+                      "name": "插件信息",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "插件信息",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "插件信息"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "paragraph",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "这些内容会显示在本次审核申请中",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "这些内容会显示在本次审核申请中"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  [
+                    [
+                      {
+                        "role": "LabelText",
+                        "children": [
+                          {
+                            "role": "StaticText",
+                            "name": "插件名称",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "插件名称"
+                              }
+                            ]
+                          },
+                          {
+                            "role": "StaticText",
+                            "name": "*",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "*"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "textbox",
+                        "name": "插件名称 *",
+                        "ref": "@e13"
+                      }
+                    ],
+                    [
+                      {
+                        "role": "LabelText",
+                        "children": [
+                          {
+                            "role": "StaticText",
+                            "name": "简介",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "简介"
+                              }
+                            ]
+                          },
+                          {
+                            "role": "StaticText",
+                            "name": "(可选)",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "(可选)"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "textbox",
+                        "name": "简介 (可选)",
+                        "ref": "@e14"
+                      }
+                    ]
+                  ],
+                  [
+                    {
+                      "role": "heading",
+                      "name": "分类与标签",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "分类与标签",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "分类与标签"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "paragraph",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "帮助审核员和用户理解插件用途",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "帮助审核员和用户理解插件用途"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  [
+                    [
+                      {
+                        "role": "LabelText",
+                        "children": [
+                          {
+                            "role": "StaticText",
+                            "name": "分区",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "分区"
+                              }
+                            ]
+                          },
+                          {
+                            "role": "StaticText",
+                            "name": "*",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "*"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "combobox",
+                        "value": "选择分区",
+                        "ref": "@e15",
+                        "children": [
+                          {
+                            "role": "StaticText",
+                            "name": "选择分区",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "选择分区"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "role": "LabelText",
+                        "children": [
+                          {
+                            "role": "StaticText",
+                            "name": "标签 ",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "标签 "
+                              }
+                            ]
+                          },
+                          {
+                            "role": "StaticText",
+                            "name": "*",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "*"
+                              }
+                            ]
+                          },
+                          {
+                            "role": "StaticText",
+                            "name": "(选择 1-5 个)",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "(选择 1-5 个)"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      [
+                        {
+                          "role": "button",
+                          "name": "游戏",
+                          "ref": "@e16",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "游戏",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "游戏"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "查询",
+                          "ref": "@e17",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "查询",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "查询"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "攻略",
+                          "ref": "@e18",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "攻略",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "攻略"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "辅助",
+                          "ref": "@e19",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "辅助",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "辅助"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "陪玩",
+                          "ref": "@e20",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "陪玩",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "陪玩"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "互动",
+                          "ref": "@e21",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "互动",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "互动"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "情感",
+                          "ref": "@e22",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "情感",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "情感"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "增强",
+                          "ref": "@e23",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "增强",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "增强"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "功能",
+                          "ref": "@e24",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "功能",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "功能"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "工具",
+                          "ref": "@e25",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "工具",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "工具"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "系统",
+                          "ref": "@e26",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "系统",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "系统"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "监控",
+                          "ref": "@e27",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "监控",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "监控"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "娱乐",
+                          "ref": "@e28",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "娱乐",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "娱乐"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "音乐",
+                          "ref": "@e29",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "音乐",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "音乐"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "视频",
+                          "ref": "@e30",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "视频",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "视频"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "笑话",
+                          "ref": "@e31",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "笑话",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "笑话"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "开发",
+                          "ref": "@e32",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "开发",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "开发"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "代码",
+                          "ref": "@e33",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "代码",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "代码"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "API",
+                          "ref": "@e34",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "API",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "API"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "AI",
+                          "ref": "@e35",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "AI",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "AI"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "图像",
+                          "ref": "@e36",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "图像",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "图像"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "生成",
+                          "ref": "@e37",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "生成",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "生成"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "翻译",
+                          "ref": "@e38",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "翻译",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "翻译"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "语言",
+                          "ref": "@e39",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "语言",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "语言"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "学习",
+                          "ref": "@e40",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "学习",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "学习"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "日程",
+                          "ref": "@e41",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "日程",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "日程"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "任务",
+                          "ref": "@e42",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "任务",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "任务"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "管理",
+                          "ref": "@e43",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "管理",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "管理"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "提醒",
+                          "ref": "@e44",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "提醒",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "提醒"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "天气",
+                          "ref": "@e45",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "天气",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "天气"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "统计",
+                          "ref": "@e46",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "统计",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "统计"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "button",
+                          "name": "数据",
+                          "ref": "@e47",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "数据",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "数据"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      {
+                        "role": "paragraph",
+                        "children": [
+                          {
+                            "role": "StaticText",
+                            "name": "已选择 ",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "已选择 "
+                              }
+                            ]
+                          },
+                          {
+                            "role": "StaticText",
+                            "name": "0",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "0"
+                              }
+                            ]
+                          },
+                          {
+                            "role": "StaticText",
+                            "name": "/5",
+                            "children": [
+                              {
+                                "role": "InlineTextBox",
+                                "name": "/5"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  ],
+                  {
+                    "role": "StaticText",
+                    "name": "提交前请确认仓库信息、插件名称和分类无误",
+                    "children": [
+                      {
+                        "role": "InlineTextBox",
+                        "name": "提交前请确认仓库信息、插件名称和分类无误"
+                      }
+                    ]
+                  },
+                  {
+                    "role": "button",
+                    "name": "提交审核申请",
+                    "ref": "@e48",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "提交审核申请",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "提交审核申请"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              [
+                {
+                  "role": "heading",
+                  "name": "提交后会发生什么？",
+                  "children": [
+                    {
+                      "role": "StaticText",
+                      "name": "提交后会发生什么？",
+                      "children": [
+                        {
+                          "role": "InlineTextBox",
+                          "name": "提交后会发生什么？"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "paragraph",
+                  "children": [
+                    {
+                      "role": "StaticText",
+                      "name": "系统会先自动检查，再由审核员确认。你可以随时在“我的插件”中查看进度。",
+                      "children": [
+                        {
+                          "role": "InlineTextBox",
+                          "name": "系统会先自动检查，再由审核员确认。你可以随时在“我的插件”中查看进度。"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "list",
+                  "children": [
+                    {
+                      "role": "listitem",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "1",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "1"
+                            }
+                          ]
+                        },
+                        {
+                          "role": "heading",
+                          "name": "确认提交内容",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "确认提交内容",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "确认提交内容"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "paragraph",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "记录你这次提交的插件代码和展示信息",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "记录你这次提交的插件代码和展示信息"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "listitem",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "2",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "2"
+                            }
+                          ]
+                        },
+                        {
+                          "role": "heading",
+                          "name": "自动检查插件",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "自动检查插件",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "自动检查插件"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "paragraph",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "检查插件结构、代码规范和打包配置",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "检查插件结构、代码规范和打包配置"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "listitem",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "3",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "3"
+                            }
+                          ]
+                        },
+                        {
+                          "role": "heading",
+                          "name": "审核员确认",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "审核员确认",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "审核员确认"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "paragraph",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "需要修改的内容会集中显示在“我的插件”中",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "需要修改的内容会集中显示在“我的插"
+                                },
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "件”中"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "listitem",
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "4",
+                          "children": [
+                            {
+                              "role": "InlineTextBox",
+                              "name": "4"
+                            }
+                          ]
+                        },
+                        {
+                          "role": "heading",
+                          "name": "审核通过后发布",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "审核通过后发布",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "审核通过后发布"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "role": "paragraph",
+                          "children": [
+                            {
+                              "role": "StaticText",
+                              "name": "按照页面提示创建正式版本并发布安装包",
+                              "children": [
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "按照页面提示创建正式版本并发布安装"
+                                },
+                                {
+                                  "role": "InlineTextBox",
+                                  "name": "包"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            ]
+          },
+          {
+            "role": "contentinfo",
+            "children": [
+              [
+                [
+                  {
+                    "role": "link",
+                    "name": "N.E.K.O.",
+                    "ref": "@e49",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "N.E.K.O.",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "N.E.K.O."
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "paragraph",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "扩展你的 AI 伙伴，让 N.E.K.O. 更强大。发现、分享和安装社区创作的插件。",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "扩展你的 AI 伙伴，让 N.E.K.O. 更强大。发"
+                          },
+                          {
+                            "role": "InlineTextBox",
+                            "name": "现、分享和安装社区创作的插件。"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  [
+                    {
+                      "role": "link",
+                      "ref": "@e50"
+                    },
+                    {
+                      "role": "link",
+                      "ref": "@e51"
+                    }
+                  ]
+                ],
+                [
+                  {
+                    "role": "heading",
+                    "name": "产品",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "产品",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "产品"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "list",
+                    "children": [
+                      {
+                        "role": "listitem",
+                        "children": [
+                          {
+                            "role": "link",
+                            "name": "插件市场",
+                            "ref": "@e52",
+                            "children": [
+                              {
+                                "role": "StaticText",
+                                "name": "插件市场",
+                                "children": [
+                                  {
+                                    "role": "InlineTextBox",
+                                    "name": "插件市场"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "listitem",
+                        "children": [
+                          {
+                            "role": "link",
+                            "name": "上传插件",
+                            "ref": "@e53",
+                            "children": [
+                              {
+                                "role": "StaticText",
+                                "name": "上传插件",
+                                "children": [
+                                  {
+                                    "role": "InlineTextBox",
+                                    "name": "上传插件"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "listitem",
+                        "children": [
+                          {
+                            "role": "link",
+                            "name": "热门排行",
+                            "ref": "@e54",
+                            "children": [
+                              {
+                                "role": "StaticText",
+                                "name": "热门排行",
+                                "children": [
+                                  {
+                                    "role": "InlineTextBox",
+                                    "name": "热门排行"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "listitem",
+                        "children": [
+                          {
+                            "role": "link",
+                            "name": "最新发布",
+                            "ref": "@e55",
+                            "children": [
+                              {
+                                "role": "StaticText",
+                                "name": "最新发布",
+                                "children": [
+                                  {
+                                    "role": "InlineTextBox",
+                                    "name": "最新发布"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "role": "heading",
+                    "name": "资源",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "资源",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "资源"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "list",
+                    "children": [
+                      {
+                        "role": "listitem",
+                        "children": [
+                          {
+                            "role": "link",
+                            "name": "开发文档",
+                            "ref": "@e56",
+                            "children": [
+                              {
+                                "role": "StaticText",
+                                "name": "开发文档",
+                                "children": [
+                                  {
+                                    "role": "InlineTextBox",
+                                    "name": "开发文档"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "listitem",
+                        "children": [
+                          {
+                            "role": "link",
+                            "name": "GitHub",
+                            "ref": "@e57",
+                            "children": [
+                              {
+                                "role": "StaticText",
+                                "name": "GitHub",
+                                "children": [
+                                  {
+                                    "role": "InlineTextBox",
+                                    "name": "GitHub"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "listitem",
+                        "children": [
+                          {
+                            "role": "link",
+                            "name": "Steam",
+                            "ref": "@e58",
+                            "children": [
+                              {
+                                "role": "StaticText",
+                                "name": "Steam",
+                                "children": [
+                                  {
+                                    "role": "InlineTextBox",
+                                    "name": "Steam"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "role": "heading",
+                    "name": "社区",
+                    "children": [
+                      {
+                        "role": "StaticText",
+                        "name": "社区",
+                        "children": [
+                          {
+                            "role": "InlineTextBox",
+                            "name": "社区"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "role": "list",
+                    "children": [
+                      {
+                        "role": "listitem",
+                        "children": [
+                          {
+                            "role": "link",
+                            "name": "Discord",
+                            "ref": "@e59",
+                            "children": [
+                              {
+                                "role": "StaticText",
+                                "name": "Discord",
+                                "children": [
+                                  {
+                                    "role": "InlineTextBox",
+                                    "name": "Discord"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "listitem",
+                        "children": [
+                          {
+                            "role": "link",
+                            "name": "QQ群",
+                            "ref": "@e60",
+                            "children": [
+                              {
+                                "role": "StaticText",
+                                "name": "QQ群",
+                                "children": [
+                                  {
+                                    "role": "InlineTextBox",
+                                    "name": "QQ群"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              ],
+              [
+                {
+                  "role": "paragraph",
+                  "children": [
+                    {
+                      "role": "StaticText",
+                      "name": "© ",
+                      "children": [
+                        {
+                          "role": "InlineTextBox",
+                          "name": "© "
+                        }
+                      ]
+                    },
+                    {
+                      "role": "StaticText",
+                      "name": "2026",
+                      "children": [
+                        {
+                          "role": "InlineTextBox",
+                          "name": "2026"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "StaticText",
+                      "name": " N.E.K.O. Plugin Market. All rights reserved.",
+                      "children": [
+                        {
+                          "role": "InlineTextBox",
+                          "name": " N.E.K.O. Plugin Market. All rights reserved."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                [
+                  {
+                    "role": "StaticText",
+                    "name": "Made with",
+                    "children": [
+                      {
+                        "role": "InlineTextBox",
+                        "name": "Made with"
+                      }
+                    ]
+                  },
+                  {
+                    "role": "StaticText",
+                    "name": "for the N.E.K.O. community",
+                    "children": [
+                      {
+                        "role": "InlineTextBox",
+                        "name": "for the N.E.K.O. community"
+                      }
+                    ]
+                  }
+                ]
+              ]
+            ]
+          }
+        ],
+        {
+          "role": "region",
+          "name": "Notifications alt+T"
+        }
+      ]
+    ]
+  }
+}

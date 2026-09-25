@@ -1,0 +1,74 @@
+[plugin]
+id = "development_aide"
+name = "Development-Aide"
+description = "开发辅助型 N.E.K.O 插件：可导入 Skill 技能包，并以只读方式读取已配置项目目录中的源码与配置，帮助猫娘为用户提供代码意见、纠错和调试。"
+short_description = "只读读取项目文件、审查代码、定位错误、汇总结构，并可导入 Skill 技能包。"
+keywords = [
+    "development",
+    "assistant",
+    "skill",
+    "read-only",
+    "code review",
+    "debug",
+    "项目",
+    "开发辅助",
+    "读文件",
+    "读取文件",
+    "找文件",
+    "看代码",
+    "审查代码",
+    "代码质量",
+    "项目结构",
+    "错误定位",
+    "导入技能",
+    "技能包",
+    "帮我看看代码",
+    "read file",
+    "review code",
+    "project structure",
+]
+version = "0.1.0"
+entry = "plugin.plugins.development_aide:DevelopmentAidePlugin"
+
+[plugin.author]
+name = "HMUG12"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = true
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "settings"
+title = "Development-Aide"
+entry = "ui/settings.tsx"
+context = "settings"
+permissions = ["state:read", "action:call", "config:read"]
+
+[[plugin.ui.guide]]
+id = "guide"
+title = "使用指南"
+entry = "docs/guide.md"
+permissions = ["state:read"]
+
+[settings]
+# 留空：不预设任何作者机器上的路径，由用户在设置面板填写本机绝对路径
+skill_path = ""
+workspace_root = ""
+read_only = true
+max_chars = 4000
+analysis_tone = "professional"
+enable_code_review = true
+enable_error_fix = true
+enable_project_summary = true
+enable_multi_file_summary = true
+default_file_extensions = [".py", ".ts", ".tsx", ".md", ".toml", ".json"]

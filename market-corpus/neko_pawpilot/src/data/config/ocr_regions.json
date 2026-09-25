@@ -1,0 +1,9 @@
+{
+  "regions": {
+    "money": { "left": 40, "top": 1390, "width": 300, "height": 40, "note": "左下金钱（待游戏实测标定）" },
+    "city": { "left": 1600, "top": 80, "width": 400, "height": 60, "note": "右上当前城市（待标定）" },
+    "level": { "left": 100, "top": 120, "width": 200, "height": 40, "note": "左上等级（待标定）" },
+    "speed_hud": { "left": 900, "top": 1300, "width": 260, "height": 60, "note": "速度表（待标定）" }
+  },
+  "scan_interval_s": 600
+}

@@ -1,0 +1,5 @@
+[course]
+timezone = "Asia/Shanghai"
+remind_lead_minutes = 10
+remind_enabled = false
+remind_check_interval_seconds = 60

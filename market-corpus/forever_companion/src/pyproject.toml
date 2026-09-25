@@ -1,0 +1,46 @@
+[project]
+name = "forever_companion"
+version = "1.3.1"
+requires-python = ">=3.11"
+dependencies = []
+
+# 仅开发/测试依赖，不进运行时；插件本体零第三方依赖的原则不变
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    # Windows 上 zoneinfo 需要 tzdata 才能解析 IANA 时区（如 Asia/Shanghai）
+    "tzdata; sys_platform == 'win32'",
+]
+
+# 插件根目录自带 __init__.py（它是包本体不是测试），限定只收集 tests/；
+# 状态机测试依赖 tests/conftest.py 的宿主 SDK 桩，故不随宿主仓库跑。
+# 运行方式：在插件根目录执行 ``uv run python -m pytest tests -q``
+# importlib 导入模式是硬需求：官方市场 CI 会把插件挂载到宿主
+# neko/plugin/plugins/forever_companion/ 包树内跑测试，默认的 prepend 模式会把
+# 根目录 __init__.py 当包模块解析导致相对导入崩溃；importlib 按文件路径导入，
+# 独立仓库与挂载模式两种环境都能稳定收集（tests 目录无 __init__.py 也不受影响）
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+
+[tool.neko.build]
+exclude_dirs = [
+    ".github",
+    ".vscode",
+    ".venv",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".benchmarks",
+    "__pycache__",
+    "tests",
+    # 开发期工具（hosted 链接自检门等）：依赖仓外宿主 scanner，运行时零引用，
+    # 不进发行包
+    "tools",
+]
+exclude_files = [
+    ".gitignore",
+    "uv.lock",
+    "ruff.toml",
+    "DESIGN.md",
+    "CHANGELOG.md",
+]

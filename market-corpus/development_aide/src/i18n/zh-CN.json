@@ -1,0 +1,11 @@
+{
+  "actions.save.label": "保存设置",
+  "actions.import_skill.label": "导入 Skill",
+  "actions.scan_skill_dirs.label": "扫描技能目录",
+  "actions.read_file.label": "读取文件",
+  "actions.code_review.label": "代码审查",
+  "actions.error_fix.label": "修复建议",
+  "actions.project_summary.label": "结构摘要",
+  "actions.multi_file_summary.label": "多文件汇总",
+  "actions.quick_audit.label": "一键开发审查"
+}

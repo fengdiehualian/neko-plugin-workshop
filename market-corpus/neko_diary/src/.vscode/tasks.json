@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check neko_diary",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check neko_diary",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r neko_diary",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r neko_diary",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build neko_diary",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build neko_diary",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

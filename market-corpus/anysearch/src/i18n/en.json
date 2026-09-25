@@ -1,0 +1,8 @@
+{
+  "plugin.name": "AnySearch Web Search",
+  "plugin.description": "Plug AnySearch unified search API into N.E.K.O",
+  "panel.title": "AnySearch Web Search",
+  "panel.search_placeholder": "Type your search query…",
+  "panel.mode_anonymous": "Anonymous (free quota)",
+  "panel.mode_apikey": "API Key"
+}

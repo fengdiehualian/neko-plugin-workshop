@@ -1,0 +1,25 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[luogu]
+# --- 抓取 ---
+timeout_seconds = 15
+min_interval_seconds = 1.0
+cookie_ttl_seconds = 240
+default_user = ""
+fetch_max_pages = 8   # 报告/每日题单最多抓取多少页提交记录（洛谷每页固定 20 条）；越大越全但越慢
+
+# --- 每日题单 / 成长策略 ---
+daily_push_enabled = false
+daily_push_time = "08:00"
+daily_push_timezone = "Asia/Shanghai"
+daily_problem_count = 3
+daily_difficulty_min = 2
+daily_difficulty_max = 5
+weak_attempt_threshold = 3
+
+# --- 跨插件推送（运行时逐个 call_entry，留空跳过） ---
+# [[luogu.push_entries]]
+# entry_ref = "qq_auto_reply:send_group_proactive_message"
+# params = { group_id = "123456789", message = "{TEXT}" }

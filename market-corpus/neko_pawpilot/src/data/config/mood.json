@@ -1,0 +1,30 @@
+{
+  "mood_pool": ["excitement", "worry", "sleepy", "sympathy", "proud", "calm"],
+  "decay_rates": {
+    "excitement": 0.06,
+    "worry": 0.04,
+    "sleepy": 0.02,
+    "sympathy": 0.05,
+    "proud": 0.07,
+    "calm": 0.03
+  },
+  "event_mood": {
+    "speeding": {"worry": 0.55},
+    "hard_brake": {"worry": 0.6, "sympathy": 0.3},
+    "crash": {"worry": 0.9, "sympathy": 0.8},
+    "fine": {"sympathy": 0.5, "upset_owner": 0.4},
+    "job_start": {"excitement": 0.6},
+    "job_delivered": {"excitement": 0.85, "proud": 0.6},
+    "job_cancelled": {"sympathy": 0.4},
+    "time_warning": {"worry": 0.5},
+    "time_over": {"sympathy": 0.6},
+    "refuel": {"calm": 0.3},
+    "low_fuel": {"worry": 0.4},
+    "game_start": {"excitement": 0.5, "calm": 0.2},
+    "game_end": {"calm": 0.4, "sleepy": 0.2},
+    "trip_progress": {"calm": 0.3},
+    "trailer_attach": {"excitement": 0.3},
+    "trailer_detach": {"calm": 0.2},
+    "tollgate": {"calm": 0.1}
+  }
+}

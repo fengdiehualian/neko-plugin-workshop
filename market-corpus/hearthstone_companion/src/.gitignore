@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+.idea/
+vendor/
+dist/
+build/
+*.neko-plugin
+*.log
+store.db

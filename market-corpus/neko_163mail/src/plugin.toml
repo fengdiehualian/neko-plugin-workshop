@@ -1,0 +1,46 @@
+[plugin]
+name = "网易邮箱助手"
+description = "让猫娘帮你管理网易163邮箱,生成邮件摘要、判断优先级、标记已读、发送邮件。清新诗意的前端界面,支持附件发送。"
+short_description = "Catgirl mail assistant — 163 mailbox summaries, priority classification, mark read, send emails with attachments."
+keywords = ["邮件", "邮箱", "email", "mail", "网易邮箱", "163邮箱", "IMAP", "SMTP", "摘要", "猫娘", "网易", "163"]
+version = "0.2.3"
+id = "neko_163mail"
+entry = "plugin.plugins.neko_163mail:Neko163MailPluginEntry"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = false
+
+[neko_163mail]
+# 网易163邮箱地址 (必填, 例如: your_email@163.com)
+email_addr = ""
+# 网易163邮箱授权码 (必填, 在163邮箱网页版 → 设置 → POP3/SMTP/IMAP 中生成)
+auth_code = ""
+# IMAP 服务器
+imap_server = "imap.163.com"
+imap_port = 993
+# SMTP 服务器
+smtp_server = "smtp.163.com"
+smtp_port = 465
+# 高优先级发件人(逗号分隔,匹配发件人地址中的任意子串)
+high_priority_senders = ""
+# 要忽略的文件夹(逗号分隔)
+ignore_folders = ""
+# 猫娘对用户的称呼(支持猫娘自主决定或与用户协商)
+master_name = "主人"
+# 猫娘的自称
+catgirl_name = "喵喵"

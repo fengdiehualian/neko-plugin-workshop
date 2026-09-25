@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check writer_power_analysis",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check writer_power_analysis",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync writer_power_analysis",
+      "type": "shell",
+      "command": "uv run --with pip python -m plugin.neko_plugin_cli.cli sync writer_power_analysis --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r writer_power_analysis",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r writer_power_analysis",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build writer_power_analysis",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build writer_power_analysis",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

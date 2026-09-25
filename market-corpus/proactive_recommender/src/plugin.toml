@@ -1,0 +1,71 @@
+[plugin]
+name = "OpenBiliClaw 个性化推荐兼容层"
+description = "连接本机 OpenBiliClaw 后端，导入其根据跨平台浏览、点赞、收藏和反馈生成的个性化推荐；内容经过净化、排序和频率门控后隐藏交给当前猫娘，由猫娘结合对话、记忆与人设决定保持沉默或主动搭话。兼容层不会读取或保存 Cookie，也不会持久化原始平台事件。"
+short_description = "Privately hands OpenBiliClaw recommendations to the current NEKO character to decide whether to speak."
+keywords = [
+    "个性化推荐",
+    "主动搭话",
+    "recommendation",
+    "proactive",
+]
+version = "0.4.1"
+id = "proactive_recommender"
+entry = "plugin.plugins.proactive_recommender:ProactiveRecommenderPlugin"
+passive = true
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "OpenBiliClaw 个性化推荐兼容层"
+entry = "ui/panel.tsx"
+context = "dashboard"
+permissions = [
+    "state:read",
+    "action:call",
+]
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[openbiliclaw]
+enabled = true
+port = 8421
+backend_port = 8420
+
+[recommendation]
+enabled = true
+shadow_mode = false
+memory_bucket = "default"
+background_llm = true
+daily_limit = 20
+min_interval_minutes = 5
+quiet_start = "23:00"
+quiet_end = "09:00"
+score_threshold = 0.72
+candidate_ttl_hours = 12
+reply_window_minutes = 10
+ignored_window_minutes = 30
+max_consecutive_ignored = 2
+max_idle_seconds = 900
+min_user_silence_minutes = 20
+
+[recommendation.sources]
+web_search = true
+bilibili = true

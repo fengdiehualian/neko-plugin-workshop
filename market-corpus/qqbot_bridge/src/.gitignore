@@ -1,0 +1,19 @@
+# 构建 / 发布产物
+__pycache__/
+*.pyc
+*.neko-plugin
+
+# 本地配置（不要提交真实凭据）
+config.toml
+
+# 测试缓存
+.pytest_cache/
+
+# N.E.K.O 插件运行时存储
+store.db
+
+# 临时文件
+_*.md
+_*.tsx
+_*.yml
+.DS_Store

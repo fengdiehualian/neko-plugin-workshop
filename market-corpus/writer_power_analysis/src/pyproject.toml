@@ -1,0 +1,4 @@
+[project]
+name = "writer_power_analysis"
+version = "0.1.0"
+dependencies = []

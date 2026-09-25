@@ -1,0 +1,10 @@
+[writer_power_analysis]
+base_url = ""
+api_key = ""
+model_list_path = ""
+default_model = ""
+fallback_models = []
+timeout_seconds = 10000
+max_article_chars = 1000000
+temperature = 0.35
+json_mode = false

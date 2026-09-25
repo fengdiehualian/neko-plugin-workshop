@@ -1,0 +1,6 @@
+# Development-Aide 运行参数示例
+# 复制为 config.toml 并按需修改；本文件只放可变的运行参数，不包含 [plugin] 元信息。
+
+[plugin_runtime]
+enabled = true
+auto_start = true

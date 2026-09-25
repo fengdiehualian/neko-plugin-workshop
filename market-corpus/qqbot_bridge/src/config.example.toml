@@ -1,0 +1,25 @@
+[qqbot_bridge]
+# ── QQ 机器人凭据（在 https://q.qq.com 创建机器人后获取）──
+# 应用 AppID
+app_id = "你的AppID"
+# 应用密钥 Client Secret（用于自动换取 access_token，二选一）
+client_secret = "你的ClientSecret"
+# 或直接使用已获取的 Bot Token（留空则自动用 client_secret 换取）
+bot_token = ""
+# 订阅的意图位掩码：群@消息(1<<25) | 私聊消息(1<<27)。一般不需要改。
+intents = 33554432
+
+# ── 回复模式 ──
+# echo     : 把收到的消息原样返回（便于测试连通性）
+# webhook  : 把消息 POST 到 webhook_url（你的 N.E.K.O Agent 端点），把返回值发回 QQ
+# none     : 只接收并展示，不自动回复
+reply_mode = "webhook"
+# N.E.K.O Agent 端点：收到 QQ 消息时，会以 POST {"message": "...", "meta": {...}} 调用它，
+# 期望返回 JSON {"reply": "..."} 或纯文本，作为发回 QQ 的回复。
+webhook_url = "https://your-neko-agent.example.com/api/chat"
+# 可选的 Bearer 鉴权令牌
+webhook_auth = ""
+# 是否自动回复
+auto_reply = true
+# 面板/状态里保留的最近消息条数
+max_recent = 50

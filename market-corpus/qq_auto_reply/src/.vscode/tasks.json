@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check qq_auto_reply",
+      "type": "shell",
+      "command": "uv run neko-plugin check qq_auto_reply",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync qq_auto_reply",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync qq_auto_reply --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r qq_auto_reply",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r qq_auto_reply",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build qq_auto_reply",
+      "type": "shell",
+      "command": "uv run neko-plugin build qq_auto_reply",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

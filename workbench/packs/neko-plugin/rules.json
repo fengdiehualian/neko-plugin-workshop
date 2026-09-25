@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "N.E.K.O. 插件生成规则(neko-plugin pack v0.1)",
+  "type": "object",
+  "properties": {
+    "plugin_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "插件 ID:小写字母开头,仅小写字母/数字/下划线(与官方 init 同规则);必须与归档目录名一致;发布后不可更改。"
+    },
+    "name": { "type": "string", "description": "插件显示名称(必填)" },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "SemVer;已发布版本号不可复用;Market 按 publish 时间排序,禁止补发旧版本。"
+    },
+    "entry_class": {
+      "type": "string",
+      "description": "宿主加载入口类,必须是 NekoPluginBase 子类;不可用 PluginRouter 作为启动类。"
+    },
+    "type": { "type": "string", "enum": ["plugin", "adapter"], "default": "plugin" }
+  },
+  "required": ["plugin_id", "name", "version", "entry_class"],
+
+  "x_hard_rules": [
+    "R1 [plugin] 必填:id/name/version/entry/type=plugin;id 小写字母开头 ^[a-z][a-z0-9_]*$,与目录同名,发布后不可更改",
+    "R2 entry 格式必须为 module.path:ClassName,且解析到 NekoPluginBase 子类",
+    "R3 所有入口函数必须 async def,返回 Ok(data) 或 Err(SdkError(msg)),不要抛异常",
+    "R4 禁止使用 v0.9 已移除 API:type=script/extensio、[plugin.host]、plugin._types.result、plugin.sdk.extension、Bus where_*、get_message_plane_all、self.memory/MemoryClient",
+    "R5 push_message 用 v2 参数:parts/visibility/ai_behavior/priority;不要用 v1 字段(message_type/content/delivery/reply/fast_mode)",
+    "R6 初始化放 @lifecycle(id='startup'),普通 plugin_entry 不会因 auto_start=true 自动执行",
+    "R7 持久数据用 self.data_path(),缓存用 self.cache_path(),plugin_dir 只读",
+    "R8 跨插件调用 await self.plugins.call_entry() 返回 Result,先 isinstance(r, Ok) 再取值",
+    "R9 参数用 Annotated[T, '中文描述'] 或 Pydantic 模型;动态入口必须显式给 input_schema",
+    "R10 签名只声明实际消费的参数,可选 **_ 接收额外字段",
+    "R11 日志分级使用,禁止记录隐私 payload;长任务用 report_status 报进度",
+    "R12 线程共享状态必须加锁;shutdown 里关闭会话/文件句柄"
+  ],
+
+  "x_check_gate": {
+    "command": "uv run neko-plugin check <plugin_id>",
+    "local_command": "python plugin/neko_plugin_cli/cli.py check <plugin_dir>(在 N.E.K.O 仓库根;本机不用 uv run,避免全量环境重建)",
+    "pass_condition": "无 error / 无 [FAIL]",
+    "third_party_deps": "先 uv run --with pip neko-plugin sync <id> --clean 更新 vendor/"
+  },
+
+  "x_publish_flow": [
+    "1. check 通过",
+    "2. GitHub 仓库命名 n.e.k.o_plugin_<plugin_id>",
+    "3. push,等 Actions verify 通过",
+    "4. Market 首次审核(market.project-neko.cn 投稿页)",
+    "5. 审核通过后 uv run neko-plugin publish <id>(打 tag→release.yml→GitHub Release→Market)"
+  ]
+}

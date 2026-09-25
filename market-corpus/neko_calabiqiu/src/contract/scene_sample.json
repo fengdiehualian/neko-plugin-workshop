@@ -1,0 +1,98 @@
+{
+  "contract_version": "cbq.scene.v1",
+  "timestamp": 1721980800.12,
+  "frame_seq": 18421,
+  "event_seq": 905,
+  "connected": true,
+  "game": {
+    "running": true,
+    "region": "cn",
+    "process_name": "Calabiyau-Win64-Shipping.exe",
+    "pid": null,
+    "started_at": 1721980700.0,
+    "uptime_s": 100.12
+  },
+  "capture": {
+    "mode": "window_title",
+    "window_found": true,
+    "width": 2560,
+    "height": 1440,
+    "view_anchor": { "x": 1280, "y": 720 },
+    "fps_estimate": 18.2,
+    "infer_ms": 42,
+    "age_s": 0.03
+  },
+  "model": {
+    "name": "yolo_onnxruntime",
+    "weights_id": "data_layer/weights/best-v8-640.nekomodel",
+    "conf_threshold": 0.40,
+    "classes": { "0": "robot" }
+  },
+  "session": {
+    "phase": "likely_gameplay",
+    "active": true,
+    "degraded": false,
+    "degrade_reason": null
+  },
+  "targets": [
+    {
+      "id": "t_12",
+      "cls": "robot",
+      "cls_id": 0,
+      "conf": 0.81,
+      "bearing": "screen_left",
+      "size_bin": "m",
+      "threat_level": "near"
+    }
+  ],
+  "awareness": {
+    "target_count": 1,
+    "has_target": true,
+    "nearest": {
+      "id": "t_12",
+      "cls": "robot",
+      "bearing": "screen_left",
+      "size_bin": "m"
+    },
+    "threat_level": "near",
+    "pressure": 0.62
+  },
+  "flags": {
+    "game_running": true,
+    "launcher_present": false,
+    "target_in_view": true,
+    "multi_target": false,
+    "nearest_is_close": true
+  },
+  "events_tail": [
+    {
+      "event_seq": 900,
+      "frame_seq": 18000,
+      "ts": 1721980700.0,
+      "type": "game_started",
+      "payload": {
+        "region": "cn",
+        "process_name": "Calabiyau-Win64-Shipping.exe"
+      }
+    },
+    {
+      "event_seq": 904,
+      "frame_seq": 18410,
+      "ts": 1721980799.5,
+      "type": "target_appeared",
+      "payload": {
+        "track_id": "t_12",
+        "cls": "robot",
+        "threat_level": "mid",
+        "bearing": "screen_left"
+      }
+    }
+  ],
+  "events_truncated": false,
+  "meta": {
+    "infer_ok": true,
+    "infer_mode": "stub",
+    "last_error": null,
+    "uptime_s": 360.2
+  }
+}

@@ -1,0 +1,16 @@
+# 运行时配置示例（安装时由 N.E.K.O 复制到运行时 config/plugin.toml）
+# 这里只放“可变默认值”，不要放 [plugin] 元数据表。
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+# 插件自定义配置（运行时可通过 self.config.dump() 读取）
+[bililearn_bridge]
+# BiliLearn Web.exe 的绝对路径；留空则自动在常见位置（构建产物/安装目录）搜索
+exe_path = ""
+# Web 面板端口（需与 BiliLearn 自身配置一致，默认 18083）
+port = 18083
+# 启动模式：serve=无头服务器（推荐，单进程即服务）；silent=无头且无系统托盘
+launch_mode = "serve"
+# 宿主启动 N.E.K.O 时是否自动拉起 BiliLearn（不弹面板，仅后台运行）
+auto_launch = true

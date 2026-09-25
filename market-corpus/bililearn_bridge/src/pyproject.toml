@@ -1,0 +1,11 @@
+[project]
+name = "n.e.k.o_plugin_bililearn_bridge"
+version = "1.0.0"
+description = "让 N.E.K.O 猫娘桥接独立的 BiliLearn（B站 AI 学习机器人）程序"
+requires-python = ">=3.11"
+# 本插件仅使用 Python 标准库（subprocess / urllib / webbrowser / asyncio），
+# 不依赖任何第三方包，因此 dependencies 为空，也不需要 vendor/ 目录。
+dependencies = []
+
+[project.readme]
+file = "README.md"

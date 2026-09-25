@@ -1,0 +1,70 @@
+{
+  "plugin.name": "卡拉彼丘陪伴",
+  "plugin.description": "随游戏自动启停的本地助手，支持后台加载、面板控制和语音提醒",
+  "alerts.enemy_nearby.with_bearing": [
+    "{bearing}近处有敌人喵！",
+    "小心{bearing}，敌人靠近了喵！",
+    "敌人在{bearing}贴近了喵！",
+    "注意{bearing}，近处来人啦喵！"
+  ],
+  "alerts.enemy_nearby.no_bearing": [
+    "近处有敌人喵！",
+    "敌人靠近了喵！",
+    "小心，敌人贴近了喵！",
+    "敌人就在附近喵！"
+  ],
+  "alerts.enemy_left_view": [
+    "敌人离开视野了喵。"
+  ],
+  "alerts.multi_threat": [
+    "发现多个敌人喵！",
+    "敌人不止一个喵！",
+    "多个目标出现了喵！",
+    "小心，敌人有点多喵！"
+  ],
+  "alerts.enemy_spotted.with_bearing": [
+    "{bearing}发现敌人喵！",
+    "注意{bearing}，有敌人喵！",
+    "{bearing}来人啦喵！",
+    "敌人在{bearing}喵！",
+    "{bearing}有情况，发现敌人喵！"
+  ],
+  "alerts.enemy_spotted.no_bearing": [
+    "发现敌人喵！",
+    "敌人出现啦喵！",
+    "看到敌人了喵！",
+    "有敌人，注意喵！",
+    "目标出现啦喵！"
+  ],
+  "alerts.character_select": [
+    "选好角色啦喵！",
+    "进入选人阶段啦喵！",
+    "选个喜欢的角色吧喵～"
+  ],
+  "alerts.match_started": [
+    "对局开始啦喵，加油！",
+    "开打啦喵！冲鸭！",
+    "战斗开始喵，小心哦！"
+  ],
+  "alerts.player_death": [
+    "你被打倒啦喵…",
+    "倒下了喵，先冷静一下！"
+  ],
+  "alerts.match_win": [
+    "赢啦喵！太棒了！",
+    "胜利啦喵～干得漂亮！",
+    "拿下这局啦喵！"
+  ],
+  "alerts.match_lose": [
+    "这局输啦喵…下次再来！",
+    "差一点点就赢了喵，别灰心！",
+    "输啦喵，下一局加油！"
+  ],
+  "alerts.chatter": [
+    "暂时没看到敌人喵，先喘口气～",
+    "这波稳住喵，我陪着你看！",
+    "有点安静喵，注意耳朵听脚步声哦～",
+    "别紧张喵，有我陪你！",
+    "打得很稳喵，继续保持！"
+  ]
+}

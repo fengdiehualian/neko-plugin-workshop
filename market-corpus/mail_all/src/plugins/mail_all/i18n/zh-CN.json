@@ -1,0 +1,20 @@
+{
+  "plugin.name": "猫娘邮件",
+  "plugin.description": "让猫娘帮你收发邮件的插件。支持任意 SMTP / IMAP / POP3 邮箱，多账号，定时查收并喵一声提醒主人。",
+  "add_account.name": "添加邮箱账号",
+  "add_account.description": "配置一个邮箱账号（IMAP/POP3 收件 + SMTP 发件），猫娘就能帮你收发邮件啦~",
+  "list_accounts.name": "列出邮箱账号",
+  "list_accounts.description": "列出已配置的所有邮箱账号（密码已隐藏）。",
+  "remove_account.name": "删除邮箱账号",
+  "remove_account.description": "删除一个已配置的邮箱账号。",
+  "send_mail.name": "发送邮件",
+  "send_mail.description": "用指定账号给收件人发一封邮件，猫娘帮你代笔投递~",
+  "check_mail.name": "检查新邮件",
+  "check_mail.description": "立即检查账号的新邮件（IMAP 未读 / POP3 最近若干封）。",
+  "read_mail.name": "阅读邮件",
+  "read_mail.description": "读取指定邮件的完整内容。",
+  "inbox_summary.name": "收件箱摘要",
+  "inbox_summary.description": "汇总所有账号的未读邮件情况。",
+  "auto_check.name": "自动查信",
+  "auto_check.description": "定时检查新邮件，发现后喵一声提醒主人。"
+}

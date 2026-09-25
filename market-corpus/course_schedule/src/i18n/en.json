@@ -1,0 +1,19 @@
+{
+  "today": "Today",
+  "tomorrow": "Tomorrow",
+  "week": "This week",
+  "next_class": "Next class",
+  "week_info": "Week & progress",
+  "no_class": "No class",
+  "no_semester": "No active semester",
+  "add_homework": "Add homework",
+  "list_homework": "Homework list",
+  "done_homework": "Mark homework done",
+  "delete_homework": "Delete homework",
+  "add_exam": "Add exam",
+  "list_exams": "Exam list",
+  "delete_exam": "Delete exam",
+  "get_countdown": "Countdown",
+  "class_reminder": "Class reminder",
+  "reminder_text": "⏰ Next class: {name} {time} ({location}), starts in {minutes} min"
+}

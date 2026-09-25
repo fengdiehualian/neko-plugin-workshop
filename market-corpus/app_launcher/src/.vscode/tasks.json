@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check app_launcher",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check app_launcher",
+      "options": { "cwd": "${config:nekoPlugin.repoRoot}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r app_launcher",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r app_launcher",
+      "options": { "cwd": "${config:nekoPlugin.repoRoot}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build app_launcher",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build app_launcher",
+      "options": { "cwd": "${config:nekoPlugin.repoRoot}" },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+    "port":  5099,
+    "server":  "http://127.0.0.1:4096",
+    "workspace":  "./workspace",
+    "model":  "",
+    "engineMode":  "exe",
+    "engineExe":  "./_engine/opencode-cli.exe",
+    "opencodeRepo":  "",
+    "bunPath":  "./_bin/bun.exe",
+    "pythonPath":  "./_py/python.exe",
+    "nekoRepo":  "",
+    "enginePort":  4096,
+    "timeoutSec":  1500,
+    "openBrowser":  true,
+    "openMode":  "app",
+    "appWindow":  "1200x860"
+}

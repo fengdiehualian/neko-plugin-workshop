@@ -1,0 +1,10 @@
+{
+  "plugin.name": "猫娘命令操作器",
+  "plugin.description": "让猫娘在对话里执行 Shell / CMD / PowerShell 命令，并管理本地文件。",
+  "entry.run": "执行命令",
+  "entry.list_dir": "列出目录",
+  "entry.read_file": "读取文件",
+  "entry.write_file": "写入文件",
+  "entry.get_status": "查看状态",
+  "notify.ready": "喵~ 命令操作器已就绪，主人想让我跑点什么吗？"
+}

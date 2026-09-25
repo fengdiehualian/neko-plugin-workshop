@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>洛谷</title>
+  <style>
+    :root { --bg:#12161f; --card:#1b2230; --text:#e6e9ef; --muted:#7f8a9b; --accent:#5b9dff; --ok:#3fbf7f; --bad:#e05a5a; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:24px; background:var(--bg); color:var(--text); font:14px/1.6 system-ui,"Segoe UI","Microsoft YaHei",sans-serif; }
+    .card { max-width:560px; margin:0 auto; background:var(--card); border:1px solid #2a3345; border-radius:12px; padding:24px; }
+    h1 { font-size:18px; margin:0 0 4px; }
+    .sub { color:var(--muted); margin:0 0 20px; font-size:13px; }
+    .badge { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:12px; margin-bottom:16px; }
+    .badge.ok { background:rgba(63,191,127,.15); color:var(--ok); }
+    .badge.no { background:rgba(224,90,90,.15); color:var(--bad); }
+    label { display:block; margin:14px 0 6px; font-size:13px; color:var(--muted); }
+    textarea, input[type=text] { width:100%; background:#0e1220; color:var(--text); border:1px solid #33415c; border-radius:8px; padding:10px; font-family:ui-monospace,Consolas,monospace; font-size:12px; resize:vertical; }
+    .btn { margin-top:16px; padding:9px 16px; border:0; border-radius:8px; font-size:13px; cursor:pointer; }
+    .btn.primary { background:var(--accent); color:#0b0f18; font-weight:600; }
+    .btn.danger { background:transparent; color:var(--bad); border:1px solid var(--bad); margin-left:8px; }
+    .hint { color:var(--muted); font-size:12px; margin-top:10px; }
+    code { background:#0e1220; padding:1px 5px; border-radius:4px; font-family:ui-monospace,Consolas,monospace; }
+    .status { margin-top:16px; font-size:13px; }
+    .status.ok { color:var(--ok); }
+    .status.bad { color:var(--bad); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <a href="index.html" style="display:inline-block;margin-bottom:14px;color:var(--muted);text-decoration:none;font-size:13px;">← 返回洛谷首页</a>
+    <h1>洛谷</h1>
+    <p class="sub">配置洛谷登录 cookie 以启用提交记录分析、成长报告与每日题单。</p>
+    <div id="badge" class="badge no">加载中…</div>
+
+    <label for="cookie">登录 Cookie（粘贴完整的登录 Cookie 串，或至少 <code>_uid=...</code>）</label>
+    <textarea id="cookie" rows="4" placeholder="_uid=123456; __client_id=xxxx; ..." spellcheck="false"></textarea>
+    <p class="hint">获取方法：用浏览器登录 luogu.com.cn，按 F12 → 应用/Application → Cookie → 复制 <code>_uid</code> 与 <code>__client_id</code> 的值。</p>
+
+    <button id="save" class="btn primary">保存登录凭据</button>
+    <button id="clear" class="btn danger">清除登录凭据</button>
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+      // Derive /plugin/<id> prefix from the current static-page URL so the UI
+      // works regardless of which host/port serves it.
+      var m = (location.pathname || "").match(/^(\/plugin\/[^\/]+)/);
+      var base = m ? m[1] : "/plugin/luogu";
+
+      var badge = document.getElementById("badge");
+      var statusEl = document.getElementById("status");
+      var cookieEl = document.getElementById("cookie");
+      var saveBtn = document.getElementById("save");
+      var clearBtn = document.getElementById("clear");
+      var actionToken = "";
+
+      function setStatus(text, ok) {
+        statusEl.textContent = text;
+        statusEl.className = "status " + (ok ? "ok" : "bad");
+      }
+
+      function renderBadge(configured) {
+        badge.className = "badge " + (configured ? "ok" : "no");
+        badge.textContent = configured ? "✅ 已配置登录态" : "ℹ️ 未配置登录态";
+      }
+
+      function loadContext() {
+        return fetch(base + "/hosted-ui/context?kind=panel&id=main")
+          .then(function (r) { return r.json(); })
+          .then(function (ctx) {
+            var state = (ctx && ctx.state) || ctx || {};
+            actionToken = state.action_token || "";
+            renderBadge(!!state.cookie_configured);
+            return state;
+          })
+          .catch(function () { badge.className = "badge no"; badge.textContent = "⚠️ 无法加载配置"; });
+      }
+
+      function postAction(action, args) {
+        return fetch(base + "/hosted-ui/action/" + action, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ args: args, kind: "panel", surface_id: "main" })
+        }).then(function (r) { return r.json(); });
+      }
+
+      saveBtn.addEventListener("click", function () {
+        var cookie = cookieEl.value.trim();
+        if (!cookie) { setStatus("请先粘贴登录 cookie。", false); return; }
+        saveBtn.disabled = "luogu";
+        postAction("save_luogu_cookie", { cookie: cookie, ui_token: actionToken })
+          .then(function (res) {
+            // /hosted-ui/action returns { plugin_id, action_id, result } on
+            // success; `res.value` is never set (that was a false "失败").
+            if (res && res.result) { setStatus("已保存登录凭据。", true); renderBadge(true); }
+            else {
+              var err = (res && res.error) || {};
+              setStatus((err.why || err.message || "保存失败。"), false);
+            }
+          })
+          .catch(function () { setStatus("保存请求失败。", false); })
+          .finally(function () { saveBtn.disabled = false; });
+      });
+
+      clearBtn.addEventListener("click", function () {
+        if (!actionToken) { setStatus("未初始化 ui_token。", false); return; }
+        if (!window.confirm("确定清除已保存的洛谷登录 cookie？")) { return; }
+        clearBtn.disabled = true;
+        postAction("clear_luogu_cookie", { ui_token: actionToken })
+          .then(function (res) {
+            if (res && res.result) { setStatus("已清除登录凭据。", true); renderBadge(false); }
+            else {
+              var err = (res && res.error) || {};
+              setStatus((err.why || err.message || "清除失败。"), false);
+            }
+          })
+          .catch(function () { setStatus("清除请求失败。", false); })
+          .finally(function () { clearBtn.disabled = false; });
+      });
+
+      loadContext();
+    })();
+  </script>
+</body>
+</html>
