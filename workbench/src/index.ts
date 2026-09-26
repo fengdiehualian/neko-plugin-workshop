@@ -1,4 +1,6 @@
 import { join, dirname, basename } from "node:path"
+import { spawnSync } from "node:child_process"
+import { mkdir, writeFile } from "node:fs/promises"
 
 export interface PackMeta {
   id: string
@@ -109,6 +111,8 @@ export interface ScaffoldOptions {
   nekoRepoRoot: string
   /** python 解释器,默认 "python" */
   python?: string
+  /** strict 模式:warning 一律视为失败 */
+  strict?: boolean
 }
 
 export interface CheckIssue {
@@ -156,21 +160,42 @@ export interface VerifySummary {
 export async function verifyProject(
   nekoRepoRoot: string,
   pluginDir: string,
-  opts: { python?: string; outPath?: string } = {},
+  opts: { python?: string; outPath?: string; strict?: boolean } = {},
 ): Promise<VerifySummary> {
-  const check = await runCheck(nekoRepoRoot, pluginDir, opts.python ?? "python")
+  const check = await runCheck(nekoRepoRoot, pluginDir, opts.python ?? "python", opts.strict === true)
+  const finalCheck = opts.strict ? applyStrict(check) : check
   let build: BuildSummary | undefined
-  if (check.ok) {
+  if (finalCheck.ok) {
     const out =
       opts.outPath ?? join(dirname(pluginDir), `${basename(pluginDir)}.neko-plugin`)
     build = await runBuild(nekoRepoRoot, pluginDir, opts.python ?? "python", out)
   }
-  return { rootDir: pluginDir, ok: check.ok && (!build || build.ok), check, build }
+  return { rootDir: pluginDir, ok: finalCheck.ok && (!build || build.ok), check: finalCheck, build }
+}
+
+/**
+ * strict 模式:warning 一律视为失败。
+ * check 本身有错误或零 warning 时原样返回;否则把 check 判为不通过并附汇总 issue,
+ * 让修复循环(或调用方)在 build 之前把 warning 清零。
+ */
+export function applyStrict(check: CheckSummary): CheckSummary {
+  if (!check.ok || check.warnings === 0) return check
+  return {
+    ...check,
+    ok: false,
+    issues: [
+      ...check.issues,
+      {
+        severity: "error",
+        message: `strict 模式:${check.warnings} 个 warning 视为错误,check 不通过`,
+        hint: "逐条修复上方 warning(每条都带 fix 建议)后重跑 verify --strict",
+      } satisfies CheckIssue,
+    ],
+  }
 }
 
 /** 把 renderProject 输出的文件写入 targetDir(扁平结构,含 .openode 点文件) */
 async function writeFiles(rootDir: string, files: Record<string, string>) {
-  const { mkdir, writeFile } = await import("node:fs/promises")
   for (const [rel, text] of Object.entries(files)) {
     const dest = join(rootDir, rel)
     await mkdir(join(dest, ".."), { recursive: true })
@@ -179,8 +204,9 @@ async function writeFiles(rootDir: string, files: Record<string, string>) {
 }
 
 async function runSync(cmd: string, args: string[], cwd: string) {
-  const { spawnSync } = await import("node:child_process")
-  const res = spawnSync(cmd, args, { cwd, encoding: "utf8" })
+  // PYTHONDONTWRITEBYTECODE:check/build 会 import 插件源码,缺省会在源码树(乃至 build
+  // 暂存 payload)里落 __pycache__/*.pyc 并被打进 .neko-plugin——禁止写字节码缓存
+  const res = spawnSync(cmd, args, { cwd, encoding: "utf8", env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" } })
   const stdout = (res.stdout ?? "").toString()
   const stderr = (res.stderr ?? "").toString()
   return { code: res.status ?? -1, raw: `${stdout}\n${stderr}`.trim() }
@@ -253,12 +279,13 @@ export async function runCheck(
   nekoRepoRoot: string,
   pluginDir: string,
   python: string = "python",
+  strict: boolean = false,
 ): Promise<CheckSummary> {
-  const { code, raw } = await runSync(
-    python,
-    ["plugin/neko_plugin_cli/cli.py", "check", pluginDir],
-    nekoRepoRoot,
-  )
+  const args = ["plugin/neko_plugin_cli/cli.py", "check", pluginDir]
+  // NEKO 原生 -s:把仓库支持文件缺失类 warning 直接升格为 error(check_cmd.py "Treat
+  // missing repository support files as errors");残余 warning 由 applyStrict 兜底判失败
+  if (strict) args.push("-s")
+  const { code, raw } = await runSync(python, args, nekoRepoRoot)
   const issues = parseCheckIssues(raw)
   // check 进程崩溃(如文件编码损坏触发 Python traceback)时输出里没有 [ERROR] 行可解析,
   // 必须把原始输出尾部作为 issue 带回去——绝不让 Agent 拿到「有错误但零信息」的空 issues(实战踩过:Agent 因此瞎指挥)
@@ -316,11 +343,22 @@ export async function scaffoldAndVerify(
 ): Promise<VerifyResult> {
   const files = await renderProject(packId, template, vars)
   const rootDir = join(opts.targetDir, vars.PLUGIN_ID ?? "plugin")
-  await writeFiles(rootDir, files)
+  // 开发技能(.opencode/**)不写进插件目录:否则被 N.E.K.O build 原样打进 .neko-plugin
+  // (成品多 ~30 个无关条目,且点目录会触发 macOS codesign "bundle format unrecognized")。
+  // 落到工作区根即可——引擎 cwd=工作区,agent 照常读到;分发给任意底座用 wb_install_skill。
+  const projectFiles: Record<string, string> = {}
+  const skillFiles: Record<string, string> = {}
+  for (const [rel, text] of Object.entries(files)) {
+    if (rel.startsWith(".opencode/")) skillFiles[rel] = text
+    else projectFiles[rel] = text
+  }
+  await writeFiles(rootDir, projectFiles)
+  if (Object.keys(skillFiles).length) await writeFiles(opts.targetDir, skillFiles)
 
   const result = await verifyProject(opts.nekoRepoRoot, rootDir, {
     python: opts.python,
     outPath: join(opts.targetDir, `${vars.PLUGIN_ID}.neko-plugin`),
+    strict: opts.strict,
   })
   return { files, ...result }
 }
