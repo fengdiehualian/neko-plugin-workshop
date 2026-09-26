@@ -85,7 +85,7 @@ function cliEngineCmd() {
 }
 function cliEngineReady() {
   const cmd = cliEngineCmd()
-  return Boolean(cmd && cmd.some((a) => a.includes("{text}") || a.includes("{textFile}")))
+  return Boolean(cmd && cmd.some((a) => a.includes("{text}") || a.includes("{textFile}") || a.includes("{stdin}")))
 }
 
 // ---------- N.E.K.O 仓库自动探测 ----------
@@ -327,13 +327,31 @@ async function engineHealthy() {
 }
 
 async function ensureEngine() {
-  // CLI 底座:没有可启动/探活的服务,直接就绪(避免白等 90s)
+  // CLI 底座:没有可启动/探活的服务,直接就绪(跳过引擎 exe 自检与 90s 等待)
   if (config.engineMode === "cli") return { started: false }
   if (await engineHealthy()) return { started: false }
   const port = config.enginePort
   const host = "127.0.0.1"
   let child
   if (config.engineMode === "exe") {
+    // 启动自检:引擎 exe 必须存在且完整(约 175MB)。
+    // 实战问题:用户双击 zip 内的 start.cmd 直接运行,压缩软件只把小文件临时释放到 Temp,
+    // 175MB 的引擎 exe 不在其中 → ENOENT 报错。必须引导「完整解压后再运行」。
+    try {
+      const st = statSync(config.engineExe)
+      if (st.size < 100 * 1024 * 1024) {
+        return { started: false, error: `引擎文件不完整(当前 ${Math.round(st.size / 1024 / 1024)}MB,应为 175MB)。请把整个压缩包解压到桌面等正式文件夹后再运行,不要在 zip 里直接双击运行` }
+      }
+    } catch {
+      return {
+        started: false,
+        error:
+          `找不到引擎程序 _engine\\opencode-cli.exe。常见原因:` +
+          `①直接在压缩包(zip)里双击运行了——压缩软件只临时释放了部分小文件。` +
+          `请先右键压缩包 →「全部解压」,进入解压后的文件夹再双击 start.cmd;` +
+          `②杀毒软件误删了引擎程序——在杀软里恢复并添加信任,重新解压一次`,
+      }
+    }
     // v2 编译版:服务 cwd 即工作区(目录路由跟随进程 cwd);密码自定,免抓取
     // 数据/配置目录锁在包内 runtime\ 下,不污染用户 AppData
     engineAuth = "opencode:neko-studio-pw"
@@ -362,7 +380,13 @@ async function ensureEngine() {
     console.log(`[wb-studio] 启动引擎(源码 v1): ${config.bunPath} ${args.join(" ")}`)
     child = spawn(config.bunPath, args, { stdio: "ignore", detached: false })
   }
-    child.on("error", (e) => console.error("[wb-studio] 引擎进程错误:", e.message))
+    child.on("error", (e) => {
+      console.error("[wb-studio] 引擎进程错误:", e.message)
+      // spawn 失败(文件缺失/被杀软拦截)时记录,供 /api/health 与网页指引使用
+      engineLastError = e.code === "ENOENT"
+        ? "引擎程序不存在:请把整个压缩包完整解压到正式文件夹后再运行(不要在 zip 里直接双击);若已解压,检查杀毒软件是否删除了 _engine\\opencode-cli.exe"
+        : `引擎启动失败:${e.message}`
+    })
     engineChild = child
   const deadline = Date.now() + 90_000
   while (Date.now() < deadline) {
@@ -389,6 +413,8 @@ function stopEngine() {
 
 // 引擎配置已更新但引擎尚未带新配置重启:下一次任务前强制重启
 let engineConfigStale = false
+// 引擎最后一次启动/自检失败的人话原因(展示给用户)
+let engineLastError = null
 /** 后台重启引擎(不阻塞 HTTP 应答;任务侧有 engineConfigStale 兜底) */
 function restartEngineBackground() {
   engineConfigStale = true
@@ -784,6 +810,8 @@ async function loadCurrent(){
 }
 newbtn.onclick=newChat;
 loadCurrent();
+// 引擎异常横幅:解压不完整/杀软误删时给用户看得懂的指引
+(async()=>{try{const h=await(await fetch('/api/health')).json();if(h.engineError){const d=document.createElement('div');d.className='msg bot err';d.style.maxWidth='100%';d.textContent='⚠ '+h.engineError;chat.insertBefore(d,chat.firstChild);}}catch(e){}})();
 
 // ---------- 发送 ----------
 let workMode = 'build';
@@ -1059,6 +1087,7 @@ const srv = createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify({
         engine: await engineHealthy(),
+        engineError: engineLastError,
         model: config.model,
         workspace: config.workspace,
         neko: config.nekoRepo || null,
@@ -1523,7 +1552,10 @@ const boot = async () => {
   } catch {}
   console.log(`[wb-studio] 引擎检查中 (${config.server}) ...`)
   const engine = await ensureEngine()
-  if (engine.error) console.error(`[wb-studio] ⚠ ${engine.error}(仍将启动网页,任务会失败)`)
+  if (engine.error) {
+    engineLastError = engine.error
+    console.error(`[wb-studio] ⚠ ${engine.error}(仍将启动网页,任务会失败)`)
+  }
   srv.listen(config.port, "127.0.0.1", () => {
     const url = `http://127.0.0.1:${config.port}`
     console.log(`[wb-studio] 对话页: ${url}`)
