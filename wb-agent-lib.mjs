@@ -11,8 +11,9 @@
  * server 传 "http://host:port" → v1;传 {server, auth} 对象 → v2。
  */
 
-import { join } from "node:path"
-import { readdirSync, statSync } from "node:fs"
+import { join, dirname } from "node:path"
+import { readdirSync, statSync, existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs"
+import { spawn } from "node:child_process"
 
 /**
  * @typedef {{text: string, dir: string, model?: string, server?: string, auth?: string, timeout?: number, noProgressSec?: number, heartbeat?: boolean, sessionID?: string, mode?: "build"|"plan", signal?: AbortSignal}} DriveOptions
@@ -392,4 +393,213 @@ export async function driveAgent(opts) {
     usage: turnUsage,
     artifacts: scanArtifacts(opts.dir, startedAt),
   }
+}
+
+/**
+ * CLI 底座驱动(engineMode:"cli",任意 Agent CLI 可插拔引擎)
+ *
+ * 与 driveAgent 返回形状完全兼容,但不依赖 opencode 服务:
+ * 把整段任务文本交给外部 Agent CLI(claude/codex/omp/opencode/…)非交互执行,
+ * stdout 即回复;产物沿用工作区扫描(scanArtifacts);权限/提问自动应答不适用(CLI 自理)。
+ *
+ * opts: {text, dir, cmd:[…,{text}], timeoutSec, signal, sessionID}
+ *   cmd 数组中含 {text} 的元素替换为任务文本;spawn 不经 shell,无注入面。
+ *   进程环境自动注入 WB_PROJECTS_DIR/WB_NEKO_REPO(供底座里的 wb-plugin CLI 使用)。
+ */
+;// ---------- CLI 底座(engineMode:"cli")的解析与驱动 ----------
+
+/** 按 PATHEXT 在 PATH(或显式路径)上定位命令;返回 {path, isScript} 或 null */
+function findOnPath(name) {
+  const exts = (process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";").map((e) => e.toLowerCase())
+  const hasDir = /[\\/]/.test(name)
+  const rawExts = [""].concat(/\.(exe|com|cmd|bat)$/i.test(name) ? [] : exts)
+  const bases = hasDir ? [name] : (process.env.PATH || "").split(";").filter(Boolean).map((d) => join(d, name))
+  for (const base of bases) {
+    for (const ext of rawExts) {
+      const p = base + ext
+      if (existsSync(p)) {
+        const e = p.slice(p.lastIndexOf(".")).toLowerCase()
+        return { path: p, isScript: e === ".cmd" || e === ".bat" }
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * 容错解析 npm 式 .cmd shim(移植自 neko-agent-bridge parse_cmd_shim 的策略):
+ * 收集 SET 变量并展开值里的 %VAR%/%dp0% → 取最后一条含 %* 的转发行 → 整行展开
+ * (SET 变量 + 进程 env)→ 在 %* 之前的 token 里找脚本(.js/.mjs/.cjs,取最后一个),
+ * 解释器 = 脚本前一个 token;找不到脚本 token 时按「末 token 兜底」把最后一个
+ * 引号/路径形 token 当程序。裸名解释器(node/bun…)再走 PATH 定位。
+ * 规范 npm 转发行形如:
+ *   endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\...\cli.js" %*
+ */
+function parseCmdShim(file) {
+  try {
+    const text = readFileSync(file, "utf8")
+    const dir = dirname(file)
+    const vars = {}
+    for (const line of text.split(/\r?\n/)) {
+      const m = line.match(/^\s*SET\s+"?([A-Za-z_][A-Za-z0-9_]*)=(.*)"?$/i)
+      if (!m) continue
+      vars[m[1].toUpperCase()] = m[2].replace(/^"|"$/g, "")
+    }
+    const expand = (v) => v
+      .replace(/%~dp0|%dp0%/gi, dir + "\\")
+      .replace(/%([A-Za-z_][A-Za-z0-9_]*)%/g, (x, n) => {
+        const k = n.toUpperCase()
+        if (vars[k] !== undefined) return vars[k]
+        if (process.env[n] !== undefined) return process.env[n]
+        return x
+      })
+    for (const k of Object.keys(vars)) vars[k] = expand(vars[k])
+    const fwdLines = text.split(/\r?\n/).filter((l) => l.includes("%*"))
+    if (!fwdLines.length) return null
+    const fwd = expand(fwdLines[fwdLines.length - 1]).replace(/%\*\s*$/, "").trim()
+    const tokens = []
+    const re = /"([^"]*)"|(\S+)/g
+    let m
+    while ((m = re.exec(fwd))) tokens.push(m[1] !== undefined ? m[1] : m[2])
+    if (!tokens.length) return null
+    const isScript = (t) => /\.(js|mjs|cjs)$/i.test(t)
+    let si = -1
+    for (let i = tokens.length - 1; i >= 0; i--) if (isScript(tokens[i])) { si = i; break }
+    let interp
+    let prefix
+    if (si > 0) {
+      interp = tokens[si - 1]
+      prefix = [tokens[si]]
+    } else {
+      interp = tokens[tokens.length - 1]
+      prefix = []
+      for (let i = tokens.length - 1; i >= 0; i--) {
+        if (/[\\/]/.test(tokens[i]) || /\.exe$/i.test(tokens[i])) { interp = tokens[i]; break }
+      }
+    }
+    interp = String(interp).replace(/^"|"$/g, "")
+    if (!/[\\/]/.test(interp) && !/\.exe$/i.test(interp)) {
+      const found = findOnPath(interp)
+      if (!found || found.isScript) return null
+      interp = found.path
+    }
+    return { exe: interp, prefix }
+  } catch {}
+  return null
+}
+
+/**
+ * 解析底座命令:PATH 上的 .exe 直接用;.cmd/.bat shim 容错解出真实解释器(避免
+ * shell:false 下的 ENOENT,以及 cmd.exe /c 对中文/引号/&/|% 的转义雷区)。失败返回 null。
+ */
+function resolveCliBase(name) {
+  const found = findOnPath(name)
+  if (!found) return null
+  if (!found.isScript) return { exe: found.path, prefix: [] }
+  return parseCmdShim(found.path)
+}
+
+/**
+ * CLI 底座驱动(engineMode:"cli",任意 Agent CLI 可插拔引擎)
+ *
+ * 与 driveAgent 返回形状完全兼容,但不依赖 opencode 服务:整段任务文本交给外部
+ * Agent CLI(claude/codex/omp/opencode/…)非交互执行,stdout 即回复;产物沿用
+ * scanArtifacts;权限/提问自动应答不适用(CLI 自理)。
+ *
+ * opts: {text, dir, nekoRepo, cmd:[…,{text}|{textFile}|{stdin}], timeoutSec, signal, sessionID}
+ *   {text}     → 替换为任务文本(spawn 不经 shell,无注入面)
+ *   {textFile} → 替换为 UTF-8 任务文本临时文件路径(工作区内,用后即删)
+ *   {stdin}    → 不占 argv,任务文本经 stdin 管道写入(claude/codex print 模式原生支持)
+ *   环境自动注入 WB_PROJECTS_DIR/WB_NEKO_REPO(供底座里的 wb-plugin CLI 使用)。
+ */
+export async function driveAgentCli(opts) {
+  const template = (opts.cmd || []).map(String)
+  const hasText = template.some((a) => a.includes("{text}"))
+  const hasTextFile = template.some((a) => a.includes("{textFile}"))
+  const hasStdin = template.some((a) => a.includes("{stdin}"))
+  if (!hasText && !hasTextFile && !hasStdin) {
+    return { ok: false, sessionId: opts.sessionID || `cli_${Date.now()}`, idle: true, error: "engineCmd 缺少 {text}/{textFile}/{stdin} 占位符", stats: { permissions: 0, questions: 0 }, reply: null, artifacts: [] }
+  }
+  const resolved = resolveCliBase(template[0])
+  if (!resolved && hasText) {
+    return { ok: false, sessionId: opts.sessionID || `cli_${Date.now()}`, idle: true, error: `无法把底座 "${template[0]}" 解析为可执行文件(.cmd shim 解析失败)。请改用真实 exe/node 脚本形式,或改用 {textFile}/{stdin} 占位符`, stats: { permissions: 0, questions: 0 }, reply: null, artifacts: [] }
+  }
+  const startedAt = Date.now()
+  const timeoutSec = opts.timeoutSec ?? 1500
+  let textFile = null
+  if (hasTextFile) {
+    textFile = join(opts.dir || process.cwd(), `.wb-cli-task-${startedAt}.txt`)
+    writeFileSync(textFile, opts.text ?? "", "utf8")
+  }
+  const spawnPath = resolved ? resolved.exe : template[0]
+  const finalArgs = [...(resolved ? resolved.prefix : []), ...template.slice(1)]
+    .map((a) => String(a).replace("{text}", opts.text ?? "").replace("{textFile}", textFile ?? ""))
+    // {stdin} 只是通道标记(文本经管道写入),不留在 argv 里
+    .filter((a) => !a.includes("{stdin}"))
+  return await new Promise((resolve) => {
+    let settled = false
+    let child
+    try {
+      child = spawn(spawnPath, finalArgs, {
+        cwd: opts.dir || process.cwd(),
+        env: {
+          ...process.env,
+          WB_PROJECTS_DIR: opts.dir || "",
+          WB_NEKO_REPO: opts.nekoRepo || process.env.WB_NEKO_REPO || "",
+        },
+        stdio: [hasStdin ? "pipe" : "ignore", "pipe", "pipe"],
+        windowsHide: true,
+      })
+    } catch (e) {
+      if (textFile) try { unlinkSync(textFile) } catch {}
+      resolve({ ok: false, sessionId: opts.sessionID || `cli_${startedAt}`, idle: true, error: `无法启动 CLI 底座:${e?.message || e}`, stats: { permissions: 0, questions: 0 }, reply: null, artifacts: [] })
+      return
+    }
+    if (hasStdin) {
+      child.stdin.write(opts.text ?? "")
+      child.stdin.end()
+    }
+    const CAP = 200000
+    let out = ""
+    let errText = ""
+    child.stdout.on("data", (c) => { if (out.length < CAP) out += c })
+    child.stderr.on("data", (c) => { if (errText.length < CAP) errText += c })
+    const cleanup = () => { if (textFile) try { unlinkSync(textFile) } catch {} }
+    const killTree = () => { try { spawn("taskkill", ["/F", "/PID", String(child.pid), "/T"], { stdio: "ignore" }) } catch {} }
+    const timer = setTimeout(() => { killTree(); finish({ kind: "timeout" }) }, timeoutSec * 1000)
+    if (opts.signal) {
+      if (opts.signal.aborted) { killTree(); finish({ kind: "stopped" }) }
+      else opts.signal.addEventListener("abort", () => { killTree(); finish({ kind: "stopped" }) }, { once: true })
+    }
+    child.on("error", (e) => finish({ kind: "spawn", message: `无法启动 CLI 底座:${e?.message || e}` }))
+    child.on("close", (code) => finish({ kind: "close", code }))
+    function finish(fail) {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      cleanup()
+      const artifacts = scanArtifacts(opts.dir || process.cwd(), startedAt)
+      const base = { sessionId: opts.sessionID || `cli_${startedAt}`, idle: true, stats: { permissions: 0, questions: 0 }, artifacts }
+      if (fail.kind === "spawn") {
+        resolve({ ok: false, ...base, error: fail.message, reply: null })
+        return
+      }
+      if (fail.kind === "stopped") {
+        resolve({ ok: false, ...base, error: "任务已停止", reply: out.trim() || null, stopped: true })
+        return
+      }
+      if (fail.kind === "timeout") {
+        resolve({ ok: false, ...base, error: `CLI 底座超时(${timeoutSec}s),已连子进程一起清理`, reply: out.trim() || null })
+        return
+      }
+      const code = fail.code
+      const reply = out.trim()
+      resolve({
+        ok: code === 0 && reply.length > 0,
+        ...base,
+        error: code === 0 ? null : `CLI 底座退出码 ${code}:${(errText.trim() || out.trim() || "(无输出)").slice(-800)}`,
+        reply: reply || null,
+      })
+    }
+  })
 }

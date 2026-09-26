@@ -20,7 +20,7 @@ import { join, dirname, basename, normalize } from "node:path"
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
-import { driveAgent } from "./wb-agent-lib.mjs"
+import { driveAgent, driveAgentCli } from "./wb-agent-lib.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -34,8 +34,13 @@ const defaultConfig = {
   workspace: "./workspace",
   model: "",
   // 引擎模式:"exe"=编译版 opencode-cli.exe(v2 API,Basic 认证,推荐便携包用);"bun"=源码 dev serve(v1 API)
+  //            "cli"=任意 Agent CLI 底座(engineCmd/enginePreset,无 opencode 依赖,模型凭据由底座自理)
   engineMode: "exe",
   engineExe: "./_engine/opencode-cli.exe",
+  // cli 模式命令模板:数组里含 {text} 的元素替换为整段任务文本;优先级高于 enginePreset
+  engineCmd: [],
+  // cli 模式预设:claude|codex|omp|opencode(等价 engineCmd,见 CLI_ENGINE_PRESETS)
+  enginePreset: "",
   opencodeRepo: join(homedir(), "dev", "opencode"),
   bunPath: "./_bin/bun.exe",
   // 便携 Python(空白即用系统 python);N.E.K.O CLI 依赖 pydantic/psutil,由 _site 提供见 start.cmd PYTHONPATH
@@ -62,6 +67,25 @@ try {
 }
 for (const k of ["workspace", "engineExe", "bunPath", "pythonPath", "opencodeRepo", "nekoRepo"]) {
   config[k] = resolvePath(config[k])
+}
+
+// ---------- CLI 底座(engineMode:"cli")----------
+// 任意本地 Agent CLI 都能当工坊的大脑:非交互 print 模式、cwd=工作区、凭据自理。
+const CLI_ENGINE_PRESETS = {
+  claude: ["claude", "-p", "{text}"],
+  codex: ["codex", "exec", "{text}"],
+  omp: ["omp", "-p", "{text}"],
+  opencode: ["opencode", "run", "{text}"],
+}
+function cliEngineCmd() {
+  if (config.engineMode !== "cli") return null
+  if (Array.isArray(config.engineCmd) && config.engineCmd.length) return config.engineCmd.map(String)
+  const preset = CLI_ENGINE_PRESETS[String(config.enginePreset || "").toLowerCase()]
+  return preset ? [...preset] : null
+}
+function cliEngineReady() {
+  const cmd = cliEngineCmd()
+  return Boolean(cmd && cmd.some((a) => a.includes("{text}") || a.includes("{textFile}")))
 }
 
 // ---------- N.E.K.O 仓库自动探测 ----------
@@ -289,6 +313,8 @@ let engineAuth = null // "user:password" | null
 let engineChild = null // 引擎进程句柄(setup 后重启用)
 
 async function engineHealthy() {
+  // CLI 底座无常驻引擎进程:底座进程按任务拉起,始终视为就绪
+  if (config.engineMode === "cli") return true
   try {
     const res = await fetch(`${config.server}/api/health`, {
       signal: AbortSignal.timeout(3000),
@@ -301,6 +327,8 @@ async function engineHealthy() {
 }
 
 async function ensureEngine() {
+  // CLI 底座:没有可启动/探活的服务,直接就绪(避免白等 90s)
+  if (config.engineMode === "cli") return { started: false }
   if (await engineHealthy()) return { started: false }
   const port = config.enginePort
   const host = "127.0.0.1"
@@ -960,7 +988,7 @@ const srv = createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/") {
       // 未配置密钥时优先展示引导页
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
-      res.end(hasValidKey() ? PAGE : SETUP_PAGE)
+      res.end((hasValidKey() || cliEngineReady()) ? PAGE : SETUP_PAGE)
       return
     }
     if (req.method === "POST" && url.pathname === "/api/setup") {
@@ -1293,7 +1321,7 @@ const srv = createServer(async (req, res) => {
       return
     }
     if (req.method === "POST" && url.pathname === "/api/task") {
-      if (!hasValidKey()) {
+      if (!hasValidKey() && !cliEngineReady()) {
         res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify({ ok: false, error: "请先完成模型服务配置(刷新页面填写密钥)" }))
         return
@@ -1328,6 +1356,42 @@ const srv = createServer(async (req, res) => {
         sessionID: s.engineSessionId || undefined,
         mode,
         signal: currentAbort.signal,
+      }
+      if (cliEngineReady()) {
+        // CLI 底座:整段任务交给外部 Agent CLI(凭据自理),无 SSE/毒化恢复路径
+        let result
+        try {
+          result = await driveAgentCli({
+            text, dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
+            timeoutSec: config.timeoutSec, signal: currentAbort.signal,
+            sessionID: s.engineSessionId || undefined,
+          })
+        } finally {
+          busy = false
+          currentAbort = null
+        }
+        s.engineSessionId = result.sessionId || s.engineSessionId
+        s.updatedAt = Date.now()
+        s.messages.push({ role: "user", content: text, at: Date.now(), mode })
+        if (result.reply) {
+          s.messages.push({
+            role: "assistant",
+            content: result.reply,
+            at: Date.now(),
+            error: result.ok ? undefined : String(result.error || ""),
+            artifacts: result.artifacts || [],
+          })
+        } else {
+          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || "") })
+        }
+        if (s.title === "新对话" && text) {
+          s.title = text.replace(/\s+/g, " ").slice(0, 18) + (text.length > 18 ? "…" : "")
+        }
+        saveSessions()
+        result.sessionId = s.id
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify(result))
+        return
       }
       try {
         let result
@@ -1431,6 +1495,8 @@ const boot = async () => {
   // 上次异常退出(断电/被强杀)留下的死锁:服务已死但锁还在,start.cmd 会误以为在跑。
   // 走到这里说明 5099 没有活服务,锁必是残留,清掉
   try { if (existsSync(STUDIO_LOCK)) require("node:fs").unlinkSync(STUDIO_LOCK) } catch {}
+  // CLI 底座:把 nekoRepo 透传给底座进程(wb-plugin CLI 依赖 WB_NEKO_REPO)
+  if (config.nekoRepo) process.env.WB_NEKO_REPO = config.nekoRepo
   // 引擎全局 AGENTS.md:Agent 作用范围=全局,在任何目录干活都带这份身份与规则
   try {
     require("node:fs").mkdirSync(ENGINE_CONFIG_DIR, { recursive: true })
