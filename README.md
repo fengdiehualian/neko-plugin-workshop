@@ -78,3 +78,26 @@ powershell -File workbench/make-exe.ps1 -Stage "<便携包目录>" -Out setup.ex
 ## License
 
 MIT
+
+## 任意 Agent 底座(本实例新增)
+
+工坊的大脑不再绑定 opencode 引擎,三种方式按需选:
+
+1. **CLI 底座**(wb-studio.config.json):
+   ```json
+   "engineMode": "cli",
+   "engineCmd": ["claude", "-p", "{text}"]
+   ```
+   或 `"enginePreset": "claude"`(内置 claude/codex/omp/opencode 预设)。
+   `{text}` 替换为整段任务;cwd=工作区;自动注入 `WB_PROJECTS_DIR`/`WB_NEKO_REPO`;
+   底座会经 PATH/PATHEXT 定位,`.cmd/.bat` shim 自动解析回真实解释器(npm 安装的
+   claude/codex/omp 即属此类),不经 shell、无转义/注入面;无法解析出 exe 的底座请用
+   `{textFile}` 占位(任务文本经 UTF-8 临时文件传递,用后即删),或用 `{stdin}` 占位经管道输入(claude/codex print 模式原生支持);
+   模型凭据由底座自理,无需再填 API Key;停止按钮=连子进程整树清理。
+
+2. **MCP 底座**:`bun mcp.mjs`(stdio),工具 `wb_scaffold` / `wb_verify`(支持 strict)/ `wb_install_skill`。
+
+3. **技能包分发**:`wb_install_skill` 把 neko-plugin-dev 规范装进 claude/codex/opencode/omp/自定义底座。
+
+verify/scaffold 命令行支持 `--python <解释器>`(或环境变量 `WB_PYTHON`)与 `--strict`
+(warning 一律视为失败:NEKO 原生 `-s` + 残余 warning 兜底判负,不过 build)。

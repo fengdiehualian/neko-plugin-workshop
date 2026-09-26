@@ -17,10 +17,12 @@ import { parseArgs } from "node:util"
 import { scaffoldAndVerify, verifyProject } from "./src/index"
 
 const USAGE = `用法:
-  wb-plugin scaffold <packId> <template> [--out <dir>] [--neko <repo>] [--VAR v ...]
+  wb-plugin scaffold <packId> <template> [--out <dir>] [--neko <repo>] [--python <path>] [--strict] [--VAR v ...]
     变量:--PLUGIN_ID / --PLUGIN_NAME / --CLASS_NAME(必填)
-  wb-plugin verify <pluginDir> --neko <repo> [--out <file>]
+  wb-plugin verify   <pluginDir> [--neko <repo>] [--python <path>] [--out <file>] [--strict]
     对已有插件目录跑 check→build(修复循环主入口);输出含结构化 issues
+    --strict:warning 一律视为失败(warnings>0 ⇒ check 不通过,跳过 build)
+    --python:NEKO 源码 SDK 依赖所在的解释器(默认 "python",可用环境变量 WB_PYTHON)
 例子:
   wb-plugin scaffold neko-plugin reminder --out C:/projects --neko C:/dev/N.E.K.O --PLUGIN_ID poetry --PLUGIN_NAME 每日诗词 --CLASS_NAME Poetry
   wb-plugin verify C:/projects/poetry --neko C:/dev/N.E.K.O`
@@ -49,6 +51,7 @@ async function main() {
         const val = argv[i + 1]
         if (key === "out") flags.targetDir = val
         else if (key === "neko") flags.nekoRepoRoot = val
+        else if (key === "python") flags.python = val
         else vars[key] = val
         i++
       } else {
@@ -66,8 +69,9 @@ async function main() {
     }
     try {
       const result = await verifyProject(flags.nekoRepoRoot, positional[0], {
-        python: "python",
+        python: flags.python || process.env.WB_PYTHON || "python",
         outPath: flags.targetDir,
+        strict: flags.strict === true,
       })
       console.log(
         JSON.stringify(
@@ -116,7 +120,7 @@ async function main() {
       packId,
       template,
       { PLUGIN_ID: vars.PLUGIN_ID, PLUGIN_NAME: vars.PLUGIN_NAME, CLASS_NAME: vars.CLASS_NAME },
-      { targetDir: flags.targetDir, nekoRepoRoot: flags.nekoRepoRoot, python: "python" },
+      { targetDir: flags.targetDir, nekoRepoRoot: flags.nekoRepoRoot, python: flags.python || process.env.WB_PYTHON || "python", strict: flags.strict === true },
     )
 
     const payload = {
