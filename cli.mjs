@@ -71,7 +71,7 @@ async function main() {
       const result = await verifyProject(flags.nekoRepoRoot, positional[0], {
         python: flags.python || process.env.WB_PYTHON || "python",
         outPath: flags.targetDir,
-        strict: flags.strict === true,
+        strict: flags.strict === true || process.env.WB_STRICT === "1",
       })
       console.log(
         JSON.stringify(
@@ -120,7 +120,7 @@ async function main() {
       packId,
       template,
       { PLUGIN_ID: vars.PLUGIN_ID, PLUGIN_NAME: vars.PLUGIN_NAME, CLASS_NAME: vars.CLASS_NAME },
-      { targetDir: flags.targetDir, nekoRepoRoot: flags.nekoRepoRoot, python: flags.python || process.env.WB_PYTHON || "python", strict: flags.strict === true },
+      { targetDir: flags.targetDir, nekoRepoRoot: flags.nekoRepoRoot, python: flags.python || process.env.WB_PYTHON || "python", strict: flags.strict === true || process.env.WB_STRICT === "1" },
     )
 
     const payload = {

@@ -49,6 +49,7 @@ const defaultConfig = {
   enginePort: 4096,
   timeoutSec: 1500,
   stallTimeoutSec: 240, // 无进展看门狗:任务连续 N 秒没有任何引擎事件就自动中止(防模型接口卡死时傻等)
+  strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告) // 无进展看门狗:任务连续 N 秒没有任何引擎事件就自动中止(防模型接口卡死时傻等)
   openBrowser: true,
   openMode: "app", // "app"=内置窗口(Edge/Chrome --app,关窗即退出);"browser"=系统浏览器(不随窗口退出)
   appWindow: "1200x860",
@@ -172,6 +173,25 @@ function writeProvider({ baseURL, apiKey, modelID, protocol }) {
   }
   fs.writeFileSync(ENGINE_CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf8")
 }
+
+// ---------- 通用设置(runtime\settings.json):严格校验等用户偏好 ----------
+const SETTINGS_FILE = join(__dirname, "runtime", "settings.json")
+function loadUserSettings() {
+  try {
+    const s = JSON.parse(readFileSync(SETTINGS_FILE, "utf8"))
+    if (typeof s.strictVerify === "boolean") config.strictVerify = s.strictVerify
+  } catch {}
+}
+function saveUserSettings() {
+  try {
+    const { mkdirSync, writeFileSync } = require("node:fs")
+    mkdirSync(join(__dirname, "runtime"), { recursive: true })
+    writeFileSync(SETTINGS_FILE, JSON.stringify({ strictVerify: !!config.strictVerify }, null, 2), "utf8")
+  } catch (e) {
+    console.error("[wb-studio] 设置落盘失败:", e.message)
+  }
+}
+loadUserSettings()
 
 // ---------- 多 API 配置(runtime\apis.json):设置面板读写,可存多套,任选一套启用 ----------
 const APIS_FILE = join(__dirname, "runtime", "apis.json")
@@ -368,6 +388,7 @@ async function ensureEngine() {
         // Agent 的 wb.cmd 依赖这两个默认值(不传 --out/--neko 时生效)
         WB_PROJECTS_DIR: config.workspace,
         WB_NEKO_REPO: config.nekoRepo || "",
+        WB_STRICT: config.strictVerify ? "1" : "",
       },
       detached: false,
     })
@@ -690,6 +711,12 @@ const PAGE = `<!doctype html>
       <div class="themeopt" data-t="white"><span class="sw sw-white"></span>纯净白</div>
       <div class="themeopt" data-t="black"><span class="sw sw-black"></span>暗夜黑</div>
     </div>
+    <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;color:var(--ink)">
+        <input type="checkbox" id="strictToggle" style="width:17px;height:17px;accent-color:var(--pink)">
+        <span><b>严格校验</b> <span style="color:var(--muted-2);font-size:12px">(warning 也算失败,必须修到零警告才打包)</span></span>
+      </label>
+    </div>
   </div>
 </div>
 <div id="wrap">
@@ -894,6 +921,15 @@ function applyTheme(t){
   document.querySelectorAll('.themeopt').forEach(o=>o.classList.toggle('cur',o.dataset.t===t));
 }
 document.querySelectorAll('.themeopt').forEach(o=>{o.onclick=()=>applyTheme(o.dataset.t);});
+// 严格校验开关(读后端状态,切换立即生效)
+(async()=>{try{const j=await(await fetch('/api/strict')).json();document.getElementById('strictToggle').checked=!!j.strictVerify;}catch(e){}})();
+document.getElementById('strictToggle').onchange=async e=>{
+  try{
+    const r=await fetch('/api/strict',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({strictVerify:e.target.checked})});
+    const j=await r.json();
+    if(j.ok){e.target.checked=j.strictVerify;}
+  }catch(err){e.target.checked=!e.target.checked;}
+};
 try{applyTheme(localStorage.getItem('wb_theme')||'pink')}catch(e){}
 async function loadApis(){
   const j=await(await fetch('/api/apis')).json();apilist.innerHTML='';
@@ -1269,6 +1305,27 @@ const srv = createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify({ ok: true, enabledId: apis.enabledId, warning: softWarning(test) }))
       return
+    }
+    // ---------- 严格校验开关 ----------
+    if (url.pathname === "/api/strict") {
+      if (req.method === "GET") {
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, strictVerify: !!config.strictVerify }))
+        return
+      }
+      if (req.method === "POST") {
+        let body = ""
+        for await (const ch of req) body += ch
+        let b = {}
+        try { b = JSON.parse(body) } catch {}
+        config.strictVerify = !!b.strictVerify
+        saveUserSettings()
+        // 引擎子进程环境跟随:重启后台生效(任务侧有 engineConfigStale 兜底)
+        engineConfigStale = true
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, strictVerify: config.strictVerify }))
+        return
+      }
     }
     if (req.method === "POST" && url.pathname === "/api/stop") {
       // 停止当前任务:中断引擎会话并让 driveAgent 等待循环尽快退出

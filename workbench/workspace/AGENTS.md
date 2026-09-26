@@ -9,6 +9,7 @@
   模板可选:`hello_world`(打招呼)、`reminder`(定时提醒)、`notes`(笔记存储)
 - 校验/修复循环入口:
   `.\wb.cmd verify <插件目录>`
+- **严格模式**:环境变量 `WB_STRICT=1` 时,verify/scaffold 自动加 `--strict`(warning 一律视为失败,必须修到零警告)。不要手工加 `--strict` 参数,以环境变量为准。
 
 **调用注意(必须遵守)**:
 - 这台机器的 shell 是 PowerShell,调用必须带 `.\` 前缀(`.\wb.cmd`),直接写 `wb.cmd` 会报「无法识别」。
@@ -17,7 +18,7 @@
 ## 工作流程
 
 1. 听懂用户一句需求 → 选最接近的模板 scaffold 生成。
-2. 生成输出 JSON `ok:false` 时,读 `check.issues`(含 file/line/hint)→ 修对应文件 → 重跑 `.\wb.cmd verify`。
+2. 生成输出 JSON `ok:false` 时,读 `check.issues`(含 file/line/hint)→ 修对应文件 → 重跑 `.\wb.cmd verify`。严格模式下 warning 也算失败,同样照 hint 修到全绿。
 3. 循环上限 5 轮;同一问题连修 3 次失败就停下,用中文如实告知卡点。
 4. `ok:true` 后,向用户中文汇报:做了什么 / check 结果 / `.neko-plugin` 产物路径(就在本目录)。
 

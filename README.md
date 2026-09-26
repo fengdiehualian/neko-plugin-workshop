@@ -19,6 +19,7 @@
 - **Build/Plan 模式**:Plan 只出方案不动文件(引擎原生强制)
 - **内置窗口**:Edge/Chrome App 模式独立窗口,关窗即安全退出
 - **看门狗自愈**:模型接口卡死 4 分钟自动止损;引擎异常自动重启;残留锁自动清理
+- **严格校验开关**:设置 → 外观 → 严格校验,warning 一律视为失败,插件必须修到零警告才打包
 
 ## 仓库结构
 
@@ -101,7 +102,7 @@ MIT
    `{textFile}` 占位(任务文本经 UTF-8 临时文件传递,用后即删),或用 `{stdin}` 占位经管道输入(claude/codex print 模式原生支持);
    模型凭据由底座自理,无需再填 API Key;停止按钮=连子进程整树清理。
 
-2. **MCP 底座**:`bun mcp.mjs`(stdio),工具 `wb_scaffold` / `wb_verify`(支持 strict)/ `wb_install_skill`。
+2. **MCP 底座**:`bun mcp.mjs`(stdio),工具 `wb_scaffold` / `wb_verify`(支持 strict)/ `wb_install_skill`。注册(Claude Code 示例):`claude mcp add neko-plugin-workshop -- bun <仓库路径>/mcp.mjs`;Codex/omp 等在 mcpServers 配置 command=bun、args=[<mcp.mjs 路径>]。
 
 3. **技能包分发**:`wb_install_skill` 把 neko-plugin-dev 规范装进 claude/codex/opencode/omp/自定义底座。
 
