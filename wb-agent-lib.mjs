@@ -65,8 +65,9 @@ export async function driveAgent(opts) {
   const client = makeClient(SERVER, opts.auth)
   const TIMEOUT = opts.timeout ?? 1500
   // 无进展看门狗:引擎侧连续 N 秒没有任何事件(模型卡死/接口吊住)就自动中止,
-  // 不再傻等到总超时(实测踩过:引擎请求吊死,用户白等 24 分钟才看到「等待超时」)
-  const STALL_MS = (opts.noProgressSec ?? 240) * 1000
+  // 不再傻等到总超时(实测踩过:引擎请求吊死,用户白等 24 分钟才看到「等待超时」)。
+  // 慢中转+长思考的合法响应也可能几分钟没有新事件(服务端缓冲),默认给足 6 分钟
+  const STALL_MS = (opts.noProgressSec ?? 360) * 1000
 
   // 1. 复用或创建会话(opts.sessionID 传引擎会话 id → 同一会话连续记忆;失效则自动新建)
   let sessionID = opts.sessionID || null
@@ -122,40 +123,70 @@ export async function driveAgent(opts) {
             const t = evt.type
             const p = client.v2 ? evt.data || {} : evt.properties || {}
 
-            // 会话相关的任何事件都算「有进展」(模型流/工具/权限/错误),供无进展看门狗判断
-            if (p.sessionID === sessionID || p.part?.sessionID === sessionID || p.info?.sessionID === sessionID) {
+            // 会话相关的任何事件都算「有进展」(模型流/工具/权限/错误),供无进展看门狗判断。
+            // 实测:模型流式事件的 sessionID 藏在多层结构里,逐路径列举会漏;
+            // 慢模型长思考时看门狗会把「正在干活」误判成「无响应」而误杀任务,故对
+            // message.*/permission.* 类事件再做一次全文兜底匹配
+            const evtStr =
+              typeof t === "string" && (t.startsWith("message.") || t.startsWith("permission.") || t.startsWith("step."))
+                ? JSON.stringify(p)
+                : ""
+            if (
+              p.sessionID === sessionID || p.part?.sessionID === sessionID ||
+              p.info?.sessionID === sessionID || p.message?.sessionID === sessionID ||
+              (evtStr && evtStr.includes(sessionID))
+            ) {
               status.lastActivityAt = Date.now()
             }
 
             if (t === "permission.asked" && p.sessionID === sessionID) {
               status.permissions++
-              // v2 权限应答是全局路由 /permission/{requestID}/reply(不再挂在 session 下);
-              // 失败时降级到旧的 session 级兼容路由
-              const url = client.v2
-                ? `/permission/${p.id}/reply`
-                : `/session/${sessionID}/permissions/${p.id}`
-              const body = client.v2 ? { reply: "once" } : { response: "once" }
-              client.call(url, { method: "POST", body: JSON.stringify(body) }).catch(() => {
-                if (client.v2) {
-                  client.call(`/session/${sessionID}/permissions/${p.id}`, {
-                    method: "POST", body: JSON.stringify({ response: "once" }),
-                  }).catch(() => {})
+              // 应答路由以引擎二进制路由串为准:POST /api/session/:sessionID/permission/:requestID/reply
+              // body {reply:"once"|"always"|"reject", message?},成功=204。
+              // 应答必须确认成功:引擎收到应答才放行工具,应答丢了=工具永久挂起、整个任务静默停摆
+              // (实测踩过:client.call 不为非 2xx 抛错,旧 .catch 兜底是死代码)。
+              const pid = String(p.id || p.requestID || "")
+              // 读写工作区外目录(external_directory)是无人值守建插件的常态,always 持久放行避免反复弹权限
+              const reply = p.action === "external_directory" ? "always" : "once"
+              ;(async () => {
+                for (let round = 0; round < 3; round++) {
+                  try {
+                    const r = await client.call(`/session/${sessionID}/permission/${pid}/reply`, {
+                      method: "POST",
+                      body: JSON.stringify({ reply }),
+                    })
+                    if (r.status >= 200 && r.status < 300) return
+                  } catch {}
+                  await new Promise((r) => setTimeout(r, 700))
                 }
-              })
+                errors.push(`权限应答失败,工具可能被挂起:${pid}`)
+              })()
             }
             if (t === "question.asked" && p.sessionID === sessionID) {
               status.questions++
-              // v2 提问应答也是全局路由 /question/{requestID}/reply,answers: string[][](每题选第一项)
-              const url = client.v2
-                ? `/question/${p.id}/reply`
-                : `/session/${sessionID}/question/${p.id || ""}/reply`
+              // 提问应答同样以引擎路由串为准:POST /api/session/:sessionID/question/:requestID/reply
+              // body {answers:[[选项label],…]}(每题一个数组、按题序),成功=204;每题自动选第一项
+              const qid = String(p.id || p.requestID || "")
               const answers = Array.isArray(p.questions)
-                ? p.questions.map((q) => (client.v2 ? (q.options || q.choices || [])[0] : { questionID: q.id, choice: q.choices?.[0]?.id }))
-                : undefined
-              const answerPayload = client.v2
-                ? { answers: Array.isArray(answers) ? answers.map((a) => [a?.label || a]) : [] }
-                : { answers }
-              client.call(url, { method: "POST", body: JSON.stringify(answerPayload) }).catch(() => {})
+                ? p.questions.map((q) => {
+                    const first = (q.options || q.choices || [])[0]
+                    const label = typeof first === "string" ? first : first?.label || first?.name || first?.id || ""
+                    return [label]
+                  })
+                : []
+              ;(async () => {
+                for (let round = 0; round < 3; round++) {
+                  try {
+                    const r = await client.call(`/session/${sessionID}/question/${qid}/reply`, {
+                      method: "POST",
+                      body: JSON.stringify({ answers }),
+                    })
+                    if (r.status >= 200 && r.status < 300) return
+                  } catch {}
+                  await new Promise((r) => setTimeout(r, 700))
+                }
+                errors.push(`提问应答失败:${qid}`)
+              })()
             }
             if (t === "session.error" && p.sessionID === sessionID) {
               const msg = client.v2

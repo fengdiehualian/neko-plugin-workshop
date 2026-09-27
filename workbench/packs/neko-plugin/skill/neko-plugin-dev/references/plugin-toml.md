@@ -138,14 +138,14 @@ supported = ">=0.1.0,<0.3.0"
 enabled = true
 auto_start = true
 priority = 0
-timeout = 10
+timeout = 60
 startup_failure = "warn"
 ```
 
 - `enabled` — 设为 `false` 可以临时禁用插件，不用删文件
 - `auto_start` — 设为 `true` 时 N.E.K.O 启动就自动运行；否则需要在面板中手动启动
 - `priority` — 可选的整数运行时顺序提示
-- `timeout` — 等待启动就绪的秒数，必须满足 `0 < timeout <= 300`；省略时使用系统默认值
+- `timeout` — 等待启动就绪的秒数，必须满足 `0 < timeout <= 300`；省略时使用系统默认值（10 秒）。插件子进程冷启动要加载 SDK 与配置，低配/机械盘机器上 10 秒常不够（表现为 `PLUGIN_STARTUP_TIMEOUT` 启动超时后被宿主杀掉），一律写 `timeout = 60`
 - `startup_failure` — `startup` 钩子失败后的策略：`warn`（默认，保留进程并标记降级）、`fail`（终止启动）或 `ignore`（仅记录）
 
 ---

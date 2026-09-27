@@ -20,9 +20,26 @@ import { join, dirname, basename, normalize } from "node:path"
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
-import { driveAgent } from "./wb-agent-lib.mjs"
+import { driveAgent, driveAgentCli } from "./wb-agent-lib.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+// 控制台输出同步落盘到 runtime\studio.log:引擎静默崩溃/任务异常时,事后有线索可查
+try {
+  const studioLogPath = join(__dirname, "runtime", "studio.log")
+  const fmtArgs = (a) =>
+    a.map((x) => {
+      if (typeof x === "string") return x
+      try { return JSON.stringify(x) } catch { return String(x) }
+    }).join(" ")
+  const wrapLog = (fn, tag) => (...a) => {
+    try { appendFileSync(studioLogPath, `[${new Date().toISOString()}]${tag} ${fmtArgs(a)}\n`) } catch {}
+    fn(...a)
+  }
+  console.log = wrapLog(console.log.bind(console), "")
+  console.warn = wrapLog(console.warn.bind(console), " WARN")
+  console.error = wrapLog(console.error.bind(console), " ERR")
+} catch {}
 
 // ---------- 配置 ----------
 // 便携版:配置里以 "./" 或 ".\\" 开头的路径相对包根(即本文件所在目录)解析;
@@ -34,8 +51,13 @@ const defaultConfig = {
   workspace: "./workspace",
   model: "",
   // 引擎模式:"exe"=编译版 opencode-cli.exe(v2 API,Basic 认证,推荐便携包用);"bun"=源码 dev serve(v1 API)
+  //            "cli"=任意 Agent CLI 底座(engineCmd/enginePreset,无 opencode 依赖,模型凭据由底座自理)
   engineMode: "exe",
   engineExe: "./_engine/opencode-cli.exe",
+  // cli 模式命令模板:数组里含 {text} 的元素替换为整段任务文本;优先级高于 enginePreset
+  engineCmd: [],
+  // cli 模式预设:claude|codex|omp|opencode(等价 engineCmd,见 CLI_ENGINE_PRESETS)
+  enginePreset: "",
   opencodeRepo: join(homedir(), "dev", "opencode"),
   bunPath: "./_bin/bun.exe",
   // 便携 Python(空白即用系统 python);N.E.K.O CLI 依赖 pydantic/psutil,由 _site 提供见 start.cmd PYTHONPATH
@@ -43,7 +65,8 @@ const defaultConfig = {
   nekoRepo: "",
   enginePort: 4096,
   timeoutSec: 1500,
-  stallTimeoutSec: 240, // 无进展看门狗:任务连续 N 秒没有任何引擎事件就自动中止(防模型接口卡死时傻等)
+  stallTimeoutSec: 360, // 无进展看门狗:任务连续 N 秒没有任何引擎事件就自动中止(慢中转+长思考可几分钟无事件,给足 6 分钟)
+  strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告)
   openBrowser: true,
   openMode: "app", // "app"=内置窗口(Edge/Chrome --app,关窗即退出);"browser"=系统浏览器(不随窗口退出)
   appWindow: "1200x860",
@@ -62,6 +85,25 @@ try {
 }
 for (const k of ["workspace", "engineExe", "bunPath", "pythonPath", "opencodeRepo", "nekoRepo"]) {
   config[k] = resolvePath(config[k])
+}
+
+// ---------- CLI 底座(engineMode:"cli")----------
+// 任意本地 Agent CLI 都能当工坊的大脑:非交互 print 模式、cwd=工作区、凭据自理。
+const CLI_ENGINE_PRESETS = {
+  claude: ["claude", "-p", "{text}"],
+  codex: ["codex", "exec", "{text}"],
+  omp: ["omp", "-p", "{text}"],
+  opencode: ["opencode", "run", "{text}"],
+}
+function cliEngineCmd() {
+  if (config.engineMode !== "cli") return null
+  if (Array.isArray(config.engineCmd) && config.engineCmd.length) return config.engineCmd.map(String)
+  const preset = CLI_ENGINE_PRESETS[String(config.enginePreset || "").toLowerCase()]
+  return preset ? [...preset] : null
+}
+function cliEngineReady() {
+  const cmd = cliEngineCmd()
+  return Boolean(cmd && cmd.some((a) => a.includes("{text}") || a.includes("{textFile}") || a.includes("{stdin}")))
 }
 
 // ---------- N.E.K.O 仓库自动探测 ----------
@@ -148,6 +190,25 @@ function writeProvider({ baseURL, apiKey, modelID, protocol }) {
   }
   fs.writeFileSync(ENGINE_CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf8")
 }
+
+// ---------- 通用设置(runtime\settings.json):严格校验等用户偏好 ----------
+const SETTINGS_FILE = join(__dirname, "runtime", "settings.json")
+function loadUserSettings() {
+  try {
+    const s = JSON.parse(readFileSync(SETTINGS_FILE, "utf8"))
+    if (typeof s.strictVerify === "boolean") config.strictVerify = s.strictVerify
+  } catch {}
+}
+function saveUserSettings() {
+  try {
+    const { mkdirSync, writeFileSync } = require("node:fs")
+    mkdirSync(join(__dirname, "runtime"), { recursive: true })
+    writeFileSync(SETTINGS_FILE, JSON.stringify({ strictVerify: !!config.strictVerify }, null, 2), "utf8")
+  } catch (e) {
+    console.error("[wb-studio] 设置落盘失败:", e.message)
+  }
+}
+loadUserSettings()
 
 // ---------- 多 API 配置(runtime\apis.json):设置面板读写,可存多套,任选一套启用 ----------
 const APIS_FILE = join(__dirname, "runtime", "apis.json")
@@ -285,10 +346,13 @@ const GLOBAL_AGENTS_MD = `# 全局规则(N.E.K.O. 插件工坊)
 
 // ---------- 引擎自启动 ----------
 // v2 引擎(Basic 认证):OPENCODE_SERVER_PASSWORD 环境变量自定密码,避免每次启动随机密码难传递
-let engineAuth = null // "user:password" | null
+// exe 模式密码是自定常量:复用已在跑的引擎(不是本实例拉起的)时也必须带上,否则按 v1 方言打错路由
+let engineAuth = config.engineMode === "exe" ? "opencode:neko-studio-pw" : null // "user:password" | null
 let engineChild = null // 引擎进程句柄(setup 后重启用)
 
 async function engineHealthy() {
+  // CLI 底座无常驻引擎进程:底座进程按任务拉起,始终视为就绪
+  if (config.engineMode === "cli") return true
   try {
     const res = await fetch(`${config.server}/api/health`, {
       signal: AbortSignal.timeout(3000),
@@ -301,11 +365,31 @@ async function engineHealthy() {
 }
 
 async function ensureEngine() {
+  // CLI 底座:没有可启动/探活的服务,直接就绪(跳过引擎 exe 自检与 90s 等待)
+  if (config.engineMode === "cli") return { started: false }
   if (await engineHealthy()) return { started: false }
   const port = config.enginePort
   const host = "127.0.0.1"
   let child
   if (config.engineMode === "exe") {
+    // 启动自检:引擎 exe 必须存在且完整(约 175MB)。
+    // 实战问题:用户双击 zip 内的 start.cmd 直接运行,压缩软件只把小文件临时释放到 Temp,
+    // 175MB 的引擎 exe 不在其中 → ENOENT 报错。必须引导「完整解压后再运行」。
+    try {
+      const st = statSync(config.engineExe)
+      if (st.size < 100 * 1024 * 1024) {
+        return { started: false, error: `引擎文件不完整(当前 ${Math.round(st.size / 1024 / 1024)}MB,应为 175MB)。请把整个压缩包解压到桌面等正式文件夹后再运行,不要在 zip 里直接双击运行` }
+      }
+    } catch {
+      return {
+        started: false,
+        error:
+          `找不到引擎程序 _engine\\opencode-cli.exe。常见原因:` +
+          `①直接在压缩包(zip)里双击运行了——压缩软件只临时释放了部分小文件。` +
+          `请先右键压缩包 →「全部解压」,进入解压后的文件夹再双击 start.cmd;` +
+          `②杀毒软件误删了引擎程序——在杀软里恢复并添加信任,重新解压一次`,
+      }
+    }
     // v2 编译版:服务 cwd 即工作区(目录路由跟随进程 cwd);密码自定,免抓取
     // 数据/配置目录锁在包内 runtime\ 下,不污染用户 AppData
     engineAuth = "opencode:neko-studio-pw"
@@ -313,7 +397,7 @@ async function ensureEngine() {
     console.log(`[wb-studio] 启动引擎(编译版 v2): ${config.engineExe} serve --port ${port}`)
     child = spawn(config.engineExe, ["serve", "--hostname", host, "--port", String(port)], {
       cwd: config.workspace,
-      stdio: "ignore",
+      stdio: ["ignore", "pipe", "pipe"],
       env: {
         ...process.env,
         OPENCODE_SERVER_PASSWORD: "neko-studio-pw",
@@ -322,6 +406,7 @@ async function ensureEngine() {
         // Agent 的 wb.cmd 依赖这两个默认值(不传 --out/--neko 时生效)
         WB_PROJECTS_DIR: config.workspace,
         WB_NEKO_REPO: config.nekoRepo || "",
+        WB_STRICT: config.strictVerify ? "1" : "",
       },
       detached: false,
     })
@@ -332,9 +417,32 @@ async function ensureEngine() {
       "--port", String(port), "--hostname", host,
     ]
     console.log(`[wb-studio] 启动引擎(源码 v1): ${config.bunPath} ${args.join(" ")}`)
-    child = spawn(config.bunPath, args, { stdio: "ignore", detached: false })
+    child = spawn(config.bunPath, args, { stdio: ["ignore", "pipe", "pipe"], detached: false })
   }
-    child.on("error", (e) => console.error("[wb-studio] 引擎进程错误:", e.message))
+  // 引擎 stdout/stderr 落盘 + 记住最近输出:引擎静默崩溃(如内存不足)时能查到死因
+  const tailOf = { cur: "" }
+  const eat = (d) => {
+    const s = d.toString()
+    tailOf.cur = (tailOf.cur + s).slice(-4000)
+    try { appendFileSync(join(__dirname, "runtime", "engine-out.log"), s) } catch {}
+  }
+  child.stdout?.on("data", eat)
+  child.stderr?.on("data", eat)
+  const deathMsg = (code) =>
+    /MemoryExhaustion|memory is exhausted/i.test(tailOf.cur)
+      ? "引擎崩溃:内存不足(引擎分配内存失败)。请先关闭其他大程序(浏览器/游戏等)释放内存后重试"
+      : `引擎进程退出(code=${code})${tailOf.cur.trim() ? `;最后输出:${tailOf.cur.trim().slice(-300)}` : ""}`
+  child.on("exit", (code) => {
+    if (engineChild === child) engineChild = null // 防 PID 复用:进程没了就别再 taskkill 旧 PID
+    if (code) engineLastError = deathMsg(code)
+  })
+    child.on("error", (e) => {
+      console.error("[wb-studio] 引擎进程错误:", e.message)
+      // spawn 失败(文件缺失/被杀软拦截)时记录,供 /api/health 与网页指引使用
+      engineLastError = e.code === "ENOENT"
+        ? "引擎程序不存在:请把整个压缩包完整解压到正式文件夹后再运行(不要在 zip 里直接双击);若已解压,检查杀毒软件是否删除了 _engine\\opencode-cli.exe"
+        : `引擎启动失败:${e.message}`
+    })
     engineChild = child
   const deadline = Date.now() + 90_000
   while (Date.now() < deadline) {
@@ -342,10 +450,10 @@ async function ensureEngine() {
       console.log("[wb-studio] 引擎就绪")
       return { started: true }
     }
-    if (child.exitCode !== null) return { started: false, error: `引擎进程退出(code=${child.exitCode})` }
+    if (child.exitCode !== null) return { started: false, error: deathMsg(child.exitCode) }
     await new Promise((r) => setTimeout(r, 2000))
   }
-  return { started: false, error: "引擎启动超时(90s)" }
+  return { started: false, error: `引擎启动超时(90s)${tailOf.cur.trim() ? `;最后输出:${tailOf.cur.trim().slice(-200)}` : ""}` }
 }
 
 /** 停掉自己拉起的引擎(配置变更后重启用) */
@@ -361,6 +469,8 @@ function stopEngine() {
 
 // 引擎配置已更新但引擎尚未带新配置重启:下一次任务前强制重启
 let engineConfigStale = false
+// 引擎最后一次启动/自检失败的人话原因(展示给用户)
+let engineLastError = null
 /** 后台重启引擎(不阻塞 HTTP 应答;任务侧有 engineConfigStale 兜底) */
 function restartEngineBackground() {
   engineConfigStale = true
@@ -636,6 +746,12 @@ const PAGE = `<!doctype html>
       <div class="themeopt" data-t="white"><span class="sw sw-white"></span>纯净白</div>
       <div class="themeopt" data-t="black"><span class="sw sw-black"></span>暗夜黑</div>
     </div>
+    <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;color:var(--ink)">
+        <input type="checkbox" id="strictToggle" style="width:17px;height:17px;accent-color:var(--pink)">
+        <span><b>严格校验</b> <span style="color:var(--muted-2);font-size:12px">(warning 也算失败,必须修到零警告才打包)</span></span>
+      </label>
+    </div>
   </div>
 </div>
 <div id="wrap">
@@ -756,6 +872,8 @@ async function loadCurrent(){
 }
 newbtn.onclick=newChat;
 loadCurrent();
+// 引擎异常横幅:解压不完整/杀软误删时给用户看得懂的指引
+(async()=>{try{const h=await(await fetch('/api/health')).json();if(h.engineError){const d=document.createElement('div');d.className='msg bot err';d.style.maxWidth='100%';d.textContent='⚠ '+h.engineError;chat.insertBefore(d,chat.firstChild);}}catch(e){}})();
 
 // ---------- 发送 ----------
 let workMode = 'build';
@@ -838,6 +956,15 @@ function applyTheme(t){
   document.querySelectorAll('.themeopt').forEach(o=>o.classList.toggle('cur',o.dataset.t===t));
 }
 document.querySelectorAll('.themeopt').forEach(o=>{o.onclick=()=>applyTheme(o.dataset.t);});
+// 严格校验开关(读后端状态,切换立即生效)
+(async()=>{try{const j=await(await fetch('/api/strict')).json();document.getElementById('strictToggle').checked=!!j.strictVerify;}catch(e){}})();
+document.getElementById('strictToggle').onchange=async e=>{
+  try{
+    const r=await fetch('/api/strict',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({strictVerify:e.target.checked})});
+    const j=await r.json();
+    if(j.ok){e.target.checked=j.strictVerify;}
+  }catch(err){e.target.checked=!e.target.checked;}
+};
 try{applyTheme(localStorage.getItem('wb_theme')||'pink')}catch(e){}
 async function loadApis(){
   const j=await(await fetch('/api/apis')).json();apilist.innerHTML='';
@@ -960,7 +1087,7 @@ const srv = createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/") {
       // 未配置密钥时优先展示引导页
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
-      res.end(hasValidKey() ? PAGE : SETUP_PAGE)
+      res.end((hasValidKey() || cliEngineReady()) ? PAGE : SETUP_PAGE)
       return
     }
     if (req.method === "POST" && url.pathname === "/api/setup") {
@@ -1031,6 +1158,7 @@ const srv = createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify({
         engine: await engineHealthy(),
+        engineError: engineLastError,
         model: config.model,
         workspace: config.workspace,
         neko: config.nekoRepo || null,
@@ -1213,6 +1341,229 @@ const srv = createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: true, enabledId: apis.enabledId, warning: softWarning(test) }))
       return
     }
+    // ---------- N.E.K.O 实测闭环 ----------
+    const NEKO_BASE = config.nekoTestBase || "http://127.0.0.1:48916"
+    const nekoAlive = async () => {
+      try {
+        const r = await fetch(`${NEKO_BASE}/plugins`, { signal: AbortSignal.timeout(8000) })
+        return r.ok
+      } catch { return false }
+    }
+    if (req.method === "GET" && url.pathname === "/api/neko/health") {
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+      res.end(JSON.stringify({ ok: true, alive: await nekoAlive(), base: NEKO_BASE }))
+      return
+    }
+    if (req.method === "POST" && url.pathname === "/api/neko/install") {
+      // {artifact: 绝对路径或工作区文件名} 安装/更新插件并启动
+      let body = ""
+      for await (const ch of req) body += ch
+      let b = {}
+      try { b = JSON.parse(body) } catch {}
+      const art = String(b.artifact || "")
+      const safe = normalize(basename(art))
+      if (!/\.(neko-plugin|neko-bundle)$/.test(safe)) {
+        res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: "产物路径无效(需要 .neko-plugin)" }))
+        return
+      }
+      const full = existsSync(art) ? art : join(config.workspace, safe)
+      if (!existsSync(full)) {
+        res.writeHead(404, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: `找不到产物文件:${safe}` }))
+        return
+      }
+      if (!(await nekoAlive())) {
+        res.writeHead(503, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: "N.E.K.O 未在本机运行(插件服务 48916 不通)。请先启动 N.E.K.O 再实测" }))
+        return
+      }
+      try {
+        // plugin_id 从文件名取(xxx.neko-plugin -> xxx)
+        const pluginId = safe.replace(/\.neko-(plugin|bundle)$/, "")
+        // 已装同 id:先删(on_conflict 只支持 fail,更新走删+装)
+        const lst = await (await fetch(`${NEKO_BASE}/plugins`, { signal: AbortSignal.timeout(15000) })).json()
+        const ids = Array.isArray(lst) ? lst.map((p) => p.id || p.plugin_id || p) : (lst.plugins || []).map((p) => p.id || p.plugin_id)
+        let removed = false
+        if (ids.includes(pluginId)) {
+          // 删除会触发插件注册表全量重扫(慢机器上约 30s),给足余量
+          const del = await fetch(`${NEKO_BASE}/plugin/${pluginId}`, { method: "DELETE", signal: AbortSignal.timeout(120000) })
+          removed = del.ok
+        }
+        // multipart 上传安装
+        const buf = readFileSync(full)
+        const fd = new FormData()
+        fd.append("file", new Blob([buf]), safe)
+        const up = await fetch(`${NEKO_BASE}/plugin-cli/upload-and-install?on_conflict=fail`, {
+          method: "POST", body: fd, signal: AbortSignal.timeout(180000),
+        })
+        const upText = await up.text()
+        if (!up.ok) {
+          res.writeHead(502, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, error: `安装失败(HTTP ${up.status}):${upText.slice(0, 300)}`, pluginId, removedOld: removed }))
+          return
+        }
+        // 启动插件(尽力而为;部分插件 auto_start 已自动跑)
+        const st = await fetch(`${NEKO_BASE}/plugin/${pluginId}/start`, { method: "POST", signal: AbortSignal.timeout(60000) }).catch(() => null)
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({
+          ok: true, pluginId, artifact: safe,
+          updated: removed,
+          install: (() => { try { return JSON.parse(upText) } catch { return { raw: upText.slice(0, 200) } } })(),
+          started: st ? st.ok : false,
+        }))
+      } catch (e) {
+        res.writeHead(502, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: `与 N.E.K.O 通信失败:${e.message}` }))
+      }
+      return
+    }
+    if (req.method === "POST" && url.pathname === "/api/neko/trigger") {
+      // {pluginId, tool, args} -> 触发入口,返回插件真实输出
+      // entry 型入口走 /runs 异步协议(与 N.E.K.O 主服 task_executor 同款),
+      // register_llm_tool 型工具走 /api/llm-tools/callback
+      let body = ""
+      for await (const ch of req) body += ch
+      let b = {}
+      try { b = JSON.parse(body) } catch {}
+      const pluginId = String(b.pluginId || "")
+      const tool = String(b.tool || "")
+      const args = b.args && typeof b.args === "object" ? b.args : {}
+      if (!pluginId || !tool) {
+        res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: "需要 pluginId 和 tool" }))
+        return
+      }
+      if (!(await nekoAlive())) {
+        res.writeHead(503, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: "N.E.K.O 未运行" }))
+        return
+      }
+      try {
+        // 查插件与入口清单(顺便把可用入口报给自修循环)
+        const lst = await (await fetch(`${NEKO_BASE}/plugins`, { signal: AbortSignal.timeout(15000) })).json()
+        const plugins = Array.isArray(lst) ? lst : (lst.plugins || [])
+        const info = plugins.find((p) => String(p.id || p.plugin_id) === pluginId)
+        if (!info) {
+          res.writeHead(404, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({
+            ok: false, pluginId, tool,
+            error: `插件未安装:${pluginId}。已安装:${plugins.map((p) => p.id || p.plugin_id).join(", ") || "(无)"}`,
+          }))
+          return
+        }
+        const entryIds = (info.entries || []).map((e) => String(e.id))
+        const hit = entryIds.find((id) => id === tool) || entryIds.find((id) => id.toLowerCase() === tool.toLowerCase())
+        if (hit) {
+          // entry 派发:POST /runs -> 轮询到终态 -> /runs/{id}/export 取结果
+          const created = await fetch(`${NEKO_BASE}/runs`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ plugin_id: pluginId, entry_id: hit, args, task_id: `wb_${Date.now()}` }),
+            signal: AbortSignal.timeout(15000),
+          })
+          const ct = await created.json().catch(() => ({}))
+          if (!created.ok || !ct.run_id) {
+            res.writeHead(502, { "content-type": "application/json; charset=utf-8" })
+            res.end(JSON.stringify({
+              ok: false, pluginId, tool,
+              error: `创建运行失败(HTTP ${created.status}):${JSON.stringify(ct).slice(0, 300)}`,
+            }))
+            return
+          }
+          const runId = String(ct.run_id)
+          const terminal = new Set(["succeeded", "failed", "canceled", "timeout"])
+          const deadline = Date.now() + 120000
+          let rec = null
+          let pollErrs = 0
+          while (Date.now() < deadline) {
+            const rr = await fetch(`${NEKO_BASE}/runs/${runId}`, { signal: AbortSignal.timeout(8000) }).catch(() => null)
+            if (rr && rr.ok) {
+              pollErrs = 0
+              rec = await rr.json().catch(() => null)
+              if (rec && terminal.has(rec.status)) break
+            } else if (++pollErrs >= 5) {
+              break
+            }
+            await new Promise((r) => setTimeout(r, 500))
+          }
+          const status = (rec && rec.status) || "timeout"
+          let result = null, meta = null, err = null
+          if (rec && rec.error) {
+            err = typeof rec.error === "object" ? String(rec.error.message || rec.error.code || "运行失败") : String(rec.error)
+          }
+          try {
+            const ex = await (await fetch(`${NEKO_BASE}/runs/${runId}/export?limit=50`, { signal: AbortSignal.timeout(10000) })).json()
+            const items = (ex && ex.items) || []
+            for (const it of items) {
+              if (!it || typeof it !== "object") continue
+              const raw = it.json ?? it.json_data
+              if (it.type === "json" && raw != null) {
+                if (typeof raw === "object") {
+                  result = raw.data ?? raw
+                  meta = raw.meta ?? null
+                  if (raw.error) err = typeof raw.error === "object" ? String(raw.error.message || JSON.stringify(raw.error)) : String(raw.error)
+                } else {
+                  result = raw
+                }
+                break
+              }
+              if (it.type === "text" && result == null && it.text != null) result = it.text
+            }
+          } catch {}
+          res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({
+            ok: status === "succeeded" && !err, pluginId, tool,
+            runId, runStatus: status, result, meta,
+            error: status === "succeeded" && !err ? null : (err || `运行状态:${status}`),
+          }))
+          return
+        }
+        // 无同名 entry:按 register_llm_tool 型工具走 callback
+        const r = await fetch(`${NEKO_BASE}/api/llm-tools/callback/${encodeURIComponent(pluginId)}/${encodeURIComponent(tool)}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: tool, arguments: args, call_id: `wb_${Date.now()}`, raw_arguments: JSON.stringify(args) }),
+          signal: AbortSignal.timeout(60000),
+        })
+        const j = await r.json().catch(() => ({ output: null, is_error: true, error: "响应解析失败" }))
+        if (r.status === 404 || j.error === "TOOL_NOT_REGISTERED") {
+          res.writeHead(404, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({
+            ok: false, pluginId, tool,
+            error: `入口不存在:${tool}。该插件可用入口:${entryIds.length ? entryIds.join(", ") : "(无可触发入口,仅生命周期/定时运行)"}`,
+          }))
+          return
+        }
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: !(j.is_error), pluginId, tool, result: j.output ?? j, error: j.is_error ? String(j.error || "插件返回错误") : null }))
+      } catch (e) {
+        res.writeHead(502, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: `触发失败:${e.message}` }))
+      }
+      return
+    }
+    // ---------- 严格校验开关 ----------
+    if (url.pathname === "/api/strict") {
+      if (req.method === "GET") {
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, strictVerify: !!config.strictVerify }))
+        return
+      }
+      if (req.method === "POST") {
+        let body = ""
+        for await (const ch of req) body += ch
+        let b = {}
+        try { b = JSON.parse(body) } catch {}
+        config.strictVerify = !!b.strictVerify
+        saveUserSettings()
+        // 引擎子进程环境跟随:重启后台生效(任务侧有 engineConfigStale 兜底)
+        engineConfigStale = true
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, strictVerify: config.strictVerify }))
+        return
+      }
+    }
     if (req.method === "POST" && url.pathname === "/api/stop") {
       // 停止当前任务:中断引擎会话并让 driveAgent 等待循环尽快退出
       if (currentAbort) currentAbort.abort()
@@ -1293,7 +1644,7 @@ const srv = createServer(async (req, res) => {
       return
     }
     if (req.method === "POST" && url.pathname === "/api/task") {
-      if (!hasValidKey()) {
+      if (!hasValidKey() && !cliEngineReady()) {
         res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify({ ok: false, error: "请先完成模型服务配置(刷新页面填写密钥)" }))
         return
@@ -1312,13 +1663,26 @@ const srv = createServer(async (req, res) => {
       currentAbort = new AbortController()
       // 引擎毒化自愈:上次任务异常(看门狗中止/模型不可用/连接失败)后,引擎进程可能拒绝一切模型调用
       // (实测:不重启则后续任务全部静默挂起)。任务前先重启恢复;配置刚切换未生效时同样先重启
-      if (enginePoisoned || engineConfigStale || !(await engineHealthy())) {
+      let unhealthy = enginePoisoned || engineConfigStale
+      if (!unhealthy && !(await engineHealthy())) {
+        await new Promise((r) => setTimeout(r, 1000))
+        unhealthy = !(await engineHealthy()) // 探活两次再下结论,避免误杀正忙但健康的引擎
+      }
+      if (unhealthy) {
         enginePoisoned = false
         engineConfigStale = false
         console.log("[wb-studio] 引擎状态异常,任务前自动重启引擎…")
         stopEngine()
         await new Promise((r) => setTimeout(r, 1500))
-        await ensureEngine()
+        const eng = await ensureEngine()
+        if (eng && eng.error) {
+          // 引擎起不来就明说原因,绝不能放行去连死引擎(否则用户只看到"Unable to connect"莫名其妙)
+          busy = false
+          currentAbort = null
+          res.writeHead(503, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, error: `引擎启动失败:${eng.error}${engineLastError && !String(eng.error).includes(engineLastError) ? `(${engineLastError})` : ""}` }))
+          return
+        }
       }
       const driveOpts = {
         text, dir: config.workspace, model: config.model,
@@ -1328,6 +1692,42 @@ const srv = createServer(async (req, res) => {
         sessionID: s.engineSessionId || undefined,
         mode,
         signal: currentAbort.signal,
+      }
+      if (cliEngineReady()) {
+        // CLI 底座:整段任务交给外部 Agent CLI(凭据自理),无 SSE/毒化恢复路径
+        let result
+        try {
+          result = await driveAgentCli({
+            text, dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
+            timeoutSec: config.timeoutSec, signal: currentAbort.signal,
+            sessionID: s.engineSessionId || undefined,
+          })
+        } finally {
+          busy = false
+          currentAbort = null
+        }
+        s.engineSessionId = result.sessionId || s.engineSessionId
+        s.updatedAt = Date.now()
+        s.messages.push({ role: "user", content: text, at: Date.now(), mode })
+        if (result.reply) {
+          s.messages.push({
+            role: "assistant",
+            content: result.reply,
+            at: Date.now(),
+            error: result.ok ? undefined : String(result.error || ""),
+            artifacts: result.artifacts || [],
+          })
+        } else {
+          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || "") })
+        }
+        if (s.title === "新对话" && text) {
+          s.title = text.replace(/\s+/g, " ").slice(0, 18) + (text.length > 18 ? "…" : "")
+        }
+        saveSessions()
+        result.sessionId = s.id
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify(result))
+        return
       }
       try {
         let result
@@ -1339,7 +1739,10 @@ const srv = createServer(async (req, res) => {
           stopEngine()
           await new Promise((r) => setTimeout(r, 1500))
           const started = await ensureEngine()
-          if (!started.started && started.error) throw e
+          if (!started.started && started.error) {
+            // 重启也失败:带上真实死因报错,不再把原始连接错误甩给用户
+            throw new Error(`${String(e?.message || e)}(引擎重启也失败:${started.error})`)
+          }
           result = await driveAgent(driveOpts)
         }
         // 看门狗中止/模型不可用/模型静默挂起都会毒化引擎:重启自愈(同步完成后才应答,
@@ -1384,7 +1787,15 @@ const srv = createServer(async (req, res) => {
           } else if (/401|403|api key|apikey|unauthorized|invalid/i.test(raw)) {
             result.error = "模型服务拒绝访问:密钥可能不对或已过期,请刷新页面重新配置"
           } else if (/quota|429|rate.?limit|tpm|rpm/i.test(raw)) {
-            result.error = "模型服务限流/额度不足:等几分钟再试,或检查账户额度"
+            // 优先把服务商原文里的补救信息(如额度重置时间)带给用户,别用笼统话术盖掉
+            let hint = ""
+            try {
+              const m = raw.match(/"message"\s*:\s*"([^"]{1,240})"/)
+              if (m) hint = `:${m[1]}`
+            } catch {}
+            result.error = `模型服务限流/额度不足${hint || ":等几分钟再试,或检查账户额度"}。也可到设置里切换其他 API 继续`
+          } else if (/Unable to connect|fetch failed|ECONNREFUSED/i.test(raw)) {
+            result.error = "网络连接失败:本地引擎或模型服务连不上。检查网络(或加速器)后重试"
           } else if (!raw.trim()) {
             result.error = result.reply ? "任务中断,见下方猫咪留言" : "未知错误"
           }
@@ -1420,9 +1831,10 @@ const srv = createServer(async (req, res) => {
 
 // ---------- 启动 ----------
 const boot = async () => {
-  // 已有活的工坊在跑?说明是重复启动:不再起第二个服务(start.cmd 会直接给它开窗口),本实例退出
+  // 已有活的工坊在跑?说明是重复启动:不再起第二个服务(start.cmd 会直接给它开窗口),本实例退出。
+  // 探工坊自己的端口:以前探引擎,结果残留的孤儿引擎把新实例误判成"已在运行"直接退出,重启变哑巴
   try {
-    const h = await fetch(`${config.server}/api/health`, { signal: AbortSignal.timeout(1500) })
+    const h = await fetch(`http://127.0.0.1:${config.port}/api/health`, { signal: AbortSignal.timeout(1500) })
     if (h.ok) {
       console.log("[wb-studio] 检测到工坊已在运行,本次启动退出")
       process.exit(0)
@@ -1431,6 +1843,8 @@ const boot = async () => {
   // 上次异常退出(断电/被强杀)留下的死锁:服务已死但锁还在,start.cmd 会误以为在跑。
   // 走到这里说明 5099 没有活服务,锁必是残留,清掉
   try { if (existsSync(STUDIO_LOCK)) require("node:fs").unlinkSync(STUDIO_LOCK) } catch {}
+  // CLI 底座:把 nekoRepo 透传给底座进程(wb-plugin CLI 依赖 WB_NEKO_REPO)
+  if (config.nekoRepo) process.env.WB_NEKO_REPO = config.nekoRepo
   // 引擎全局 AGENTS.md:Agent 作用范围=全局,在任何目录干活都带这份身份与规则
   try {
     require("node:fs").mkdirSync(ENGINE_CONFIG_DIR, { recursive: true })
@@ -1457,7 +1871,10 @@ const boot = async () => {
   } catch {}
   console.log(`[wb-studio] 引擎检查中 (${config.server}) ...`)
   const engine = await ensureEngine()
-  if (engine.error) console.error(`[wb-studio] ⚠ ${engine.error}(仍将启动网页,任务会失败)`)
+  if (engine.error) {
+    engineLastError = engine.error
+    console.error(`[wb-studio] ⚠ ${engine.error}(仍将启动网页,任务会失败)`)
+  }
   srv.listen(config.port, "127.0.0.1", () => {
     const url = `http://127.0.0.1:${config.port}`
     console.log(`[wb-studio] 对话页: ${url}`)

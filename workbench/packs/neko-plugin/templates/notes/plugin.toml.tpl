@@ -14,3 +14,9 @@ supported = ">=0.1.0,<0.3.0"
 
 [plugin.store]
 enabled = true
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+timeout = 60
+startup_failure = "warn"
