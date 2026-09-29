@@ -1,5 +1,6 @@
 import { join, dirname, basename } from "node:path"
 import { spawnSync } from "node:child_process"
+import { existsSync } from "node:fs"
 import { mkdir, writeFile } from "node:fs/promises"
 
 export interface PackMeta {
@@ -147,7 +148,12 @@ export interface VerifyResult {
   rootDir: string
   check: CheckSummary
   build?: BuildSummary
+  /** 官方 setup-repo(--git --github-actions)结果:补齐 .vscode/.github/workflows 等上架合规文件 */
+  setupRepo?: { ok: boolean; git: boolean; commit: boolean | null; raw: string }
 }
+
+/** rules.json 声明的插件 ID 约束,内核入口强制执行(目录名/发布名都由它拼出来) */
+export const PLUGIN_ID_PATTERN = /^[a-z][a-z0-9_]*$/
 
 export interface VerifySummary {
   rootDir: string
@@ -325,9 +331,12 @@ export async function runBuild(
   if (outPath) args.push("--out", outPath)
   else args.push("-t", join(nekoRepoRoot, "plugin", "dist_pack"))
   const { code, raw } = await runSync(python, args, nekoRepoRoot)
+  // outPath 是调用方指定的产物路径,直接作为 artifact;日志反向匹配只兜底无 --out 的直调场景
+  // (旧正则不含 . / 空格 / 中文,像 /Users/a/proj.v2/x.neko-plugin 会被截断)
   const artifact =
+    outPath ??
     raw.match(/[A-Za-z]:\\[^\s"]*\.neko-(?:plugin|bundle)/)?.[0] ??
-    raw.match(/[\w/\\-]*\.neko-(?:plugin|bundle)/)?.[0]
+    raw.match(/[^\s"']+\.neko-(?:plugin|bundle)/)?.[0]
   return { ok: code === 0, exitCode: code, artifact, raw }
 }
 
@@ -341,8 +350,16 @@ export async function scaffoldAndVerify(
   vars: Record<string, string>,
   opts: ScaffoldOptions,
 ): Promise<VerifyResult> {
+  // rules.json 的 ^[a-z][a-z0-9_]*$ 必须在入口强制:PLUGIN_ID 直接拼进落盘路径与产物名,
+  // 带 ../ 会写到目录外,空串会把模板文件散落在 out 根目录
+  const pluginId = String(vars.PLUGIN_ID ?? "")
+  if (!PLUGIN_ID_PATTERN.test(pluginId)) {
+    throw new Error(
+      `PLUGIN_ID 不合法:${JSON.stringify(pluginId)}(要求 ^[a-z][a-z0-9_]*$:小写字母开头,仅小写字母/数字/下划线,不能为空)`,
+    )
+  }
   const files = await renderProject(packId, template, vars)
-  const rootDir = join(opts.targetDir, vars.PLUGIN_ID ?? "plugin")
+  const rootDir = join(opts.targetDir, pluginId)
   // 开发技能(.opencode/**)不写进插件目录:否则被 N.E.K.O build 原样打进 .neko-plugin
   // (成品多 ~30 个无关条目,且点目录会触发 macOS codesign "bundle format unrecognized")。
   // 落到工作区根即可——引擎 cwd=工作区,agent 照常读到;分发给任意底座用 wb_install_skill。
@@ -355,10 +372,52 @@ export async function scaffoldAndVerify(
   await writeFiles(rootDir, projectFiles)
   if (Object.keys(skillFiles).length) await writeFiles(opts.targetDir, skillFiles)
 
+  // 上架合规文件:官方 setup-repo 补 .vscode/.github/workflows(verify.yml/release.yml)/ruff.toml
+  // ——缺失才写、不覆盖模板文件。两步走:先不带 --git 保底生成(机器没装 git 也能出文件),
+  // 再带 --git 尽力初始化独立 git 仓库(官方 check/上架都要求;失败不阻断,结果随 JSON 返回)
+  const setupFiles = await runSync(
+    opts.python ?? "python",
+    ["plugin/neko_plugin_cli/cli.py", "setup-repo", rootDir, "--github-actions"],
+    opts.nekoRepoRoot,
+  )
+  const setupGit = await runSync(
+    opts.python ?? "python",
+    ["plugin/neko_plugin_cli/cli.py", "setup-repo", rootDir, "--git", "--github-actions"],
+    opts.nekoRepoRoot,
+  )
+  // 奠基提交:只对"全新空仓库"做(有历史的仓库绝不自动提交,免得卷走用户的 WIP),
+  // 消掉 strict 的 "working tree has uncommitted changes";身份用中立 bot,不动用户 git 配置
+  let scaffoldCommit: boolean | null = null
+  if (setupGit.code === 0 && existsSync(join(rootDir, ".git"))) {
+    const head = await runSync("git", ["rev-parse", "--verify", "HEAD"], rootDir)
+    if (head.code !== 0) {
+      await runSync("git", ["add", "-A"], rootDir)
+      const commit = await runSync(
+        "git",
+        [
+          "-c", "user.name=N.E.K.O. Workshop",
+          "-c", "user.email=workshop@project-neko.online",
+          "commit", "-m", `chore: scaffold ${pluginId} via N.E.K.O. workshop`,
+        ],
+        rootDir,
+      )
+      scaffoldCommit = commit.code === 0
+    }
+  }
+
   const result = await verifyProject(opts.nekoRepoRoot, rootDir, {
     python: opts.python,
-    outPath: join(opts.targetDir, `${vars.PLUGIN_ID}.neko-plugin`),
+    outPath: join(opts.targetDir, `${pluginId}.neko-plugin`),
     strict: opts.strict,
   })
-  return { files, ...result }
+  return {
+    files,
+    setupRepo: {
+      ok: setupFiles.code === 0,
+      git: setupGit.code === 0,
+      commit: scaffoldCommit,
+      raw: setupFiles.raw,
+    },
+    ...result,
+  }
 }

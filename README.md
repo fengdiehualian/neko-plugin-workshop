@@ -24,17 +24,19 @@
 ## 仓库结构
 
 ```
-├── workbench/            # 核心(opencode workbench 包)
-│   ├── cli.mjs           #   wb-plugin CLI(scaffold/verify)
-│   ├── src/index.ts      #   生成→check→build 闭环内核 + 错误解析器
-│   ├── wb-studio.mjs     #   网页服务(对话 UI/多会话/设置/归档/主题)
-│   ├── wb-agent-lib.mjs  #   无人值守 Agent 驱动(v1/v2 引擎双协议)
-│   ├── packs/            #   模板 + 插件规范 skill(15 页官方文档 + 市场写法分析)
-│   └── make-exe.ps1      #   一键打包 SFX 安装器
+├── cli.mjs               # wb-plugin CLI(scaffold/verify)
+├── mcp.mjs               # MCP 服务(stdio:wb_scaffold/wb_verify/wb_install_skill)
+├── wb-studio.mjs         # 网页服务(对话 UI/多会话/设置/归档/主题)
+├── wb-agent-lib.mjs      # 无人值守 Agent 驱动(v1/v2 引擎双协议)
+├── src/index.ts          # 生成→check→build 闭环内核 + 错误解析器
+├── packs/                # 模板 + 插件规范 skill(15 页官方文档 + 市场写法分析)
 ├── market-corpus/        # 46 个官方市场插件源码(Agent 的学习语料)
-├── wb-studio.mjs 等      # 便携包顶层文件
+├── test/                 # 单元测试(bun test)
+├── workbench/            # 打包工具(make-exe.ps1 一键 SFX 安装器)
 └── 使用说明.txt           # 面向小白的完整说明
 ```
+
+入口文件只有一份,就在仓库根目录(与便携包布局一致);`workbench/` 只放打包工具。
 
 ## Agent 的知识体系(让它写出市场上架水准的插件)
 
@@ -49,8 +51,7 @@
 前置:N.E.K.O. 源码(check/build 依赖)、Node/bun 运行时、一套 OpenAI 兼容(或其它支持协议)的模型服务。
 
 ```bash
-cd workbench
-bun install && bun test        # 9 个单元测试
+bun install && bun test        # 9 个单元测试(在仓库根目录执行)
 bun cli.mjs scaffold neko-plugin reminder \
   --out C:/projects --neko C:/path/to/N.E.K.O \
   --PLUGIN_ID my_reminder --PLUGIN_NAME 提醒 --CLASS_NAME MyReminder

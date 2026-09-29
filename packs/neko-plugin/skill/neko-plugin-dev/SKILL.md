@@ -114,6 +114,16 @@ class MyPlugin(NekoPluginBase):
 2. 有 error 必须修到全绿;warning 酌情处理
 3. `python plugin\neko_plugin_cli\cli.py build <dir> --out <dir>.neko-plugin`
 4. 把产物路径告诉用户
+5. **用户想发布上架时**(Market 要求,缺一步都过不了审):
+   - 插件目录必须是**独立 Git 仓库**,仓库名 `n.e.k.o_plugin_<插件ID>`;
+   - 标准仓库文件(`.vscode/`、`.github/workflows/verify.yml` 与 `release.yml` 等)由
+     `python plugin\neko_plugin_cli\cli.py setup-repo <dir> --git --github-actions` 生成
+     (工坊生成流程已自动跑过不带 `--git` 的版本;首次建仓时带 `--git` 可一并初始化 git 仓库,
+     缺了就补跑,`--upgrade-github-actions` 可升级旧工作流);
+   - 推送 GitHub 后提交 **Market 首次审核**,审核通过后运行 `neko-plugin publish <id>`
+     创建 GitHub Release 并发布 Market 版本;
+   - **本地 build 的 `.neko-plugin` 只是安装包,不能代替 GitHub Release**;严禁用复制目录、
+     安装包导入或符号链接伪装成发布流程。细则(含失败重试)读 `references/cli.md`。
 
 拿不准 API 细节时,先读对应 reference 再写代码,不要凭空编造 SDK 方法。
 

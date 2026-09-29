@@ -136,8 +136,20 @@ async function main() {
       build: result.build
         ? { ok: result.build.ok, exitCode: result.build.exitCode, artifact: result.build.artifact }
         : null,
+      // setup-repo --git --github-actions:补齐 .vscode/.github/workflows 等上架合规文件,
+      // 全新仓库自动做奠基提交(commit 字段)
+      setupRepo: result.setupRepo
+        ? { ok: result.setupRepo.ok, git: result.setupRepo.git, commit: result.setupRepo.commit }
+        : null,
       // 供 Agent 报告给小白
       files: Object.keys(result.files),
+      // 发布上架路径:本地产物 ≠ 已发布(Market 按 GitHub Release 验收,细则见 skill 的 references/cli.md)
+      nextSteps: [
+        `在 GitHub 创建独立仓库 n.e.k.o_plugin_${vars.PLUGIN_ID},git remote add origin 后推送全部提交`,
+        `提交 Market 首次审核(见 references/cli.md 的投稿步骤)`,
+        `审核通过后运行 neko-plugin publish ${vars.PLUGIN_ID}:创建 GitHub Release 并发布 Market 版本`,
+        "本地 .neko-plugin 只是安装包,不能代替 GitHub Release,严禁复制目录/安装包导入/符号链接伪装发布",
+      ],
     }
     console.log(JSON.stringify(payload, null, 2))
     if (!payload.ok) process.exit(1)

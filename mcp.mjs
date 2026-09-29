@@ -18,10 +18,10 @@
 import { join, resolve } from "node:path"
 import { homedir } from "node:os"
 import { cpSync, existsSync, mkdirSync } from "node:fs"
-import { scaffoldAndVerify, verifyProject } from "./workbench/src/index"
+import { scaffoldAndVerify, verifyProject } from "./src/index"
 
 const WORKSHOP_ROOT = import.meta.dir
-const SKILL_SRC = join(WORKSHOP_ROOT, "workbench", "packs", "neko-plugin", "skill", "neko-plugin-dev")
+const SKILL_SRC = join(WORKSHOP_ROOT, "packs", "neko-plugin", "skill", "neko-plugin-dev")
 const PY_DEFAULT = process.env.WB_PYTHON || "python"
 const NEKO_DEFAULT = process.env.WB_NEKO_REPO || ""
 const PROJECTS_DEFAULT = process.env.WB_PROJECTS_DIR || join(WORKSHOP_ROOT, "workspace")

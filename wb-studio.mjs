@@ -16,7 +16,7 @@
 
 import { createServer } from "node:http"
 import { readFileSync, existsSync, readdirSync, statSync, createReadStream, appendFileSync } from "node:fs"
-import { join, dirname, basename, normalize } from "node:path"
+import { join, dirname, basename, normalize, resolve, relative, isAbsolute } from "node:path"
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
@@ -549,6 +549,8 @@ const SETUP_PAGE = `<!doctype html>
   </details>
 </div>
 <script>
+const WB_TOKEN="__WB_TOKEN__";
+(function(){const _f=fetch.bind(window);window.fetch=(u,o={})=>{const m=(o.method||"GET").toUpperCase();const h=new Headers(o.headers||{});h.set("x-wb-token",WB_TOKEN);if(m!=="GET"&&!h.has("content-type"))h.set("content-type","application/json");o.headers=h;return _f(u,o)}})();
 const $=id=>document.getElementById(id);
 const PROTO_TIPS={
   openai:{req:true,tip:'服务商文档给到的接口地址,通常以 /v1 结尾(具体以你的服务商说明为准)'},
@@ -770,6 +772,8 @@ const PAGE = `<!doctype html>
   </main>
 </div>
 <script>
+const WB_TOKEN="__WB_TOKEN__";
+(function(){const _f=fetch.bind(window);window.fetch=(u,o={})=>{const m=(o.method||"GET").toUpperCase();const h=new Headers(o.headers||{});h.set("x-wb-token",WB_TOKEN);if(m!=="GET"&&!h.has("content-type"))h.set("content-type","application/json");o.headers=h;return _f(u,o)}})();
 const chat=document.getElementById('chat'),form=document.getElementById('f'),t=document.getElementById('t'),b=document.getElementById('b');
 const slist=document.getElementById('slist'),newbtn=document.getElementById('newbtn');
 let curSession=null;
@@ -1081,13 +1085,64 @@ let busy = false
 let currentAbort = null // 当前任务的 AbortController(停止按钮用)
 let enginePoisoned = false // 引擎毒化标记:看门狗中止/模型不可用后,引擎可能拒绝后续模型调用,需重启自愈
 
+// ---------- 本地服务安全门禁 ----------
+// 只监听 127.0.0.1 挡不住浏览器跨站请求:任意网页都能向本服务发 POST(DNS rebinding 甚至能读应答)。
+// 三道防线:Host 校验(挡 rebinding)、Origin 校验(挡跨站表单/fetch)、写接口要求
+// application/json + 启动时随机 token(挡简单请求 CSRF;token 经页面注入,本机工具读 runtime/studio-token.txt)。
+const { randomBytes } = require("node:crypto")
+const API_TOKEN = randomBytes(24).toString("hex")
+try {
+  const { mkdirSync, writeFileSync } = require("node:fs")
+  mkdirSync(join(__dirname, "runtime"), { recursive: true })
+  writeFileSync(join(__dirname, "runtime", "studio-token.txt"), API_TOKEN, "utf8")
+} catch {}
+const ALLOWED_HOSTS = new Set([
+  `127.0.0.1:${config.port}`,
+  `localhost:${config.port}`,
+  `[::1]:${config.port}`,
+])
+function originAllowed(origin) {
+  if (!origin) return true // 非浏览器客户端(本机工具/curl)不带 Origin
+  try {
+    const u = new URL(origin)
+    return u.protocol === "http:" && ALLOWED_HOSTS.has(u.host.toLowerCase())
+  } catch {
+    return false
+  }
+}
+
 const srv = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${config.port}`)
+  // Host 与 Origin 校验:拒绝 DNS rebinding 与一切跨站来源
+  if (!ALLOWED_HOSTS.has(String(req.headers.host || "").toLowerCase())) {
+    res.writeHead(403, { "content-type": "application/json; charset=utf-8" })
+    res.end(JSON.stringify({ ok: false, error: "非法 Host" }))
+    return
+  }
+  if (!originAllowed(req.headers.origin)) {
+    res.writeHead(403, { "content-type": "application/json; charset=utf-8" })
+    res.end(JSON.stringify({ ok: false, error: "跨站请求被拒绝" }))
+    return
+  }
+  // 写接口(POST/DELETE/PUT/PATCH):必须 JSON content-type + 启动时随机 token
+  if (req.method === "POST" || req.method === "DELETE" || req.method === "PUT" || req.method === "PATCH") {
+    const ct = String(req.headers["content-type"] || "").toLowerCase()
+    if (!ct.startsWith("application/json")) {
+      res.writeHead(415, { "content-type": "application/json; charset=utf-8" })
+      res.end(JSON.stringify({ ok: false, error: "写接口只接受 application/json" }))
+      return
+    }
+    if (String(req.headers["x-wb-token"] || "") !== API_TOKEN) {
+      res.writeHead(403, { "content-type": "application/json; charset=utf-8" })
+      res.end(JSON.stringify({ ok: false, error: "token 校验失败(请从本工作台页面操作;本机工具需读 runtime/studio-token.txt 并随 x-wb-token 头发送)" }))
+      return
+    }
+  }
   try {
     if (req.method === "GET" && url.pathname === "/") {
-      // 未配置密钥时优先展示引导页
+      // 未配置密钥时优先展示引导页;页面内嵌启动时随机 token(__WB_TOKEN__ 占位符注入)
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
-      res.end((hasValidKey() || cliEngineReady()) ? PAGE : SETUP_PAGE)
+      res.end(((hasValidKey() || cliEngineReady()) ? PAGE : SETUP_PAGE).split("__WB_TOKEN__").join(API_TOKEN))
       return
     }
     if (req.method === "POST" && url.pathname === "/api/setup") {
@@ -1367,7 +1422,16 @@ const srv = createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: false, error: "产物路径无效(需要 .neko-plugin)" }))
         return
       }
-      const full = existsSync(art) ? art : join(config.workspace, safe)
+      // 只允许安装工作区内的产物:调用方给的绝对路径也不能指向工作区外(防本机任意文件被读走/安装)
+      const wsRoot = resolve(config.workspace)
+      const cand = resolve(wsRoot, art)
+      const rel = relative(wsRoot, cand)
+      if (rel.startsWith("..") || isAbsolute(rel)) {
+        res.writeHead(403, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: "产物必须位于工作区内,已拒绝工作区外路径" }))
+        return
+      }
+      const full = existsSync(cand) ? cand : join(wsRoot, safe)
       if (!existsSync(full)) {
         res.writeHead(404, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify({ ok: false, error: `找不到产物文件:${safe}` }))
