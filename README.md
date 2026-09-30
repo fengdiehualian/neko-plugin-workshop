@@ -74,6 +74,7 @@ powershell -File workbench/make-exe.ps1 -Stage "<便携包目录>" -Out setup.ex
 ## 相关链接
 
 - N.E.K.O. 主程序:https://github.com/Project-N-E-K-O/N.E.K.O
+- 配套安装器插件(装进 N.E.K.O. 后说「安装工作台」即可一键安装本工坊):https://github.com/fengdiehualian/n.e.k.o_plugin_workbench_installer
 - 插件开发文档:https://project-neko.online/zh-CN/plugins/
 - 插件市场:https://market.project-neko.cn
 
