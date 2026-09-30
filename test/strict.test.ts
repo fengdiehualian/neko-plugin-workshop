@@ -40,4 +40,35 @@ describe("applyStrict(strict 模式:warning 视为失败)", () => {
     expect(summary?.message).toContain("6")
     expect(s.issues.some((i) => i.message.includes(".vscode"))).toBe(true) // 原明细保留
   })
+
+  test("仓库状态类 warning(origin/工作树/独立仓库)不判负,原样放行(Issue #3)", () => {
+    const c = fakeCheck({
+      ok: true,
+      warnings: 3,
+      issues: [
+        { severity: "warning", message: "git remote 'origin' is not configured" },
+        { severity: "warning", message: "git working tree has uncommitted changes" },
+        { severity: "warning", message: "plugin source directory does not have its own git repository" },
+      ],
+    })
+    const s = applyStrict(c)
+    expect(s.ok).toBe(true) // 只剩仓库状态类:放行,build 不被跳过
+    expect(s.warnings).toBe(3) // 明细保留
+  })
+
+  test("仓库状态类与代码质量 warning 混合:只按代码质量判负,忽略数写进汇总(Issue #3)", () => {
+    const c = fakeCheck({
+      ok: true,
+      warnings: 2,
+      issues: [
+        { severity: "warning", message: "git remote 'origin' is not configured" },
+        { severity: "warning", message: ".gitignore should include store.db" },
+      ],
+    })
+    const s = applyStrict(c)
+    expect(s.ok).toBe(false)
+    const summary = s.issues.find((i) => i.message.includes("strict 模式"))
+    expect(summary?.message).toContain("1") // 只有 1 个判负
+    expect(summary?.message).toContain("已忽略 1 个仓库状态类警告")
+  })
 })

@@ -1,3 +1,3 @@
 [plugin_runtime]
 enabled = true
-auto_start = false
+auto_start = true

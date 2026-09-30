@@ -17,7 +17,7 @@
 
 import { join, resolve } from "node:path"
 import { homedir } from "node:os"
-import { cpSync, existsSync, mkdirSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from "node:fs"
 import { scaffoldAndVerify, verifyProject } from "./src/index"
 
 const WORKSHOP_ROOT = import.meta.dir
@@ -42,9 +42,10 @@ function skillTarget(agent, targetDir) {
 }
 
 function toolScaffold(args) {
-  const nekoRepoRoot = args.nekoRepo || NEKO_DEFAULT
-  if (!nekoRepoRoot) throw new Error("缺少 nekoRepo(参数或环境变量 WB_NEKO_REPO)")
-  const out = args.out || PROJECTS_DEFAULT
+  const nekoRepoRoot = resolve(String(args.nekoRepo || NEKO_DEFAULT))
+  if (!args.nekoRepo && !NEKO_DEFAULT) throw new Error("缺少 nekoRepo(参数或环境变量 WB_NEKO_REPO)")
+  // 相对路径按进程 cwd 解析成绝对路径(Issue #3):否则落盘与 check/build 各按各的 cwd 解析
+  const out = resolve(String(args.out || PROJECTS_DEFAULT))
   return scaffoldAndVerify(
     args.packId || "neko-plugin",
     args.template || "reminder",
@@ -52,18 +53,19 @@ function toolScaffold(args) {
       PLUGIN_ID: String(args.pluginId ?? ""),
       PLUGIN_NAME: String(args.pluginName ?? ""),
       CLASS_NAME: String(args.className ?? ""),
+      PLUGIN_AUTHOR: String(args.pluginAuthor ?? ""),
     },
     { targetDir: out, nekoRepoRoot, python: args.python || PY_DEFAULT, strict: args.strict === true },
   )
 }
 
 async function toolVerify(args) {
-  const nekoRepoRoot = args.nekoRepo || NEKO_DEFAULT
-  if (!nekoRepoRoot) throw new Error("缺少 nekoRepo(参数或环境变量 WB_NEKO_REPO)")
+  const nekoRepoRoot = resolve(String(args.nekoRepo || NEKO_DEFAULT))
+  if (!args.nekoRepo && !NEKO_DEFAULT) throw new Error("缺少 nekoRepo(参数或环境变量 WB_NEKO_REPO)")
   if (!args.pluginDir) throw new Error("缺少 pluginDir")
   return verifyProject(nekoRepoRoot, resolve(String(args.pluginDir)), {
     python: args.python || PY_DEFAULT,
-    outPath: args.outPath || undefined,
+    outPath: args.outPath ? resolve(String(args.outPath)) : undefined,
     strict: args.strict === true,
   })
 }
@@ -72,10 +74,31 @@ function toolInstallSkill(args) {
   if (!existsSync(SKILL_SRC)) throw new Error(`技能包缺失:${SKILL_SRC}`)
   const { dest, hint } = skillTarget(args.agent || "generic", args.targetDir)
   mkdirSync(dest, { recursive: true })
-  cpSync(SKILL_SRC, dest, { recursive: true })
+  // 复制时替换 <WORKSHOP_DIR>(Issue #3):技能装到别的底座后,SKILL.md/market-catalog 里的
+  // 语料路径必须指向真实工坊根;统一正斜杠,macOS/Linux 也能用
+  const workshopDir = WORKSHOP_ROOT.replace(/\\/g, "/")
+  const walk = (rel) => {
+    for (const e of readdirSync(join(SKILL_SRC, rel), { withFileTypes: true })) {
+      const r = rel ? `${rel}/${e.name}` : e.name
+      const src = join(SKILL_SRC, r)
+      const dst = join(dest, r)
+      if (e.isDirectory()) {
+        mkdirSync(dst, { recursive: true })
+        walk(r)
+        continue
+      }
+      const buf = readFileSync(src)
+      if (buf.includes(0)) {
+        writeFileSync(dst, buf) // 二进制原样(当前技能包全是文本,防御)
+        continue
+      }
+      writeFileSync(dst, buf.toString("utf8").split("<WORKSHOP_DIR>").join(workshopDir), "utf8")
+    }
+  }
+  walk("")
   return {
     installed: dest,
-    files: "SKILL.md + references/*(15 页官方插件规范 + 市场写法分析)",
+    files: "SKILL.md + references/*(15 页官方插件规范 + 市场写法分析,<WORKSHOP_DIR> 已替换为 " + workshopDir + ")",
     usage: hint,
     pipeline: "让 Agent 读该 SKILL.md 后,用 wb-plugin CLI(或本 MCP 的 wb_scaffold/wb_verify)完成 生成→check→build",
   }
@@ -91,6 +114,7 @@ const TOOLS = [
         pluginId: { type: "string", description: "插件 ID(如 hydration_cat)" },
         pluginName: { type: "string", description: "插件显示名(中文即可)" },
         className: { type: "string", description: "入口类名(如 HydrationCatPlugin)" },
+        pluginAuthor: { type: "string", description: "作者名(可选;默认读本机 git 身份)" },
         packId: { type: "string", description: "默认 neko-plugin" },
         template: { type: "string", description: "模板:reminder|notes|hello_world,默认 reminder" },
         out: { type: "string", description: "项目落盘目录,默认工坊 workspace" },

@@ -1,4 +1,4 @@
-import { join, dirname, basename } from "node:path"
+import { join, dirname, basename, resolve } from "node:path"
 import { spawnSync } from "node:child_process"
 import { existsSync } from "node:fs"
 import { mkdir, writeFile } from "node:fs/promises"
@@ -180,12 +180,24 @@ export async function verifyProject(
 }
 
 /**
- * strict 模式:warning 一律视为失败。
- * check 本身有错误或零 warning 时原样返回;否则把 check 判为不通过并附汇总 issue,
+ * 仓库状态类 warning(Issue #3):新脚手架没有 origin、Agent 修复过程中工作树必然是脏的 ——
+ * 这些是"发布状态"而非代码质量,让它们判负会使 strict 永远不过、build 被跳过、修复循环空转
+ * (甚至诱导 Agent 伪造 remote)。仍保留在 issues 里展示,只是不计入 strict 判负。
+ */
+const REPO_STATE_WARNING = /git remote|working tree|own git repository/i
+
+/**
+ * strict 模式:代码质量类 warning 一律视为失败(仓库状态类除外,见上)。
+ * check 本身有错误或零判负 warning 时原样返回;否则把 check 判为不通过并附汇总 issue,
  * 让修复循环(或调用方)在 build 之前把 warning 清零。
  */
 export function applyStrict(check: CheckSummary): CheckSummary {
   if (!check.ok || check.warnings === 0) return check
+  const repoState = check.issues.filter(
+    (i) => i.severity === "warning" && REPO_STATE_WARNING.test(i.message),
+  ).length
+  const blocking = check.warnings - repoState
+  if (blocking <= 0) return check
   return {
     ...check,
     ok: false,
@@ -193,8 +205,8 @@ export function applyStrict(check: CheckSummary): CheckSummary {
       ...check.issues,
       {
         severity: "error",
-        message: `strict 模式:${check.warnings} 个 warning 视为错误,check 不通过`,
-        hint: "逐条修复上方 warning(每条都带 fix 建议)后重跑 verify --strict",
+        message: `strict 模式:${blocking} 个 warning 视为错误${repoState ? `(已忽略 ${repoState} 个仓库状态类警告)` : ""},check 不通过`,
+        hint: "逐条修复上方 warning(每条都带 fix 建议)后重跑 verify --strict;origin/工作树等仓库状态类警告不影响打包",
       } satisfies CheckIssue,
     ],
   }
@@ -358,8 +370,14 @@ export async function scaffoldAndVerify(
       `PLUGIN_ID 不合法:${JSON.stringify(pluginId)}(要求 ^[a-z][a-z0-9_]*$:小写字母开头,仅小写字母/数字/下划线,不能为空)`,
     )
   }
-  const files = await renderProject(packId, template, vars)
-  const rootDir = join(opts.targetDir, pluginId)
+  // 作者身份(Issue #3):PLUGIN_AUTHOR 变量 > 本机 git 身份 > 工坊占位名。
+  // 模板 {{PLUGIN_AUTHOR}} 与奠基提交身份都用它,绝不冒挂官方域名
+  const gitName = (await runSync("git", ["config", "user.name"], process.cwd())).raw.trim()
+  const authorName = String(vars.PLUGIN_AUTHOR ?? "").trim() || gitName || "N.E.K.O. Workshop"
+  const renderVars = { ...vars, PLUGIN_AUTHOR: authorName }
+  const files = await renderProject(packId, template, renderVars)
+  const targetDir = resolve(opts.targetDir) // 相对路径按进程 cwd 解析一次(Issue #3),与 check/build 的 cwd 无关
+  const rootDir = join(targetDir, pluginId)
   // 开发技能(.opencode/**)不写进插件目录:否则被 N.E.K.O build 原样打进 .neko-plugin
   // (成品多 ~30 个无关条目,且点目录会触发 macOS codesign "bundle format unrecognized")。
   // 落到工作区根即可——引擎 cwd=工作区,agent 照常读到;分发给任意底座用 wb_install_skill。
@@ -370,53 +388,68 @@ export async function scaffoldAndVerify(
     else projectFiles[rel] = text
   }
   await writeFiles(rootDir, projectFiles)
-  if (Object.keys(skillFiles).length) await writeFiles(opts.targetDir, skillFiles)
+  if (Object.keys(skillFiles).length) await writeFiles(targetDir, skillFiles)
+
+  // 独立 git 仓库(Issue #3):官方 setup-repo --git 遇到上层 .git 会跳过建仓,而 Market/publish
+  // 要求插件目录本身是独立仓库 —— 输出目录在别的仓库内(如工坊 workspace)时必须自己建嵌套独立仓
+  if (!existsSync(join(rootDir, ".git"))) {
+    await runSync("git", ["init"], rootDir)
+  }
 
   // 上架合规文件:官方 setup-repo 补 .vscode/.github/workflows(verify.yml/release.yml)/ruff.toml
-  // ——缺失才写、不覆盖模板文件。两步走:先不带 --git 保底生成(机器没装 git 也能出文件),
-  // 再带 --git 尽力初始化独立 git 仓库(官方 check/上架都要求;失败不阻断,结果随 JSON 返回)
-  const setupFiles = await runSync(
-    opts.python ?? "python",
-    ["plugin/neko_plugin_cli/cli.py", "setup-repo", rootDir, "--github-actions"],
-    opts.nekoRepoRoot,
-  )
-  const setupGit = await runSync(
+  // ——缺失才写、不覆盖模板文件。先跑 --git --github-actions(一步到位),失败(如没装 git)
+  // 再回落 --github-actions 保底生成;两步输出都带回结果(Issue #3),失败不阻断生成
+  let setup = await runSync(
     opts.python ?? "python",
     ["plugin/neko_plugin_cli/cli.py", "setup-repo", rootDir, "--git", "--github-actions"],
     opts.nekoRepoRoot,
   )
-  // 奠基提交:只对"全新空仓库"做(有历史的仓库绝不自动提交,免得卷走用户的 WIP),
-  // 消掉 strict 的 "working tree has uncommitted changes";身份用中立 bot,不动用户 git 配置
+  let setupRaw = setup.raw
+  if (setup.code !== 0) {
+    const fallback = await runSync(
+      opts.python ?? "python",
+      ["plugin/neko_plugin_cli/cli.py", "setup-repo", rootDir, "--github-actions"],
+      opts.nekoRepoRoot,
+    )
+    setupRaw += "\n--- fallback (no --git) ---\n" + fallback.raw
+    if (fallback.code === 0) setup = fallback
+  }
+  // 奠基提交:只对"全新空仓库"做(有历史的仓库绝不自动提交,免得卷走用户的 WIP)。
+  // 身份按提交所在仓库(rootDir)探测 —— 外层仓库的 repo-local 身份对嵌套新仓库不生效;
+  // 缺失才用中立占位邮箱(绝不挂官方域名,Issue #3)
+  const gitReady = existsSync(join(rootDir, ".git"))
   let scaffoldCommit: boolean | null = null
-  if (setupGit.code === 0 && existsSync(join(rootDir, ".git"))) {
+  if (gitReady) {
     const head = await runSync("git", ["rev-parse", "--verify", "HEAD"], rootDir)
     if (head.code !== 0) {
       await runSync("git", ["add", "-A"], rootDir)
+      const commitName = (await runSync("git", ["config", "user.name"], rootDir)).raw.trim()
+      const commitEmail = (await runSync("git", ["config", "user.email"], rootDir)).raw.trim()
+      const identityArgs: string[] = []
+      if (!commitName) identityArgs.push("-c", `user.name=${authorName}`)
+      if (!commitEmail) identityArgs.push("-c", "user.email=noreply@neko-workshop.invalid")
       const commit = await runSync(
         "git",
-        [
-          "-c", "user.name=N.E.K.O. Workshop",
-          "-c", "user.email=workshop@project-neko.online",
-          "commit", "-m", `chore: scaffold ${pluginId} via N.E.K.O. workshop`,
-        ],
+        [...identityArgs, "commit", "-m", `chore: scaffold ${pluginId} via N.E.K.O. workshop`],
         rootDir,
       )
       scaffoldCommit = commit.code === 0
+      setupRaw += "\n--- scaffold commit ---\n" + commit.raw
     }
   }
 
   const result = await verifyProject(opts.nekoRepoRoot, rootDir, {
     python: opts.python,
-    outPath: join(opts.targetDir, `${pluginId}.neko-plugin`),
+    outPath: join(targetDir, `${pluginId}.neko-plugin`),
     strict: opts.strict,
   })
   return {
     files,
     setupRepo: {
-      ok: setupFiles.code === 0,
-      git: setupGit.code === 0,
+      ok: setup.code === 0,
+      git: gitReady,
       commit: scaffoldCommit,
-      raw: setupFiles.raw,
+      raw: setupRaw,
     },
     ...result,
   }

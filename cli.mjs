@@ -14,18 +14,19 @@
 
 // eslint-disable-next-line n/no-unsupported-features/node-builtins
 import { parseArgs } from "node:util"
+import { resolve } from "node:path"
 import { scaffoldAndVerify, verifyProject } from "./src/index"
 
 const USAGE = `用法:
-  wb-plugin scaffold <packId> <template> [--out <dir>] [--neko <repo>] [--python <path>] [--strict] [--VAR v ...]
-    变量:--PLUGIN_ID / --PLUGIN_NAME / --CLASS_NAME(必填)
+  wb-plugin scaffold <packId> <template> [--out <dir>] [--neko <repo>] [--python <path>] [--strict] --PLUGIN_ID id --PLUGIN_NAME 名称 --CLASS_NAME 类名 [--PLUGIN_AUTHOR 作者]
+    变量:--PLUGIN_ID / --PLUGIN_NAME / --CLASS_NAME(必填);--PLUGIN_AUTHOR 可选(默认读本机 git 身份)
   wb-plugin verify   <pluginDir> [--neko <repo>] [--python <path>] [--out <file>] [--strict]
     对已有插件目录跑 check→build(修复循环主入口);输出含结构化 issues
-    --strict:warning 一律视为失败(warnings>0 ⇒ check 不通过,跳过 build)
+    --strict:代码质量类 warning 一律视为失败(仓库状态类 origin/工作树不计);它是开关,不带值
     --python:NEKO 源码 SDK 依赖所在的解释器(默认 "python",可用环境变量 WB_PYTHON)
 例子:
   wb-plugin scaffold neko-plugin reminder --out C:/projects --neko C:/dev/N.E.K.O --PLUGIN_ID poetry --PLUGIN_NAME 每日诗词 --CLASS_NAME Poetry
-  wb-plugin verify C:/projects/poetry --neko C:/dev/N.E.K.O`
+  wb-plugin verify C:/projects/poetry --neko C:/dev/N.E.K.O --strict`
 
 function fail(msg, extra) {
   console.log(JSON.stringify({ ok: false, error: msg, ...(extra || {}) }))
@@ -33,33 +34,44 @@ function fail(msg, extra) {
 }
 
 async function main() {
-  const argv = process.argv.slice(2)
-  const command = argv[0]
+  // 用 node:util parseArgs(Issue #3):手写解析器会把 --strict 后面的位置参数当成它的值,
+  // `verify --strict C:/proj` 直接坏掉;布尔选项必须声明
+  let parsed
+  try {
+    parsed = parseArgs({
+      args: process.argv.slice(2),
+      allowPositionals: true,
+      options: {
+        out: { type: "string" },
+        neko: { type: "string" },
+        python: { type: "string" },
+        strict: { type: "boolean" },
+        PLUGIN_ID: { type: "string" },
+        PLUGIN_NAME: { type: "string" },
+        CLASS_NAME: { type: "string" },
+        PLUGIN_AUTHOR: { type: "string" },
+      },
+    })
+  } catch (e) {
+    fail(`${e && e.message ? e.message : e}\n${USAGE}`)
+  }
+  const { values, positionals } = parsed
+  const command = positionals[0]
+  const positional = positionals.slice(1)
   if (!command || (command !== "scaffold" && command !== "verify")) {
     fail(USAGE)
   }
-
-  // 收集 flags 与位置参数
-  const flags = {}
-  const vars = {}
-  const positional = []
-  for (let i = 1; i < argv.length; i++) {
-    const a = argv[i]
-    if (a.startsWith("--")) {
-      const key = a.slice(2)
-      if (i + 1 < argv.length && !argv[i + 1].startsWith("--")) {
-        const val = argv[i + 1]
-        if (key === "out") flags.targetDir = val
-        else if (key === "neko") flags.nekoRepoRoot = val
-        else if (key === "python") flags.python = val
-        else vars[key] = val
-        i++
-      } else {
-        flags[key] = true
-      }
-    } else {
-      positional.push(a)
-    }
+  const flags = {
+    targetDir: values.out,
+    nekoRepoRoot: values.neko,
+    python: values.python,
+    strict: values.strict === true || process.env.WB_STRICT === "1",
+  }
+  const vars = {
+    PLUGIN_ID: values.PLUGIN_ID,
+    PLUGIN_NAME: values.PLUGIN_NAME,
+    CLASS_NAME: values.CLASS_NAME,
+    PLUGIN_AUTHOR: values.PLUGIN_AUTHOR,
   }
 
   if (command === "verify") {
@@ -68,10 +80,12 @@ async function main() {
       fail("缺少 <pluginDir> 或 --neko(或环境变量 WB_NEKO_REPO)\n" + USAGE)
     }
     try {
-      const result = await verifyProject(flags.nekoRepoRoot, positional[0], {
+      // 相对路径一律按进程 cwd 解析成绝对路径(Issue #3):check/build 以 nekoRepoRoot 为 cwd,
+      // 不解析会"写一处、查另一处"
+      const result = await verifyProject(resolve(flags.nekoRepoRoot), resolve(positional[0]), {
         python: flags.python || process.env.WB_PYTHON || "python",
-        outPath: flags.targetDir,
-        strict: flags.strict === true || process.env.WB_STRICT === "1",
+        outPath: flags.targetDir ? resolve(flags.targetDir) : undefined,
+        strict: flags.strict,
       })
       console.log(
         JSON.stringify(
@@ -119,8 +133,18 @@ async function main() {
     const result = await scaffoldAndVerify(
       packId,
       template,
-      { PLUGIN_ID: vars.PLUGIN_ID, PLUGIN_NAME: vars.PLUGIN_NAME, CLASS_NAME: vars.CLASS_NAME },
-      { targetDir: flags.targetDir, nekoRepoRoot: flags.nekoRepoRoot, python: flags.python || process.env.WB_PYTHON || "python", strict: flags.strict === true || process.env.WB_STRICT === "1" },
+      {
+        PLUGIN_ID: vars.PLUGIN_ID,
+        PLUGIN_NAME: vars.PLUGIN_NAME,
+        CLASS_NAME: vars.CLASS_NAME,
+        PLUGIN_AUTHOR: vars.PLUGIN_AUTHOR ?? "",
+      },
+      {
+        targetDir: resolve(flags.targetDir),
+        nekoRepoRoot: resolve(flags.nekoRepoRoot),
+        python: flags.python || process.env.WB_PYTHON || "python",
+        strict: flags.strict,
+      },
     )
 
     const payload = {
