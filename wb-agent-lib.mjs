@@ -56,6 +56,37 @@ function scanArtifacts(dir, sinceMs) {
   }
 }
 
+/** 任务收尾展示「已修改的文件」:工作区内任务开始后新增/改动的文件(相对路径,按时间序)。
+ *  排除构建产物(.neko-plugin 等,由 scanArtifacts 单列)、缓存/依赖目录与日志噪声 */
+const MOD_SKIP_DIRS = new Set([".git", ".opencode", "node_modules", "__pycache__", ".pytest_cache", "runtime", ".venv", "venv", "dist", "build"])
+export function scanModifiedFiles(dir, sinceMs) {
+  const out = []
+  const walk = (rel) => {
+    let entries
+    try {
+      entries = readdirSync(rel ? join(dir, rel) : dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      const r = rel ? `${rel}/${e.name}` : e.name
+      if (e.isDirectory()) {
+        if (MOD_SKIP_DIRS.has(e.name)) continue
+        walk(r)
+        continue
+      }
+      if (/\.(neko-plugin|neko-bundle|pyc|pyo|log|tmp|swp)$/.test(e.name)) continue
+      try {
+        const mtime = statSync(join(dir, r)).mtimeMs
+        if (mtime >= sinceMs - 2000) out.push({ rel: r, mtime })
+      } catch {}
+    }
+  }
+  walk("")
+  out.sort((a, b) => a.mtime - b.mtime)
+  return out.map((x) => x.rel)
+}
+
 /**
  * @param {DriveOptions} opts
  * @returns {Promise<DriveResult>}
@@ -423,6 +454,7 @@ export async function driveAgent(opts) {
     thinking,
     usage: turnUsage,
     artifacts: scanArtifacts(opts.dir, startedAt),
+    modifiedFiles: scanModifiedFiles(opts.dir, startedAt),
   }
 }
 
@@ -610,7 +642,8 @@ export async function driveAgentCli(opts) {
       clearTimeout(timer)
       cleanup()
       const artifacts = scanArtifacts(opts.dir || process.cwd(), startedAt)
-      const base = { sessionId: opts.sessionID || `cli_${startedAt}`, idle: true, stats: { permissions: 0, questions: 0 }, artifacts }
+      const modifiedFiles = scanModifiedFiles(opts.dir || process.cwd(), startedAt)
+      const base = { sessionId: opts.sessionID || `cli_${startedAt}`, idle: true, stats: { permissions: 0, questions: 0 }, artifacts, modifiedFiles }
       if (fail.kind === "spawn") {
         resolve({ ok: false, ...base, error: fail.message, reply: null })
         return

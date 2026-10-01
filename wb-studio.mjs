@@ -781,6 +781,8 @@ function add(cls,html){const d=document.createElement('div');d.className='msg '+
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function fmtTok(n){n=n||0;if(n>=10000)return (n/10000).toFixed(1)+'万';if(n>=1000)return (n/1000).toFixed(1)+'k';return ''+n}
 function usageLine(u){if(!u)return'';const out=(u.output||0)+(u.reasoning||0);let s='Token ↑'+fmtTok(u.input)+' ↓'+fmtTok(out);if(u.reasoning)s+=' (含思考 '+fmtTok(u.reasoning)+')';return '<div class="tusage">'+s+'</div>'}
+// Build 模式任务收尾:本次已修改的文件(相对路径,时间序;产物另有下载 chip)
+function modFilesHtml(fs){if(!fs||!fs.length)return'';return '<div style="margin:6px 0 2px;font-size:12px;opacity:.9">✏️ 已修改 '+fs.length+' 个文件</div><div style="display:flex;flex-wrap:wrap;gap:4px">'+fs.map(f=>'<span class="chip" title="'+esc(f)+'">'+esc(f)+'</span>').join('')+'</div>'}
 
 // ---------- 会话列表 ----------
 let showArchived=false;
@@ -863,7 +865,7 @@ function renderMessages(s){
     if(m.role==='user')add('user',esc(m.content));
     else{
       if(m.error&&!m.content)add('err','😢 '+esc(m.error));
-      else{let html='';if(m.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(m.thinking)+'</div></details>';html+=esc(m.content);if(m.artifacts&&m.artifacts.length){html+='<br>';for(const a of m.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}}html+=usageLine(m.usage);add(m.error?'bot err':'bot ok',html);}
+      else{let html='';if(m.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(m.thinking)+'</div></details>';html+=esc(m.content);html+=modFilesHtml(m.modifiedFiles);if(m.artifacts&&m.artifacts.length){html+='<br>';for(const a of m.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}}html+=usageLine(m.usage);add(m.error?'bot err':'bot ok',html);}
     }
   }
 }
@@ -925,6 +927,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
       let html='';
       if(j.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(j.thinking)+'</div></details>';
       html+=esc(j.reply||'完成!');
+      html+=modFilesHtml(workMode==='build'?j.modifiedFiles:null);
       if(j.artifacts&&j.artifacts.length){html+='<br>';for(const a of j.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}}
       html+=usageLine(j.usage);
       add('ok',html);
@@ -1780,6 +1783,7 @@ const srv = createServer(async (req, res) => {
             at: Date.now(),
             error: result.ok ? undefined : String(result.error || ""),
             artifacts: result.artifacts || [],
+            modifiedFiles: result.modifiedFiles || [],
           })
         } else {
           s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || "") })
@@ -1835,6 +1839,7 @@ const srv = createServer(async (req, res) => {
             usage: turnTotal > 0 ? u : undefined,
             error: result.ok ? undefined : String(result.error || ""),
             artifacts: result.artifacts || [],
+            modifiedFiles: result.modifiedFiles || [],
           })
         } else if (result.error) {
           s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error), usage: turnTotal > 0 ? u : undefined })
