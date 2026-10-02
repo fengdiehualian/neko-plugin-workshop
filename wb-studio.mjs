@@ -67,6 +67,7 @@ const defaultConfig = {
   timeoutSec: 1500,
   stallTimeoutSec: 360, // 无进展看门狗:任务连续 N 秒没有任何引擎事件就自动中止(慢中转+长思考可几分钟无事件,给足 6 分钟)
   strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告)
+  contextLimit: 128000, // 上下文容量(tokens):模型上下文窗口大小,用于底部容量显示
   openBrowser: true,
   openMode: "app", // "app"=内置窗口(Edge/Chrome --app,关窗即退出);"browser"=系统浏览器(不随窗口退出)
   appWindow: "1200x860",
@@ -197,13 +198,14 @@ function loadUserSettings() {
   try {
     const s = JSON.parse(readFileSync(SETTINGS_FILE, "utf8"))
     if (typeof s.strictVerify === "boolean") config.strictVerify = s.strictVerify
+    if (typeof s.contextLimit === "number" && s.contextLimit > 0) config.contextLimit = Math.floor(s.contextLimit)
   } catch {}
 }
 function saveUserSettings() {
   try {
     const { mkdirSync, writeFileSync } = require("node:fs")
     mkdirSync(join(__dirname, "runtime"), { recursive: true })
-    writeFileSync(SETTINGS_FILE, JSON.stringify({ strictVerify: !!config.strictVerify }, null, 2), "utf8")
+    writeFileSync(SETTINGS_FILE, JSON.stringify({ strictVerify: !!config.strictVerify, contextLimit: config.contextLimit }, null, 2), "utf8")
   } catch (e) {
     console.error("[wb-studio] 设置落盘失败:", e.message)
   }
@@ -754,6 +756,18 @@ const PAGE = `<!doctype html>
         <span><b>严格校验</b> <span style="color:var(--muted-2);font-size:12px">(warning 也算失败,必须修到零警告才打包)</span></span>
       </label>
     </div>
+    <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
+      <div style="font-size:13.5px;color:var(--ink)"><b>上下文容量</b> <span style="color:var(--muted-2);font-size:12px">(模型上下文窗口大小,决定底部容量条的满格刻度)</span></div>
+      <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <button type="button" class="ctxpreset" data-ctx="32000" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer">32K</button>
+        <button type="button" class="ctxpreset" data-ctx="128000" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer">128K</button>
+        <button type="button" class="ctxpreset" data-ctx="200000" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer">200K</button>
+        <button type="button" class="ctxpreset" data-ctx="1000000" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer">1M</button>
+        <input id="ctxInput" type="number" min="1" step="1" style="width:92px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px" placeholder="自定义 K">
+        <button type="button" id="ctxSave" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">保存</button>
+      </div>
+      <div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">填 K 数(128 = 128K tokens),改完即生效;占用为估算值(最近一轮输入+输出)</div>
+    </div>
   </div>
 </div>
 <div id="wrap">
@@ -768,7 +782,7 @@ const PAGE = `<!doctype html>
     <div class="msg bot">你好呀!我是工坊猫咪助手 🐾<br>告诉我你想要一个什么样的插件,比如:<br>「做一个每日提醒喝水的插件,每 45 分钟提醒一次」<br>「做一个记事本插件,能存笔记还能搜索」</div>
   </div>
   <form id="f"><textarea id="t" placeholder="描述你想要的插件…" required></textarea><button id="b">开工!</button></form>
-  <div class="hint"><span id="tokbar"></span><span> · 回车发送,Shift+回车换行;完成后可下载 .neko-plugin 导入 N.E.K.O.</span></div>
+  <div class="hint"><span id="tokbar"></span><span id="ctxbar"></span><span> · 回车发送,Shift+回车换行;完成后可下载 .neko-plugin 导入 N.E.K.O.</span></div>
   </main>
 </div>
 <script>
@@ -777,6 +791,16 @@ const WB_TOKEN="__WB_TOKEN__";
 const chat=document.getElementById('chat'),form=document.getElementById('f'),t=document.getElementById('t'),b=document.getElementById('b');
 const slist=document.getElementById('slist'),newbtn=document.getElementById('newbtn');
 let curSession=null;
+// 上下文容量显示:占用≈最近一轮 usage.input+output(估算),容量来自设置(默认 128K)
+let ctxLimit=128000,ctxUsed=0;
+function fmtCtx(n){return n>=1000000?(n/1000000).toFixed(n%1000000?1:0)+'M':n>=1000?(n/1000).toFixed(n%1000?1:0)+'K':''+n}
+function updateCtxBar(){
+  const el=document.getElementById('ctxbar');if(!el)return;
+  const pct=ctxLimit>0?Math.min(100,Math.round(ctxUsed/ctxLimit*100)):0;
+  const col=pct>=90?'#e53935':pct>=70?'#fb8c00':'#43a047';
+  el.innerHTML=' · 🧠 上下文 '+fmtCtx(ctxUsed)+'/'+fmtCtx(ctxLimit)+' ('+pct+'%)'+
+    '<span style="display:inline-block;width:56px;height:6px;background:var(--tint);border-radius:3px;vertical-align:middle;margin-left:5px"><span style="display:block;height:6px;border-radius:3px;width:'+pct+'%;background:'+col+'"></span></span>';
+}
 function add(cls,html){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function fmtTok(n){n=n||0;if(n>=10000)return (n/10000).toFixed(1)+'万';if(n>=1000)return (n/1000).toFixed(1)+'k';return ''+n}
@@ -868,6 +892,10 @@ function renderMessages(s){
       else{let html='';if(m.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(m.thinking)+'</div></details>';html+=esc(m.content);html+=modFilesHtml(m.modifiedFiles);if(m.artifacts&&m.artifacts.length){html+='<br>';for(const a of m.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}}html+=usageLine(m.usage);add(m.error?'bot err':'bot ok',html);}
     }
   }
+  // 会话切换/重开:用最近一轮的 usage 恢复上下文占用估算
+  ctxUsed=0;
+  for(let i=(s.messages||[]).length-1;i>=0;i--){const u=s.messages[i].usage;if(u){ctxUsed=(u.input||0)+(u.output||0);break;}}
+  updateCtxBar();
 }
 async function loadCurrent(){
   const j=await(await fetch('/api/sessions')).json();
@@ -932,6 +960,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
       html+=usageLine(j.usage);
       add('ok',html);
     }
+    if(j&&j.usage){ctxUsed=(j.usage.input||0)+(j.usage.output||0);updateCtxBar();}
   }catch(err){clearInterval(pollTimer);ty.remove();if(liveThink)liveThink.remove();add('err','😢 连接出错:'+esc(String(err)))}
   b.disabled=false;stopbtn.style.display='none';t.focus();
 };
@@ -972,6 +1001,19 @@ document.getElementById('strictToggle').onchange=async e=>{
     if(j.ok){e.target.checked=j.strictVerify;}
   }catch(err){e.target.checked=!e.target.checked;}
 };
+// 上下文容量设置:读后端设置 → 填 K 数;预设/保存即生效,底部容量条跟随
+(async()=>{try{const j=await(await fetch('/api/context')).json();ctxLimit=j.contextLimit||128000;document.getElementById('ctxInput').value=Math.round(ctxLimit/1000);updateCtxBar();}catch(e){}})();
+async function saveCtx(){
+  const k=Number(document.getElementById('ctxInput').value);
+  if(!k||k<=0)return;
+  try{
+    const r=await fetch('/api/context',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({contextLimit:Math.round(k*1000)})});
+    const j=await r.json();
+    if(j.ok){ctxLimit=j.contextLimit;updateCtxBar();}
+  }catch(e){}
+}
+document.getElementById('ctxSave').onclick=saveCtx;
+document.querySelectorAll('.ctxpreset').forEach(btn=>{btn.onclick=()=>{document.getElementById('ctxInput').value=Math.round(Number(btn.dataset.ctx)/1000);saveCtx();};});
 try{applyTheme(localStorage.getItem('wb_theme')||'pink')}catch(e){}
 async function loadApis(){
   const j=await(await fetch('/api/apis')).json();apilist.innerHTML='';
@@ -1628,6 +1670,31 @@ const srv = createServer(async (req, res) => {
         engineConfigStale = true
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify({ ok: true, strictVerify: config.strictVerify }))
+        return
+      }
+    }
+    // ---------- 上下文容量(纯显示设置,不动引擎) ----------
+    if (url.pathname === "/api/context") {
+      if (req.method === "GET") {
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, contextLimit: config.contextLimit }))
+        return
+      }
+      if (req.method === "POST") {
+        let body = ""
+        for await (const ch of req) body += ch
+        let b = {}
+        try { b = JSON.parse(body) } catch {}
+        const v = Math.floor(Number(b.contextLimit))
+        if (!Number.isFinite(v) || v < 1000 || v > 10_000_000) {
+          res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, error: "上下文容量要在 1000 ~ 10000000 tokens 之间" }))
+          return
+        }
+        config.contextLimit = v
+        saveUserSettings()
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, contextLimit: config.contextLimit }))
         return
       }
     }
