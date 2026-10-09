@@ -918,7 +918,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
   const sentTo=curSession; // 本条任务归属的会话;期间用户可能切走
   add('user',esc(text)+(workMode==='plan'?' <span style="opacity:.75;font-size:11px">[Plan]</span>':''));t.value='';b.disabled=true;stopbtn.style.display='';
   const ty=document.createElement('div');ty.className='typing';ty.innerHTML='猫咪正在'+(workMode==='plan'?'思考方案':'写插件')+'<span>🐱…</span>';chat.appendChild(ty);chat.scrollTop=chat.scrollHeight;
-  // 实时思考过程:任务期间每 2s 轮询引擎,思考流式展开;任务结束后移除(由最终消息里的折叠版接管)
+  // 实时思考过程:任务期间每 0.5s 轮询引擎(2s 会明显滞后),思考流式展开;任务结束后移除(由最终消息里的折叠版接管)
   const taskStart=Date.now();
   let liveThink=null,liveBody=null;
   const pollTimer=setInterval(async()=>{
@@ -939,7 +939,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
         }
       }
     }catch(err){}
-  },2000);
+  },500);
   try{
     const r=await fetch('/api/task',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,sessionId:sentTo,mode:workMode})});
     const j=await r.json();
