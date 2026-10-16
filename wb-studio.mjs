@@ -107,6 +107,33 @@ function cliEngineReady() {
   return Boolean(cmd && cmd.some((a) => a.includes("{text}") || a.includes("{textFile}") || a.includes("{stdin}")))
 }
 
+// ---------- 许愿式派工:把小白的裸愿望包装成结构化任务书 ----------
+// 小白只会说大白话愿望;裸愿望直接丢给 Agent 会漏掉流程(选模板/scaffold/verify/汇报格式)。
+// 这里做确定性的「愿望→任务书」包装:零额外模型调用、零延迟。Plan 模式不包装(只规划讲解)。
+// 会话里存的仍是用户原话(text),任务书只给引擎看。
+function buildWishPrompt(wish, mode) {
+  if (mode === "plan") return wish
+  const hints = []
+  if (/提醒|定时|每天|每隔|闹钟|日程|倒计时|分钟|小时/.test(wish))
+    hints.push('定时/提醒类:参考 reminder 模板,@timer_interval + @lifecycle("startup"),间隔换算成秒写清')
+  if (/记|笔记|记录|保存|备忘|收集|清单|搜索/.test(wish))
+    hints.push("记录/存储类:参考 notes 模板,数据用 self.data_path(...) 落盘 JSON 持久保存,支持增删查")
+  if (/天气|新闻|翻译|汇率|接口|外部|API|api/.test(wish))
+    hints.push("外部数据类:httpx 异步请求,失败给兜底文案,不阻塞插件主流程")
+  if (/开机|启动|问候|欢迎|打招呼/.test(wish))
+    hints.push('启动行为:写在 @lifecycle(id="startup") 里,不要依赖 auto_start')
+  const hintBlock = hints.length ? "\n技术要点(参考):\n- " + hints.join("\n- ") : ""
+  return [
+    "【用户的愿望】" + wish,
+    "",
+    "这是一位零基础小白许的愿,请把它做成一个能通过校验、能实际用的 N.E.K.O. 插件:",
+    "1. 按愿望选模板:scaffold 用 reminder=定时提醒类 / notes=记录存储类 / hello_world=其他;类名=核心功能+Plugin,PLUGIN_ID 用小写下划线英文",
+    "2. 生成后必须让 wb-plugin verify 全绿(error 清零)再交付,实验循环最多 5 轮;遵守 SKILL.md 硬规则 R1–R15" + hintBlock,
+    "3. 愿望有歧义就选最常见的那种理解直接做,汇报时说明你的理解;绝不反问用户技术细节",
+    "4. 最后用中文说人话汇报:插件叫什么、干什么、什么时候触发、怎么装(下载 .neko-plugin → N.E.K.O. 插件管理器导入 → 启动)",
+  ].join("\n")
+}
+
 // ---------- N.E.K.O 仓库自动探测 ----------
 function detectNekoRepo() {
   const candidates = [
@@ -519,7 +546,7 @@ const SETUP_PAGE = `<!doctype html>
 </style></head><body>
 <div class="card">
   <h1>🐱 欢迎来到插件工坊</h1>
-  <div class="sub">第一次使用,先用 1 分钟告诉猫咪怎么连模型服务</div>
+  <div class="sub">第一次使用,先用 1 分钟告诉哈基米怎么连模型服务</div>
   <label>接口类型<span style="color:#e2517f"> *必选</span></label>
   <select id="proto">
     <option value="openai">OpenAI 兼容(绝大多数服务商/中转站)</option>
@@ -697,11 +724,11 @@ const PAGE = `<!doctype html>
 </style></head>
 <body>
 <script>try{var wbT=localStorage.getItem('wb_theme');if(wbT==='blue'||wbT==='white'||wbT==='black')document.body.classList.add('theme-'+wbT)}catch(e){}</script>
-<header><span class="logo">🐱</span><div><h1>N.E.K.O. 插件工坊</h1><small>说一句话,猫咪帮你做好插件</small></div>
+<header><span class="logo">🐱</span><div><h1>N.E.K.O. 插件工坊</h1><small>说一句话,哈基米帮你做好插件</small></div>
   <div class="tools">
-    <div id="modeswitch" title="Build=可修改文件并打包;Plan=只规划和讲解,不做任何改动">
-      <button type="button" id="modeBuild" class="mbtn on">🛠 Build</button>
-      <button type="button" id="modePlan" class="mbtn">📋 Plan</button>
+    <div id="modeswitch" title="直接做=哈基米立刻生成插件;先出方案=只给思路和计划,不动手">
+      <button type="button" id="modeBuild" class="mbtn on">🛠 直接做</button>
+      <button type="button" id="modePlan" class="mbtn">📋 先出方案</button>
     </div>
     <button type="button" id="stopbtn" style="display:none;background:#e2517f">⏹ 停止</button>
     <button type="button" id="exportbtn" title="导出当前对话为 Markdown">📤 导出</button>
@@ -779,9 +806,9 @@ const PAGE = `<!doctype html>
   </aside>
   <main>
   <div id="chat">
-    <div class="msg bot">你好呀!我是工坊猫咪助手 🐾<br>告诉我你想要一个什么样的插件,比如:<br>「做一个每日提醒喝水的插件,每 45 分钟提醒一次」<br>「做一个记事本插件,能存笔记还能搜索」</div>
+    <div class="msg bot">你好呀!我是哈基米 🐾 把愿望告诉我,我把它做成插件。不知道说什么?点一个试试:<br><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span class="chip" style="cursor:pointer" data-wish="做一个每日提醒喝水的插件,每 45 分钟提醒一次">💧 喝水提醒</span><span class="chip" style="cursor:pointer" data-wish="做一个记事本插件,能存笔记还能搜索">📝 记事本</span><span class="chip" style="cursor:pointer" data-wish="做一个番茄钟插件,每 25 分钟提醒我休息一次">🍅 番茄钟</span><span class="chip" style="cursor:pointer" data-wish="做一个每日诗词插件,每天早上给我推一首诗">📜 每日诗词</span></div></div>
   </div>
-  <form id="f"><textarea id="t" placeholder="描述你想要的插件…" required></textarea><button id="b">开工!</button></form>
+  <form id="f"><textarea id="t" placeholder="说出你的愿望,比如:每天早上 8 点提醒我喝水…" required></textarea><button id="b">开工!</button></form>
   <div class="hint"><span id="tokbar"></span><span id="ctxbar"></span><span> · 回车发送,Shift+回车换行;完成后可下载 .neko-plugin 导入 N.E.K.O.</span></div>
   </main>
 </div>
@@ -883,7 +910,7 @@ async function newChat(){
   refreshList();t.focus();
 }
 function renderMessages(s){
-  chat.innerHTML='<div class="msg bot">你好呀!我是工坊猫咪助手 🐾 这是我们的话题新开始,说需求吧~</div>';
+  chat.innerHTML='<div class="msg bot">你好呀!我是哈基米 🐾 把愿望告诉我,我把它做成插件。不知道说什么?点一个试试:<br><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span class="chip" style="cursor:pointer" data-wish="做一个每日提醒喝水的插件,每 45 分钟提醒一次">💧 喝水提醒</span><span class="chip" style="cursor:pointer" data-wish="做一个记事本插件,能存笔记还能搜索">📝 记事本</span><span class="chip" style="cursor:pointer" data-wish="做一个番茄钟插件,每 25 分钟提醒我休息一次">🍅 番茄钟</span><span class="chip" style="cursor:pointer" data-wish="做一个每日诗词插件,每天早上给我推一首诗">📜 每日诗词</span></div></div>';
   if(s.title&&s.title!=='新对话'){const h=document.createElement('div');h.className='typing';h.style.fontWeight='700';h.textContent=s.title;chat.appendChild(h);}
   for(const m of s.messages||[]){
     if(m.role==='user')add('user',esc(m.content));
@@ -916,8 +943,8 @@ document.getElementById('modeBuild').onclick=()=>{workMode='build';document.getE
 document.getElementById('modePlan').onclick=()=>{workMode='plan';document.getElementById('modePlan').classList.add('on');document.getElementById('modeBuild').classList.remove('on');};
 form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)return;
   const sentTo=curSession; // 本条任务归属的会话;期间用户可能切走
-  add('user',esc(text)+(workMode==='plan'?' <span style="opacity:.75;font-size:11px">[Plan]</span>':''));t.value='';b.disabled=true;stopbtn.style.display='';
-  const ty=document.createElement('div');ty.className='typing';ty.innerHTML='猫咪正在'+(workMode==='plan'?'思考方案':'写插件')+'<span>🐱…</span>';chat.appendChild(ty);chat.scrollTop=chat.scrollHeight;
+  add('user',esc(text)+(workMode==='plan'?' <span style="opacity:.75;font-size:11px">[先出方案]</span>':''));t.value='';b.disabled=true;stopbtn.style.display='';
+  const ty=document.createElement('div');ty.className='typing';ty.innerHTML='哈基米正在'+(workMode==='plan'?'思考方案':'写插件')+'<span>🐱…</span>';chat.appendChild(ty);chat.scrollTop=chat.scrollHeight;
   // 实时思考过程:任务期间每 0.5s 轮询引擎(2s 会明显滞后),思考流式展开;任务结束后移除(由最终消息里的折叠版接管)
   const taskStart=Date.now();
   let liveThink=null,liveBody=null;
@@ -956,7 +983,8 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
       if(j.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(j.thinking)+'</div></details>';
       html+=esc(j.reply||'完成!');
       html+=modFilesHtml(workMode==='build'?j.modifiedFiles:null);
-      if(j.artifacts&&j.artifacts.length){html+='<br>';for(const a of j.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}}
+      if(j.artifacts&&j.artifacts.length){html+='<br>';for(const a of j.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}
+        html+='<div style="margin-top:8px;font-size:12.5px;background:var(--tint);border-radius:10px;padding:8px 10px;line-height:1.8">📦 <b>装进 N.E.K.O. 三步:</b>① 点上面下载 .neko-plugin → ② 打开 N.E.K.O. 插件管理器,用「导入安装包」选中它 → ③ 启动插件,完成!</div>';}
       html+=usageLine(j.usage);
       add('ok',html);
     }
@@ -972,6 +1000,8 @@ t.addEventListener('keydown',e=>{
   }
 });
 stopbtn.onclick=async()=>{stopbtn.disabled=true;try{await fetch('/api/stop',{method:'POST'})}catch(e){}setTimeout(()=>{stopbtn.disabled=false},1500)};
+// 愿望卡片:点击自动填入输入框(事件委托,重新渲染的欢迎语里同样生效)
+chat.addEventListener('click',e=>{const c=e.target.closest('[data-wish]');if(!c||b.disabled)return;t.value=c.getAttribute('data-wish');t.focus();});
 
 // ---------- 设置面板 ----------
 const setpanel=document.getElementById('setpanel'),apilist=document.getElementById('apilist');
@@ -1729,10 +1759,10 @@ const srv = createServer(async (req, res) => {
       if (!s) { res.writeHead(404); res.end(JSON.stringify({ ok: false, error: "会话不存在" })); return }
       let md = `# ${s.title}\n\n> 导出自 N.E.K.O. 插件工坊 · ${new Date().toLocaleString("zh-CN")}\n\n`
       for (const msg of s.messages) {
-        if (msg.role === "user") md += `## 🐱 我\n\n${msg.content}\n\n`
-        else if (msg.error && !msg.content) md += `## 🤖 猫咪\n\n> ⚠ ${msg.error}\n\n`
+        if (msg.role === "user") md += `## 👤 我\n\n${msg.content}\n\n`
+        else if (msg.error && !msg.content) md += `## 🐱 哈基米\n\n> ⚠ ${msg.error}\n\n`
         else {
-          md += `## 🤖 猫咪\n\n${msg.content}\n\n`
+          md += `## 🐱 哈基米\n\n${msg.content}\n\n`
           if (msg.artifacts && msg.artifacts.length) {
             md += `产物:${msg.artifacts.map((a) => `\`${String(a).split("\\").pop()}\``).join(", ")}\n\n`
           }
@@ -1819,7 +1849,7 @@ const srv = createServer(async (req, res) => {
         }
       }
       const driveOpts = {
-        text, dir: config.workspace, model: config.model,
+        text: buildWishPrompt(text, mode), dir: config.workspace, model: config.model,
         server: config.server, timeout: config.timeoutSec,
         noProgressSec: config.stallTimeoutSec,
         auth: engineAuth || undefined,
@@ -1832,7 +1862,7 @@ const srv = createServer(async (req, res) => {
         let result
         try {
           result = await driveAgentCli({
-            text, dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
+            text: buildWishPrompt(text, mode), dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
             timeoutSec: config.timeoutSec, signal: currentAbort.signal,
             sessionID: s.engineSessionId || undefined,
           })
@@ -1933,7 +1963,7 @@ const srv = createServer(async (req, res) => {
           } else if (/Unable to connect|fetch failed|ECONNREFUSED/i.test(raw)) {
             result.error = "网络连接失败:本地引擎或模型服务连不上。检查网络(或加速器)后重试"
           } else if (!raw.trim()) {
-            result.error = result.reply ? "任务中断,见下方猫咪留言" : "未知错误"
+            result.error = result.reply ? "任务中断,见下方哈基米留言" : "未知错误"
           }
           result.sessionId = s.id
         }
