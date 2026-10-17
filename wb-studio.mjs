@@ -361,36 +361,11 @@ function friendlyApiError(status, msg) {
   return `服务返回错误(HTTP ${status}) → ${msg}`
 }
 
-/** 用真实请求测试一套 API 配置能否出对话;任何失败都给出人话原因 */
-async function testProvider({ baseURL, apiKey, modelID, protocol }, timeoutMs = 15000) {
-  const proto = protocolInfo(protocol)
+/** 发一次非流式探测请求并判定结果(供连接测试复用) */
+async function requestAndJudge(url, headers, body, timeoutMs, modelID) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
-    let url, headers, body
-    if (protocol === "anthropic") {
-      // Anthropic 原生协议:POST {base}/v1/messages;x-api-key 头;base 去掉尾部 /v1
-      const base = (baseURL || "https://api.anthropic.com").replace(/\/+$/, "").replace(/\/v1$/, "")
-      url = `${base}/v1/messages`
-      headers = { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" }
-      body = { model: modelID, max_tokens: 8, messages: [{ role: "user", content: "连接测试,请回复OK" }] }
-    } else if (protocol === "google") {
-      // Gemini 原生协议:POST {base}/v1beta/models/{model}:generateContent?key=
-      const base = (baseURL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")
-      url = `${base}/v1beta/models/${encodeURIComponent(modelID)}:generateContent?key=${encodeURIComponent(apiKey)}`
-      headers = { "content-type": "application/json" }
-      body = { contents: [{ parts: [{ text: "连接测试,请回复OK" }] }], generationConfig: { maxOutputTokens: 8 } }
-    } else if (protocol === "openrouter") {
-      url = `${(baseURL || "https://openrouter.ai/api/v1").replace(/\/+$/, "")}/chat/completions`
-      headers = { "content-type": "application/json", authorization: `Bearer ${apiKey}` }
-      body = { model: modelID, messages: [{ role: "user", content: "连接测试,请回复OK" }], max_tokens: 8 }
-    } else {
-      // OpenAI 系(openai 兼容/官方/groq/mistral/xai):POST {base}/chat/completions
-      const base = (baseURL || proto.defaultBaseURL || "").replace(/\/+$/, "")
-      url = `${base}/chat/completions`
-      headers = { "content-type": "application/json", authorization: `Bearer ${apiKey}` }
-      body = { model: modelID, messages: [{ role: "user", content: "连接测试,请回复OK" }], max_tokens: 8 }
-    }
     const res = await fetch(url, {
       method: "POST",
       signal: ctrl.signal,
@@ -416,6 +391,112 @@ async function testProvider({ baseURL, apiKey, modelID, protocol }, timeoutMs = 
   } finally {
     clearTimeout(timer)
   }
+}
+
+/** 流式探测:部分中转网关(如 OpenCSG)只支持流式请求,非流式会一直挂住不响应。
+ *  这里发 stream:true 并按 SSE 解析;max_tokens 很小,拿到首个内容块即可判定连通。
+ *  若服务商忽略 stream 参数直接回普通 JSON,也能兜底识别。 */
+async function testProviderStream({ url, headers, body }, timeoutMs) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers,
+      body: JSON.stringify({ ...body, stream: true }),
+    })
+    const raw = await res.text()
+    if (!res.ok) {
+      let j = null
+      try { j = JSON.parse(raw) } catch {}
+      const errMsg = j?.error?.message || j?.error?.type || ""
+      return { ok: false, status: res.status, error: friendlyApiError(res.status, String(errMsg || raw.slice(0, 200) || "空响应")) }
+    }
+    let content = "", model = null, sawSSE = false
+    for (const line of raw.split("\n")) {
+      const t = line.trim()
+      if (!t.startsWith("data:")) continue
+      sawSSE = true
+      const payload = t.slice(5).trim()
+      if (!payload || payload === "[DONE]") continue
+      let j = null
+      try { j = JSON.parse(payload) } catch { continue }
+      if (!model && j?.model) model = j.model
+      // 推理模型可能只先吐 reasoning_content,也算连通
+      const delta = j?.choices?.[0]?.delta
+      if (delta?.content) content += delta.content
+      else if (delta?.reasoning_content) content += delta.reasoning_content
+      if (j?.error) {
+        return { ok: false, status: res.status, error: friendlyApiError(res.status, String(j.error?.message || j.error?.type || "流内错误")) }
+      }
+      if (content) break
+    }
+    if (!sawSSE) {
+      // 没有 SSE 帧:服务商忽略了 stream 参数,按普通 JSON 兜底
+      let j = null
+      try { j = JSON.parse(raw) } catch {}
+      const replyText = j?.choices?.[0]?.message?.content || ""
+      if (j && (replyText || j.model)) return { ok: true, model: j?.model || model }
+    }
+    if (content || model) return { ok: true, model: model || undefined }
+    return { ok: false, status: res.status, error: "流式响应为空:服务商未返回任何内容" }
+  } catch (e) {
+    return {
+      ok: false,
+      status: e.name === "AbortError" ? 0 : undefined,
+      error: e.name === "AbortError"
+        ? "连接测试超时(流式也无响应)"
+        : `连接失败:${e.message}`,
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** 用真实请求测试一套 API 配置能否出对话;任何失败都给出人话原因
+ *  两级探测:先非流式(正常服务商 1–2 秒就回),若挂住/空响应再按流式探测一次
+ *  ——部分中转网关(如 OpenCSG)只支持流式,非流式会一直不响应 */
+async function testProvider({ baseURL, apiKey, modelID, protocol }, timeoutMs = 15000) {
+  const proto = protocolInfo(protocol)
+  let url, headers, body
+  if (protocol === "anthropic") {
+    // Anthropic 原生协议:POST {base}/v1/messages;x-api-key 头;base 去掉尾部 /v1
+    const base = (baseURL || "https://api.anthropic.com").replace(/\/+$/, "").replace(/\/v1$/, "")
+    url = `${base}/v1/messages`
+    headers = { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" }
+    body = { model: modelID, max_tokens: 8, messages: [{ role: "user", content: "连接测试,请回复OK" }] }
+  } else if (protocol === "google") {
+    // Gemini 原生协议:POST {base}/v1beta/models/{model}:generateContent?key=
+    const base = (baseURL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")
+    url = `${base}/v1beta/models/${encodeURIComponent(modelID)}:generateContent?key=${encodeURIComponent(apiKey)}`
+    headers = { "content-type": "application/json" }
+    body = { contents: [{ parts: [{ text: "连接测试,请回复OK" }] }], generationConfig: { maxOutputTokens: 8 } }
+  } else if (protocol === "openrouter") {
+    url = `${(baseURL || "https://openrouter.ai/api/v1").replace(/\/+$/, "")}/chat/completions`
+    headers = { "content-type": "application/json", authorization: `Bearer ${apiKey}` }
+    body = { model: modelID, messages: [{ role: "user", content: "连接测试,请回复OK" }], max_tokens: 8 }
+  } else {
+    // OpenAI 系(openai 兼容/官方/groq/mistral/xai):POST {base}/chat/completions
+    const base = (baseURL || proto.defaultBaseURL || "").replace(/\/+$/, "")
+    url = `${base}/chat/completions`
+    headers = { "content-type": "application/json", authorization: `Bearer ${apiKey}` }
+    body = { model: modelID, messages: [{ role: "user", content: "连接测试,请回复OK" }], max_tokens: 8 }
+  }
+  const started = Date.now()
+  // 第一轮:非流式,只给 6s(正常服务商秒回),避免只认流式的网关干等
+  const first = await requestAndJudge(url, headers, body, Math.min(timeoutMs, 6000), modelID)
+  if (first.ok) return first
+  // 第二轮:只支持流式的中转网关(非流式超时/空响应),改用流式再探一次
+  const streamable = protocol !== "anthropic" && protocol !== "google"
+  if (streamable && (first.status === 0 || first.status === undefined || String(first.error || "").includes("空响应"))) {
+    const left = Math.max(timeoutMs - (Date.now() - started), 5000)
+    const second = await testProviderStream({ url, headers, body }, left)
+    if (second.ok) return second
+    // 两边都没通:保留描述更具体的那个错误(带 HTTP 状态码的优先)
+    return second.status === 0 || second.status === undefined ? first : second
+  }
+  return first
 }
 
 // ---------- 引擎全局 AGENTS.md(Agent 作用范围=全局) ----------
