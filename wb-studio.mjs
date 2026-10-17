@@ -237,15 +237,16 @@ function protocolInfo(id) {
 }
 
 // ---------- 常见服务商预设(小白一键填) ----------
-// 地址/协议是各服务商公开稳定值;模型名只是最常见示例,以服务商文档为准
-// (保存前有连接测试兜底:填错了会被人话报错拦下,不会静默失败)
+// 只填服务商地址——模型 ID 不代填(各人账号可用模型不同,填错反被连接测试拦下);
+// 模型名照官网文档填,协议保持默认(OpenAI 兼容)即可,页面有引导
+// 地址/协议是各服务商公开稳定值;keyUrl 供用户去官网领密钥、查模型名
 const PROVIDER_PRESETS = [
-  { id: "deepseek", label: "DeepSeek", protocol: "openai", baseURL: "https://api.deepseek.com/v1", model: "deepseek-chat", keyUrl: "https://platform.deepseek.com/api_keys", keyHost: "platform.deepseek.com" },
-  { id: "zhipu", label: "智谱 GLM", protocol: "openai", baseURL: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4.6", keyUrl: "https://open.bigmodel.cn/usercenter/apikeys", keyHost: "open.bigmodel.cn" },
-  { id: "moonshot", label: "Kimi 月之暗面", protocol: "openai", baseURL: "https://api.moonshot.cn/v1", model: "kimi-k3", keyUrl: "https://platform.moonshot.cn/console/api-keys", keyHost: "platform.moonshot.cn" },
-  { id: "qwen", label: "通义千问", protocol: "openai", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", model: "qwen-plus", keyUrl: "https://bailian.console.aliyun.com/?apiKey=1", keyHost: "bailian.console.aliyun.com" },
-  { id: "siliconflow", label: "硅基流动", protocol: "openai", baseURL: "https://api.siliconflow.cn/v1", model: "deepseek-ai/DeepSeek-V3", keyUrl: "https://cloud.siliconflow.cn/account/ak", keyHost: "cloud.siliconflow.cn" },
-  { id: "openrouter", label: "OpenRouter", protocol: "openrouter", baseURL: "https://openrouter.ai/api/v1", model: "openrouter/auto", keyUrl: "https://openrouter.ai/keys", keyHost: "openrouter.ai" },
+  { id: "deepseek", label: "DeepSeek", protocol: "openai", baseURL: "https://api.deepseek.com/v1", keyUrl: "https://platform.deepseek.com/api_keys", keyHost: "platform.deepseek.com" },
+  { id: "zhipu", label: "智谱 GLM", protocol: "openai", baseURL: "https://open.bigmodel.cn/api/paas/v4", keyUrl: "https://open.bigmodel.cn/usercenter/apikeys", keyHost: "open.bigmodel.cn" },
+  { id: "moonshot", label: "Kimi 月之暗面", protocol: "openai", baseURL: "https://api.moonshot.cn/v1", keyUrl: "https://platform.moonshot.cn/console/api-keys", keyHost: "platform.moonshot.cn" },
+  { id: "qwen", label: "通义千问", protocol: "openai", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", keyUrl: "https://bailian.console.aliyun.com/?apiKey=1", keyHost: "bailian.console.aliyun.com" },
+  { id: "siliconflow", label: "硅基流动", protocol: "openai", baseURL: "https://api.siliconflow.cn/v1", keyUrl: "https://cloud.siliconflow.cn/account/ak", keyHost: "cloud.siliconflow.cn" },
+  { id: "openrouter", label: "OpenRouter", protocol: "openrouter", baseURL: "https://openrouter.ai/api/v1", keyUrl: "https://openrouter.ai/keys", keyHost: "openrouter.ai" },
 ]
 
 function writeProvider({ baseURL, apiKey, modelID, protocol }) {
@@ -647,10 +648,11 @@ const PRESETS=${JSON.stringify(PROVIDER_PRESETS)};
   for(const p of PRESETS){
     const c=document.createElement('span');c.className='pchip';c.textContent=p.label;
     c.onclick=()=>{
-      $('proto').value=p.protocol;protoChange();
-      $('u').value=p.baseURL;$('m').value=p.model;
+      // 只填服务商地址;协议保持用户当前选择(默认 OpenAI 兼容,页面有引导),模型 ID 不代填
+      if(p.protocol&&p.protocol!=='openai'&&$('proto').value!==p.protocol){$('proto').value=p.protocol;protoChange();}
+      $('u').value=p.baseURL;
       const tip=$('presetTip');tip.style.display='';
-      tip.innerHTML='已填好「'+p.label+'」的地址和示例模型。密钥请到官网领取 → <a href="'+p.keyUrl+'" target="_blank" rel="noopener" style="color:#e2517f">'+p.keyHost+'</a>(模型名以官网文档为准,保存时会自动测试连通性)';
+      tip.innerHTML='已填好「'+p.label+'」的服务地址。密钥和模型名称请到官网查看 → <a href="'+p.keyUrl+'" target="_blank" rel="noopener" style="color:#e2517f">'+p.keyHost+'</a>(模型名照官网文档填,保存时会自动测连通性,填错会提示)';
     };
     box.appendChild(c);
   }
@@ -1162,11 +1164,11 @@ document.querySelectorAll('.ctxpreset').forEach(btn=>{btn.onclick=()=>{document.
   for(const p of PRESETS){
     const c=document.createElement('span');c.className='chip';c.style.cursor='pointer';c.textContent=p.label;
     c.onclick=()=>{
-      document.getElementById('apiProto').value=p.protocol;
+      // 只填服务商地址;协议保持当前选择(默认 OpenAI 兼容),模型 ID 不代填
+      if(p.protocol&&p.protocol!=='openai'&&document.getElementById('apiProto').value!==p.protocol)document.getElementById('apiProto').value=p.protocol;
       document.getElementById('apiURL').value=p.baseURL;
-      document.getElementById('apiModel').value=p.model;
       if(!document.getElementById('apiName').value.trim())document.getElementById('apiName').value=p.label;
-      const m=document.getElementById('apiMsg');m.className='';m.textContent='已填好「'+p.label+'」的地址和示例模型;密钥请到 '+p.keyHost+' 领取(模型名以官网文档为准)';
+      const m=document.getElementById('apiMsg');m.className='';m.textContent='已填好「'+p.label+'」的服务地址;密钥和模型名称请到 '+p.keyHost+' 查看(模型名照官网文档填,保存并启用时会测连通性)';
     };
     box.appendChild(c);
   }
