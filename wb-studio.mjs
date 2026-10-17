@@ -605,7 +605,7 @@ const SETUP_PAGE = `<!doctype html>
 <div class="card">
   <h1>🐱 欢迎来到插件工坊</h1>
   <div class="sub">第一次使用,先用 1 分钟告诉哈基米怎么连模型服务</div>
-  <div class="tip" style="margin-top:14px">💡 常用服务商,点一下自动填好地址和模型(密钥还要你自己去官网领):</div>
+  <div class="tip" style="margin-top:14px">💡 常用服务商,点一下自动填好服务地址(密钥和模型名称去官网查):</div>
   <div id="presets" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px"></div>
   <div class="tip" id="presetTip" style="display:none"></div>
   <label>接口类型<span style="color:#e2517f"> *必选</span></label>
@@ -824,7 +824,7 @@ const PAGE = `<!doctype html>
     <div id="apilist"></div>
     <div class="sp-form">
       <h4>添加新 API</h4>
-      <div class="sp-tip" style="margin:0 0 6px">💡 点一下自动填好地址和模型(密钥去官网领):</div>
+      <div class="sp-tip" style="margin:0 0 6px">💡 点一下自动填好服务地址(密钥和模型名称去官网查):</div>
       <div id="apiPresets" style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px"></div>
       <div class="frow"><label>接口类型</label><select id="apiProto">
         <option value="openai">OpenAI 兼容(通用)</option>
