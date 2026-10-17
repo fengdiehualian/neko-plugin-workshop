@@ -122,6 +122,10 @@ function buildWishPrompt(wish, mode) {
     hints.push("外部数据类:httpx 异步请求,失败给兜底文案,不阻塞插件主流程")
   if (/开机|启动|问候|欢迎|打招呼/.test(wish))
     hints.push('启动行为:写在 @lifecycle(id="startup") 里,不要依赖 auto_start')
+  if (/界面|面板|按钮|点击|UI|页面|窗口|图表|显示/.test(wish))
+    hints.push("带界面类:按 references/hosted-ui.md 用 router 注册前端面板,别只写后台逻辑")
+  if (/命令|执行|运行|打开|快捷键|脚本|终端/.test(wish))
+    hints.push("执行命令类:按 references/tool-calling.md,subprocess 异步执行+超时+输出截断,不阻塞主流程")
   const hintBlock = hints.length ? "\n技术要点(参考):\n- " + hints.join("\n- ") : ""
   return [
     "【用户的愿望】" + wish,
@@ -192,6 +196,18 @@ const PROTOCOLS = {
 function protocolInfo(id) {
   return PROTOCOLS[id] || PROTOCOLS.openai
 }
+
+// ---------- 常见服务商预设(小白一键填) ----------
+// 地址/协议是各服务商公开稳定值;模型名只是最常见示例,以服务商文档为准
+// (保存前有连接测试兜底:填错了会被人话报错拦下,不会静默失败)
+const PROVIDER_PRESETS = [
+  { id: "deepseek", label: "DeepSeek", protocol: "openai", baseURL: "https://api.deepseek.com/v1", model: "deepseek-chat", keyUrl: "https://platform.deepseek.com/api_keys", keyHost: "platform.deepseek.com" },
+  { id: "zhipu", label: "智谱 GLM", protocol: "openai", baseURL: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4.6", keyUrl: "https://open.bigmodel.cn/usercenter/apikeys", keyHost: "open.bigmodel.cn" },
+  { id: "moonshot", label: "Kimi 月之暗面", protocol: "openai", baseURL: "https://api.moonshot.cn/v1", model: "kimi-k3", keyUrl: "https://platform.moonshot.cn/console/api-keys", keyHost: "platform.moonshot.cn" },
+  { id: "qwen", label: "通义千问", protocol: "openai", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", model: "qwen-plus", keyUrl: "https://bailian.console.aliyun.com/?apiKey=1", keyHost: "bailian.console.aliyun.com" },
+  { id: "siliconflow", label: "硅基流动", protocol: "openai", baseURL: "https://api.siliconflow.cn/v1", model: "deepseek-ai/DeepSeek-V3", keyUrl: "https://cloud.siliconflow.cn/account/ak", keyHost: "cloud.siliconflow.cn" },
+  { id: "openrouter", label: "OpenRouter", protocol: "openrouter", baseURL: "https://openrouter.ai/api/v1", model: "openrouter/auto", keyUrl: "https://openrouter.ai/keys", keyHost: "openrouter.ai" },
+]
 
 function writeProvider({ baseURL, apiKey, modelID, protocol }) {
   const fs = require("node:fs")
@@ -543,10 +559,15 @@ const SETUP_PAGE = `<!doctype html>
   details{margin-top:18px;font-size:12.5px;color:#8a7480}
   summary{cursor:pointer;font-weight:700}
   ol{padding-left:18px;line-height:1.9;margin:8px 0 0}
+  .pchip{display:inline-block;border:1px solid #f3b0c4;background:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;user-select:none;color:#8a4a63}
+  .pchip:hover{background:#fdeef4;border-color:#e2517f;color:#c93a68}
 </style></head><body>
 <div class="card">
   <h1>🐱 欢迎来到插件工坊</h1>
   <div class="sub">第一次使用,先用 1 分钟告诉哈基米怎么连模型服务</div>
+  <div class="tip" style="margin-top:14px">💡 常用服务商,点一下自动填好地址和模型(密钥还要你自己去官网领):</div>
+  <div id="presets" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px"></div>
+  <div class="tip" id="presetTip" style="display:none"></div>
   <label>接口类型<span style="color:#e2517f"> *必选</span></label>
   <select id="proto">
     <option value="openai">OpenAI 兼容(绝大多数服务商/中转站)</option>
@@ -581,6 +602,20 @@ const SETUP_PAGE = `<!doctype html>
 const WB_TOKEN="__WB_TOKEN__";
 (function(){const _f=fetch.bind(window);window.fetch=(u,o={})=>{const m=(o.method||"GET").toUpperCase();const h=new Headers(o.headers||{});h.set("x-wb-token",WB_TOKEN);if(m!=="GET"&&!h.has("content-type"))h.set("content-type","application/json");o.headers=h;return _f(u,o)}})();
 const $=id=>document.getElementById(id);
+const PRESETS=${JSON.stringify(PROVIDER_PRESETS)};
+(function(){
+  const box=$('presets');
+  for(const p of PRESETS){
+    const c=document.createElement('span');c.className='pchip';c.textContent=p.label;
+    c.onclick=()=>{
+      $('proto').value=p.protocol;protoChange();
+      $('u').value=p.baseURL;$('m').value=p.model;
+      const tip=$('presetTip');tip.style.display='';
+      tip.innerHTML='已填好「'+p.label+'」的地址和示例模型。密钥请到官网领取 → <a href="'+p.keyUrl+'" target="_blank" rel="noopener" style="color:#e2517f">'+p.keyHost+'</a>(模型名以官网文档为准,保存时会自动测试连通性)';
+    };
+    box.appendChild(c);
+  }
+})();
 const PROTO_TIPS={
   openai:{req:true,tip:'服务商文档给到的接口地址,通常以 /v1 结尾(具体以你的服务商说明为准)'},
   anthropic:{req:true,tip:'填中转/代理地址即可;官方 API 留空自动使用 api.anthropic.com(自定义地址请填根地址,不要带 /v1)'},
@@ -748,6 +783,8 @@ const PAGE = `<!doctype html>
     <div id="apilist"></div>
     <div class="sp-form">
       <h4>添加新 API</h4>
+      <div class="sp-tip" style="margin:0 0 6px">💡 点一下自动填好地址和模型(密钥去官网领):</div>
+      <div id="apiPresets" style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px"></div>
       <div class="frow"><label>接口类型</label><select id="apiProto">
         <option value="openai">OpenAI 兼容(通用)</option>
         <option value="anthropic">Anthropic / Claude</option>
@@ -1004,6 +1041,7 @@ stopbtn.onclick=async()=>{stopbtn.disabled=true;try{await fetch('/api/stop',{met
 chat.addEventListener('click',e=>{const c=e.target.closest('[data-wish]');if(!c||b.disabled)return;t.value=c.getAttribute('data-wish');t.focus();});
 
 // ---------- 设置面板 ----------
+const PRESETS=${JSON.stringify(PROVIDER_PRESETS)};
 const setpanel=document.getElementById('setpanel'),apilist=document.getElementById('apilist');
 document.getElementById('setbtn').onclick=()=>{setpanel.classList.toggle('open');if(setpanel.classList.contains('open'))loadApis();};
 document.getElementById('setclose').onclick=()=>setpanel.classList.remove('open');
@@ -1044,6 +1082,21 @@ async function saveCtx(){
 }
 document.getElementById('ctxSave').onclick=saveCtx;
 document.querySelectorAll('.ctxpreset').forEach(btn=>{btn.onclick=()=>{document.getElementById('ctxInput').value=Math.round(Number(btn.dataset.ctx)/1000);saveCtx();};});
+// 服务商预设 chips(设置面板):点一下填好添加表单
+(function(){
+  const box=document.getElementById('apiPresets');if(!box)return;
+  for(const p of PRESETS){
+    const c=document.createElement('span');c.className='chip';c.style.cursor='pointer';c.textContent=p.label;
+    c.onclick=()=>{
+      document.getElementById('apiProto').value=p.protocol;
+      document.getElementById('apiURL').value=p.baseURL;
+      document.getElementById('apiModel').value=p.model;
+      if(!document.getElementById('apiName').value.trim())document.getElementById('apiName').value=p.label;
+      const m=document.getElementById('apiMsg');m.className='';m.textContent='已填好「'+p.label+'」的地址和示例模型;密钥请到 '+p.keyHost+' 领取(模型名以官网文档为准)';
+    };
+    box.appendChild(c);
+  }
+})();
 try{applyTheme(localStorage.getItem('wb_theme')||'pink')}catch(e){}
 async function loadApis(){
   const j=await(await fetch('/api/apis')).json();apilist.innerHTML='';
