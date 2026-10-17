@@ -109,10 +109,49 @@ function cliEngineReady() {
 
 // ---------- 许愿式派工:把小白的裸愿望包装成结构化任务书 ----------
 // 小白只会说大白话愿望;裸愿望直接丢给 Agent 会漏掉流程(选模板/scaffold/verify/汇报格式)。
-// 这里做确定性的「愿望→任务书」包装:零额外模型调用、零延迟。Plan 模式不包装(只规划讲解)。
+// 这里做确定性的「愿望→任务书」包装:零额外模型调用、零延迟。
+// Build 模式:直接开工(有歧义选最常见理解,绝不反问)。
+// Plan 模式:引导式提问——一次一个小问题(附可点候选答案),追到真的懂了才出方案,最多 3 问。
 // 会话里存的仍是用户原话(text),任务书只给引擎看。
-function buildWishPrompt(wish, mode) {
-  if (mode === "plan") return wish
+
+// 统计本会话「当前访谈」已问几个问题:从末尾往前数连续的 [[WB-Q]] 提问,
+// 一旦遇到不带提问标记的助手消息(方案/普通回复),说明访谈已结束,计数清零
+function planAskCount(session) {
+  let n = 0
+  const ms = (session && session.messages) || []
+  for (let i = ms.length - 1; i >= 0; i--) {
+    const m = ms[i]
+    if (m.role === "assistant" && /\[\[WB-Q\]\]/.test(String(m.content || ""))) n++
+    else if (m.role === "assistant") break
+  }
+  return n
+}
+
+function buildWishPrompt(wish, mode, askCount = 0) {
+  if (mode === "plan") {
+    const left = Math.max(0, 3 - askCount)
+    return [
+      "【用户的愿望/当前消息】" + wish,
+      "",
+      "现在是「先出方案」模式:不写代码、不改文件、不执行命令,只负责把需求聊清楚并给出方案。用户是零基础小白。",
+      "",
+      "你的工作方式(严格遵守):",
+      "1. 先判断这个愿望说得够不够细(知不知道要做什么、大概什么时候触发)。够细就直接出方案,别纠缠。",
+      "2. 不够细 → 每轮只问一个问题,并按下面的格式附带 2-4 个候选答案(把 候选答案一/二/三 换成真实候选,每行一个;选项要短、大白话、点一下就能答):",
+      "   [[WB-Q]]",
+      "   候选答案一",
+      "   候选答案二",
+      "   候选答案三",
+      "   [[/WB-Q]]",
+      "   问题正文写在标记块外面,用大白话讲明白为什么问、每个选项什么意思;禁止出现任何技术术语。用户也可以自己打字回答,选项只是捷径。",
+      left > 0
+        ? `3. 纪律:本会话你已经问过 ${askCount} 个问题,最多再问 ${left} 个;问满 3 个必须停止提问,按最合理的理解直接出方案。`
+        : "3. 纪律:本会话你已经问满 3 个问题了,这一轮必须停止提问,直接按最合理的理解出方案。",
+      "4. 用户如果说「别问了 / 直接给方案 / 差不多了」→ 立即停止提问,直接出方案。",
+      "5. 用户如果是在修改或补充上一版方案 → 不要重新开始提问,直接给出更新后的方案。",
+      "6. 出方案时:正文全大白话(插件叫什么、干什么、什么时候触发、怎么用、分几步做),正文末尾单独一行写 [[WB-PLAN]]。禁止技术术语。",
+    ].join("\n")
+  }
   const hints = []
   if (/提醒|定时|每天|每隔|闹钟|日程|倒计时|分钟|小时/.test(wish))
     hints.push('定时/提醒类:参考 reminder 模板,@timer_interval + @lifecycle("startup"),间隔换算成秒写清')
@@ -871,6 +910,29 @@ function fmtTok(n){n=n||0;if(n>=10000)return (n/10000).toFixed(1)+'万';if(n>=10
 function usageLine(u){if(!u)return'';const out=(u.output||0)+(u.reasoning||0);let s='Token ↑'+fmtTok(u.input)+' ↓'+fmtTok(out);if(u.reasoning)s+=' (含思考 '+fmtTok(u.reasoning)+')';return '<div class="tusage">'+s+'</div>'}
 // Build 模式任务收尾:本次已修改的文件(相对路径,时间序;产物另有下载 chip)
 function modFilesHtml(fs){if(!fs||!fs.length)return'';return '<div style="margin:6px 0 2px;font-size:12px;opacity:.9">✏️ 已修改 '+fs.length+' 个文件</div><div style="display:flex;flex-wrap:wrap;gap:4px">'+fs.map(f=>'<span class="chip" title="'+esc(f)+'">'+esc(f)+'</span>').join('')+'</div>'}
+// ---------- Plan 模式引导提问/方案 标记解析 ----------
+// 约定:[[WB-Q]]…[[/WB-Q]] = 可点候选答案(点一下即作为回答发送);[[WB-PLAN]] = 方案(带开工按钮)
+function esca(s){return esc(s).replace(/"/g,'&quot;')}
+function parseExtras(content){
+  let text=String(content==null?'':content),qOpts=null,isPlan=false;
+  const qm=text.match(/\[\[WB-Q\]\]([\s\S]*?)\[\[\/WB-Q\]\]/);
+  if(qm){
+    qOpts=qm[1].split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,6);
+    text=text.replace(qm[0],'').replace(/\n{3,}/g,'\n\n').trim();
+  }
+  if(/\[\[WB-PLAN\]\]/.test(text)){isPlan=true;text=text.replace(/\[\[WB-PLAN\]\]/g,'').replace(/\n{3,}/g,'\n\n').trim();}
+  return {text:text,qOpts:qOpts,isPlan:isPlan};
+}
+function extrasHtml(x){
+  let h='';
+  if(x.qOpts&&x.qOpts.length){
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">';
+    for(const o of x.qOpts)h+='<span class="chip" style="cursor:pointer" data-wbq="'+esca(o)+'">'+esc(o)+'</span>';
+    h+='</div>';
+  }
+  if(x.isPlan)h+='<div style="margin-top:8px"><button type="button" class="chip" data-wbplan="'+esca(x.text)+'" style="cursor:pointer;border:0;background:var(--pink);color:#fff;font-weight:700;padding:8px 14px;font-size:13px">🛠 开工,按这个方案做</button></div>';
+  return h;
+}
 
 // ---------- 会话列表 ----------
 let showArchived=false;
@@ -953,7 +1015,7 @@ function renderMessages(s){
     if(m.role==='user')add('user',esc(m.content));
     else{
       if(m.error&&!m.content)add('err','😢 '+esc(m.error));
-      else{let html='';if(m.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(m.thinking)+'</div></details>';html+=esc(m.content);html+=modFilesHtml(m.modifiedFiles);if(m.artifacts&&m.artifacts.length){html+='<br>';for(const a of m.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}}html+=usageLine(m.usage);add(m.error?'bot err':'bot ok',html);}
+      else{let html='';if(m.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(m.thinking)+'</div></details>';const _x=parseExtras(m.content);html+=esc(_x.text);html+=modFilesHtml(m.modifiedFiles);if(m.artifacts&&m.artifacts.length){html+='<br>';for(const a of m.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}}html+=extrasHtml(_x);html+=usageLine(m.usage);add(m.error?'bot err':'bot ok',html);}
     }
   }
   // 会话切换/重开:用最近一轮的 usage 恢复上下文占用估算
@@ -1018,10 +1080,12 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
     else{
       let html='';
       if(j.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(j.thinking)+'</div></details>';
-      html+=esc(j.reply||'完成!');
+      const _x=parseExtras(j.reply||'完成!');
+      html+=esc(_x.text);
       html+=modFilesHtml(workMode==='build'?j.modifiedFiles:null);
       if(j.artifacts&&j.artifacts.length){html+='<br>';for(const a of j.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}
         html+='<div style="margin-top:8px;font-size:12.5px;background:var(--tint);border-radius:10px;padding:8px 10px;line-height:1.8">📦 <b>装进 N.E.K.O. 三步:</b>① 点上面下载 .neko-plugin → ② 打开 N.E.K.O. 插件管理器,用「导入安装包」选中它 → ③ 启动插件,完成!</div>';}
+      html+=extrasHtml(_x);
       html+=usageLine(j.usage);
       add('ok',html);
     }
@@ -1039,6 +1103,16 @@ t.addEventListener('keydown',e=>{
 stopbtn.onclick=async()=>{stopbtn.disabled=true;try{await fetch('/api/stop',{method:'POST'})}catch(e){}setTimeout(()=>{stopbtn.disabled=false},1500)};
 // 愿望卡片:点击自动填入输入框(事件委托,重新渲染的欢迎语里同样生效)
 chat.addEventListener('click',e=>{const c=e.target.closest('[data-wish]');if(!c||b.disabled)return;t.value=c.getAttribute('data-wish');t.focus();});
+// Plan 追问候选答案:点一下即作为这一轮的回答发送
+chat.addEventListener('click',e=>{const c=e.target.closest('[data-wbq]');if(!c||b.disabled)return;t.value=c.getAttribute('data-wbq')||'';if(!t.value.trim())return;form.requestSubmit();});
+// 方案「开工」按钮:切到直接做模式,把方案正文作为任务提交
+chat.addEventListener('click',e=>{
+  const c=e.target.closest('[data-wbplan]');if(!c||b.disabled)return;
+  workMode='build';document.getElementById('modeBuild').classList.add('on');document.getElementById('modePlan').classList.remove('on');
+  t.value=c.getAttribute('data-wbplan')||'';
+  if(!t.value.trim())return;
+  form.requestSubmit();
+});
 
 // ---------- 设置面板 ----------
 const PRESETS=${JSON.stringify(PROVIDER_PRESETS)};
@@ -1876,6 +1950,7 @@ const srv = createServer(async (req, res) => {
       if (!s) s = getSession(sessions.current) || newSession(null)
       // 给已归档会话发消息 = 恢复它
       if (s.archived) { s.archived = false; saveSessions() }
+      const askCount = planAskCount(s) // Plan 模式引导提问:本会话已问几个(决定还能问几个)
       busy = true
       currentAbort = new AbortController()
       // 引擎毒化自愈:上次任务异常(看门狗中止/模型不可用/连接失败)后,引擎进程可能拒绝一切模型调用
@@ -1902,7 +1977,7 @@ const srv = createServer(async (req, res) => {
         }
       }
       const driveOpts = {
-        text: buildWishPrompt(text, mode), dir: config.workspace, model: config.model,
+        text: buildWishPrompt(text, mode, askCount), dir: config.workspace, model: config.model,
         server: config.server, timeout: config.timeoutSec,
         noProgressSec: config.stallTimeoutSec,
         auth: engineAuth || undefined,
@@ -1915,7 +1990,7 @@ const srv = createServer(async (req, res) => {
         let result
         try {
           result = await driveAgentCli({
-            text: buildWishPrompt(text, mode), dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
+            text: buildWishPrompt(text, mode, askCount), dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
             timeoutSec: config.timeoutSec, signal: currentAbort.signal,
             sessionID: s.engineSessionId || undefined,
           })
