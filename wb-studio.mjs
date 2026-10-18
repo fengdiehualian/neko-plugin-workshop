@@ -674,6 +674,8 @@ const SETUP_PAGE = `<!doctype html>
   button{width:100%;margin-top:22px;border:0;background:#ff7ba9;color:#fff;border-radius:14px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
   button:hover{background:#e2517f}
   button:disabled{opacity:.6;cursor:wait}
+  button.ghost{background:#fff;color:#c93a68;border:2px solid #ffc3d8;margin-top:10px}
+  button.ghost:hover{background:#fdeef4;border-color:#e2517f}
   .msg{margin-top:14px;font-size:13px;display:none;padding:10px 14px;border-radius:10px}
   .msg.bad{display:block;background:#fdf3f2;color:#c0392b;border:1px solid #f3b0af}
   .msg.good{display:block;background:#f4fbf5;color:#2d7a3a;border:1px solid #9fd8a8}
@@ -711,6 +713,7 @@ const SETUP_PAGE = `<!doctype html>
   <input id="m" placeholder="例如 gpt-4o / deepseek-chat / kimi-k3 等" autocomplete="off">
   <div class="tip">按你的服务商提供的模型名称填写</div>
   <button id="go">保存并进入工坊 →</button>
+  <button id="try" class="ghost">🔌 先测一下能不能连上</button>
   <div id="msg" class="msg"></div>
   <details><summary>什么是「OpenAI 兼容格式」?</summary>
     <div style="line-height:1.9;margin-top:8px">
@@ -764,6 +767,23 @@ $('go').onclick=async()=>{
     if(j.ok){msg.textContent='✅ '+(j.warning||'配置成功,正在进入工坊…');msg.className='msg good';setTimeout(()=>location.reload(),1200);}
     else{msg.textContent='😢 '+(j.error||'配置失败');msg.className='msg bad';btn.disabled=false;}
   }catch(e){msg.textContent='😢 连接出错:'+e;msg.className='msg bad';btn.disabled=false;}
+};
+// 主动测试:只测不存,填完随时可以点一下确认能不能连上
+$('try').onclick=async()=>{
+  const btn=$('try'),msg=$('msg');
+  const baseURL=$('u').value.trim(),apiKey=$('k').value.trim(),model=$('m').value.trim(),protocol=$('proto').value;
+  if(!baseURL){msg.textContent='😢 先填服务地址(Base URL)再测';msg.className='msg bad';return}
+  if(!apiKey){msg.textContent='😢 先填 API 密钥再测';msg.className='msg bad';return}
+  if(!model){msg.textContent='😢 先填模型名称再测';msg.className='msg bad';return}
+  btn.disabled=true;const old=btn.textContent;btn.textContent='🔌 测试中…(最多 20 秒)';msg.className='msg';
+  try{
+    const r=await fetch('/api/test',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({baseURL,apiKey,model,protocol})});
+    const j=await r.json();
+    if(j.ok&&j.passed){msg.textContent='✅ 连上了!模型回应正常'+(j.model?'('+j.model+')':'');msg.className='msg good';}
+    else{msg.textContent='😢 没连上:'+(j.error||'未知原因');msg.className='msg bad';}
+  }catch(e){msg.textContent='😢 连接出错:'+e;msg.className='msg bad';}
+  btn.disabled=false;btn.textContent=old;
 };
 </script>
 </body></html>`
@@ -924,6 +944,7 @@ const PAGE = `<!doctype html>
       <div class="frow2">
         <button type="button" id="apiSave">保存并启用</button>
         <button type="button" id="apiSaveOnly" class="ghost">仅保存</button>
+        <button type="button" id="apiTest" class="ghost">🔌 测试连接</button>
         <span id="apiMsg"></span>
       </div>
     </div>
@@ -1289,6 +1310,23 @@ async function saveApi(enable){
 }
 document.getElementById('apiSave').onclick=()=>saveApi(true);
 document.getElementById('apiSaveOnly').onclick=()=>saveApi(false);
+// 主动测试:只测不存,填完可以先确认这一套能不能连上
+document.getElementById('apiTest').onclick=async()=>{
+  const btn=document.getElementById('apiTest'),msg=document.getElementById('apiMsg');
+  const baseURL=(document.getElementById('apiURL').value||'').trim();
+  const apiKey=(document.getElementById('apiKey').value||'').trim();
+  const model=(document.getElementById('apiModel').value||'').trim();
+  const protocol=document.getElementById('apiProto').value;
+  if(!baseURL||!apiKey||!model){msg.textContent='地址/密钥/模型名称都要填,才能测';msg.className='bad';return}
+  btn.disabled=true;const old=btn.textContent;btn.textContent='🔌 测试中…';msg.className='';msg.textContent='';
+  try{
+    const r=await fetch('/api/test',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({baseURL,apiKey,model,protocol})});
+    const j=await r.json();
+    if(j.ok&&j.passed){msg.textContent='✅ 连上了'+(j.model?'('+j.model+')':'');msg.className='good';}
+    else{msg.textContent='😢 没连上:'+(j.error||'未知原因');msg.className='bad';}
+  }catch(e){msg.textContent='😢 连接出错:'+e;msg.className='bad';}
+  btn.disabled=false;btn.textContent=old;
+};
 
 // ---------- 导入 / 导出 ----------
 document.getElementById('exportbtn').onclick=()=>{if(curSession)location.href='/api/sessions/'+curSession+'/export';};
@@ -1492,6 +1530,38 @@ const srv = createServer(async (req, res) => {
       restartEngineBackground()
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify({ ok: true, warning, testModel: test.model || null }))
+      return
+    }
+    // ---------- 主动测试连接(只测不存):给页面上的「测一下」按钮用 ----------
+    if (req.method === "POST" && url.pathname === "/api/test") {
+      let body = ""
+      for await (const ch of req) body += ch
+      let b = {}
+      try { b = JSON.parse(body) } catch {}
+      const baseURL = String(b.baseURL || "").trim().replace(/\/+$/, "")
+      const apiKey = String(b.apiKey || "").trim()
+      const modelID = String(b.model || "").trim()
+      const protocol = String(b.protocol || "openai").trim()
+      const bad = (msg) => {
+        res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: msg }))
+      }
+      if (!baseURL) return bad("请先填服务地址(Base URL)")
+      if (!apiKey || PLACEHOLDER.test(apiKey)) return bad("请先填 API 密钥")
+      if (!modelID) return bad("请先填模型名称(Model ID)")
+      if (!/^https?:\/\//.test(baseURL)) return bad("API 地址要以 http(s):// 开头")
+      const invalid = validateApiFields(baseURL, apiKey, modelID)
+      if (invalid) return bad(invalid)
+      // 与保存前同一套探测(先非流式,挂住再流式兜底),但完全不落盘
+      const test = await testProvider({ baseURL, apiKey, modelID, protocol }, 20_000)
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+      res.end(JSON.stringify({
+        ok: true,
+        passed: !!test.ok,
+        error: test.ok ? "" : String(test.error || "连接测试未通过"),
+        model: test.model || null,
+        hardFail: !test.ok && isHardTestFail(test),
+      }))
       return
     }
     if (req.method === "GET" && url.pathname === "/api/health") {
