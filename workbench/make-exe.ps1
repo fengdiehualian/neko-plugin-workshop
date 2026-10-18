@@ -25,16 +25,28 @@ New-Item -ItemType Directory -Force -Path "$WorkDir\payload" | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Out) | Out-Null
 
 # 1. payload = stage minus runtime (user data; recreated on first run)
-robocopy $Stage "$WorkDir\payload" /E /NFL /NDL /NJH /NJS | Out-Null
-if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE" }
-$runtime = "$WorkDir\payload\runtime"
-if (Test-Path $runtime) { Remove-Item $runtime -Recurse -Force }
+#    若 stage 里没有 runtime,直接用 stage 压缩,省掉一份 330MB 的副本
+$stageRuntime = Join-Path $Stage "runtime"
+$hasRuntime = (Test-Path $stageRuntime) -and ((Get-ChildItem $stageRuntime -Recurse -Force -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0)
+if ($hasRuntime) {
+  robocopy $Stage "$WorkDir\payload" /E /NFL /NDL /NJH /NJS | Out-Null
+  if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE" }
+  if (Test-Path "$WorkDir\payload\runtime") { Remove-Item "$WorkDir\payload\runtime" -Recurse -Force }
+  $zipSource = "$WorkDir\payload\*"
+} else {
+  Write-Host "Stage has no runtime, zipping in place (saves ~330MB disk)"
+  $zipSource = "$Stage\*"
+}
 
 # 2. zip the payload (workshop files at zip root)
 Write-Host "Zipping payload ..."
 $zipPath = "$WorkDir\payload.zip"
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-Compress-Archive -Path "$WorkDir\payload\*" -DestinationPath $zipPath -CompressionLevel Optimal
+Compress-Archive -Path $zipSource -DestinationPath $zipPath -CompressionLevel Optimal
+
+# 2.5 打完包就把 payload 副本删掉:它和 $Stage 内容重复,留着会让峰值磁盘占用
+# 多出整整一份(约 330MB)。低配机器(剩余空间 <1GB)会因此构建失败。
+if (Test-Path "$WorkDir\payload") { Remove-Item "$WorkDir\payload" -Recurse -Force -ErrorAction SilentlyContinue }
 
 # 3. compile SFX: resource embeds the zip; subsystem windows (no console flash)
 # NOTE: no /win32icon - csc failed to consume bun.exe's icon (CS1567); default icon is fine
