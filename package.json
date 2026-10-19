@@ -11,6 +11,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "check:page": "node tools/check-page.mjs"
   }
 }
