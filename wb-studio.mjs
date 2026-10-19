@@ -142,8 +142,9 @@ function buildWishPrompt(wish, mode, askCount = 0) {
       "   候选答案一",
       "   候选答案二",
       "   候选答案三",
+      "   其他(自己说)",
       "   [[/WB-Q]]",
-      "   问题正文写在标记块外面,用大白话讲明白为什么问、每个选项什么意思;禁止出现任何技术术语。用户也可以自己打字回答,选项只是捷径。",
+      "   问题正文写在标记块外面,用大白话讲明白为什么问、每个选项什么意思;禁止出现任何技术术语。用户也可以自己打字回答,选项只是捷径。**最后一项固定写「其他(自己说)」**,方便用户自由描述。",
       left > 0
         ? `3. 纪律:本会话你已经问过 ${askCount} 个问题,最多再问 ${left} 个;问满 3 个必须停止提问,按最合理的理解直接出方案。`
         : "3. 纪律:本会话你已经问满 3 个问题了,这一轮必须停止提问,直接按最合理的理解出方案。",
@@ -172,8 +173,20 @@ function buildWishPrompt(wish, mode, askCount = 0) {
     "这是一位零基础小白许的愿,请把它做成一个能通过校验、能实际用的 N.E.K.O. 插件:",
     "1. 按愿望选模板:scaffold 用 reminder=定时提醒类 / notes=记录存储类 / hello_world=其他;类名=核心功能+Plugin,PLUGIN_ID 用小写下划线英文",
     "2. 生成后必须让 wb-plugin verify 全绿(error 清零)再交付,实验循环最多 5 轮;遵守 SKILL.md 硬规则 R1–R15" + hintBlock,
-    "3. 愿望有歧义就选最常见的那种理解直接做,汇报时说明你的理解;绝不反问用户技术细节",
-    "4. 最后用中文说人话汇报:插件叫什么、干什么、什么时候触发、怎么装(下载 .neko-plugin → N.E.K.O. 插件管理器导入 → 启动)",
+    "3. 默认直接开工:小歧义按最常见理解做,汇报时说明你的理解。",
+    "4. 例外——只有「关键信息缺失、猜错会导致大返工」时才允许停下来问用户(例如:分不清是做定时提醒还是做记录、不知道触发方式、不知道要不要界面)。提问规则:",
+    askCount > 0
+      ? "   - 本会话你已经问过一次了,这一轮必须直接开工,不许再提问。"
+      : "   - 本会话最多问 1 个问题,问完必须开工,不要再追问;",
+    "   - 必须用下面这种选项格式(问题正文写在标记块外面,大白话,不要技术术语):",
+    "     [[WB-Q]]",
+    "     候选一",
+    "     候选二",
+    "     其他(自己说)",
+    "     [[/WB-Q]]",
+    "   - 选项 2-4 个,每个都要短、能一眼选;最后一项固定是「其他(自己说)」,方便用户自己描述;",
+    "   - 用户回答后直接按答案开工,不要复述、不要再确认。",
+    "5. 最后用中文说人话汇报:插件叫什么、干什么、什么时候触发、怎么装(下载 .neko-plugin → N.E.K.O. 插件管理器导入 → 启动)",
   ].join("\n")
 }
 
@@ -1032,6 +1045,8 @@ function extrasHtml(x){
   if(x.qOpts&&x.qOpts.length){
     h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">';
     for(const o of x.qOpts)h+='<span class="chip" style="cursor:pointer" data-wbq="'+esca(o)+'">'+esc(o)+'</span>';
+    // 每个提问都必须留「其他」:模型漏写也要兜底补一个(点它不直接发送,只聚焦输入框)
+    if(!x.qOpts.some(o=>/其他|自己|自定义/.test(o)))h+='<span class="chip" data-wbother="1" style="cursor:pointer;border-style:dashed">✍️ 其他(自己说)</span>';
     h+='</div>';
   }
   if(x.isPlan)h+='<div style="margin-top:8px"><button type="button" class="chip" data-wbplan="'+esca(x.text)+'" style="cursor:pointer;border:0;background:var(--pink);color:#fff;font-weight:700;padding:8px 14px;font-size:13px">🛠 开工,按这个方案做</button></div>';
@@ -1207,6 +1222,8 @@ t.addEventListener('keydown',e=>{
 stopbtn.onclick=async()=>{stopbtn.disabled=true;try{await fetch('/api/stop',{method:'POST'})}catch(e){}setTimeout(()=>{stopbtn.disabled=false},1500)};
 // 愿望卡片:点击自动填入输入框(事件委托,重新渲染的欢迎语里同样生效)
 chat.addEventListener('click',e=>{const c=e.target.closest('[data-wish]');if(!c||b.disabled)return;t.value=c.getAttribute('data-wish');t.focus();});
+// 「其他(自己说)」:不直接发送,把光标送回输入框让用户自己写
+chat.addEventListener('click',e=>{const c=e.target.closest('[data-wbother]');if(!c||b.disabled)return;t.focus();t.placeholder='用你自己的话说说看…';});
 // Plan 追问候选答案:点一下即作为这一轮的回答发送
 chat.addEventListener('click',e=>{const c=e.target.closest('[data-wbq]');if(!c||b.disabled)return;t.value=c.getAttribute('data-wbq')||'';if(!t.value.trim())return;form.requestSubmit();});
 // 方案「开工」按钮:切到直接做模式,把方案正文作为任务提交
