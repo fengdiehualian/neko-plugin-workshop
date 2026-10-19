@@ -1019,12 +1019,12 @@ function modFilesHtml(fs){if(!fs||!fs.length)return'';return '<div style="margin
 function esca(s){return esc(s).replace(/"/g,'&quot;')}
 function parseExtras(content){
   let text=String(content==null?'':content),qOpts=null,isPlan=false;
-  const qm=text.match(/\[\[WB-Q\]\]([\s\S]*?)\[\[\/WB-Q\]\]/);
+  const qm=text.match(/\\[\\[WB-Q\\]\\]([\\s\\S]*?)\\[\\[\\/WB-Q\\]\\]/);
   if(qm){
-    qOpts=qm[1].split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,6);
-    text=text.replace(qm[0],'').replace(/\n{3,}/g,'\n\n').trim();
+    qOpts=qm[1].split(/\\r?\\n/).map(s=>s.trim()).filter(Boolean).slice(0,6);
+    text=text.replace(qm[0],'').replace(/\\n{3,}/g,'\\n\\n').trim();
   }
-  if(/\[\[WB-PLAN\]\]/.test(text)){isPlan=true;text=text.replace(/\[\[WB-PLAN\]\]/g,'').replace(/\n{3,}/g,'\n\n').trim();}
+  if(/\\[\\[WB-PLAN\\]\\]/.test(text)){isPlan=true;text=text.replace(/\\[\\[WB-PLAN\\]\\]/g,'').replace(/\\n{3,}/g,'\\n\\n').trim();}
   return {text:text,qOpts:qOpts,isPlan:isPlan};
 }
 function extrasHtml(x){
