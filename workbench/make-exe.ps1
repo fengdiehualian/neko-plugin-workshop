@@ -4,7 +4,10 @@
 param(
   [Parameter(Mandatory = $true)][string]$Stage,
   [string]$Out = "$env:TEMP\NEKOWorkshopSetup.exe",
-  [string]$WorkDir = "$env:TEMP\neko_wb_build"
+  [string]$WorkDir = "$env:TEMP\neko_wb_build",
+  # 仅当 $Stage 是「临时构建副本」时使用:压完 zip 立即删掉它。
+  # 磁盘紧张时(剩余 <700MB)能把峰值降低约 330MB;千万别对真实安装目录开这个开关。
+  [switch]$DropStageAfterZip
 )
 $ErrorActionPreference = "Stop"
 
@@ -47,6 +50,12 @@ Compress-Archive -Path $zipSource -DestinationPath $zipPath -CompressionLevel Op
 # 2.5 打完包就把 payload 副本删掉:它和 $Stage 内容重复,留着会让峰值磁盘占用
 # 多出整整一份(约 330MB)。低配机器(剩余空间 <1GB)会因此构建失败。
 if (Test-Path "$WorkDir\payload") { Remove-Item "$WorkDir\payload" -Recurse -Force -ErrorAction SilentlyContinue }
+
+# 2.6 低磁盘模式:stage 只是临时副本,zip 打完就删,给 csc 腾出空间
+if ($DropStageAfterZip -and (Test-Path $Stage) -and -not $hasRuntime) {
+  Write-Host "Dropping build stage to free disk ..."
+  Remove-Item $Stage -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 # 3. compile SFX: resource embeds the zip; subsystem windows (no console flash)
 # NOTE: no /win32icon - csc failed to consume bun.exe's icon (CS1567); default icon is fine
