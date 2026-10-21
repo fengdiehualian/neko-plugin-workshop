@@ -1,8 +1,8 @@
-# 插件开发入门文档 
+# 插件开发入门文档
 
 如果你想让 N.E.K.O 多做一件事，插件通常是最简单的起点。插件可以看作一个小型 Python 项目：它用 plugin.toml 介绍自己，再通过 NekoPluginBase 子类提供具体功能。开始制作插件之前，不需要先读懂整个 N.E.K.O 项目或理解它的内部架构。
 
-## 先认识两个文件 
+## 先认识两个文件
 
 CLI 会自动创建常用的项目结构。刚开始时，只需要关注两个文件：
 
@@ -29,7 +29,7 @@ class HelloWorldPlugin(NekoPluginBase):
 
 运行时入口使用 async def，并返回 Ok(...) 或 Err(...)。配置、定时任务、生命周期、消息、存储和 UI 等能力，可以等插件真正需要时再添加。
 
-## 插件怎样运行 
+## 插件怎样运行
 
 ```text
 plugin.toml → 加载插件类 → 注册插件入口 → 启动插件进程
@@ -39,7 +39,7 @@ plugin.toml → 加载插件类 → 注册插件入口 → 启动插件进程
 
 这里有两种容易混淆的“入口”：plugin.toml 中的 [plugin].entry 指向 N.E.K.O 要加载的 Python 类；@plugin_entry 声明的 hello 等 ID，则代表插件启动后可以调用的具体功能。
 
-## 完成第一个插件 
+## 完成第一个插件
 
 - 运行 uv run neko-plugin init <plugin_id> --type plugin --name "<插件名称>" 创建插件。
 - 打开生成的 plugin.toml 和 __init__.py。
