@@ -73,13 +73,14 @@ if (!CHROME) {
   process.exit(2)
 }
 
-// ---------- 1. 起无头浏览器(启动偶发失败时自动重试一次) ----------
+// ---------- 1. 起无头浏览器(固定端口更稳:port=0 时偶发不落 DevToolsActivePort 文件) ----------
 const profile = mkdtempSync(join(tmpdir(), "wb-check-"))
+const dbgPort = 9400 + Math.floor(Math.random() * 400)
 let chrome = null
-function launchChrome() {
+function launchChrome(port) {
   chrome = spawn(CHROME, [
     "--headless=new",
-    "--remote-debugging-port=0",
+    `--remote-debugging-port=${port}`,
     `--user-data-dir=${profile}`,
     "--no-first-run", "--no-default-browser-check", "--disable-gpu",
     "--no-proxy-server", "--disable-extensions", "--disable-background-networking",
@@ -96,16 +97,12 @@ function cleanup(code) {
 
 let wsUrl = ""
 for (let attempt = 0; attempt < 2 && !wsUrl; attempt++) {
-  if (attempt) { try { chrome.kill() } catch {} await sleep(500) }
-  launchChrome()
-  for (let i = 0; i < 150 && !wsUrl; i++) {
-    await sleep(100)
-    const f = join(profile, "DevToolsActivePort")
-    if (!existsSync(f)) continue
-    // 文件首行形如 "57520,/devtools/browser/<id>",端口在逗号前
-    const port = Number(String(readFileSync(f, "utf8")).split(/\r?\n/)[0].split(",")[0])
-    if (!port) continue
-    const r = await localReq("/json/list", { host: "127.0.0.1", port, timeout: 3000 })
+  if (attempt) { try { chrome.kill() } catch {} await sleep(800) }
+  launchChrome(dbgPort + attempt)
+  const port = dbgPort + attempt
+  for (let i = 0; i < 200 && !wsUrl; i++) {
+    await sleep(150)
+    const r = await localReq("/json/list", { host: "127.0.0.1", port, timeout: 2000 })
     const list = Array.isArray(r.json) ? r.json : []
     const page = list.find((t) => t.type === "page")
     if (page && page.webSocketDebuggerUrl) wsUrl = page.webSocketDebuggerUrl
@@ -434,11 +431,27 @@ result = await evalJs(`(async () => {
   $('#importbtn').click(); await sleep(100);
   $('#importfile') ? pass('导入插件按钮 + 隐藏文件框就位') : fail('导入插件', '找不到 #importfile');
 
-  // 18) 上下文容量条
+  // 18) 上下文容量环
   const cb = $('#ctxbar');
-  cb && cb.textContent.trim() ? pass('上下文容量条', cb.textContent.trim().slice(0, 24)) : fail('上下文容量条', '空的');
+  const ring = cb && cb.querySelector('.ctxring svg');
+  const circles = ring ? ring.querySelectorAll('circle') : [];
+  const arc = circles[1];
+  const hasArc = !!(arc && Number(arc.getAttribute('stroke-dasharray')) > 0 && arc.getAttribute('stroke-dashoffset') !== null);
+  cb && cb.textContent.trim() && ring && circles.length === 2 && hasArc
+    ? pass('上下文容量环渲染', '底环+进度环,' + cb.textContent.trim())
+    : fail('上下文容量环渲染', 'ring=' + !!ring + ' circles=' + circles.length + ' arc=' + hasArc);
+  cb && cb.querySelector('.ctxring') && cb.querySelector('.ctxring').getAttribute('title')
+    ? pass('容量环 tooltip', cb.querySelector('.ctxring').getAttribute('title'))
+    : fail('容量环 tooltip', '没有 title');
 
-  // 19) 侧边栏会话列表
+  // 19) 单 API 上下文:行内有 🧠 chip,表单里有 #apiCtx
+  $('#apiCtx') ? pass('API 表单含「上下文窗口」字段') : fail('API 表单含「上下文窗口」字段', '找不到 #apiCtx');
+  $('#setbtn').click(); await sleep(400);
+  const ctxChip = $('.apirow .ctxchip');
+  ctxChip ? pass('API 行显示上下文 chip', ctxChip.textContent.trim()) : pass('API 行显示上下文 chip', '(当前无 API,跳过)');
+  $('#setclose').click(); await sleep(100);
+
+  // 20) 侧边栏会话列表
   const side = $('#slist');
   side && side.children.length ? pass('侧边栏会话列表', side.children.length + ' 条') : fail('侧边栏会话列表', '空');
 
@@ -452,30 +465,44 @@ result = await evalJs(`(async () => {
     changed ? pass('归档视图切换') : fail('归档视图切换', '文案没变');
   } else fail('归档视图切换', '找不到 #archbtn');
 
-  // 21) 侧边栏:归档 / 取消归档 / 重命名 / 删除(对话框打桩,避免无头浏览器把弹窗吞掉)
-  const itemCount = () => $$('#slist .sitem').length;
-  const beforeArc = itemCount();
+  // 21) 侧边栏:归档 / 取消归档 / 重命名 / 删除
+  // 断言一律走 /api/sessions 真实状态 + 轮询,不看 DOM 文案(会话可能同名「新对话」,标题比对会误判)
+  const titles = () => $$('#slist .sitem .t').map((e) => e.textContent);
+  const sess = async () => (await (await fetch('/api/sessions')).json()).items || [];
+  const archCount = async () => (await sess()).filter((s) => s.archived).length;
+  const waitFor = async (fn, ms = 3000) => { const t0 = Date.now(); let v = await fn(); while (!v && Date.now() - t0 < ms) { await sleep(150); v = await fn() } return v };
+  // 上一轮可能把「归档视图」记进了 localStorage,先归位到对话列表,否则行内只有 📤/🗑
+  if ($('#archbtn').classList.contains('on')) { $('#archbtn').click(); await sleep(600); }
+
   const arcBtn = $('#slist .sitem .arc');
   if (arcBtn) {
-    arcBtn.click(); await sleep(900);
-    const afterArc = itemCount();
-    afterArc === beforeArc - 1 ? pass('侧边栏「归档」', beforeArc + ' → ' + afterArc) : fail('侧边栏「归档」', afterArc + ' 条,期望 ' + (beforeArc - 1));
-    if (!$('#archbtn').classList.contains('on')) { $('#archbtn').click(); await sleep(500); }
-    const un = $('#slist .sitem .un');
+    const before = await archCount();
+    arcBtn.click();
+    const archived = await waitFor(async () => (await archCount()) > before);
+    archived ? pass('侧边栏「归档」', '已归档 ' + (await archCount()) + ' 个') : fail('侧边栏「归档」', '归档数没变(' + before + ')');
+    // 切到归档视图,应能看到「取消归档」
+    if (!$('#archbtn').classList.contains('on')) { $('#archbtn').click(); }
+    const un = await waitFor(async () => $('#slist .sitem .un'));
     un ? pass('归档视图里可「取消归档」', un.title) : fail('归档视图里可「取消归档」', '没有 .un 按钮');
-    if (un) { un.click(); await sleep(900); }
-    if ($('#archbtn').classList.contains('on')) { $('#archbtn').click(); await sleep(500); }
+    if (un) {
+      un.click();
+      const restored = await waitFor(async () => (await archCount()) === before);
+      restored ? pass('「取消归档」恢复原状', '归档数回落到 ' + before) : fail('「取消归档」', '归档数没回落');
+    }
+    if ($('#archbtn').classList.contains('on')) { $('#archbtn').click(); }
+    await sleep(400);
   } else fail('侧边栏「归档」', '没找到 .arc 按钮');
 
   window.prompt = () => '自动化改名';
   window.confirm = () => true;
   const renBtn = $('#slist .sitem .ren');
   if (renBtn) {
-    const n7 = calls().filter((c) => c.url.includes('/rename')).length;
-    renBtn.click(); await sleep(800);
-    calls().filter((c) => c.url.includes('/rename')).length > n7 ? pass('侧边栏「重命名」→ /rename') : fail('侧边栏「重命名」', '没发出请求');
-    const shown = $('#slist .sitem .t') && $('#slist .sitem .t').textContent;
-    shown && shown.includes('自动化改名') ? pass('重命名后列表已刷新', shown) : fail('重命名后列表已刷新', '标题=' + shown);
+    const before = (await sess()).map((s) => s.id + ':' + s.title).join('|');
+    renBtn.click();
+    const renamed = await waitFor(async () => (await sess()).some((s) => s.title === '自动化改名'));
+    renamed ? pass('侧边栏「重命名」→ 服务端标题已改', '自动化改名') : fail('侧边栏「重命名」', '服务端标题没变');
+    titles().some((x) => x.includes('自动化改名')) || await waitFor(async () => titles().some((x) => x.includes('自动化改名')))
+      ? pass('重命名后列表已刷新') : fail('重命名后列表已刷新', '列表=' + titles().join('/'));
   } else fail('侧边栏「重命名」', '没找到 .ren 按钮');
 
   const delBtn = $('#slist .sitem .del');
@@ -492,9 +519,10 @@ result = await evalJs(`(async () => {
 
 // ---------- 5. 接口体检(不经过页面) ----------
 // POST 接口要带页面注入的 x-wb-token,否则会被 403 挡住(这本身也是安全检查的一环)
-const homeHtml = (await localReq("/", { timeout: 10000 })).text || ""
+const homeHtml = (await localReq("/", { timeout: 15000 })).text || ""
 const TOKEN = (homeHtml.match(/const WB_TOKEN="([^"]+)"/) || [])[1] || ""
 const H = TOKEN ? { "x-wb-token": TOKEN } : {}
+if (!TOKEN) console.error(`${C.y}⚠ 首页没取到 token(响应 ${homeHtml.length} 字节),后续 POST 会被 403 拦下${C.x}`)
 
 const apiChecks = []
 if (isSetup) {
@@ -518,6 +546,43 @@ await probe("POST /api/task 空内容拦截", "/api/task", { method: "POST", bod
 await probe("POST /api/task 无令牌拦截", "/api/task", { method: "POST", body: "{}", headers: {} }, (s) => s === 403)
 await probe("POST /api/stop", "/api/stop", { method: "POST", body: "{}" }, (s, j) => s === 200 && j && j.ok !== false)
 await probe("GET /api/download 缺参拦截", "/api/download", {}, (s) => s >= 400)
+
+// ---------- 5b. 单 API 上下文(加 --mutate 才跑:会临时增删测试实例里的 API) ----------
+if (argv.includes("--mutate")) {
+  const post = (path, obj) => localReq(path, { method: "POST", body: JSON.stringify(obj), timeout: 40000, headers: H })
+  const created = []
+  try {
+    const a = await post("/api/apis", { name: "ctx-test", baseURL: "http://127.0.0.1:9/v1", apiKey: "sk-test-123456", model: "mock-a", protocol: "openai", contextLimit: 64000, enable: true })
+    const id = a.json && a.json.id
+    if (id) created.push(id)
+    let ctx = await localReq("/api/context", { timeout: 10000, headers: H })
+    apiChecks.push({
+      name: "新建 API 自带 64K → 生效刻度",
+      ok: !!(ctx.json && ctx.json.effectiveLimit === 64000 && ctx.json.source === "api"),
+      detail: `effective=${ctx.json && ctx.json.effectiveLimit} source=${ctx.json && ctx.json.source}`,
+    })
+    if (id) {
+      await post("/api/apis/" + id + "/context", { contextLimit: 200000 })
+      ctx = await localReq("/api/context", { timeout: 10000, headers: H })
+      apiChecks.push({ name: "单独改成 200K → 生效", ok: !!(ctx.json && ctx.json.effectiveLimit === 200000), detail: `effective=${ctx.json && ctx.json.effectiveLimit}` })
+
+      await post("/api/apis/" + id + "/context", { contextLimit: null })
+      ctx = await localReq("/api/context", { timeout: 10000, headers: H })
+      apiChecks.push({
+        name: "清空 → 回落全局默认",
+        ok: !!(ctx.json && ctx.json.source === "global" && ctx.json.effectiveLimit === ctx.json.contextLimit),
+        detail: `effective=${ctx.json && ctx.json.effectiveLimit} global=${ctx.json && ctx.json.contextLimit}`,
+      })
+
+      const bad = await post("/api/apis/" + id + "/context", { contextLimit: 500 })
+      apiChecks.push({ name: "非法上下文值被拦下 (400)", ok: bad.status === 400, detail: "HTTP " + bad.status })
+    } else {
+      apiChecks.push({ name: "临时 API 创建", ok: false, detail: JSON.stringify(a.json).slice(0, 80) })
+    }
+  } finally {
+    for (const id of created) await localReq("/api/apis/" + id, { method: "DELETE", timeout: 10000, headers: H })
+  }
+}
 
 // ---------- 6. 汇总 ----------
 const all = [...result, ...apiChecks]

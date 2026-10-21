@@ -329,6 +329,29 @@ function saveApis() {
 function enabledApi() {
   return apis.items.find((a) => a.id === apis.enabledId) || null
 }
+/** 每套 API 可单独设上下文窗口;没设就跟随全局(设置面板里的「默认上下文容量」) */
+const CTX_MIN = 1000
+const CTX_MAX = 10_000_000
+function normCtxLimit(v) {
+  const n = Math.floor(Number(v))
+  if (!Number.isFinite(n) || n < CTX_MIN || n > CTX_MAX) return null
+  return n
+}
+function apiCtxLimit(a) {
+  const own = a && normCtxLimit(a.contextLimit)
+  return own || config.contextLimit
+}
+/** 当前生效的容量:启用的那套 API 自己设了就用自己的,否则用全局 */
+function effectiveContext() {
+  const a = enabledApi()
+  const own = a && normCtxLimit(a.contextLimit)
+  return {
+    contextLimit: config.contextLimit,          // 全局默认
+    effectiveLimit: own || config.contextLimit, // 实际刻度
+    source: own ? "api" : "global",
+    apiName: a ? a.name || a.modelID : "",
+  }
+}
 /** 把启用的那套 API 写进引擎配置(重启引擎后生效) */
 function applyEnabledApi() {
   const a = enabledApi()
@@ -854,6 +877,12 @@ const PAGE = `<!doctype html>
   button:disabled{opacity:.55;cursor:wait}
   button:hover:not(:disabled){background:var(--pink-d)}
   .hint{color:var(--muted-2);font-size:12.5px;margin-top:8px;line-height:1.8}
+  /* 上下文容量环:直径 18px,占用越高环越满,颜色随阈值变(绿→橙→红) */
+  .ctxring{display:inline-flex;align-items:center;vertical-align:-4px;margin-left:1px}
+  .ctxring svg{display:block;overflow:visible}
+  .ctxring circle.bg{stroke:var(--border)}
+  .ctxtxt{margin-left:4px;font-variant-numeric:tabular-nums;letter-spacing:.2px}
+  .ctxtxt b{font-weight:800}
   .tusage{margin-top:8px;font-size:11px;color:var(--muted-2)}
   /* 工具栏与设置面板 */
   header{gap:12px}
@@ -878,6 +907,8 @@ const PAGE = `<!doctype html>
   .apirow .an{font-weight:800;min-width:90px}
   .apirow .ad{color:var(--muted-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .apirow.cur{border-color:var(--pink);background:var(--tint)}
+  .apirow .ctxchip{flex-shrink:0;border:1px dashed var(--border);border-radius:999px;padding:3px 9px;font-size:11.5px;color:var(--muted);cursor:pointer;white-space:nowrap;user-select:none}
+  .apirow .ctxchip:hover{border-color:var(--pink);color:var(--pink-d);background:var(--card)}
   .apirow button{border:0;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;background:var(--pink);color:var(--on-primary);font-weight:700}
   .apirow button.del{background:#f3b0af;color:#a33}
   .apirow button:disabled{opacity:.5;cursor:default}
@@ -954,6 +985,7 @@ const PAGE = `<!doctype html>
       <div class="frow"><label>Base URL</label><input id="apiURL" placeholder="https://…/v1"></div>
       <div class="frow"><label>API Key *</label><input id="apiKey" type="password" placeholder="粘贴密钥"></div>
       <div class="frow"><label>模型名称 *</label><input id="apiModel" placeholder="例如 deepseek-chat"></div>
+      <div class="frow"><label>上下文窗口</label><input id="apiCtx" type="number" min="1" step="1" placeholder="留空 = 跟随全局;填 K 数,如 128"></div>
       <div class="frow2">
         <button type="button" id="apiSave">保存并启用</button>
         <button type="button" id="apiSaveOnly" class="ghost">仅保存</button>
@@ -977,7 +1009,7 @@ const PAGE = `<!doctype html>
       </label>
     </div>
     <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
-      <div style="font-size:13.5px;color:var(--ink)"><b>上下文容量</b> <span style="color:var(--muted-2);font-size:12px">(模型上下文窗口大小,决定底部容量条的满格刻度)</span></div>
+      <div style="font-size:13.5px;color:var(--ink)"><b>默认上下文容量</b> <span style="color:var(--muted-2);font-size:12px">(没单独设置的 API 都用这个;容量环的满格刻度)</span></div>
       <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <button type="button" class="ctxpreset" data-ctx="32000" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer">32K</button>
         <button type="button" class="ctxpreset" data-ctx="128000" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer">128K</button>
@@ -1011,15 +1043,38 @@ const WB_TOKEN="__WB_TOKEN__";
 const chat=document.getElementById('chat'),form=document.getElementById('f'),t=document.getElementById('t'),b=document.getElementById('b');
 const slist=document.getElementById('slist'),newbtn=document.getElementById('newbtn');
 let curSession=null;
-// 上下文容量显示:占用≈最近一轮 usage.input+output(估算),容量来自设置(默认 128K)
-let ctxLimit=128000,ctxUsed=0;
+// 上下文容量:环状指示(占用≈最近一轮 usage.input+output),刻度来自「当前 API 自己的设置」或全局默认
+let ctxLimit=128000,ctxUsed=0,ctxSource='global',ctxApiName='';
 function fmtCtx(n){return n>=1000000?(n/1000000).toFixed(n%1000000?1:0)+'M':n>=1000?(n/1000).toFixed(n%1000?1:0)+'K':''+n}
 function updateCtxBar(){
   const el=document.getElementById('ctxbar');if(!el)return;
-  const pct=ctxLimit>0?Math.min(100,Math.round(ctxUsed/ctxLimit*100)):0;
+  const pct=ctxLimit>0?Math.min(100,ctxUsed/ctxLimit*100):0;
   const col=pct>=90?'#e53935':pct>=70?'#fb8c00':'#43a047';
-  el.innerHTML=' · 🧠 上下文 '+fmtCtx(ctxUsed)+'/'+fmtCtx(ctxLimit)+' ('+pct+'%)'+
-    '<span style="display:inline-block;width:56px;height:6px;background:var(--tint);border-radius:3px;vertical-align:middle;margin-left:5px"><span style="display:block;height:6px;border-radius:3px;width:'+pct+'%;background:'+col+'"></span></span>';
+  const R=7.5, C=2*Math.PI*R, off=(C*(1-pct/100)).toFixed(2);
+  const who=ctxSource==='api'?('本套 API 单独设置'+(ctxApiName?'('+ctxApiName+')':'')):'跟随全局默认';
+  const tip='上下文 '+fmtCtx(ctxUsed)+' / '+fmtCtx(ctxLimit)+' · '+Math.round(pct)+'% · '+who;
+  el.innerHTML=' · <span class="ctxring" title="'+esc(tip)+'">'
+    +'<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">'
+    +'<circle class="bg" cx="10" cy="10" r="'+R+'" fill="none" stroke-width="3"></circle>'
+    +'<circle cx="10" cy="10" r="'+R+'" fill="none" stroke="'+col+'" stroke-width="3" stroke-linecap="round"'
+    +' stroke-dasharray="'+C.toFixed(2)+'" stroke-dashoffset="'+off+'" transform="rotate(-90 10 10)"'
+    +' style="transition:stroke-dashoffset .45s ease,stroke .3s"></circle>'
+    +'</svg></span>'
+    +'<span class="ctxtxt">'+fmtCtx(ctxUsed)+'/<b>'+fmtCtx(ctxLimit)+'</b></span>';
+}
+// 从后端同步容量刻度(切 API / 改设置 / 首次加载都走这里)
+async function loadCtxLimit(){
+  try{
+    const j=await(await fetch('/api/context')).json();
+    if(j&&j.ok){
+      ctxLimit=j.effectiveLimit||j.contextLimit||128000;
+      ctxSource=j.source||'global';
+      ctxApiName=j.apiName||'';
+      updateCtxBar();
+      const inp=document.getElementById('ctxInput');
+      if(inp&&document.activeElement!==inp)inp.value=Math.round((j.contextLimit||128000)/1000);
+    }
+  }catch(e){}
 }
 function add(cls,html){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
@@ -1264,15 +1319,15 @@ document.getElementById('strictToggle').onchange=async e=>{
     if(j.ok){e.target.checked=j.strictVerify;}
   }catch(err){e.target.checked=!e.target.checked;}
 };
-// 上下文容量设置:读后端设置 → 填 K 数;预设/保存即生效,底部容量条跟随
-(async()=>{try{const j=await(await fetch('/api/context')).json();ctxLimit=j.contextLimit||128000;document.getElementById('ctxInput').value=Math.round(ctxLimit/1000);updateCtxBar();}catch(e){}})();
+// 上下文容量设置:读后端设置 → 填 K 数;预设/保存即生效,底部容量环跟随
+loadCtxLimit();
 async function saveCtx(){
   const k=Number(document.getElementById('ctxInput').value);
   if(!k||k<=0)return;
   try{
     const r=await fetch('/api/context',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({contextLimit:Math.round(k*1000)})});
     const j=await r.json();
-    if(j.ok){ctxLimit=j.contextLimit;updateCtxBar();}
+    if(j.ok){ctxLimit=j.effectiveLimit||j.contextLimit;ctxSource=j.source||'global';ctxApiName=j.apiName||'';updateCtxBar();}
   }catch(e){}
 }
 document.getElementById('ctxSave').onclick=saveCtx;
@@ -1298,30 +1353,55 @@ async function loadApis(){
   if(!j.items.length){apilist.innerHTML='<div class="apirow"><span class="ad">还没有配置,在下方添加第一套 API</span></div>';return}
   for(const a of j.items){
     const d=document.createElement('div');d.className='apirow'+(a.id===j.enabledId?' cur':'');
+    const ownCtx=a.contextLimit?fmtCtx(a.contextLimit):('跟随全局 '+fmtCtx(j.globalContextLimit||128000));
     d.innerHTML='<span class="an">'+esc(a.name||a.modelID)+'</span><span class="ad">'+esc(a.protocol&&a.protocol!=='openai'?a.protocol+' · ':'')+esc(a.baseURL)+' · '+esc(a.modelID)+' · 密钥…'+esc(a.keyTail)+'</span>'
+      +'<span class="ctxchip" title="点击设置这套 API 的上下文窗口">🧠 '+esc(ownCtx)+'</span>'
       +(a.id===j.enabledId?'<button disabled>使用中</button>':'<button class="use">启用</button>')
       +'<button class="del">删除</button>';
+    d.querySelector('.ctxchip')?.addEventListener('click',async e=>{
+      e.stopPropagation();
+      const cur=a.contextLimit?Math.round(a.contextLimit/1000):'';
+      const input=prompt('这套 API 的上下文窗口(K tokens);留空 = 跟随全局默认 '+Math.round((j.globalContextLimit||128000)/1000)+'K:',cur);
+      if(input===null)return;
+      const k=Number(String(input).trim());
+      const body=String(input).trim()===''?{contextLimit:null}:{contextLimit:Math.round(k*1000)};
+      if(String(input).trim()!==''&&(!k||k<=0)){alert('填 K 数,比如 128 或 200;留空表示跟随全局');return}
+      try{
+        const r=await fetch('/api/apis/'+a.id+'/context',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+        const jj=await r.json();
+        const msg=document.getElementById('apiMsg');
+        if(jj.ok){msg.className='';msg.textContent='✅ 上下文窗口已更新';loadApis();loadCtxLimit();}
+        else{msg.className='bad';msg.textContent=jj.error||'设置失败'}
+      }catch(err){alert('设置失败:'+err)}
+    });
     d.querySelector('.use')?.addEventListener('click',async e=>{
       const btn=e.target;btn.disabled=true;btn.textContent='切换中…';
       const msg=document.getElementById('apiMsg');
       try{
         const r=await fetch('/api/apis/'+a.id,{method:'POST'});
         const j=await r.json();
-        if(j.ok){msg.className='';msg.textContent='✅ 已启用'+(j.warning?'(注意:'+j.warning+')':'');loadApis();}
+        if(j.ok){msg.className='';msg.textContent='✅ 已启用'+(j.warning?'(注意:'+j.warning+')':'');loadApis();loadCtxLimit();}
         else{msg.className='bad';msg.textContent=j.error||'切换失败';btn.disabled=false;btn.textContent='启用';}
       }catch(err){msg.className='bad';msg.textContent='连接出错:'+err;btn.disabled=false;btn.textContent='启用';}
     });
-    d.querySelector('.del').addEventListener('click',async()=>{if(!confirm('删除「'+(a.name||a.modelID)+'」?'))return;await fetch('/api/apis/'+a.id,{method:'DELETE'});loadApis();});
+    d.querySelector('.del').addEventListener('click',async()=>{if(!confirm('删除「'+(a.name||a.modelID)+'」?'))return;await fetch('/api/apis/'+a.id,{method:'DELETE'});loadApis();loadCtxLimit();});
     apilist.appendChild(d);
   }
 }
 async function saveApi(enable){
   const msg=document.getElementById('apiMsg');msg.className='';msg.textContent='保存中…';
   try{
-    const r=await fetch('/api/apis',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({name:document.getElementById('apiName').value.trim(),baseURL:document.getElementById('apiURL').value.trim(),apiKey:document.getElementById('apiKey').value.trim(),model:document.getElementById('apiModel').value.trim(),protocol:document.getElementById('apiProto').value,enable})});
+    // 上下文窗口按 K 填;留空则不传(跟随全局)
+    const ctxK=String(document.getElementById('apiCtx').value||'').trim();
+    const payload={name:document.getElementById('apiName').value.trim(),baseURL:document.getElementById('apiURL').value.trim(),apiKey:document.getElementById('apiKey').value.trim(),model:document.getElementById('apiModel').value.trim(),protocol:document.getElementById('apiProto').value,enable};
+    if(ctxK!=='')payload.contextLimit=Math.round(Number(ctxK)*1000);
+    const r=await fetch('/api/apis',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
     const j=await r.json();
-    if(j.ok){msg.textContent=enable?('✅ '+(j.warning||'已保存并启用(引擎重启中)')):'✅ 已保存';loadApis();document.getElementById('apiName').value=document.getElementById('apiURL').value=document.getElementById('apiKey').value=document.getElementById('apiModel').value='';}
+    if(j.ok){
+      msg.textContent=(enable?('✅ '+(j.warning||'已保存并启用(引擎重启中)')):'✅ 已保存')+(payload.contextLimit?' · 上下文 '+fmtCtx(payload.contextLimit):'');
+      loadApis();loadCtxLimit();
+      document.getElementById('apiName').value=document.getElementById('apiURL').value=document.getElementById('apiKey').value=document.getElementById('apiModel').value=document.getElementById('apiCtx').value='';
+    }
     else{msg.className='bad';msg.textContent=j.error||'保存失败'}
   }catch(e){msg.className='bad';msg.textContent='连接出错:'+e}
 }
@@ -1682,10 +1762,12 @@ const srv = createServer(async (req, res) => {
       res.end(JSON.stringify({
         ok: true,
         enabledId: apis.enabledId,
+        globalContextLimit: config.contextLimit,
         items: apis.items.map((a) => ({
           id: a.id, name: a.name, baseURL: a.baseURL, modelID: a.modelID,
           protocol: a.protocol || "openai",
           keyTail: a.apiKey ? a.apiKey.slice(-4) : "",
+          contextLimit: normCtxLimit(a.contextLimit) || null, // null = 跟随全局
         })),
       }))
       return
@@ -1725,7 +1807,17 @@ const srv = createServer(async (req, res) => {
           : softWarning(test)
       }
       const id = "api_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
-      apis.items.push({ id, name, baseURL, apiKey, modelID, protocol })
+      // 上下文窗口:留空(=null)跟随全局默认,填了就用这套 API 自己的
+      let ownCtx = null
+      if (b.contextLimit !== undefined && b.contextLimit !== null && String(b.contextLimit).trim() !== "") {
+        ownCtx = normCtxLimit(b.contextLimit)
+        if (!ownCtx) {
+          res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, error: "上下文容量要在 1000 ~ 10000000 tokens 之间(留空则跟随全局)" }))
+          return
+        }
+      }
+      apis.items.push({ id, name, baseURL, apiKey, modelID, protocol, ...(ownCtx ? { contextLimit: ownCtx } : {}) })
       // "仅保存"不切换当前启用项;仅当一套都没有时才默认启用,避免新用户保存后还是没配置
       if (enable || !apis.enabledId) apis.enabledId = id
       if (apis.enabledId === id) applyEnabledApi()
@@ -1766,6 +1858,32 @@ const srv = createServer(async (req, res) => {
       restartEngineBackground()
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify({ ok: true, enabledId: apis.enabledId, warning: softWarning(test) }))
+      return
+    }
+    // 单个 API 的上下文窗口:传 null / 空 表示清除,恢复跟随全局
+    let cm = url.pathname.match(/^\/api\/apis\/([^/]+)\/context$/)
+    if (req.method === "POST" && cm) {
+      const a = apis.items.find((x) => x.id === cm[1])
+      if (!a) { res.writeHead(404, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ ok: false, error: "配置不存在" })); return }
+      let body = ""
+      for await (const ch of req) body += ch
+      let b = {}
+      try { b = JSON.parse(body) } catch {}
+      const raw = b.contextLimit
+      if (raw === null || raw === undefined || String(raw).trim() === "") {
+        delete a.contextLimit
+      } else {
+        const v = normCtxLimit(raw)
+        if (!v) {
+          res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, error: "上下文容量要在 1000 ~ 10000000 tokens 之间(留空则跟随全局)" }))
+          return
+        }
+        a.contextLimit = v
+      }
+      saveApis()
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+      res.end(JSON.stringify({ ok: true, id: a.id, contextLimit: a.contextLimit || null, ...effectiveContext() }))
       return
     }
     // ---------- N.E.K.O 实测闭环 ----------
@@ -2004,7 +2122,8 @@ const srv = createServer(async (req, res) => {
     if (url.pathname === "/api/context") {
       if (req.method === "GET") {
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
-        res.end(JSON.stringify({ ok: true, contextLimit: config.contextLimit }))
+        // contextLimit=全局默认;effectiveLimit=当前启用 API 实际生效值(单独设过就用它)
+        res.end(JSON.stringify({ ok: true, ...effectiveContext() }))
         return
       }
       if (req.method === "POST") {
@@ -2013,7 +2132,7 @@ const srv = createServer(async (req, res) => {
         let b = {}
         try { b = JSON.parse(body) } catch {}
         const v = Math.floor(Number(b.contextLimit))
-        if (!Number.isFinite(v) || v < 1000 || v > 10_000_000) {
+        if (!Number.isFinite(v) || v < CTX_MIN || v > CTX_MAX) {
           res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
           res.end(JSON.stringify({ ok: false, error: "上下文容量要在 1000 ~ 10000000 tokens 之间" }))
           return
@@ -2021,7 +2140,7 @@ const srv = createServer(async (req, res) => {
         config.contextLimit = v
         saveUserSettings()
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
-        res.end(JSON.stringify({ ok: true, contextLimit: config.contextLimit }))
+        res.end(JSON.stringify({ ok: true, ...effectiveContext() }))
         return
       }
     }
