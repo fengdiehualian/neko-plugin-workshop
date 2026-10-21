@@ -127,10 +127,14 @@ function planAskCount(session) {
   return n
 }
 
-function buildWishPrompt(wish, mode, askCount = 0) {
+function buildWishPrompt(wish, mode, askCount = 0, memory = "") {
+  // 上下文被压缩过:把摘要顶在最前面,保证"之前聊过什么"不会因为换会话而断片
+  const memBlock = memory
+    ? `【更早对话的记忆摘要(上下文已压缩)】\n${memory}\n\n(以上是更早内容的摘要,直接在此基础上继续;不要复述摘要本身)\n\n`
+    : ""
   if (mode === "plan") {
     const left = Math.max(0, 3 - askCount)
-    return [
+    return memBlock + [
       "【用户的愿望/当前消息】" + wish,
       "",
       "现在是「先出方案」模式:不写代码、不改文件、不执行命令,只负责把需求聊清楚并给出方案。用户是零基础小白。",
@@ -167,7 +171,7 @@ function buildWishPrompt(wish, mode, askCount = 0) {
   if (/命令|执行|运行|打开|快捷键|脚本|终端/.test(wish))
     hints.push("执行命令类:按 references/tool-calling.md,subprocess 异步执行+超时+输出截断,不阻塞主流程")
   const hintBlock = hints.length ? "\n技术要点(参考):\n- " + hints.join("\n- ") : ""
-  return [
+  return memBlock + [
     "【用户的愿望】" + wish,
     "",
     "这是一位零基础小白许的愿,请把它做成一个能通过校验、能实际用的 N.E.K.O. 插件:",
@@ -189,6 +193,157 @@ function buildWishPrompt(wish, mode, askCount = 0) {
     "5. 最后用中文说人话汇报:插件叫什么、干什么、什么时候触发、怎么装(下载 .neko-plugin → N.E.K.O. 插件管理器导入 → 启动)",
   ].join("\n")
 }
+
+// ---------- 上下文自动压缩 ----------
+// 引擎侧会话会一直累积历史,窗口塞满后要么被服务商拒绝(context_length_exceeded),
+// 要么悄悄截断导致"忘了前面说过啥"。这里在接近上限时把较早的对话压成摘要:
+//   摘要注入下一轮提示词 + 重置引擎会话 id,既腾出空间又不丢关键信息。
+const COMPACT_RATIO = Math.min(0.95, Math.max(0.3, Number(process.env.WB_COMPACT_RATIO) || 0.75))
+const COMPACT_KEEP_RECENT = 4 // 最近的 N 条原文保留,不压进摘要
+const COMPACT_SUMMARY_MAX = 1800 // 摘要字符上限(约 1.2k tokens)
+
+/** 粗略 token 估算:中文按 1 字 1 token,英文数字按 3.5 字符 1 token */
+function estTokens(text) {
+  const s = String(text || "")
+  if (!s) return 0
+  const cjk = (s.match(/[\u4e00-\u9fff]/g) || []).length
+  return Math.ceil(cjk + (s.length - cjk) / 3.5)
+}
+
+/** 会话已用上下文:优先最近一轮引擎回传的 usage,否则按"压缩后真正还要带上的内容"估算 */
+function sessionTokens(s) {
+  const ms = (s && s.messages) || []
+  const from = (s && s.summarizedUpTo) || 0 // 已压进摘要的部分不再计入(引擎也不会再看到它们)
+  for (let i = ms.length - 1; i >= from; i--) {
+    const u = ms[i].usage
+    if (u && ((u.input || 0) + (u.output || 0)) > 0) return (u.input || 0) + (u.output || 0) + (u.reasoning || 0)
+  }
+  let n = s && s.summary ? estTokens(s.summary) : 0
+  for (let i = from; i < ms.length; i++) n += estTokens(ms[i].content) + 8
+  return n
+}
+
+/** 规则摘要:不依赖模型,保证"用户要过什么、做出来了什么"这类硬信息一定留下 */
+function ruleDigest(s, oldMsgs) {
+  const wishes = []
+  const notes = []
+  const files = new Set()
+  const arts = new Set()
+  for (const m of oldMsgs) {
+    const t = String(m.content || "").replace(/\s+/g, " ").trim()
+    if (m.role === "user") {
+      if (t) wishes.push(t.length > 150 ? t.slice(0, 150) + "…" : t)
+    } else if (t) {
+      if (t.length > 30 && notes.length < 3) notes.push(t.length > 480 ? t.slice(0, 480) + "…" : t)
+      for (const f of m.modifiedFiles || []) files.add(String(f))
+      for (const a of m.artifacts || []) arts.add(String(a).split(/[\\/]/).pop())
+    }
+  }
+  const uniq = [...new Set(wishes)].slice(-10)
+  const lines = []
+  if (s && s.summary) lines.push("此前已压缩的摘要:\n" + s.summary)
+  if (uniq.length) lines.push("用户先后提出(按时间):\n" + uniq.map((w, i) => `${i + 1}. ${w}`).join("\n"))
+  if (notes.length) lines.push("助手最近的关键结论:\n- " + notes.join("\n- "))
+  if (arts.size) lines.push("已生成的产物:" + [...arts].slice(0, 8).join("、"))
+  if (files.size) lines.push("已修改的文件:" + [...files].slice(0, 12).join("、"))
+  const out = lines.join("\n\n")
+  return out.length > COMPACT_SUMMARY_MAX ? out.slice(0, COMPACT_SUMMARY_MAX) + "…" : out
+}
+
+/** 一次非流式对话(只给摘要这种小任务用);任何异常都返回 null,绝不打断主流程 */
+async function chatOnce(messages, maxTokens = 900, timeoutMs = 10000) {
+  const a = enabledApi()
+  if (!a) return null
+  const protocol = a.protocol || "openai"
+  const proto = protocolInfo(protocol)
+  const key = a.apiKey
+  const modelID = a.modelID
+  let url, headers, body
+  if (protocol === "anthropic") {
+    const base = (a.baseURL || "https://api.anthropic.com").replace(/\/+$/, "").replace(/\/v1$/, "")
+    url = `${base}/v1/messages`
+    headers = { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" }
+    body = { model: modelID, max_tokens: maxTokens, system: COMPACT_SYSTEM_PROMPT, messages }
+  } else if (protocol === "google") {
+    const base = (a.baseURL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")
+    url = `${base}/v1beta/models/${encodeURIComponent(modelID)}:generateContent?key=${encodeURIComponent(key)}`
+    headers = { "content-type": "application/json" }
+    body = {
+      systemInstruction: { parts: [{ text: COMPACT_SYSTEM_PROMPT }] },
+      contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.2 },
+    }
+  } else {
+    const base = (a.baseURL || proto.defaultBaseURL || "").replace(/\/+$/, "")
+    url = `${base}/chat/completions`
+    headers = { "content-type": "application/json", authorization: `Bearer ${key}` }
+    body = { model: modelID, max_tokens: maxTokens, temperature: 0.2, messages: [{ role: "system", content: COMPACT_SYSTEM_PROMPT }, ...messages] }
+  }
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { method: "POST", signal: ctrl.signal, headers, body: JSON.stringify(body) })
+    if (!res.ok) return null
+    const j = await res.json()
+    return j?.choices?.[0]?.message?.content || j?.content?.[0]?.text || j?.candidates?.[0]?.content?.parts?.[0]?.text || null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+const COMPACT_SYSTEM_PROMPT = [
+  "你在为一个「插件开发助手」的会话做记忆压缩。用户是零基础小白。",
+  "请把给出的对话记录压成一段中文摘要,要求:",
+  "1. 必须保留:用户想要什么插件、功能与触发方式、已经确认的选择、插件名称与产物文件、还没做完的事、任何数字/时间/名称约定。",
+  "2. 丢弃:寒暄、重复解释、反复试错的中间过程(只留结论)。",
+  "3. 用短段落或要点列表,不超过 600 字,只写记录里真实出现的内容,不要编造。",
+  "4. 直接输出摘要正文,不要写「以下是摘要」之类的开场白。",
+].join("\n")
+
+/** 把会话较早的消息压成摘要;返回 null 表示没到阈值,不需要压缩 */
+async function compactSession(s, { force = false, reason = "auto" } = {}) {
+  const limit = effectiveContext().effectiveLimit || config.contextLimit
+  const used = sessionTokens(s)
+  const ratio = limit > 0 ? used / limit : 0
+  if (!force && ratio < COMPACT_RATIO) return null
+  const ms = s.messages || []
+  const already = s.summarizedUpTo || 0
+  let cut = ms.length - COMPACT_KEEP_RECENT
+  if (force && cut <= already) cut = ms.length - 1 // 手动压缩:至少压一条,留最新一条
+  if (cut <= already) return null
+  const oldMsgs = ms.slice(already, cut)
+  if (!oldMsgs.length) return null
+  const base = ruleDigest(s, oldMsgs)
+  if (!base.trim()) return null
+  // 先让模型润色;失败/超时就退回规则摘要(压缩本身绝不能成为新的故障点)
+  let summary = base
+  let source = "rule"
+  const transcript = oldMsgs
+    .map((m) => `${m.role === "user" ? "用户" : "助手"}:${String(m.content || "").replace(/\s+/g, " ").slice(0, 700)}`)
+    .join("\n")
+    .slice(0, 8000)
+  const polished = await chatOnce([
+    { role: "user", content: `已有摘要(可能为空,请合并):\n${s.summary || "(无)"}\n\n对话记录:\n${transcript}` },
+  ])
+  if (polished && polished.trim().length >= 40) {
+    summary = polished.trim().slice(0, COMPACT_SUMMARY_MAX)
+    source = "model"
+  }
+  s.summary = summary
+  s.summarySource = source
+  s.summaryAt = Date.now()
+  s.summarizedUpTo = cut
+  s.compactCount = (s.compactCount || 0) + 1
+  // 重置引擎会话:旧会话在引擎侧已经很大,继续用它等于没压缩;摘要已通过提示词续上
+  s.engineSessionId = null
+  s.lastCompact = { reason, before: used, after: estTokens(summary), ratio: Number(ratio.toFixed(2)), at: s.summaryAt }
+  saveSessions()
+  console.log(`[wb-studio] 会话已压缩(${reason}): ${used} → ~${estTokens(summary)} tokens,来源=${source}`)
+  return s.lastCompact
+}
+
 
 // ---------- N.E.K.O 仓库自动探测 ----------
 function detectNekoRepo() {
@@ -857,6 +1012,9 @@ const PAGE = `<!doctype html>
   #archbtn{margin-top:auto;border:0;background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer;padding:8px 10px;border-radius:9px;font-family:inherit;text-align:left}
   #archbtn:hover{background:var(--tint)}
   #archbtn.on{background:var(--tint);color:var(--pink-d);font-weight:700}
+  #compactbtn{margin-top:4px;border:0;background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer;padding:8px 10px;border-radius:9px;font-family:inherit;text-align:left}
+  #compactbtn:hover{background:var(--tint);color:var(--pink-d)}
+  #compactbtn:disabled{opacity:.6;cursor:wait}
   main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:0}
   @media(max-width:760px){#wrap{flex-direction:column}#side{width:100%;max-height:150px}}
   #chat{flex:1;display:flex;flex-direction:column;gap:12px;overflow-y:auto;padding:8px 4px}
@@ -866,6 +1024,8 @@ const PAGE = `<!doctype html>
   .bot.ok{border-color:var(--border);background:var(--tint);color:var(--ink)}
   .bot.err{border-color:var(--err-border);background:var(--err-bg);color:var(--err-ink)}
   .typing{align-self:flex-start;color:var(--muted);font-size:14px;padding:6px 12px}
+  /* 上下文压缩提示:居中细条,不抢戏但能回看 */
+  .msg.notice{align-self:center;max-width:92%;background:transparent;border:1px dashed var(--border);color:var(--muted);font-size:12.5px;padding:6px 14px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .typing span{animation:blink 1.2s infinite}
   @keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
   .chip{display:inline-block;margin-top:8px;padding:7px 14px;background:var(--tint);border:1px solid var(--pink);color:var(--pink-d);border-radius:999px;font-size:13px;text-decoration:none}
@@ -1028,6 +1188,7 @@ const PAGE = `<!doctype html>
     <button id="newbtn">+ 新对话</button>
     <div id="slist"></div>
     <button id="archbtn" title="在会话列表和已归档对话之间切换">🗂 查看已归档</button>
+    <button id="compactbtn" title="把较早的对话压成摘要,腾出上下文空间(自动压缩之外的兜底)">🗜 压缩上下文</button>
   </aside>
   <main>
   <div id="chat">
@@ -1115,6 +1276,20 @@ const archbtn=document.getElementById('archbtn');
 function renderArchBtn(){archbtn.textContent=showArchived?'← 返回对话列表':'🗂 查看已归档';archbtn.classList.toggle('on',showArchived);archbtn.title=showArchived?'返回未归档的对话列表':'查看已归档的对话';}
 archbtn.onclick=()=>{showArchived=!showArchived;try{localStorage.setItem('wb_showarch',showArchived?'1':'0')}catch(e){};renderArchBtn();refreshList();};
 renderArchBtn();
+// 手动压缩上下文:阈值之外的兜底入口(会话很长但还没触发自动压缩时,用户可主动腾空间)
+document.getElementById('compactbtn').onclick=async()=>{
+  const btn=document.getElementById('compactbtn');
+  if(!curSession||btn.disabled)return;
+  btn.disabled=true;const old=btn.textContent;btn.textContent='🗜 压缩中…';
+  try{
+    const r=await fetch('/api/sessions/'+curSession+'/compact',{method:'POST'});
+    const j=await r.json();
+    if(j.ok&&j.compact){await loadCurrent();}
+    else if(j.ok){add('notice','🗜 这个会话还不够长,暂时不用压缩');}
+    else{alert(j.error||'压缩失败');}
+  }catch(e){alert('压缩失败:'+e);}
+  btn.disabled=false;btn.textContent=old;
+};
 async function refreshList(){
   const j=await(await fetch('/api/sessions')).json();
   // 底部状态栏:当前会话的 token 累计(随会话切换/任务完成更新)
@@ -1186,6 +1361,11 @@ function renderMessages(s){
   chat.innerHTML='<div class="msg bot">你好呀!我是哈基米 🐾 把愿望告诉我,我把它做成插件。不知道说什么?点一个试试:<br><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span class="chip" style="cursor:pointer" data-wish="做一个每日提醒喝水的插件,每 45 分钟提醒一次">💧 喝水提醒</span><span class="chip" style="cursor:pointer" data-wish="做一个记事本插件,能存笔记还能搜索">📝 记事本</span><span class="chip" style="cursor:pointer" data-wish="做一个番茄钟插件,每 25 分钟提醒我休息一次">🍅 番茄钟</span><span class="chip" style="cursor:pointer" data-wish="做一个每日诗词插件,每天早上给我推一首诗">📜 每日诗词</span></div></div>';
   if(s.title&&s.title!=='新对话'){const h=document.createElement('div');h.className='typing';h.style.fontWeight='700';h.textContent=s.title;chat.appendChild(h);}
   for(const m of s.messages||[]){
+    if(m.notice==='compact'){
+      const c=m.compact||{};
+      add('notice','🗜 上下文已压缩'+(c.before?'('+fmtCtx(c.before)+' → ~'+fmtCtx(c.after)+' tokens)':'')+' · 摘要已保留,对话可继续');
+      continue;
+    }
     if(m.role==='user')add('user',esc(m.content));
     else{
       if(m.error&&!m.content)add('err','😢 '+esc(m.error));
@@ -1249,6 +1429,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
     // 只有用户仍停留在发起任务的会话时才把结果渲染进当前聊天区;
     // 若已切走,结果服务端早已存进归属会话,切回时自然可见——绝不能拽回 curSession 或串台渲染(实战踩过:侧边栏与聊天区错位,像"切换失灵")
     if(curSession!==sentTo)return;
+    if(j.compact){const c=j.compact;add('notice','🗜 上下文接近上限,已自动压缩('+fmtCtx(c.before)+' → ~'+fmtCtx(c.after)+' tokens) · 摘要已保留');}
     if(j.stopped){add('err','⏹ 已停止');}
     else if(!j.ok){add('err','😢 咪呀,没成功:<br>'+esc(j.error||'未知错误'));if(j.reply)add('bot err',esc(j.reply));}
     else{
@@ -1686,6 +1867,7 @@ const srv = createServer(async (req, res) => {
           count: s.messages.length,
           archived: !!s.archived,
           tokens: s.totalTokens || 0,
+          compactCount: s.compactCount || 0,
         })),
       }))
       return
@@ -1694,6 +1876,27 @@ const srv = createServer(async (req, res) => {
       const s = newSession(null)
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify({ ok: true, current: sessions.current, session: { id: s.id, title: s.title, messages: [] } }))
+      return
+    }
+    // ---------- 手动压缩会话上下文(自动压缩之外的兜底入口) ----------
+    let cpm = url.pathname.match(/^\/api\/sessions\/([^/]+)\/compact$/)
+    if (req.method === "POST" && cpm) {
+      const s = getSession(cpm[1])
+      if (!s) { res.writeHead(404, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ ok: false, error: "会话不存在" })); return }
+      const info = await compactSession(s, { force: true, reason: "manual" })
+      if (info) {
+        s.messages.push({ role: "assistant", content: "", notice: "compact", at: Date.now(), compact: info })
+        saveSessions()
+      }
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+      res.end(JSON.stringify({
+        ok: true,
+        compact: info,
+        summary: s.summary || "",
+        summarySource: s.summarySource || null,
+        compactCount: s.compactCount || 0,
+        compactRatio: COMPACT_RATIO,
+      }))
       return
     }
     // ---------- 会话归档/取消归档 ----------
@@ -2123,7 +2326,7 @@ const srv = createServer(async (req, res) => {
       if (req.method === "GET") {
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
         // contextLimit=全局默认;effectiveLimit=当前启用 API 实际生效值(单独设过就用它)
-        res.end(JSON.stringify({ ok: true, ...effectiveContext() }))
+        res.end(JSON.stringify({ ok: true, compactRatio: COMPACT_RATIO, ...effectiveContext() }))
         return
       }
       if (req.method === "POST") {
@@ -2140,7 +2343,7 @@ const srv = createServer(async (req, res) => {
         config.contextLimit = v
         saveUserSettings()
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
-        res.end(JSON.stringify({ ok: true, ...effectiveContext() }))
+        res.end(JSON.stringify({ ok: true, compactRatio: COMPACT_RATIO, ...effectiveContext() }))
         return
       }
     }
@@ -2265,8 +2468,20 @@ const srv = createServer(async (req, res) => {
           return
         }
       }
+      // 上下文接近/达到上限 → 先把历史压成摘要再开工;压缩失败不影响任务本身
+      let compactInfo = null
+      try {
+        compactInfo = await compactSession(s, { reason: "auto" })
+      } catch (e) {
+        console.warn("[wb-studio] 上下文压缩失败(继续任务):", e?.message)
+      }
+      if (compactInfo) {
+        s.messages.push({ role: "assistant", content: "", notice: "compact", at: Date.now(), compact: compactInfo })
+        saveSessions()
+      }
+      const memory = s.summary || ""
       const driveOpts = {
-        text: buildWishPrompt(text, mode, askCount), dir: config.workspace, model: config.model,
+        text: buildWishPrompt(text, mode, askCount, memory), dir: config.workspace, model: config.model,
         server: config.server, timeout: config.timeoutSec,
         noProgressSec: config.stallTimeoutSec,
         auth: engineAuth || undefined,
@@ -2279,7 +2494,7 @@ const srv = createServer(async (req, res) => {
         let result
         try {
           result = await driveAgentCli({
-            text: buildWishPrompt(text, mode, askCount), dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
+            text: buildWishPrompt(text, mode, askCount, memory), dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
             timeoutSec: config.timeoutSec, signal: currentAbort.signal,
             sessionID: s.engineSessionId || undefined,
           })
@@ -2307,6 +2522,7 @@ const srv = createServer(async (req, res) => {
         }
         saveSessions()
         result.sessionId = s.id
+        if (compactInfo) result.compact = compactInfo
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify(result))
         return
@@ -2385,6 +2601,7 @@ const srv = createServer(async (req, res) => {
           result.sessionId = s.id
         }
         result.sessionId = s.id // 网页层拿到的统一是工坊会话 id
+        if (compactInfo) result.compact = compactInfo
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify(result))
       } finally {

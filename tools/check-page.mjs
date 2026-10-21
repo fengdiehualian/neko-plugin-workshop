@@ -444,6 +444,18 @@ result = await evalJs(`(async () => {
     ? pass('容量环 tooltip', cb.querySelector('.ctxring').getAttribute('title'))
     : fail('容量环 tooltip', '没有 title');
 
+  // 上下文压缩按钮:点一下要真的发出 /compact,并给出提示条
+  const cbtn = $('#compactbtn');
+  if (cbtn) {
+    const n0 = calls().filter((c) => c.url.includes('/compact')).length;
+    cbtn.click();
+    await sleep(1500);
+    const sent = calls().filter((c) => c.url.includes('/compact')).length > n0;
+    const notice = $('#chat .msg.notice');
+    sent ? pass('「压缩上下文」按钮 → /compact', notice ? '已出现提示条' : '请求已发出')
+      : fail('「压缩上下文」按钮', '没发出请求');
+  } else fail('「压缩上下文」按钮', '找不到 #compactbtn');
+
   // 19) 单 API 上下文:行内有 🧠 chip,表单里有 #apiCtx
   $('#apiCtx') ? pass('API 表单含「上下文窗口」字段') : fail('API 表单含「上下文窗口」字段', '找不到 #apiCtx');
   $('#setbtn').click(); await sleep(400);
@@ -578,6 +590,28 @@ if (argv.includes("--mutate")) {
       apiChecks.push({ name: "非法上下文值被拦下 (400)", ok: bad.status === 400, detail: "HTTP " + bad.status })
     } else {
       apiChecks.push({ name: "临时 API 创建", ok: false, detail: JSON.stringify(a.json).slice(0, 80) })
+    }
+
+    // ---- 上下文压缩:导入长文档 → 手动压缩 → 校验摘要/计数/幂等 ----
+    const longMd = "## 背景\n" + "这是一段用于测试压缩的长文本,包含用户需求与已确认的决策。".repeat(80)
+    const imp = await post("/api/import", { name: "压缩测试", content: longMd })
+    const sid = imp.json && imp.json.current
+    if (sid) {
+      const cp = await post("/api/sessions/" + sid + "/compact", {})
+      const cj = cp.json || {}
+      apiChecks.push({
+        name: "手动压缩生成摘要",
+        ok: !!(cj.ok && cj.compact && cj.compact.before > 0 && String(cj.summary || "").length > 20),
+        detail: `before=${cj.compact && cj.compact.before} after=${cj.compact && cj.compact.after} 来源=${cj.summarySource}`,
+      })
+      const list = await localReq("/api/sessions", { timeout: 10000, headers: H })
+      const item = ((list.json && list.json.items) || []).find((x) => x.id === sid)
+      apiChecks.push({ name: "压缩次数写入会话列表", ok: !!(item && item.compactCount >= 1), detail: "compactCount=" + (item && item.compactCount) })
+      const cp2 = await post("/api/sessions/" + sid + "/compact", {})
+      apiChecks.push({ name: "重复压缩不报错", ok: cp2.status === 200 && !!(cp2.json && cp2.json.ok), detail: "HTTP " + cp2.status })
+      await localReq("/api/sessions/" + sid, { method: "DELETE", timeout: 10000, headers: H })
+    } else {
+      apiChecks.push({ name: "导入文档建会话", ok: false, detail: JSON.stringify(imp.json).slice(0, 80) })
     }
   } finally {
     for (const id of created) await localReq("/api/apis/" + id, { method: "DELETE", timeout: 10000, headers: H })
