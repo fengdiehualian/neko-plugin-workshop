@@ -87,6 +87,59 @@ export function scanModifiedFiles(dir, sinceMs) {
   return out.map((x) => x.rel)
 }
 
+// ---------- 模型无响应重试策略 ----------
+// 只重试「值得重试且没有任何产出」的失败:
+//   · 看门狗判定无响应(模型/接口吊住)、等待超时、本轮没生成任何回复
+//   · 连接类错误(引擎半死、网络断开)
+// 不重试:用户主动停止、已经产出回复/文件(否则重复干活、重复扣费)、
+//         密钥错/鉴权失败/额度耗尽/模型不存在这类确定性错误(重试只会白等)。
+const RETRY_HOPELESS = /(401|403|unauthor|invalid[^,]{0,20}(key|token)|api[\s_-]?key|密钥|quota|余额|欠费|insufficient|billing|payment|model[^,]{0,24}not[^,]{0,12}found|\b404\b)/i
+
+/**
+ * 判断一次失败要不要自动重试。
+ * @param {object} o
+ * @param {number} o.attemptsMade   已经尝试过几次(本次失败是第几次)
+ * @param {number} o.maxRetries     最多重试几次(0 = 关闭)
+ * @param {object|null} o.result    驱动层返回(抛错时传 null)
+ * @param {string} [o.error]        抛出的异常文本(result 为 null 时必填)
+ * @param {boolean} [o.aborted]     用户是否点了停止
+ * @param {number} [o.baseDelayMs]  首次退避基数(默认 3s,之后翻倍,上限 30s)
+ * @returns {{waitMs:number, kind:"no-response"|"connection"|"error", reason:string}|null}
+ */
+export function planModelRetry(o = {}) {
+  const attemptsMade = Math.max(1, Math.floor(Number(o.attemptsMade) || 1))
+  const maxRetries = Math.max(0, Math.floor(Number(o.maxRetries) || 0))
+  if (o.aborted) return null
+  if (attemptsMade > maxRetries) return null // attemptsMade=1 且 maxRetries=0 → 不重试
+  if (o.result && o.result.stopped) return null
+
+  const raw = String(o.error ?? o.result?.error ?? "").trim()
+  const failed = Boolean(o.error) || (o.result ? o.result.ok === false : true)
+  if (!failed) return null // 成功,不用重试
+  // 失败了但没有任何错误文本(CLI 退出码 0 却零输出、引擎空转)= 典型的「静默无响应」,
+  // 不能因为没字可匹配就放过,继续重试
+  if (raw && RETRY_HOPELESS.test(raw)) return null
+
+  // 已经有产出就别重试:回复/产物/改动文件都算「干过活了」
+  if (o.result) {
+    const hasWork =
+      Boolean(o.result.reply) ||
+      (Array.isArray(o.result.artifacts) && o.result.artifacts.length > 0) ||
+      (Array.isArray(o.result.modifiedFiles) && o.result.modifiedFiles.length > 0)
+    if (hasWork) return null
+  }
+
+  const kind = !raw || /模型服务已[^,]{0,8}秒|没有生成新回复|等待超时|timed?\s?out|ETIMEDOUT|timeout/i.test(raw)
+    ? "no-response"
+    : /Unable to connect|fetch failed|ECONNREFUSED|ECONNRESET|socket hang up|network|EPIPE|连接/i.test(raw)
+      ? "connection"
+      : "error"
+
+  const base = Math.max(500, Math.floor(Number(o.baseDelayMs) || 3000))
+  const waitMs = Math.min(30_000, base * Math.pow(2, attemptsMade - 1))
+  return { waitMs, kind, reason: raw.slice(0, 200) }
+}
+
 /**
  * @param {DriveOptions} opts
  * @returns {Promise<DriveResult>}
@@ -433,7 +486,7 @@ export async function driveAgent(opts) {
   const reason = aborted
     ? "已被用户停止"
     : stalled
-      ? `模型服务已 ${Math.round(STALL_MS / 1000)} 秒没有任何响应,任务被自动停止(常见原因:接口卡住或服务不稳定)。可重试一次,或到 ⚙ 设置里换一个更稳定的服务商`
+      ? `模型服务已 ${Math.round(STALL_MS / 1000)} 秒没有任何响应,任务被自动停止(常见原因:接口卡住或服务不稳定)。可以再发一次,或到 ⚙ 设置里换一个更稳定的服务商`
       : !finalReply && lastAssistantError
       ? lastAssistantError
       : fatal

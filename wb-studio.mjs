@@ -20,7 +20,7 @@ import { join, dirname, basename, normalize, resolve, relative, isAbsolute } fro
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
-import { driveAgent, driveAgentCli } from "./wb-agent-lib.mjs"
+import { driveAgent, driveAgentCli, planModelRetry } from "./wb-agent-lib.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -66,6 +66,8 @@ const defaultConfig = {
   enginePort: 4096,
   timeoutSec: 1500,
   stallTimeoutSec: 360, // 无进展看门狗:任务连续 N 秒没有任何引擎事件就自动中止(慢中转+长思考可几分钟无事件,给足 6 分钟)
+  retryMax: 2, // 模型无响应自动重试次数(0=关闭);只在「没有任何产出」时重试
+  retryDelaySec: 3, // 首次退避秒数,之后翻倍(3s → 6s → 12s,上限 30s)
   strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告)
   contextLimit: 128000, // 上下文容量(tokens):模型上下文窗口大小,用于底部容量显示
   openBrowser: true,
@@ -450,13 +452,15 @@ function loadUserSettings() {
     const s = JSON.parse(readFileSync(SETTINGS_FILE, "utf8"))
     if (typeof s.strictVerify === "boolean") config.strictVerify = s.strictVerify
     if (typeof s.contextLimit === "number" && s.contextLimit > 0) config.contextLimit = Math.floor(s.contextLimit)
+    if (typeof s.retryMax === "number" && s.retryMax >= 0) config.retryMax = Math.min(5, Math.floor(s.retryMax))
+    if (typeof s.retryDelaySec === "number" && s.retryDelaySec > 0) config.retryDelaySec = Math.min(60, Math.floor(s.retryDelaySec))
   } catch {}
 }
 function saveUserSettings() {
   try {
     const { mkdirSync, writeFileSync } = require("node:fs")
     mkdirSync(join(__dirname, "runtime"), { recursive: true })
-    writeFileSync(SETTINGS_FILE, JSON.stringify({ strictVerify: !!config.strictVerify, contextLimit: config.contextLimit }, null, 2), "utf8")
+    writeFileSync(SETTINGS_FILE, JSON.stringify({ strictVerify: !!config.strictVerify, contextLimit: config.contextLimit, retryMax: config.retryMax, retryDelaySec: config.retryDelaySec }, null, 2), "utf8")
   } catch (e) {
     console.error("[wb-studio] 设置落盘失败:", e.message)
   }
@@ -1169,6 +1173,16 @@ const PAGE = `<!doctype html>
       </label>
     </div>
     <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
+      <div style="font-size:13.5px;color:var(--ink)"><b>模型无响应自动重试</b> <span style="color:var(--muted-2);font-size:12px">(只在「还没有任何产出」时重试;密钥错、额度不足、手动停止不重试)</span></div>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="retryMax" type="number" min="0" max="5" step="1" style="width:76px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+        <span style="font-size:12.5px;color:var(--muted-2)">次(0 = 关闭)</span>
+        <button type="button" id="retrySave" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">保存</button>
+        <span id="retryMsg" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">看门狗判定无响应 / 等待超时 / 本轮没生成回复 / 连接断开 时触发;重试间隔 3s、6s…逐步拉长</div>
+    </div>
+    <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
       <div style="font-size:13.5px;color:var(--ink)"><b>默认上下文容量</b> <span style="color:var(--muted-2);font-size:12px">(没单独设置的 API 都用这个;容量环的满格刻度)</span></div>
       <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <button type="button" class="ctxpreset" data-ctx="32000" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer">32K</button>
@@ -1207,6 +1221,13 @@ let curSession=null;
 // 上下文容量:环状指示(占用≈最近一轮 usage.input+output),刻度来自「当前 API 自己的设置」或全局默认
 let ctxLimit=128000,ctxUsed=0,ctxSource='global',ctxApiName='';
 function fmtCtx(n){return n>=1000000?(n/1000000).toFixed(n%1000000?1:0)+'M':n>=1000?(n/1000).toFixed(n%1000?1:0)+'K':''+n}
+// 自动重试提示:说清「为什么重试」和「试了几次」,别让用户以为程序卡住
+function retryText(list){
+  if(!list||!list.length)return '';
+  const k={ 'no-response':'无响应','connection':'连接中断','error':'出错' };
+  const label=k[list[0].kind]||'出错';
+  return '🔄 模型'+label+',已自动重试 '+list.length+' 次';
+}
 function updateCtxBar(){
   const el=document.getElementById('ctxbar');if(!el)return;
   const pct=ctxLimit>0?Math.min(100,ctxUsed/ctxLimit*100):0;
@@ -1366,6 +1387,10 @@ function renderMessages(s){
       add('notice','🗜 上下文已压缩'+(c.before?'('+fmtCtx(c.before)+' → ~'+fmtCtx(c.after)+' tokens)':'')+' · 摘要已保留,对话可继续');
       continue;
     }
+    if(m.notice==='retry'){
+      add('notice',retryText(m.retries));
+      continue;
+    }
     if(m.role==='user')add('user',esc(m.content));
     else{
       if(m.error&&!m.content)add('err','😢 '+esc(m.error));
@@ -1430,6 +1455,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
     // 若已切走,结果服务端早已存进归属会话,切回时自然可见——绝不能拽回 curSession 或串台渲染(实战踩过:侧边栏与聊天区错位,像"切换失灵")
     if(curSession!==sentTo)return;
     if(j.compact){const c=j.compact;add('notice','🗜 上下文接近上限,已自动压缩('+fmtCtx(c.before)+' → ~'+fmtCtx(c.after)+' tokens) · 摘要已保留');}
+    if(j.retries&&j.retries.length){add('notice',retryText(j.retries)+(j.ok?'并恢复':'仍未成功'));}
     if(j.stopped){add('err','⏹ 已停止');}
     else if(!j.ok){add('err','😢 咪呀,没成功:<br>'+esc(j.error||'未知错误'));if(j.reply)add('bot err',esc(j.reply));}
     else{
@@ -1499,6 +1525,18 @@ document.getElementById('strictToggle').onchange=async e=>{
     const j=await r.json();
     if(j.ok){e.target.checked=j.strictVerify;}
   }catch(err){e.target.checked=!e.target.checked;}
+};
+// 模型无响应自动重试(读后端设置;保存即生效,下一个任务起按新次数重试)
+(async()=>{try{const j=await(await fetch('/api/retry')).json();const el=document.getElementById('retryMax');if(el&&j&&j.ok)el.value=j.retryMax;}catch(e){}})();
+document.getElementById('retrySave').onclick=async()=>{
+  const msg=document.getElementById('retryMsg');
+  const v=Number(document.getElementById('retryMax').value);
+  try{
+    const r=await fetch('/api/retry',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({retryMax:v})});
+    const j=await r.json();
+    if(j.ok){msg.textContent='已保存';setTimeout(()=>{msg.textContent=''},1800);}
+    else msg.textContent=j.error||'保存失败';
+  }catch(e){msg.textContent='连接出错';}
 };
 // 上下文容量设置:读后端设置 → 填 K 数;预设/保存即生效,底部容量环跟随
 loadCtxLimit();
@@ -1685,6 +1723,107 @@ loadSessions()
 let busy = false
 let currentAbort = null // 当前任务的 AbortController(停止按钮用)
 let enginePoisoned = false // 引擎毒化标记:看门狗中止/模型不可用后,引擎可能拒绝后续模型调用,需重启自愈
+let lastRetryRestarted = false // 最近一次「重试前是否已重启过引擎」,避免任务结束再重复重启
+
+// ---------- 模型无响应:自动重试 ----------
+// 触发条件与判据都在 planModelRetry 里(无产出才重试;密钥错/额度耗尽/用户停止不重试)。
+function retryMaxCount() {
+  const env = Math.floor(Number(process.env.WB_RETRY_MAX))
+  if (Number.isFinite(env) && env >= 0) return Math.min(5, env)
+  const v = Math.floor(Number(config.retryMax))
+  return Number.isFinite(v) ? Math.max(0, Math.min(5, v)) : 0
+}
+function retryBaseDelayMs() {
+  const s = Number(config.retryDelaySec)
+  return (Number.isFinite(s) && s > 0 ? Math.min(60, s) : 3) * 1000
+}
+/** 可被「停止」打断的等待:用户点停止时立刻醒来,不用等满退避 */
+function sleepAbortable(ms) {
+  const signal = currentAbort && currentAbort.signal
+  return new Promise((resolve) => {
+    if (signal && signal.aborted) return resolve()
+    const t = setTimeout(resolve, ms)
+    if (signal) signal.addEventListener("abort", () => { clearTimeout(t); resolve() }, { once: true })
+  })
+}
+/** 把异常统一成驱动层的结果形状,后续记账/报错逻辑不用分叉 */
+function failureResult(thrown) {
+  return {
+    ok: false, error: String((thrown && thrown.message) || thrown || "未知错误"),
+    sessionId: null, idle: true, stopped: false, warnings: [],
+    stats: { permissions: 0, questions: 0 },
+    reply: null, thinking: null, usage: null, artifacts: [], modifiedFiles: [],
+  }
+}
+
+/** 重试用尽且模型一个字都没吐出来时,给一句能看懂的话(不能留空错误,页面会显示空白) */
+function noResponseError(retries) {
+  const n = (retries || []).length
+  return `模型连续 ${n + 1} 次没有返回任何内容(已自动重试 ${n} 次)。可能是接口卡住或额度不足,稍后再试,或到 ⚙ 设置换一个更稳定的服务商`
+}
+
+/**
+ * 跑一次任务;失败且「没有任何产出」时按策略自动重试。
+ * kind="engine": 无响应/连接类失败通常是引擎被毒化,重试前先重启引擎,否则必然再次挂起。
+ * kind="cli":    外部 CLI 底座无常驻进程,直接重跑即可。
+ */
+async function runTaskWithRetry(kind, run) {
+  const maxRetries = retryMaxCount()
+  const retries = []
+  lastRetryRestarted = false
+  for (let attempt = 1; ; attempt++) {
+    let result = null
+    let thrown = null
+    try {
+      result = await run()
+    } catch (e) {
+      thrown = e
+    }
+    const aborted = Boolean(currentAbort && currentAbort.signal.aborted)
+    const plan = result && result.ok
+      ? null
+      : planModelRetry({
+          attemptsMade: attempt,
+          maxRetries,
+          result,
+          error: thrown ? String((thrown && thrown.message) || thrown) : undefined,
+          aborted,
+          baseDelayMs: retryBaseDelayMs(),
+        })
+    if (!plan) {
+      if (!result) result = failureResult(thrown)
+      if (retries.length) result.retries = retries
+      return result
+    }
+    if (kind === "engine") {
+      const needRestart = plan.kind !== "error" || Boolean(thrown) || !(await engineHealthy())
+      if (needRestart) {
+        console.log(`[wb-studio] 第 ${attempt} 次任务失败(${plan.kind}),重启引擎后自动重试…`)
+        enginePoisoned = false
+        lastRetryRestarted = true
+        stopEngine()
+        await sleepAbortable(1200)
+        const eng = await ensureEngine()
+        if (eng && eng.error) {
+          const r = failureResult(thrown)
+          r.error = `模型无响应,自动重试前重启引擎失败:${eng.error}`
+          r.retries = retries.concat([{ attempt, kind: plan.kind, reason: plan.reason, waitMs: plan.waitMs }])
+          return r
+        }
+      }
+    }
+    retries.push({ attempt, kind: plan.kind, reason: plan.reason, waitMs: plan.waitMs })
+    console.log(`[wb-studio] 模型无响应(${plan.kind}),${Math.round(plan.waitMs / 1000)}s 后自动重试 ${attempt + 1}/${maxRetries + 1}`)
+    await sleepAbortable(plan.waitMs)
+    if (currentAbort && currentAbort.signal.aborted) {
+      const r = failureResult(new Error("任务已停止"))
+      r.stopped = true
+      r.error = "任务已停止"
+      r.retries = retries
+      return r
+    }
+  }
+}
 
 // ---------- 本地服务安全门禁 ----------
 // 只监听 127.0.0.1 挡不住浏览器跨站请求:任意网页都能向本服务发 POST(DNS rebinding 甚至能读应答)。
@@ -2321,6 +2460,33 @@ const srv = createServer(async (req, res) => {
         return
       }
     }
+    // ---------- 模型无响应自动重试(用户偏好,落在 settings.json) ----------
+    if (url.pathname === "/api/retry") {
+      if (req.method === "GET") {
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, retryMax: retryMaxCount(), retryDelaySec: config.retryDelaySec }))
+        return
+      }
+      if (req.method === "POST") {
+        let body = ""
+        for await (const ch of req) body += ch
+        let b = {}
+        try { b = JSON.parse(body) } catch {}
+        const v = Math.floor(Number(b.retryMax))
+        if (!Number.isFinite(v) || v < 0 || v > 5) {
+          res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, error: "重试次数要在 0 ~ 5 之间(0 = 关闭自动重试)" }))
+          return
+        }
+        config.retryMax = v
+        const d = Math.floor(Number(b.retryDelaySec))
+        if (Number.isFinite(d) && d >= 1 && d <= 60) config.retryDelaySec = d
+        saveUserSettings()
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, retryMax: config.retryMax, retryDelaySec: config.retryDelaySec }))
+        return
+      }
+    }
     // ---------- 上下文容量(纯显示设置,不动引擎) ----------
     if (url.pathname === "/api/context") {
       if (req.method === "GET") {
@@ -2493,18 +2659,27 @@ const srv = createServer(async (req, res) => {
         // CLI 底座:整段任务交给外部 Agent CLI(凭据自理),无 SSE/毒化恢复路径
         let result
         try {
-          result = await driveAgentCli({
-            text: buildWishPrompt(text, mode, askCount, memory), dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
-            timeoutSec: config.timeoutSec, signal: currentAbort.signal,
-            sessionID: s.engineSessionId || undefined,
-          })
+          result = await runTaskWithRetry("cli", () =>
+            driveAgentCli({
+              text: buildWishPrompt(text, mode, askCount, memory), dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
+              timeoutSec: config.timeoutSec, signal: currentAbort.signal,
+              sessionID: s.engineSessionId || undefined,
+            })
+          )
         } finally {
           busy = false
           currentAbort = null
         }
         s.engineSessionId = result.sessionId || s.engineSessionId
         s.updatedAt = Date.now()
+        // CLI 底座没有引擎那套错误翻译:零输出且重试过时补一句人话,别把空错误甩给页面
+        if (!result.ok && !String(result.error || "").trim() && result.retries && result.retries.length) {
+          result.error = noResponseError(result.retries)
+        }
         s.messages.push({ role: "user", content: text, at: Date.now(), mode })
+        if (result.retries && result.retries.length) {
+          s.messages.push({ role: "assistant", content: "", notice: "retry", at: Date.now(), retries: result.retries })
+        }
         if (result.reply) {
           s.messages.push({
             role: "assistant",
@@ -2528,24 +2703,11 @@ const srv = createServer(async (req, res) => {
         return
       }
       try {
-        let result
-        try {
-          result = await driveAgent(driveOpts)
-        } catch (e) {
-          // 引擎半死(连接失败/会话创建失败等):自动重启后重试一次
-          console.error("[wb-studio] 任务异常,自动重启引擎并重试一次:", e?.message)
-          stopEngine()
-          await new Promise((r) => setTimeout(r, 1500))
-          const started = await ensureEngine()
-          if (!started.started && started.error) {
-            // 重启也失败:带上真实死因报错,不再把原始连接错误甩给用户
-            throw new Error(`${String(e?.message || e)}(引擎重启也失败:${started.error})`)
-          }
-          result = await driveAgent(driveOpts)
-        }
+        // 无响应/连接失败自动重试(重试前按需重启引擎),见 runTaskWithRetry
+        const result = await runTaskWithRetry("engine", () => driveAgent(driveOpts))
         // 看门狗中止/模型不可用/模型静默挂起都会毒化引擎:重启自愈(同步完成后才应答,
-        // 避免用户立刻重试时撞上引擎重启中途)
-        if (!result.ok && (result.stopped || /模型服务已|ModelUnavailable|等待超时|没有生成新回复/.test(String(result.error || "")))) {
+        // 避免用户立刻重试时撞上引擎重启中途)。重试流程里刚重启过就不再重复重启
+        if (!result.ok && !lastRetryRestarted && (result.stopped || /模型服务已|ModelUnavailable|等待超时|没有生成新回复/.test(String(result.error || "")))) {
           console.log("[wb-studio] 检测到引擎毒化特征,自动重启恢复…")
           enginePoisoned = false
           stopEngine()
@@ -2556,6 +2718,9 @@ const srv = createServer(async (req, res) => {
         s.engineSessionId = result.sessionId || s.engineSessionId
         s.updatedAt = Date.now()
         s.messages.push({ role: "user", content: text, at: Date.now(), mode })
+        if (result.retries && result.retries.length) {
+          s.messages.push({ role: "assistant", content: "", notice: "retry", at: Date.now(), retries: result.retries })
+        }
         // token 用量:本轮累计 + 会话累计(即使任务失败,已消耗的也要记账)
         const u = result.usage || {}
         const turnTotal = (u.input || 0) + (u.output || 0) + (u.reasoning || 0)
@@ -2596,7 +2761,13 @@ const srv = createServer(async (req, res) => {
           } else if (/Unable to connect|fetch failed|ECONNREFUSED/i.test(raw)) {
             result.error = "网络连接失败:本地引擎或模型服务连不上。检查网络(或加速器)后重试"
           } else if (!raw.trim()) {
-            result.error = result.reply ? "任务中断,见下方哈基米留言" : "未知错误"
+            result.error = result.retries && result.retries.length
+              ? noResponseError(result.retries)
+              : (result.reply ? "任务中断,见下方哈基米留言" : "未知错误")
+          }
+          // 重试过就明确告诉用户「不是没管,是自动试过了」,免得以为程序卡住了
+          if (result.retries && result.retries.length && !/已自动重试/.test(result.error)) {
+            result.error += `(已自动重试 ${result.retries.length} 次)`
           }
           result.sessionId = s.id
         }
