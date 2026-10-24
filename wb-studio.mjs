@@ -1034,6 +1034,18 @@ const PAGE = `<!doctype html>
   @keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
   .chip{display:inline-block;margin-top:8px;padding:7px 14px;background:var(--tint);border:1px solid var(--pink);color:var(--pink-d);border-radius:999px;font-size:13px;text-decoration:none}
   .chip:hover{background:var(--pink);color:var(--on-primary)}
+  /* 改动文件列表:整块卡片 + 可点击行(点名字在资源管理器里定位),不再铺一堆气泡 */
+  .fchg{margin:10px 0 2px;border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:560px;background:var(--card)}
+  .fchg-h{font-size:12.5px;color:var(--muted);background:var(--tint);padding:7px 11px;border-bottom:1px solid var(--border)}
+  .fchg-h b{color:var(--pink-d)}
+  .fchg-list{list-style:none;margin:0;padding:0;max-height:190px;overflow:auto}
+  .fchg-list li+li{border-top:1px dashed var(--border)}
+  .fchg-row{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;border:0;background:transparent;padding:7px 11px;font-family:inherit;font-size:13px;color:var(--ink);cursor:pointer;text-align:left}
+  .fchg-row:hover{background:var(--tint)}
+  .fchg-row.opening{background:var(--tint);opacity:.6}
+  .fchg-n{font-weight:700;white-space:nowrap;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis}
+  .fchg-d{flex:1 1 auto;min-width:0;color:var(--muted-2);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fchg-go{flex:0 0 auto;color:var(--pink-d);font-size:12px;opacity:.55}
   form{display:flex;gap:10px;margin-top:14px}
   textarea{flex:1;resize:none;border:2px solid var(--border-soft);border-radius:14px;padding:12px 14px;font-size:15px;font-family:inherit;outline:none;height:74px;background:var(--card);color:var(--ink)}
   textarea:focus{border-color:var(--pink)}
@@ -1263,7 +1275,17 @@ function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g
 function fmtTok(n){n=n||0;if(n>=10000)return (n/10000).toFixed(1)+'万';if(n>=1000)return (n/1000).toFixed(1)+'k';return ''+n}
 function usageLine(u){if(!u)return'';const out=(u.output||0)+(u.reasoning||0);let s='Token ↑'+fmtTok(u.input)+' ↓'+fmtTok(out);if(u.reasoning)s+=' (含思考 '+fmtTok(u.reasoning)+')';return '<div class="tusage">'+s+'</div>'}
 // Build 模式任务收尾:本次已修改的文件(相对路径,时间序;产物另有下载 chip)
-function modFilesHtml(fs){if(!fs||!fs.length)return'';return '<div style="margin:6px 0 2px;font-size:12px;opacity:.9">✏️ 已修改 '+fs.length+' 个文件</div><div style="display:flex;flex-wrap:wrap;gap:4px">'+fs.map(f=>'<span class="chip" title="'+esc(f)+'">'+esc(f)+'</span>').join('')+'</div>'}
+// 改动文件 = 一块列表(不是一堆气泡);每行可点,点名字在资源管理器里定位该文件
+function fBase(p){const s=String(p||'');const i=Math.max(s.lastIndexOf('/'),s.lastIndexOf('\\\\'));return i>=0?s.slice(i+1):s}
+function fDir(p){const s=String(p||'');const i=Math.max(s.lastIndexOf('/'),s.lastIndexOf('\\\\'));return i>0?s.slice(0,i):''}
+function modFilesHtml(fs){
+  if(!fs||!fs.length)return '';
+  const rows=fs.map(f=>'<li><button type="button" class="fchg-row" data-reveal="'+esca(f)+'" title="在资源管理器中定位:'+esc(f)+'">'
+    +'<span class="fchg-n">'+esc(fBase(f))+'</span>'
+    +(fDir(f)?'<span class="fchg-d">'+esc(fDir(f))+'</span>':'')
+    +'<span class="fchg-go">↗</span></button></li>').join('');
+  return '<div class="fchg"><div class="fchg-h">✏️ 本次改动 <b>'+fs.length+'</b> 个文件 · 点文件名定位</div><ul class="fchg-list">'+rows+'</ul></div>';
+}
 // ---------- Plan 模式引导提问/方案 标记解析 ----------
 // 约定:[[WB-Q]]…[[/WB-Q]] = 可点候选答案(点一下即作为回答发送);[[WB-PLAN]] = 方案(带开工按钮)
 function esca(s){return esc(s).replace(/"/g,'&quot;')}
@@ -1484,6 +1506,18 @@ t.addEventListener('keydown',e=>{
 stopbtn.onclick=async()=>{stopbtn.disabled=true;try{await fetch('/api/stop',{method:'POST'})}catch(e){}setTimeout(()=>{stopbtn.disabled=false},1500)};
 // 愿望卡片:点击自动填入输入框(事件委托,重新渲染的欢迎语里同样生效)
 chat.addEventListener('click',e=>{const c=e.target.closest('[data-wish]');if(!c||b.disabled)return;t.value=c.getAttribute('data-wish');t.focus();});
+// 改动文件列表:点一行 → 后端在资源管理器里定位该文件(不执行、不打开内容,只跳转)
+chat.addEventListener('click',async e=>{
+  const row=e.target.closest('[data-reveal]');if(!row)return;
+  e.preventDefault();
+  row.classList.add('opening');
+  try{
+    const r=await fetch('/api/reveal',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({path:row.getAttribute('data-reveal')})});
+    const j=await r.json();
+    if(!j.ok)alert('定位失败:'+(j.error||'未知错误'));
+  }catch(err){alert('定位失败:'+err)}
+  setTimeout(()=>row.classList.remove('opening'),600);
+});
 // 「其他(自己说)」:不直接发送,把光标送回输入框让用户自己写
 chat.addEventListener('click',e=>{const c=e.target.closest('[data-wbother]');if(!c||b.disabled)return;t.focus();t.placeholder='用你自己的话说说看…';});
 // Plan 追问候选答案:点一下即作为这一轮的回答发送
@@ -2780,6 +2814,41 @@ const srv = createServer(async (req, res) => {
         currentAbort = null
       }
       return
+    }
+    // ---------- 在资源管理器里定位文件(改动列表点击) ----------
+    if (req.method === "POST" && url.pathname === "/api/reveal") {
+      let body = ""
+      for await (const ch of req) body += ch
+      let b = {}
+      try { b = JSON.parse(body) } catch {}
+      const raw = String(b.path || "").trim()
+      const json = (code, obj) => {
+        res.writeHead(code, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify(obj))
+      }
+      if (!raw) return json(400, { ok: false, error: "缺少文件路径" })
+      // 只允许定位工作区内文件:挡住拿本服务当「任意路径探测器」的用法
+      const ws = resolve(config.workspace)
+      const full = resolve(ws, raw)
+      const rel = relative(ws, full)
+      if (!rel || rel.startsWith("..") || isAbsolute(rel)) {
+        return json(403, { ok: false, error: "只能定位工作区内的文件" })
+      }
+      if (!existsSync(full)) return json(404, { ok: false, error: "文件不存在(可能已被移动或删除)" })
+      try {
+        if (process.platform === "win32") {
+          const child = spawn("explorer.exe", [`/select,${full}`], { stdio: "ignore", detached: true })
+          child.on("error", () => {})
+          child.unref()
+        } else if (process.platform === "darwin") {
+          spawn("open", ["-R", full], { stdio: "ignore", detached: true }).unref()
+        } else {
+          spawn("xdg-open", [dirname(full)], { stdio: "ignore", detached: true }).unref()
+        }
+      } catch (e) {
+        return json(500, { ok: false, error: "调用资源管理器失败:" + String(e && e.message || e) })
+      }
+      return json(200, { ok: true, path: full })
     }
     if (req.method === "GET" && url.pathname === "/api/download") {
       const f = url.searchParams.get("f") || ""

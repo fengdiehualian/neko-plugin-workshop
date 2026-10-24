@@ -160,14 +160,19 @@ await evalJs(`(() => {
   window.__calls = [];
   const real = window.fetch.bind(window);
   window.__mockReply = '好的,收到';
+  window.__mockFiles = ['drink_water/plugin.py', 'drink_water/manifest.json'];
   window.fetch = (u, o = {}) => {
     const url = typeof u === 'string' ? u : (u && u.url) || '';
     const method = (o.method || 'GET').toUpperCase();
     window.__calls.push({ url, method, body: o.body });   // 全量记录,便于断言"点一下有没有发请求"
     if (url.includes('/api/task') && method === 'POST') {
       return Promise.resolve(new Response(JSON.stringify({
-        ok: true, reply: window.__mockReply, thinking: '想一下', modifiedFiles: [], artifacts: [],
+        ok: true, reply: window.__mockReply, thinking: '想一下', modifiedFiles: window.__mockFiles.slice(), artifacts: [],
       }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    }
+    if (url.includes('/api/reveal') && method === 'POST') {
+      return Promise.resolve(new Response(JSON.stringify({ ok: true, path: 'mock' }),
+        { status: 200, headers: { 'content-type': 'application/json' } }));
     }
     if (url.includes('/api/test')) {
       return Promise.resolve(new Response(JSON.stringify({ ok: true, passed: true, model: 'mock-model' }),
@@ -361,6 +366,24 @@ result = await evalJs(`(async () => {
       : fail('「开工」按钮', '请求=' + !!c + ' 切模式=' + modeBuildOn);
   } else fail('「开工」按钮渲染', '找不到 [data-wbplan]');
 
+  // 9.5) 改动文件:整块列表(不是一堆气泡),点文件名定位
+  // 每轮回复一张卡是对的(旧消息各自保留自己的改动);关键是同一轮内不能拆成 N 个气泡
+  const cards = $$('.fchg');
+  const rows = $$('.fchg-row');
+  cards.length >= 1 && rows.length === cards.length * window.__mockFiles.length
+    ? pass('改动文件渲染为单个列表', cards.length + ' 轮 × ' + window.__mockFiles.length + ' 行')
+    : fail('改动文件渲染为单个列表', '卡片=' + cards.length + ' 行=' + rows.length + '(期望每卡 ' + window.__mockFiles.length + ' 行)');
+  if (rows.length) {
+    const n4 = calls().length;
+    rows[0].click();
+    await sleep(350);
+    const rev = calls().slice(n4).find((c) => c.url.includes('/api/reveal'));
+    const want = rows[0].getAttribute('data-reveal');
+    rev && JSON.parse(rev.body).path === want
+      ? pass('点文件名 → /api/reveal 定位', want)
+      : fail('点文件名 → /api/reveal 定位', rev ? 'path=' + rev.body : '没发请求');
+  } else fail('点文件名 → /api/reveal 定位', '没有可点的行');
+
   // 10) 设置面板开关
   $('#setbtn').click(); await sleep(50);
   const opened = $('#setpanel').classList.contains('open');
@@ -529,6 +552,36 @@ result = await evalJs(`(async () => {
 })()`)
 }
 
+// ---------- 4.5 可选:截一张「改动文件列表」的图(--shot 路径) ----------
+// 必须趁 UI 检查刚跑完、列表还在 DOM 里时截;后面的会话切换会把聊天区重渲染成服务端历史
+const SHOT = arg("shot", "")
+if (SHOT) {
+  try {
+    // 侧边栏用例会把聊天区重渲染成服务端历史(里面没有 mock 的 modifiedFiles),
+    // 所以截图前先补发一条(仍走桩,不落库),让改动列表重新出现在最新一条回复里
+    await evalJs(`(() => { const t=document.querySelector('textarea'); if(!t) return false; t.value='截图用:做个喝水提醒插件'; const f=document.querySelector('form'); if(!f) return false; f.requestSubmit(); return true })()`)
+    await sleep(1500)
+    const box = await evalJs(`(() => {
+      const c = [...document.querySelectorAll('.fchg')].pop();
+      if (!c) return null;
+      c.scrollIntoView({ block: 'center' });
+      const r = c.getBoundingClientRect();
+      return { x: Math.max(0, r.x - 10), y: Math.max(0, r.y - 10), width: Math.min(r.width + 20, 620), height: r.height + 20 };
+    })()`)
+    if (box) {
+      await sleep(300)
+      const shot = await send("Page.captureScreenshot", { format: "png", clip: { ...box, scale: 2 }, captureBeyondViewport: true })
+      writeFileSync(SHOT, Buffer.from(shot.data, "base64"))
+      console.log(`${C.d}截图已写入 ${SHOT}${C.x}`)
+    } else {
+      const dbg = await evalJs("document.querySelectorAll('.msg').length + '/' + document.querySelectorAll('.fchg').length").catch(() => "?")
+      console.log(`${C.r}没有可截图的改动列表${C.x} (msg/fchg=${dbg})`)
+    }
+  } catch (e) {
+    console.log(`${C.r}截图失败: ${e.message}${C.x}`)
+  }
+}
+
 // ---------- 5. 接口体检(不经过页面) ----------
 // POST 接口要带页面注入的 x-wb-token,否则会被 403 挡住(这本身也是安全检查的一环)
 const homeHtml = (await localReq("/", { timeout: 15000 })).text || ""
@@ -591,6 +644,12 @@ if (argv.includes("--mutate")) {
     } else {
       apiChecks.push({ name: "临时 API 创建", ok: false, detail: JSON.stringify(a.json).slice(0, 80) })
     }
+
+    // ---- 改动文件定位:越界路径拒绝、缺失文件 404(不真的弹资源管理器)----
+    const rv1 = await post("/api/reveal", { path: "../../Windows/win.ini" })
+    apiChecks.push({ name: "定位文件:越界路径被拒 (403)", ok: rv1.status === 403, detail: "HTTP " + rv1.status })
+    const rv2 = await post("/api/reveal", { path: "definitely_missing_file_xyz.py" })
+    apiChecks.push({ name: "定位文件:不存在 (404)", ok: rv2.status === 404, detail: "HTTP " + rv2.status })
 
     // ---- 上下文压缩:导入长文档 → 手动压缩 → 校验摘要/计数/幂等 ----
     const longMd = "## 背景\n" + "这是一段用于测试压缩的长文本,包含用户需求与已确认的决策。".repeat(80)
