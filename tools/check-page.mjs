@@ -13,7 +13,7 @@
 // 退出码:0=全绿;1=有失败项;2=环境问题(起不来浏览器/连不上服务)
 
 import { spawn } from "node:child_process"
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { request as httpRequest } from "node:http"
@@ -74,6 +74,19 @@ if (!CHROME) {
 }
 
 // ---------- 1. 起无头浏览器(固定端口更稳:port=0 时偶发不落 DevToolsActivePort 文件) ----------
+// 正常退出会删掉自己的 profile;被强杀/超时杀掉时不会,一次遗留 5-10MB。
+// 这里顺手清理 6 小时前的旧 profile,避免 Temp 越攒越多。
+try {
+  const base = tmpdir()
+  for (const name of readdirSync(base)) {
+    if (!name.startsWith("wb-check-")) continue
+    const full = join(base, name)
+    try {
+      if (Date.now() - statSync(full).mtimeMs > 6 * 3600 * 1000) rmSync(full, { recursive: true, force: true })
+    } catch {}
+  }
+} catch {}
+
 const profile = mkdtempSync(join(tmpdir(), "wb-check-"))
 const dbgPort = 9400 + Math.floor(Math.random() * 400)
 let chrome = null
