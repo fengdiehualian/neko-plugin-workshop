@@ -189,6 +189,18 @@ await evalJs(`(() => {
 
 const isSetup = await evalJs("!!document.getElementById('presets')")
 
+// ---------- 3.5 调试模式:--eval "表达式" 只跑这段并打印结果 ----------
+const EVAL_ONLY = arg("eval", "")
+if (EVAL_ONLY) {
+  try {
+    const r = await evalJs(EVAL_ONLY)
+    console.log(typeof r === "string" ? r : JSON.stringify(r))
+  } catch (e) {
+    console.error("EVAL 失败:", e.message)
+  }
+  cleanup(0)
+}
+
 // ---------- 4. 页面内逐项体检 ----------
 let result
 if (isSetup) {
@@ -401,6 +413,49 @@ result = await evalJs(`(async () => {
     const apiShown = getComputedStyle($('#tab-api')).display !== 'none';
     lookShown && apiShown ? pass('设置面板 分类标签切换', tabs.length + ' 个标签') : fail('设置面板 分类标签切换', 'look=' + lookShown + ' api=' + apiShown);
   } else fail('设置面板 分类标签', '只有 ' + tabs.length + ' 个');
+
+  // 11.5) 长期记忆:页签能开、能加、能删
+  const memTab = tabs.find((x) => x.dataset && x.dataset.tab === 'mem');
+  // 无头浏览器会节流定时器,固定 sleep 不可靠:轮询到条件满足或超时
+  const wbWaitUntil = async (fn, ms = 4000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      if (fn()) return true;
+      await sleep(120);
+    }
+    return false;
+  };
+  if (memTab) {
+    memTab.click();
+    const shown = await wbWaitUntil(() => {
+      const el = $('#tab-mem');
+      return el && getComputedStyle(el).display !== 'none';
+    }, 2000);
+    // 先等首屏列表渲染完(空列表会显示占位文案),否则 before 会数成 0
+    await wbWaitUntil(() => {
+      const box = $('#memList');
+      return !!box && (!!box.querySelector('.memrow') || box.textContent.includes('还没有记录'));
+    }, 3000);
+    const inp = $('#memInput');
+    const before = $$('#memList .memrow').length;
+    inp.value = '配色统一用莫兰迪色系';
+    $('#memAdd').click();
+    const added = await wbWaitUntil(() => {
+      const rs = $$('#memList .memrow');
+      return rs.length === before + 1 && rs.some((r) => r.textContent.includes('莫兰迪'));
+    });
+    let after = $$('#memList .memrow').length;
+    if (added) {
+      const rowsNow = $$('#memList .memrow');
+      rowsNow[rowsNow.length - 1].querySelector('[data-memdel]').click();
+      await wbWaitUntil(() => $$('#memList .memrow').length === before);
+      after = $$('#memList .memrow').length;
+    }
+    shown && added && after === before
+      ? pass('长期记忆 页签/添加/删除', '加后 ' + (before + 1) + ' 行,删后 ' + after + ' 行')
+      : fail('长期记忆 页签/添加/删除', 'shown=' + shown + ' added=' + added + ' after=' + after + ' before=' + before);
+    tabs[0].click(); await sleep(50);
+  } else fail('长期记忆页签', '找不到 data-tab=mem');
 
   // 12) 主题切换:逐个点,校验 body 类名与 localStorage
   const themes = $$('.themeopt');
@@ -650,6 +705,28 @@ if (argv.includes("--mutate")) {
     apiChecks.push({ name: "定位文件:越界路径被拒 (403)", ok: rv1.status === 403, detail: "HTTP " + rv1.status })
     const rv2 = await post("/api/reveal", { path: "definitely_missing_file_xyz.py" })
     apiChecks.push({ name: "定位文件:不存在 (404)", ok: rv2.status === 404, detail: "HTTP " + rv2.status })
+
+    // ---- 长期记忆:读 / 加 / 空内容拒绝 / 删 ----
+    const mem0 = await localReq("/api/memory", { timeout: 8000, headers: H })
+    apiChecks.push({
+      name: "长期记忆 读取",
+      ok: mem0.status === 200 && Array.isArray((mem0.json || {}).items),
+      detail: "items=" + (((mem0.json || {}).items || []).length),
+    })
+    const mAdd = await post("/api/memory", { action: "add", text: "自检临时记忆" })
+    const mItem = (((mAdd.json || {}).items) || []).find((x) => x.text === "自检临时记忆")
+    apiChecks.push({ name: "长期记忆 添加", ok: mAdd.status === 200 && !!mItem, detail: mItem ? "id=" + mItem.id : JSON.stringify(mAdd.json).slice(0, 60) })
+    const mBad = await post("/api/memory", { action: "add", text: "   " })
+    apiChecks.push({ name: "空记忆被拒 (400)", ok: mBad.status === 400, detail: "HTTP " + mBad.status })
+    if (mItem) {
+      const mDel = await post("/api/memory", { action: "delete", id: mItem.id })
+      const still = (((mDel.json || {}).items) || []).some((x) => x.id === mItem.id)
+      apiChecks.push({
+        name: "长期记忆 删除",
+        ok: mDel.status === 200 && !still,
+        detail: "剩余 " + (((mDel.json || {}).items) || []).length,
+      })
+    }
 
     // ---- 上下文压缩:导入长文档 → 手动压缩 → 校验摘要/计数/幂等 ----
     const longMd = "## 背景\n" + "这是一段用于测试压缩的长文本,包含用户需求与已确认的决策。".repeat(80)

@@ -20,7 +20,7 @@ import { join, dirname, basename, normalize, resolve, relative, isAbsolute } fro
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
-import { driveAgent, driveAgentCli, planModelRetry } from "./wb-agent-lib.mjs"
+import { driveAgent, driveAgentCli, planModelRetry, formatUserMemory } from "./wb-agent-lib.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -129,14 +129,16 @@ function planAskCount(session) {
   return n
 }
 
-function buildWishPrompt(wish, mode, askCount = 0, memory = "") {
+function buildWishPrompt(wish, mode, askCount = 0, memory = "", userMemory = "") {
   // 上下文被压缩过:把摘要顶在最前面,保证"之前聊过什么"不会因为换会话而断片
   const memBlock = memory
     ? `【更早对话的记忆摘要(上下文已压缩)】\n${memory}\n\n(以上是更早内容的摘要,直接在此基础上继续;不要复述摘要本身)\n\n`
     : ""
+  // 用户自己维护的长期偏好:每轮都带上,跨会话生效(与压缩摘要互不影响)
+  const userMemBlock = userMemory ? String(userMemory) : ""
   if (mode === "plan") {
     const left = Math.max(0, 3 - askCount)
-    return memBlock + [
+    return memBlock + userMemBlock + [
       "【用户的愿望/当前消息】" + wish,
       "",
       "现在是「先出方案」模式:不写代码、不改文件、不执行命令,只负责把需求聊清楚并给出方案。用户是零基础小白。",
@@ -173,7 +175,7 @@ function buildWishPrompt(wish, mode, askCount = 0, memory = "") {
   if (/命令|执行|运行|打开|快捷键|脚本|终端/.test(wish))
     hints.push("执行命令类:按 references/tool-calling.md,subprocess 异步执行+超时+输出截断,不阻塞主流程")
   const hintBlock = hints.length ? "\n技术要点(参考):\n- " + hints.join("\n- ") : ""
-  return memBlock + [
+  return memBlock + userMemBlock + [
     "【用户的愿望】" + wish,
     "",
     "这是一位零基础小白许的愿,请把它做成一个能通过校验、能实际用的 N.E.K.O. 插件:",
@@ -466,6 +468,39 @@ function saveUserSettings() {
   }
 }
 loadUserSettings()
+
+// ---------- 用户长期记忆(runtime\user-memory.json) ----------
+// 用户自己写的个性化设计偏好(配色、命名、交互习惯…),每轮任务都注入提示词,跨会话生效。
+// 放 runtime 而不是 settings:升级安装包时 runtime 会被保留,记忆不会丢。
+const MEMORY_FILE = join(__dirname, "runtime", "user-memory.json")
+const MEMORY_MAX_ITEMS = 30
+const MEMORY_MAX_TEXT = 500
+const MEMORY_MAX_CHARS = 2000 // 注入提示词的字数上限,防止偏好写太长挤掉正文
+let userMemory = { enabled: true, items: [] }
+function loadUserMemory() {
+  try {
+    const raw = JSON.parse(readFileSync(MEMORY_FILE, "utf8"))
+    userMemory.enabled = raw.enabled !== false
+    userMemory.items = (Array.isArray(raw.items) ? raw.items : [])
+      .filter((x) => x && typeof x.text === "string" && x.text.trim())
+      .slice(0, MEMORY_MAX_ITEMS)
+      .map((x) => ({ id: String(x.id || `m_${Math.random().toString(36).slice(2, 10)}`), text: String(x.text).slice(0, MEMORY_MAX_TEXT), at: Number(x.at) || Date.now() }))
+  } catch {}
+}
+function saveUserMemory() {
+  try {
+    const { mkdirSync, writeFileSync } = require("node:fs")
+    mkdirSync(join(__dirname, "runtime"), { recursive: true })
+    writeFileSync(MEMORY_FILE, JSON.stringify(userMemory, null, 2), "utf8")
+  } catch (e) {
+    console.error("[wb-studio] 长期记忆落盘失败:", e.message)
+  }
+}
+function userMemoryPrompt() {
+  if (!userMemory.enabled) return ""
+  return formatUserMemory(userMemory.items, { maxChars: MEMORY_MAX_CHARS })
+}
+loadUserMemory()
 
 // ---------- 多 API 配置(runtime\apis.json):设置面板读写,可存多套,任选一套启用 ----------
 const APIS_FILE = join(__dirname, "runtime", "apis.json")
@@ -1046,6 +1081,11 @@ const PAGE = `<!doctype html>
   .fchg-n{font-weight:700;white-space:nowrap;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis}
   .fchg-d{flex:1 1 auto;min-width:0;color:var(--muted-2);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .fchg-go{flex:0 0 auto;color:var(--pink-d);font-size:12px;opacity:.55}
+  /* 长期记忆列表 */
+  .memrow{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;background:var(--card)}
+  .memtxt{flex:1;font-size:13px;color:var(--ink);line-height:1.55;word-break:break-word}
+  .memdel{border:0;background:transparent;color:var(--pink-d);font-size:12px;cursor:pointer;padding:2px 6px;flex:0 0 auto}
+  .memdel:hover{text-decoration:underline}
   form{display:flex;gap:10px;margin-top:14px}
   textarea{flex:1;resize:none;border:2px solid var(--border-soft);border-radius:14px;padding:12px 14px;font-size:15px;font-family:inherit;outline:none;height:74px;background:var(--card);color:var(--ink)}
   textarea:focus{border-color:var(--pink)}
@@ -1138,6 +1178,7 @@ const PAGE = `<!doctype html>
   <div class="sp-tabs">
     <button type="button" class="sptab on" data-tab="api">🔌 API</button>
     <button type="button" class="sptab" data-tab="look">🎨 外观</button>
+    <button type="button" class="sptab" data-tab="mem">🧠 记忆</button>
     <button type="button" id="setclose" class="sp-close">收起 ▴</button>
   </div>
   <div class="sp-body" id="tab-api">
@@ -1169,6 +1210,19 @@ const PAGE = `<!doctype html>
         <span id="apiMsg"></span>
       </div>
     </div>
+  </div>
+  <div class="sp-body" id="tab-mem" style="display:none">
+    <div class="sp-head">长期记忆 <span class="sp-tip">记住你的个性化设计偏好,新开对话也照做;存在 runtime,升级安装包不丢</span></div>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;color:var(--ink)">
+      <input type="checkbox" id="memOn" style="width:17px;height:17px;accent-color:var(--pink)">
+      <span>启用记忆 <span style="color:var(--muted-2);font-size:12px">(关掉只是不再注入,记录仍保留)</span></span>
+    </label>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:stretch">
+      <input id="memInput" maxlength="500" placeholder="例如:配色统一用低饱和莫兰迪色;插件名优先用中文;默认带设置面板" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:13px">
+      <button type="button" id="memAdd" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:10px;padding:0 18px;font-size:13px;font-weight:700;cursor:pointer">添加</button>
+    </div>
+    <div id="memList" style="margin-top:12px"></div>
+    <div style="margin-top:8px;color:var(--muted-2);font-size:11.5px">最多 30 条、单条 500 字;每轮任务都会带上,和本轮需求冲突时以本轮需求为准</div>
   </div>
   <div class="sp-body" id="tab-look" style="display:none">
     <div class="sp-head">外观 <span class="sp-tip">选择工坊的主题配色,立即生效并自动记住</span></div>
@@ -1542,7 +1596,46 @@ document.querySelectorAll('.sptab').forEach(tb=>{tb.onclick=()=>{
   tb.classList.add('on');
   document.getElementById('tab-api').style.display=tb.dataset.tab==='api'?'':'none';
   document.getElementById('tab-look').style.display=tb.dataset.tab==='look'?'':'none';
+  document.getElementById('tab-mem').style.display=tb.dataset.tab==='mem'?'':'none';
+  if(tb.dataset.tab==='mem')loadMem();
 };});
+// 长期记忆:读 → 渲染 → 增 / 删 / 启用开关(存服务端 runtime/user-memory.json)
+let memState={enabled:true,items:[]};
+async function loadMem(){
+  try{
+    const j=await(await fetch('/api/memory')).json();
+    if(j&&j.ok){memState.enabled=j.enabled!==false;memState.items=j.items||[];renderMem();const on=document.getElementById('memOn');if(on)on.checked=memState.enabled;}
+  }catch(e){}
+}
+function renderMem(){
+  const box=document.getElementById('memList');if(!box)return;
+  if(!memState.items.length){
+    box.innerHTML='<div style="padding:10px 12px;border:1px dashed var(--border);border-radius:10px;color:var(--muted-2);font-size:12.5px">还没有记录。把希望长期遵守的偏好写在上面的框里,比如配色、命名、交互习惯。</div>';
+    return;
+  }
+  box.innerHTML=memState.items.map(it=>'<div class="memrow"><div class="memtxt">'+esc(it.text)+'</div><button type="button" class="memdel" data-memdel="'+esc(it.id)+'">删除</button></div>').join('');
+}
+async function memPost(payload){
+  try{
+    const r=await fetch('/api/memory',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+    const j=await r.json();
+    if(j&&j.ok){memState.enabled=j.enabled!==false;memState.items=j.items||[];renderMem();}
+    else if(j&&j.error)alert(j.error);
+    return j;
+  }catch(err){alert('保存失败:'+err);return null;}
+}
+document.getElementById('memAdd').onclick=async()=>{
+  const inp=document.getElementById('memInput');const v=(inp.value||'').trim();if(!v)return;
+  const j=await memPost({action:'add',text:v});if(j&&j.ok)inp.value='';
+};
+document.getElementById('memInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.isComposing){e.preventDefault();document.getElementById('memAdd').click();}
+});
+document.getElementById('memOn').onchange=e=>memPost({action:'toggle',enabled:e.target.checked});
+document.getElementById('memList').addEventListener('click',e=>{
+  const d=e.target.closest('[data-memdel]');if(!d)return;
+  memPost({action:'delete',id:d.getAttribute('data-memdel')});
+});
 // 外观:主题切换(立即生效,localStorage 记住;pink 为主题基线,其余挂 theme-* 类)
 function applyTheme(t){
   document.body.classList.remove('theme-blue','theme-white','theme-black');
@@ -2521,6 +2614,50 @@ const srv = createServer(async (req, res) => {
         return
       }
     }
+    // ---------- 用户长期记忆:跨会话记住个性化设计偏好 ----------
+    if (url.pathname === "/api/memory") {
+      const out = () => {
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, enabled: userMemory.enabled, items: userMemory.items, maxItems: MEMORY_MAX_ITEMS, maxText: MEMORY_MAX_TEXT }))
+      }
+      if (req.method === "GET") return out()
+      if (req.method === "POST") {
+        let body = ""
+        for await (const ch of req) body += ch
+        let b = {}
+        try { b = JSON.parse(body) } catch {}
+        const act = String(b.action || "")
+        const text = String(b.text || "").replace(/\s+/g, " ").trim()
+        const bad = (msg) => {
+          res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, error: msg }))
+        }
+        if (act === "add") {
+          if (!text) return bad("记忆内容是空的")
+          if ([...text].length > MEMORY_MAX_TEXT) return bad(`单条记忆最多 ${MEMORY_MAX_TEXT} 字`)
+          if (userMemory.items.length >= MEMORY_MAX_ITEMS) return bad(`最多 ${MEMORY_MAX_ITEMS} 条,先删几条再添加`)
+          userMemory.items.push({ id: `m_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, text, at: Date.now() })
+        } else if (act === "update") {
+          const it = userMemory.items.find((x) => x.id === String(b.id || ""))
+          if (!it) return bad("找不到这条记忆")
+          if (!text) return bad("记忆内容是空的")
+          if ([...text].length > MEMORY_MAX_TEXT) return bad(`单条记忆最多 ${MEMORY_MAX_TEXT} 字`)
+          it.text = text
+          it.at = Date.now()
+        } else if (act === "delete") {
+          userMemory.items = userMemory.items.filter((x) => x.id !== String(b.id || ""))
+        } else if (act === "clear") {
+          userMemory.items = []
+        } else if (act === "toggle") {
+          userMemory.enabled = b.enabled !== false
+        } else {
+          return bad("未知操作:" + act)
+        }
+        saveUserMemory()
+        console.log(`[wb-studio] 长期记忆已更新:${act} → ${userMemory.items.length} 条,启用=${userMemory.enabled}`)
+        return out()
+      }
+    }
     // ---------- 上下文容量(纯显示设置,不动引擎) ----------
     if (url.pathname === "/api/context") {
       if (req.method === "GET") {
@@ -2680,8 +2817,9 @@ const srv = createServer(async (req, res) => {
         saveSessions()
       }
       const memory = s.summary || ""
+      const userMem = userMemoryPrompt() // 用户长期偏好:每轮都带,跨会话生效
       const driveOpts = {
-        text: buildWishPrompt(text, mode, askCount, memory), dir: config.workspace, model: config.model,
+        text: buildWishPrompt(text, mode, askCount, memory, userMem), dir: config.workspace, model: config.model,
         server: config.server, timeout: config.timeoutSec,
         noProgressSec: config.stallTimeoutSec,
         auth: engineAuth || undefined,
@@ -2695,7 +2833,7 @@ const srv = createServer(async (req, res) => {
         try {
           result = await runTaskWithRetry("cli", () =>
             driveAgentCli({
-              text: buildWishPrompt(text, mode, askCount, memory), dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
+              text: buildWishPrompt(text, mode, askCount, memory, userMem), dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
               timeoutSec: config.timeoutSec, signal: currentAbort.signal,
               sessionID: s.engineSessionId || undefined,
             })

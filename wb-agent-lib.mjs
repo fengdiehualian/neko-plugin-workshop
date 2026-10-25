@@ -140,6 +140,33 @@ export function planModelRetry(o = {}) {
   return { waitMs, kind, reason: raw.slice(0, 200) }
 }
 
+// ---------- 用户长期记忆 ----------
+/**
+ * 把用户自定义的长期偏好拼成提示词块。
+ * 只做格式化和长度保护,不做存储;存储与增删由 wb-studio 负责。
+ * @param {Array<{text:string}|string>} items
+ * @param {{maxChars?:number}} [opts]
+ * @returns {string} 无内容时返回空串(调用方直接拼接,不用判断)
+ */
+export function formatUserMemory(items, opts = {}) {
+  const maxChars = Math.max(200, Math.floor(Number(opts.maxChars) || 2000))
+  const list = (Array.isArray(items) ? items : [])
+    .map((x) => String((x && typeof x === "object" ? x.text : x) || "").trim())
+    .filter(Boolean)
+  if (!list.length) return ""
+  const head = "【用户长期偏好(必须遵守)】"
+  const foot = "(以上是用户明确要求长期记住的个性化设计偏好;做插件时必须遵守,与本轮需求冲突时以本轮需求为准)"
+  const lines = []
+  for (const raw of list) {
+    const line = `${lines.length + 1}. ${raw.replace(/\s+/g, " ").slice(0, 300)}`
+    const next = lines.length ? `${lines.join("\n")}\n${line}` : line
+    if (head.length + next.length + foot.length + 4 > maxChars) break
+    lines.push(line)
+  }
+  if (!lines.length) return ""
+  return `${head}\n${lines.join("\n")}\n${foot}\n\n`
+}
+
 /**
  * @param {DriveOptions} opts
  * @returns {Promise<DriveResult>}
