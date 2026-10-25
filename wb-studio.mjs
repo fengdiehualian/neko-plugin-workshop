@@ -20,7 +20,7 @@ import { join, dirname, basename, normalize, resolve, relative, isAbsolute } fro
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
-import { driveAgent, driveAgentCli, planModelRetry, formatUserMemory } from "./wb-agent-lib.mjs"
+import { driveAgent, driveAgentCli, planModelRetry, formatUserMemory, buildWishPrompt } from "./wb-agent-lib.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -141,75 +141,6 @@ function planAskCount(session) {
     else if (m.role === "assistant") break
   }
   return n
-}
-
-function buildWishPrompt(wish, mode, askCount = 0, memory = "", userMemory = "") {
-  // 上下文被压缩过:把摘要顶在最前面,保证"之前聊过什么"不会因为换会话而断片
-  const memBlock = memory
-    ? `【更早对话的记忆摘要(上下文已压缩)】\n${memory}\n\n(以上是更早内容的摘要,直接在此基础上继续;不要复述摘要本身)\n\n`
-    : ""
-  // 用户自己维护的长期偏好:每轮都带上,跨会话生效(与压缩摘要互不影响)
-  const userMemBlock = userMemory ? String(userMemory) : ""
-  if (mode === "plan") {
-    const left = Math.max(0, 3 - askCount)
-    return memBlock + userMemBlock + [
-      "【用户的愿望/当前消息】" + wish,
-      "",
-      "现在是「先出方案」模式:不写代码、不改文件、不执行命令,只负责把需求聊清楚并给出方案。用户是零基础小白。",
-      "",
-      "你的工作方式(严格遵守):",
-      "1. 先判断这个愿望说得够不够细(知不知道要做什么、大概什么时候触发)。够细就直接出方案,别纠缠。",
-      "2. 不够细 → 每轮只问一个问题,并按下面的格式附带 2-4 个候选答案(把 候选答案一/二/三 换成真实候选,每行一个;选项要短、大白话、点一下就能答):",
-      "   [[WB-Q]]",
-      "   候选答案一",
-      "   候选答案二",
-      "   候选答案三",
-      "   其他(自己说)",
-      "   [[/WB-Q]]",
-      "   问题正文写在标记块外面,用大白话讲明白为什么问、每个选项什么意思;禁止出现任何技术术语。用户也可以自己打字回答,选项只是捷径。**最后一项固定写「其他(自己说)」**,方便用户自由描述。",
-      left > 0
-        ? `3. 纪律:本会话你已经问过 ${askCount} 个问题,最多再问 ${left} 个;问满 3 个必须停止提问,按最合理的理解直接出方案。`
-        : "3. 纪律:本会话你已经问满 3 个问题了,这一轮必须停止提问,直接按最合理的理解出方案。",
-      "4. 用户如果说「别问了 / 直接给方案 / 差不多了」→ 立即停止提问,直接出方案。",
-      "5. 用户如果是在修改或补充上一版方案 → 不要重新开始提问,直接给出更新后的方案。",
-      "6. 出方案时:正文全大白话(插件叫什么、干什么、什么时候触发、怎么用、分几步做),正文末尾单独一行写 [[WB-PLAN]]。禁止技术术语。",
-    ].join("\n")
-  }
-  const hints = []
-  if (/提醒|定时|每天|每隔|闹钟|日程|倒计时|分钟|小时/.test(wish))
-    hints.push('定时/提醒类:参考 reminder 模板,@timer_interval + @lifecycle("startup"),间隔换算成秒写清')
-  if (/记|笔记|记录|保存|备忘|收集|清单|搜索/.test(wish))
-    hints.push("记录/存储类:参考 notes 模板,数据用 self.data_path(...) 落盘 JSON 持久保存,支持增删查")
-  if (/天气|新闻|翻译|汇率|接口|外部|API|api/.test(wish))
-    hints.push("外部数据类:httpx 异步请求,失败给兜底文案,不阻塞插件主流程")
-  if (/开机|启动|问候|欢迎|打招呼/.test(wish))
-    hints.push('启动行为:写在 @lifecycle(id="startup") 里,不要依赖 auto_start')
-  if (/界面|面板|按钮|点击|UI|页面|窗口|图表|显示/.test(wish))
-    hints.push("带界面类:按 references/hosted-ui.md 用 router 注册前端面板,别只写后台逻辑")
-  if (/命令|执行|运行|打开|快捷键|脚本|终端/.test(wish))
-    hints.push("执行命令类:按 references/tool-calling.md,subprocess 异步执行+超时+输出截断,不阻塞主流程")
-  const hintBlock = hints.length ? "\n技术要点(参考):\n- " + hints.join("\n- ") : ""
-  return memBlock + userMemBlock + [
-    "【用户的愿望】" + wish,
-    "",
-    "这是一位零基础小白许的愿,请把它做成一个能通过校验、能实际用的 N.E.K.O. 插件:",
-    "1. 按愿望选模板:scaffold 用 reminder=定时提醒类 / notes=记录存储类 / hello_world=其他;类名=核心功能+Plugin,PLUGIN_ID 用小写下划线英文",
-    "2. 生成后必须让 wb-plugin verify 全绿(error 清零)再交付,实验循环最多 5 轮;遵守 SKILL.md 硬规则 R1–R15" + hintBlock,
-    "3. 默认直接开工:小歧义按最常见理解做,汇报时说明你的理解。",
-    "4. 例外——只有「关键信息缺失、猜错会导致大返工」时才允许停下来问用户(例如:分不清是做定时提醒还是做记录、不知道触发方式、不知道要不要界面)。提问规则:",
-    askCount > 0
-      ? "   - 本会话你已经问过一次了,这一轮必须直接开工,不许再提问。"
-      : "   - 本会话最多问 1 个问题,问完必须开工,不要再追问;",
-    "   - 必须用下面这种选项格式(问题正文写在标记块外面,大白话,不要技术术语):",
-    "     [[WB-Q]]",
-    "     候选一",
-    "     候选二",
-    "     其他(自己说)",
-    "     [[/WB-Q]]",
-    "   - 选项 2-4 个,每个都要短、能一眼选;最后一项固定是「其他(自己说)」,方便用户自己描述;",
-    "   - 用户回答后直接按答案开工,不要复述、不要再确认。",
-    "5. 最后用中文说人话汇报:插件叫什么、干什么、什么时候触发、怎么装(下载 .neko-plugin → N.E.K.O. 插件管理器导入 → 启动)",
-  ].join("\n")
 }
 
 // ---------- 上下文自动压缩 ----------

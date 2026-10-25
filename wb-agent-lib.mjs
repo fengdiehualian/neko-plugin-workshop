@@ -173,6 +173,168 @@ export function formatUserMemory(items, opts = {}) {
  * @param {DriveOptions} opts
  * @returns {Promise<DriveResult>}
  */
+// ---------- 许愿解析:把一句大白话拆成可执行的结构 ----------
+// 目的不是"读懂所有中文",而是让模型少问废话、少自己瞎猜:
+// 能推断的给出默认值并让它汇报,推断不了的才提问。
+const WISH_SIGNALS = [
+  // 注意:只有出现「提醒/定时/闹钟」这类核心词才算定时插件;
+  // 「每天记账」里的"每天"只是频率,不能把记账误会成提醒。
+  ["timer", /提醒|闹钟|定时|倒计时|打卡|准点|每隔|日程|纪念日/],
+  ["freq", /每天|每周|每小时|每分钟|每隔|每天|每日/],
+  ["storage", /记一笔|记一下|记下|记账|帐本|账本|笔记|记录|备忘|清单|收藏|整理|待办|历史|统计|收集|花费|开销|收支|花了多少/],
+  ["ui", /面板|界面|窗口|图表|看板|仪表盘|可视化|页面|按钮/],
+  ["network", /天气|新闻|汇率|翻译|接口|API|api|网页|抓取|爬|搜索|查询/],
+  ["command", /执行|运行|打开|命令|脚本|终端|快捷键/],
+  ["startup", /开机|启动时|上线|欢迎|问候|打招呼/],
+]
+
+function parseIntervalSeconds(text) {
+  const s = String(text || "")
+  const cn = { 一: 1, 两: 2, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 }
+  const toNum = (v) => (/^\d+$/.test(v) ? Number(v) : cn[v] || 0)
+  const m = s.match(/每(?:隔)?\s*(\d+|半|[一二两三四五六七八九十]+)?\s*(秒钟|秒|分钟|分|小时|钟头|天)\s*(半)?/)
+  if (m) {
+    const n = m[1] === "半" ? 0.5 : toNum(m[1] || "1")
+    const unit = m[2]
+    let sec = n * (unit === "天" ? 86400 : /小时|钟头/.test(unit) ? 3600 : /分钟|分/.test(unit) ? 60 : 1)
+    if (m[3] === "半") sec += (unit === "天" ? 43200 : /小时|钟头/.test(unit) ? 1800 : 30)
+    if (sec > 0) return Math.round(sec)
+  }
+  if (/每小时/.test(s)) return 3600
+  if (/每分钟/.test(s)) return 60
+  if (/每天/.test(s)) return 86400
+  if (/每周/.test(s)) return 604800
+  return 0
+}
+
+/**
+ * 把用户的愿望解析成结构化画像。
+ * @param {string} wish
+ * @returns {{kind:string, trigger:string, intervalSec:number, storage:boolean, ui:boolean, network:boolean, command:boolean, startup:boolean, defaults:string[]}}
+ */
+export function analyzeWish(wish) {
+  const text = String(wish || "")
+  const has = Object.fromEntries(WISH_SIGNALS.map(([k, re]) => [k, re.test(text)]))
+  const kind = has.timer ? "reminder" : has.storage ? "notes" : has.network || has.command ? "tool" : has.startup ? "greeting" : "other"
+  // 只有「提醒类」才需要间隔;记账/笔记里的"每天"只是描述频率,不用换算成秒
+  const intervalSec = has.timer ? parseIntervalSeconds(text) : 0
+  const trigger = has.startup && !has.timer ? "startup" : has.timer ? "interval" : "manual"
+  const defaults = []
+  if (has.timer && !intervalSec) defaults.push("没说间隔 → 先按每小时(3600 秒)做,汇报里写清楚")
+  if (has.timer && intervalSec && /小时|分钟|天/.test(text)) defaults.push(`间隔换算成 ${intervalSec} 秒写进代码,别用分钟/毫秒混写`)
+  if (has.storage) defaults.push("数据默认存 self.data_path('data.json'),重启不丢")
+  if (has.ui) defaults.push("要做界面就按 hosted-ui 注册面板,别只在后台打印")
+  if (has.network) defaults.push("外部接口默认 10 秒超时 + 中文兜底文案")
+  if (has.command) defaults.push("执行命令默认异步 + 30 秒超时 + 输出截断")
+  return {
+    kind,
+    trigger,
+    intervalSec,
+    storage: has.storage,
+    ui: has.ui,
+    network: has.network,
+    command: has.command,
+    startup: has.startup,
+    defaults,
+  }
+}
+
+const KIND_LABEL = { reminder: "定时提醒", notes: "记录存储", tool: "工具/外部能力", greeting: "启动问候", other: "其他/自定义" }
+const TRIGGER_LABEL = { interval: "定时(按间隔自己跑)", startup: "启动时跑一次", manual: "手动/对话触发" }
+
+function wishProfileBlock(wish) {
+  const p = analyzeWish(wish)
+  const bits = [
+    `类型:${KIND_LABEL[p.kind] || p.kind}`,
+    `触发:${TRIGGER_LABEL[p.trigger] || p.trigger}`,
+    p.intervalSec ? `间隔:${p.intervalSec} 秒` : "",
+    `存储:${p.storage ? "需要落盘" : "不需要"}`,
+    `界面:${p.ui ? "需要" : "不需要"}`,
+    `联网:${p.network ? "需要" : "不需要"}`,
+  ].filter(Boolean).join(" | ")
+  const lines = ["【需求解析(系统预判,供参考;和愿望原话冲突时以愿望为准)】", "- " + bits]
+  if (p.defaults.length) lines.push("- 默认值(愿望没说清就按这个做,并在汇报里说明):" + p.defaults.join(";"))
+  return lines.join("\n") + "\n\n"
+}
+
+/**
+ * 许愿式编程的主提示词。纯函数,便于单测与快照。
+ * @param {string} wish 用户原话
+ * @param {"build"|"plan"} mode
+ * @param {number} askCount 本会话已提问次数
+ * @param {string} memory 压缩后的历史摘要
+ * @param {string} userMemory 用户长期偏好块
+ */
+export function buildWishPrompt(wish, mode, askCount = 0, memory = "", userMemory = "") {
+  const memBlock = memory
+    ? `【更早对话的记忆摘要(上下文已压缩)】\n${memory}\n\n(以上是更早内容的摘要,直接在此基础上继续;不要复述摘要本身)\n\n`
+    : ""
+  const userMemBlock = userMemory ? String(userMemory) : ""
+  const profile = wishProfileBlock(wish)
+  if (mode === "plan") {
+    const left = Math.max(0, 3 - askCount)
+    return memBlock + userMemBlock + [
+      "【用户的愿望/当前消息】" + wish,
+      "",
+      "现在是「先出方案」模式:不写代码、不改文件、不执行命令,只负责把需求聊清楚并给出方案。用户是零基础小白。",
+      "",
+      "你的工作方式(严格遵守):",
+      "1. 先判断这个愿望说得够不够细(知不知道要做什么、什么时候触发)。够细就直接出方案,别纠缠。",
+      "2. 不够细 → 每轮只问一个问题,并按下面的格式附带 2-4 个候选答案(换成真实候选,每行一个;选项要短、大白话、点一下就能答):",
+      "   [[WB-Q]]",
+      "   候选答案一",
+      "   候选答案二",
+      "   候选答案三",
+      "   其他(自己说)",
+      "   [[/WB-Q]]",
+      "   问题正文写在标记块外面,讲清为什么问、每个选项什么意思;禁止技术术语。最后一项固定写「其他(自己说)」。",
+      left > 0
+        ? `3. 纪律:本会话已经问过 ${askCount} 个问题,最多再问 ${left} 个;问满 3 个必须停止提问,按最合理的理解直接出方案。`
+        : "3. 纪律:本会话已经问满 3 个问题了,这一轮必须停止提问,直接按最合理的理解出方案。",
+      "4. 用户说「别问了 / 直接给方案 / 差不多了」→ 立即停止提问,直接出方案。",
+      "5. 用户是在修改或补充上一版方案 → 不重新提问,直接给更新版。",
+      "6. 方案必须讲清四件事:什么时候触发、数据存哪、要不要界面、失败怎么办。",
+      "7. 正文全大白话(插件叫什么、干什么、怎么用、分几步做),末尾单独一行写 [[WB-PLAN]]。禁止技术术语。",
+      "",
+      profile + "(以上解析只用于减少提问,不要把术语念给用户听)",
+    ].join("\n")
+  }
+  return memBlock + userMemBlock + [
+    "【用户的愿望】" + wish,
+    "",
+    profile + [
+      "这是一位零基础小白许的愿,请把它做成能通过校验、能实际用的 N.E.K.O. 插件:",
+      "1. 模板:reminder=定时提醒 / notes=记录存储 / hello_world=其他;类名=核心功能+Plugin,PLUGIN_ID 用小写下划线英文。",
+      "2. 生成后必须让 wb-plugin verify 全绿(error 清零)再交付,最多 5 轮;遵守 SKILL.md 硬规则 R1–R15。",
+      "3. 默认直接开工:小歧义按最常见理解做,汇报时说明。",
+      "4. 只有「关键信息缺失、猜错会大返工」才允许停下来问(分不清提醒还是记录、不知道触发方式、不知道要不要界面)。提问规则:",
+      askCount > 0
+        ? "   - 本会话你已经问过一次了,这一轮必须直接开工,不许再提问。"
+        : "   - 本会话最多问 1 个问题,问完必须开工,不要再追问;",
+      "   - 用下面格式(问题正文写在标记块外,大白话):",
+      "     [[WB-Q]]",
+      "     候选一",
+      "     候选二",
+      "     其他(自己说)",
+      "     [[/WB-Q]]",
+      "   - 选项 2-4 个,每个都短;最后一项固定「其他(自己说)」;用户答完直接开工,不要复述确认。",
+      "",
+      "【交付验收(逐条自检,缺一条都不算完成)】",
+      "1. 触发方式与愿望一致:在 N.E.K.O. 里能按愿望说的时间/方式跑起来;",
+      "2. 时间单位只用秒,换算写进注释,不要分钟毫秒混用;",
+      "3. 需要保存的数据用 self.data_path(...) 落 JSON,重启不丢;",
+      "4. 外部请求失败给中文兜底文案,不要把异常直接甩给用户;",
+      "5. 面向用户的文字全中文,不留 TODO/pass 占位;",
+      "6. verify 全绿,并给出 3 步使用说明。",
+      "",
+      "【常见翻车点(不要犯)】",
+      "- 硬编码 C://// 绝对路径;用 time.sleep 阻塞主流程;在 import 阶段发网络请求。",
+      "",
+      "5. 最后用中文说人话汇报:插件叫什么、干什么、什么时候触发、怎么装(下载 .neko-plugin → N.E.K.O. 插件管理器导入 → 启动);最后一行写「我替你定的默认:…」。",
+    ].join("\n"),
+  ].join("\n")
+}
+
 export async function driveAgent(opts) {
   const SERVER = opts.server || "http://127.0.0.1:4096"
   const client = makeClient(SERVER, opts.auth)
