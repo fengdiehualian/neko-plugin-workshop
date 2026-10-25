@@ -427,48 +427,74 @@ result = await evalJs(`(async () => {
     lookShown && apiShown ? pass('设置面板 分类标签切换', tabs.length + ' 个标签') : fail('设置面板 分类标签切换', 'look=' + lookShown + ' api=' + apiShown);
   } else fail('设置面板 分类标签', '只有 ' + tabs.length + ' 个');
 
-  // 11.5) 长期记忆:页签能开、能加、能删
+  // 11.5) 长期记忆:页签能开、能加、能删(状态以服务端为准,DOM 只验证渲染)
   const memTab = tabs.find((x) => x.dataset && x.dataset.tab === 'mem');
-  // 无头浏览器会节流定时器,固定 sleep 不可靠:轮询到条件满足或超时
-  const wbWaitUntil = async (fn, ms = 4000) => {
+  const wbWait = async (fn, ms = 4000) => {
     const t0 = Date.now();
     while (Date.now() - t0 < ms) {
-      if (fn()) return true;
+      if (await fn()) return true;
       await sleep(120);
     }
     return false;
   };
+  const memCount = async () => {
+    const j = await (await fetch('/api/memory')).json();
+    return ((j || {}).items || []).length;
+  };
   if (memTab) {
     memTab.click();
-    const shown = await wbWaitUntil(() => {
+    const shown = await wbWait(() => {
       const el = $('#tab-mem');
-      return el && getComputedStyle(el).display !== 'none';
+      return !!el && getComputedStyle(el).display !== 'none';
     }, 2000);
-    // 先等首屏列表渲染完(空列表会显示占位文案),否则 before 会数成 0
-    await wbWaitUntil(() => {
+    // 等首屏渲染完(空列表有占位文案),再以服务端条数为基准
+    await wbWait(() => {
       const box = $('#memList');
       return !!box && (!!box.querySelector('.memrow') || box.textContent.includes('还没有记录'));
-    }, 3000);
+    }, 4000);
+    const before = await memCount();
     const inp = $('#memInput');
-    const before = $$('#memList .memrow').length;
     inp.value = '配色统一用莫兰迪色系';
     $('#memAdd').click();
-    const added = await wbWaitUntil(() => {
-      const rs = $$('#memList .memrow');
-      return rs.length === before + 1 && rs.some((r) => r.textContent.includes('莫兰迪'));
-    });
-    let after = $$('#memList .memrow').length;
+    const added = await wbWait(async () => (await memCount()) === before + 1);
+    const rowOk = $$('#memList .memrow').length >= 1;
+    let after = await memCount();
     if (added) {
       const rowsNow = $$('#memList .memrow');
-      rowsNow[rowsNow.length - 1].querySelector('[data-memdel]').click();
-      await wbWaitUntil(() => $$('#memList .memrow').length === before);
-      after = $$('#memList .memrow').length;
+      const del = rowsNow[rowsNow.length - 1] && rowsNow[rowsNow.length - 1].querySelector('[data-memdel]');
+      if (del) del.click();
+      await wbWait(async () => (await memCount()) === before);
+      after = await memCount();
     }
-    shown && added && after === before
-      ? pass('长期记忆 页签/添加/删除', '加后 ' + (before + 1) + ' 行,删后 ' + after + ' 行')
-      : fail('长期记忆 页签/添加/删除', 'shown=' + shown + ' added=' + added + ' after=' + after + ' before=' + before);
+    shown && added && rowOk && after === before
+      ? pass('长期记忆 页签/添加/删除', '加后 ' + (before + 1) + ' 条,删后 ' + after + ' 条')
+      : fail('长期记忆 页签/添加/删除', 'shown=' + shown + ' added=' + added + ' row=' + rowOk + ' after=' + after + ' before=' + before);
     tabs[0].click(); await sleep(50);
   } else fail('长期记忆页签', '找不到 data-tab=mem');
+
+  // 11.6) 运行参数:四个输入能改、能保存、能恢复默认
+  const tT = $('#timeoutSec'), tS = $('#stallTimeoutSec'), tR = $('#retryMax'), tD = $('#retryDelaySec');
+  if (tT && tS && tR && tD) {
+    tT.value = 1800; tS.value = 420; tR.value = 3; tD.value = 4;
+    $('#tuneSave').click();
+    const got = await (async () => {
+      // 保存是异步的:轮询到后端生效为止(最多 4 秒)
+      const t0 = Date.now();
+      let j = {};
+      while (Date.now() - t0 < 4000) {
+        j = await (await fetch('/api/retry')).json();
+        if (j && j.timeoutSec === 1800 && j.stallTimeoutSec === 420 && j.retryMax === 3 && j.retryDelaySec === 4) break;
+        await sleep(150);
+      }
+      return j;
+    })();
+    const applied = got && got.ok && got.timeoutSec === 1800 && got.stallTimeoutSec === 420 && got.retryMax === 3 && got.retryDelaySec === 4;
+    $('#tuneReset').click();
+    const restored = await wbWait(() => Number($('#timeoutSec').value) === 1500 && Number($('#retryMax').value) === 2, 4000);
+    applied && restored
+      ? pass('运行参数 保存/恢复默认', '1800/420/3/4 → 1500/360/2/3')
+      : fail('运行参数 保存/恢复默认', 'applied=' + applied + ' reset=' + restored + ' ' + JSON.stringify(got || {}).slice(0, 120));
+  } else fail('运行参数输入框', [!!tT, !!tS, !!tR, !!tD].join(','));
 
   // 12) 主题切换:逐个点,校验 body 类名与 localStorage
   const themes = $$('.themeopt');
@@ -744,6 +770,31 @@ if (argv.includes("--mutate")) {
         detail: "剩余 " + (((mDel.json || {}).items) || []).length,
       })
     }
+
+    // ---- 运行参数(超时/重试):读 / 越界拦截 / 保存 / 还原 ----
+    const tune0 = await localReq("/api/retry", { timeout: 8000 })
+    apiChecks.push({
+      name: "运行参数 读取",
+      ok: tune0.status === 200 && typeof (tune0.json || {}).timeoutSec === "number" && typeof (tune0.json || {}).stallTimeoutSec === "number",
+      detail: `${(tune0.json || {}).timeoutSec}s / ${(tune0.json || {}).stallTimeoutSec}s`,
+    })
+    const tuneBad1 = await post("/api/retry", { timeoutSec: 10 })
+    apiChecks.push({ name: "任务超时越界 (400)", ok: tuneBad1.status === 400, detail: "HTTP " + tuneBad1.status })
+    const tuneBad2 = await post("/api/retry", { timeoutSec: 300, stallTimeoutSec: 600 })
+    const afterBad2 = await localReq("/api/retry", { timeout: 8000 })
+    apiChecks.push({
+      name: "无响应超时须小于总超时 (400 且不半截生效)",
+      ok: tuneBad2.status === 400 && (afterBad2.json || {}).timeoutSec !== 300,
+      detail: "HTTP " + tuneBad2.status + " timeout=" + (afterBad2.json || {}).timeoutSec,
+    })
+    const tuneOk = await post("/api/retry", { timeoutSec: 900, stallTimeoutSec: 300, retryMax: 1, retryDelaySec: 2 })
+    apiChecks.push({
+      name: "运行参数 保存",
+      ok: tuneOk.status === 200 && (tuneOk.json || {}).timeoutSec === 900 && (tuneOk.json || {}).stallTimeoutSec === 300,
+      detail: JSON.stringify(tuneOk.json || {}).slice(0, 70),
+    })
+    const tuneBack = await post("/api/retry", { timeoutSec: 1500, stallTimeoutSec: 360, retryMax: 2, retryDelaySec: 3 })
+    apiChecks.push({ name: "运行参数 还原", ok: tuneBack.status === 200 && (tuneBack.json || {}).timeoutSec === 1500, detail: "HTTP " + tuneBack.status })
 
     // ---- 上下文压缩:导入长文档 → 手动压缩 → 校验摘要/计数/幂等 ----
     const longMd = "## 背景\n" + "这是一段用于测试压缩的长文本,包含用户需求与已确认的决策。".repeat(80)

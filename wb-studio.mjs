@@ -401,6 +401,8 @@ function loadUserSettings() {
     if (typeof s.contextLimit === "number" && s.contextLimit > 0) config.contextLimit = Math.floor(s.contextLimit)
     if (typeof s.retryMax === "number" && s.retryMax >= 0) config.retryMax = Math.min(5, Math.floor(s.retryMax))
     if (typeof s.retryDelaySec === "number" && s.retryDelaySec > 0) config.retryDelaySec = Math.min(60, Math.floor(s.retryDelaySec))
+    if (typeof s.timeoutSec === "number" && s.timeoutSec > 0) config.timeoutSec = Math.min(7200, Math.max(60, Math.floor(s.timeoutSec)))
+    if (typeof s.stallTimeoutSec === "number" && s.stallTimeoutSec > 0) config.stallTimeoutSec = Math.min(1800, Math.max(30, Math.floor(s.stallTimeoutSec)))
   } catch {}
 }
 function saveUserSettings() {
@@ -409,6 +411,8 @@ function saveUserSettings() {
     contextLimit: config.contextLimit,
     retryMax: config.retryMax,
     retryDelaySec: config.retryDelaySec,
+    timeoutSec: config.timeoutSec,
+    stallTimeoutSec: config.stallTimeoutSec,
   })
 }
 loadUserSettings()
@@ -1173,14 +1177,27 @@ const PAGE = `<!doctype html>
       </label>
     </div>
     <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
-      <div style="font-size:13.5px;color:var(--ink)"><b>模型无响应自动重试</b> <span style="color:var(--muted-2);font-size:12px">(只在「还没有任何产出」时重试;密钥错、额度不足、手动停止不重试)</span></div>
-      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input id="retryMax" type="number" min="0" max="5" step="1" style="width:76px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
-        <span style="font-size:12.5px;color:var(--muted-2)">次(0 = 关闭)</span>
-        <button type="button" id="retrySave" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">保存</button>
-        <span id="retryMsg" style="font-size:12px;color:var(--muted)"></span>
+      <div style="font-size:13.5px;color:var(--ink)"><b>运行参数</b> <span style="color:var(--muted-2);font-size:12px">(超时与自动重试;保存后从下一个任务开始生效)</span></div>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px">
+        <label style="font-size:12.5px;color:var(--muted-2)">任务总超时(秒)
+          <input id="timeoutSec" type="number" min="60" max="7200" step="10" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+        </label>
+        <label style="font-size:12.5px;color:var(--muted-2)">无响应超时(秒)
+          <input id="stallTimeoutSec" type="number" min="30" max="1800" step="10" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+        </label>
+        <label style="font-size:12.5px;color:var(--muted-2)">自动重试次数
+          <input id="retryMax" type="number" min="0" max="5" step="1" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+        </label>
+        <label style="font-size:12.5px;color:var(--muted-2)">首次重试间隔(秒)
+          <input id="retryDelaySec" type="number" min="1" max="60" step="1" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+        </label>
       </div>
-      <div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">看门狗判定无响应 / 等待超时 / 本轮没生成回复 / 连接断开 时触发;重试间隔 3s、6s…逐步拉长</div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <button type="button" id="tuneSave" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">保存</button>
+        <button type="button" id="tuneReset" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:6px 12px;font-size:12.5px;cursor:pointer">恢复默认</button>
+        <span id="tuneMsg" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <div style="margin-top:8px;color:var(--muted-2);font-size:11.5px">默认 1500 / 360 / 2 次 / 3 秒。任务总超时是整轮上限;无响应超时是"连续多久没收到任何输出就判卡死",必须小于总超时。重试只在本轮还没有任何产出时发生(间隔 3s、6s、12s…翻倍,上限 30s)。</div>
     </div>
     <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
       <div style="font-size:13.5px;color:var(--ink)"><b>默认上下文容量</b> <span style="color:var(--muted-2);font-size:12px">(没单独设置的 API 都用这个;容量环的满格刻度)</span></div>
@@ -1587,18 +1604,32 @@ document.getElementById('strictToggle').onchange=async e=>{
     if(j.ok){e.target.checked=j.strictVerify;}
   }catch(err){e.target.checked=!e.target.checked;}
 };
-// 模型无响应自动重试(读后端设置;保存即生效,下一个任务起按新次数重试)
-(async()=>{try{const j=await(await fetch('/api/retry')).json();const el=document.getElementById('retryMax');if(el&&j&&j.ok)el.value=j.retryMax;}catch(e){}})();
-document.getElementById('retrySave').onclick=async()=>{
-  const msg=document.getElementById('retryMsg');
-  const v=Number(document.getElementById('retryMax').value);
+// 运行参数(任务超时 / 无响应超时 / 重试次数 / 重试间隔):读后端 → 填输入;保存或恢复默认即生效
+const TUNE_DEFAULTS={retryMax:2,retryDelaySec:3,timeoutSec:1500,stallTimeoutSec:360};
+const TUNE_KEYS=['timeoutSec','stallTimeoutSec','retryMax','retryDelaySec'];
+async function loadTuning(){
   try{
-    const r=await fetch('/api/retry',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({retryMax:v})});
+    const j=await(await fetch('/api/retry')).json();
+    if(j&&j.ok){for(const k of TUNE_KEYS){const el=document.getElementById(k);if(el&&j[k]!==undefined)el.value=j[k];}}
+  }catch(e){}
+}
+loadTuning();
+async function saveTuning(payload,okText){
+  const msg=document.getElementById('tuneMsg');
+  try{
+    const r=await fetch('/api/retry',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
     const j=await r.json();
-    if(j.ok){msg.textContent='已保存';setTimeout(()=>{msg.textContent=''},1800);}
-    else msg.textContent=j.error||'保存失败';
+    if(j&&j.ok){
+      for(const k of TUNE_KEYS){const el=document.getElementById(k);if(el&&j[k]!==undefined)el.value=j[k];}
+      msg.textContent=okText||'已保存';setTimeout(()=>{if(msg.textContent===(okText||'已保存'))msg.textContent='';},1800);
+    }else msg.textContent=(j&&j.error)||'保存失败';
   }catch(e){msg.textContent='连接出错';}
+}
+document.getElementById('tuneSave').onclick=()=>{
+  const v={};for(const k of TUNE_KEYS)v[k]=Number(document.getElementById(k).value);
+  saveTuning(v);
 };
+document.getElementById('tuneReset').onclick=()=>saveTuning(TUNE_DEFAULTS,'已恢复默认');
 // 上下文容量设置:读后端设置 → 填 K 数;预设/保存即生效,底部容量环跟随
 loadCtxLimit();
 async function saveCtx(){
@@ -2521,7 +2552,14 @@ const srv = createServer(async (req, res) => {
     if (url.pathname === "/api/retry") {
       if (req.method === "GET") {
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
-        res.end(JSON.stringify({ ok: true, retryMax: retryMaxCount(), retryDelaySec: config.retryDelaySec }))
+        res.end(JSON.stringify({
+          ok: true,
+          retryMax: retryMaxCount(),
+          retryDelaySec: config.retryDelaySec,
+          timeoutSec: config.timeoutSec,
+          stallTimeoutSec: config.stallTimeoutSec,
+          defaults: { retryMax: 2, retryDelaySec: 3, timeoutSec: 1500, stallTimeoutSec: 360 },
+        }))
         return
       }
       if (req.method === "POST") {
@@ -2529,18 +2567,54 @@ const srv = createServer(async (req, res) => {
         for await (const ch of req) body += ch
         let b = {}
         try { b = JSON.parse(body) } catch {}
-        const v = Math.floor(Number(b.retryMax))
-        if (!Number.isFinite(v) || v < 0 || v > 5) {
+        const bad = (msg) => {
           res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
-          res.end(JSON.stringify({ ok: false, error: "重试次数要在 0 ~ 5 之间(0 = 关闭自动重试)" }))
-          return
+          res.end(JSON.stringify({ ok: false, error: msg }))
         }
-        config.retryMax = v
-        const d = Math.floor(Number(b.retryDelaySec))
-        if (Number.isFinite(d) && d >= 1 && d <= 60) config.retryDelaySec = d
+        // 四项都允许单独改:先全部校验到"候选值",一处不合法就整体不落地(避免半截生效)
+        const has = (k) => b[k] !== undefined && b[k] !== null && b[k] !== ""
+        const num = (k) => Math.floor(Number(b[k]))
+        const next = {
+          retryMax: config.retryMax,
+          retryDelaySec: config.retryDelaySec,
+          timeoutSec: config.timeoutSec,
+          stallTimeoutSec: config.stallTimeoutSec,
+        }
+        if (has("retryMax")) {
+          const v = num("retryMax")
+          if (!Number.isFinite(v) || v < 0 || v > 5) return bad("重试次数要在 0 ~ 5 之间(0 = 关闭自动重试)")
+          next.retryMax = v
+        }
+        if (has("retryDelaySec")) {
+          const v = num("retryDelaySec")
+          if (!Number.isFinite(v) || v < 1 || v > 60) return bad("重试间隔要在 1 ~ 60 秒之间")
+          next.retryDelaySec = v
+        }
+        if (has("timeoutSec")) {
+          const v = num("timeoutSec")
+          if (!Number.isFinite(v) || v < 60 || v > 7200) return bad("任务超时要在 60 ~ 7200 秒之间(1 ~ 120 分钟)")
+          next.timeoutSec = v
+        }
+        if (has("stallTimeoutSec")) {
+          const v = num("stallTimeoutSec")
+          if (!Number.isFinite(v) || v < 30 || v > 1800) return bad("无响应超时要在 30 ~ 1800 秒之间")
+          next.stallTimeoutSec = v
+        }
+        if (!["retryMax", "retryDelaySec", "timeoutSec", "stallTimeoutSec"].some(has)) return bad("没有要保存的项")
+        if (next.stallTimeoutSec >= next.timeoutSec) {
+          return bad(`无响应超时(${next.stallTimeoutSec}s)必须小于任务超时(${next.timeoutSec}s)`)
+        }
+        Object.assign(config, next)
         saveUserSettings()
+        console.log(`[wb-studio] 运行参数已更新:timeout=${config.timeoutSec}s stall=${config.stallTimeoutSec}s retry=${config.retryMax}× delay=${config.retryDelaySec}s`)
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
-        res.end(JSON.stringify({ ok: true, retryMax: config.retryMax, retryDelaySec: config.retryDelaySec }))
+        res.end(JSON.stringify({
+          ok: true,
+          retryMax: config.retryMax,
+          retryDelaySec: config.retryDelaySec,
+          timeoutSec: config.timeoutSec,
+          stallTimeoutSec: config.stallTimeoutSec,
+        }))
         return
       }
     }
