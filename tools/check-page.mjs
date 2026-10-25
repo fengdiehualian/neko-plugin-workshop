@@ -472,7 +472,10 @@ result = await evalJs(`(async () => {
     tabs[0].click(); await sleep(50);
   } else fail('长期记忆页签', '找不到 data-tab=mem');
 
-  // 11.6) 运行参数:四个输入能改、能保存、能恢复默认
+  // 11.6) 重试页签:参数独立成页,四个输入能改、能保存、能恢复默认
+  const runTab = tabs.find((x) => x.dataset && x.dataset.tab === 'run');
+  if (runTab) { runTab.click(); await sleep(80); }
+  const runShown = !!$('#tab-run') && getComputedStyle($('#tab-run')).display !== 'none';
   const tT = $('#timeoutSec'), tS = $('#stallTimeoutSec'), tR = $('#retryMax'), tD = $('#retryDelaySec');
   if (tT && tS && tR && tD) {
     tT.value = 1800; tS.value = 420; tR.value = 3; tD.value = 4;
@@ -491,9 +494,10 @@ result = await evalJs(`(async () => {
     const applied = got && got.ok && got.timeoutSec === 1800 && got.stallTimeoutSec === 420 && got.retryMax === 3 && got.retryDelaySec === 4;
     $('#tuneReset').click();
     const restored = await wbWait(() => Number($('#timeoutSec').value) === 1500 && Number($('#retryMax').value) === 2, 4000);
-    applied && restored
-      ? pass('运行参数 保存/恢复默认', '1800/420/3/4 → 1500/360/2/3')
-      : fail('运行参数 保存/恢复默认', 'applied=' + applied + ' reset=' + restored + ' ' + JSON.stringify(got || {}).slice(0, 120));
+    applied && restored && runShown
+      ? pass('重试页签 保存/恢复默认', '1800/420/3/4 → 1500/360/2/3')
+      : fail('重试页签 保存/恢复默认', 'shown=' + runShown + ' applied=' + applied + ' reset=' + restored + ' ' + JSON.stringify(got || {}).slice(0, 120));
+    tabs[0].click(); await sleep(50);
   } else fail('运行参数输入框', [!!tT, !!tS, !!tR, !!tD].join(','));
 
   // 12) 主题切换:逐个点,校验 body 类名与 localStorage

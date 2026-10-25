@@ -1116,6 +1116,7 @@ const PAGE = `<!doctype html>
   <div class="sp-tabs">
     <button type="button" class="sptab on" data-tab="api">🔌 API</button>
     <button type="button" class="sptab" data-tab="look">🎨 外观</button>
+    <button type="button" class="sptab" data-tab="run">🔁 重试</button>
     <button type="button" class="sptab" data-tab="mem">🧠 记忆</button>
     <button type="button" id="setclose" class="sp-close">收起 ▴</button>
   </div>
@@ -1149,6 +1150,32 @@ const PAGE = `<!doctype html>
       </div>
     </div>
   </div>
+  <div class="sp-body" id="tab-run" style="display:none">
+    <div class="sp-head">超时与重试 <span class="sp-tip">保存后从下一个任务开始生效;任务总超时是整轮上限,无响应超时是连续多久没收到输出就判卡死</span></div>
+    <div>
+      <div style="font-size:13.5px;color:var(--ink)"><b>运行参数</b> <span style="color:var(--muted-2);font-size:12px">(超时与自动重试)</span></div>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px">
+        <label style="font-size:12.5px;color:var(--muted-2)">任务总超时(秒)
+          <input id="timeoutSec" type="number" min="60" max="7200" step="10" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+        </label>
+        <label style="font-size:12.5px;color:var(--muted-2)">无响应超时(秒)
+          <input id="stallTimeoutSec" type="number" min="30" max="1800" step="10" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+        </label>
+        <label style="font-size:12.5px;color:var(--muted-2)">自动重试次数
+          <input id="retryMax" type="number" min="0" max="5" step="1" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+        </label>
+        <label style="font-size:12.5px;color:var(--muted-2)">首次重试间隔(秒)
+          <input id="retryDelaySec" type="number" min="1" max="60" step="1" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+        </label>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <button type="button" id="tuneSave" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">保存</button>
+        <button type="button" id="tuneReset" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:6px 12px;font-size:12.5px;cursor:pointer">恢复默认</button>
+        <span id="tuneMsg" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <div style="margin-top:8px;color:var(--muted-2);font-size:11.5px">默认 1500 / 360 / 2 次 / 3 秒。任务总超时是整轮上限;无响应超时是"连续多久没收到任何输出就判卡死",必须小于总超时。重试只在本轮还没有任何产出时发生(间隔 3s、6s、12s…翻倍,上限 30s)。</div>
+    </div>
+  </div>
   <div class="sp-body" id="tab-mem" style="display:none">
     <div class="sp-head">长期记忆 <span class="sp-tip">记住你的个性化设计偏好,新开对话也照做;存在 runtime,升级安装包不丢</span></div>
     <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;color:var(--ink)">
@@ -1175,29 +1202,6 @@ const PAGE = `<!doctype html>
         <input type="checkbox" id="strictToggle" style="width:17px;height:17px;accent-color:var(--pink)">
         <span><b>严格校验</b> <span style="color:var(--muted-2);font-size:12px">(warning 也算失败,必须修到零警告才打包)</span></span>
       </label>
-    </div>
-    <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
-      <div style="font-size:13.5px;color:var(--ink)"><b>运行参数</b> <span style="color:var(--muted-2);font-size:12px">(超时与自动重试;保存后从下一个任务开始生效)</span></div>
-      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px">
-        <label style="font-size:12.5px;color:var(--muted-2)">任务总超时(秒)
-          <input id="timeoutSec" type="number" min="60" max="7200" step="10" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
-        </label>
-        <label style="font-size:12.5px;color:var(--muted-2)">无响应超时(秒)
-          <input id="stallTimeoutSec" type="number" min="30" max="1800" step="10" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
-        </label>
-        <label style="font-size:12.5px;color:var(--muted-2)">自动重试次数
-          <input id="retryMax" type="number" min="0" max="5" step="1" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
-        </label>
-        <label style="font-size:12.5px;color:var(--muted-2)">首次重试间隔(秒)
-          <input id="retryDelaySec" type="number" min="1" max="60" step="1" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
-        </label>
-      </div>
-      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-        <button type="button" id="tuneSave" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">保存</button>
-        <button type="button" id="tuneReset" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:6px 12px;font-size:12.5px;cursor:pointer">恢复默认</button>
-        <span id="tuneMsg" style="font-size:12px;color:var(--muted)"></span>
-      </div>
-      <div style="margin-top:8px;color:var(--muted-2);font-size:11.5px">默认 1500 / 360 / 2 次 / 3 秒。任务总超时是整轮上限;无响应超时是"连续多久没收到任何输出就判卡死",必须小于总超时。重试只在本轮还没有任何产出时发生(间隔 3s、6s、12s…翻倍,上限 30s)。</div>
     </div>
     <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
       <div style="font-size:13.5px;color:var(--ink)"><b>默认上下文容量</b> <span style="color:var(--muted-2);font-size:12px">(没单独设置的 API 都用这个;容量环的满格刻度)</span></div>
@@ -1547,8 +1551,10 @@ document.querySelectorAll('.sptab').forEach(tb=>{tb.onclick=()=>{
   tb.classList.add('on');
   document.getElementById('tab-api').style.display=tb.dataset.tab==='api'?'':'none';
   document.getElementById('tab-look').style.display=tb.dataset.tab==='look'?'':'none';
+  document.getElementById('tab-run').style.display=tb.dataset.tab==='run'?'':'none';
   document.getElementById('tab-mem').style.display=tb.dataset.tab==='mem'?'':'none';
   if(tb.dataset.tab==='mem')loadMem();
+  if(tb.dataset.tab==='run')loadTuning();
 };});
 // 长期记忆:读 → 渲染 → 增 / 删 / 启用开关(存服务端 runtime/user-memory.json)
 let memState={enabled:true,items:[]};
