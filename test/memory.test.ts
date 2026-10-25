@@ -35,6 +35,14 @@ describe("formatUserMemory(用户长期偏好注入)", () => {
     expect([...line.slice(3)].length).toBe(300)
   })
 
+  test("按码点截断,不会把 emoji 劈成半个代理项", () => {
+    const s = formatUserMemory([{ text: "啊".repeat(299) + "😀😀😀" }], { maxChars: 5000 })
+    const line = s.split("\n").find((l) => l.startsWith("1. "))!
+    expect([...line.slice(3)].length).toBe(300)
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(line)).toBe(false)
+    expect(line.endsWith("😀")).toBe(true)
+  })
+
   test("整体超预算时截断条目,不会无限膨胀", () => {
     const items = Array.from({ length: 20 }, (_, i) => ({ text: `偏好${i} ` + "x".repeat(200) }))
     const s = formatUserMemory(items, { maxChars: 800 })

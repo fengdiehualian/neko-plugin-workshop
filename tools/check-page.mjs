@@ -731,6 +731,10 @@ if (argv.includes("--mutate")) {
     apiChecks.push({ name: "长期记忆 添加", ok: mAdd.status === 200 && !!mItem, detail: mItem ? "id=" + mItem.id : JSON.stringify(mAdd.json).slice(0, 60) })
     const mBad = await post("/api/memory", { action: "add", text: "   " })
     apiChecks.push({ name: "空记忆被拒 (400)", ok: mBad.status === 400, detail: "HTTP " + mBad.status })
+    const memNoToken = await localReq("/api/memory", { timeout: 8000 })
+    apiChecks.push({ name: "长期记忆 读取需 token (403)", ok: memNoToken.status === 403, detail: "HTTP " + memNoToken.status })
+    const memDelMiss = await post("/api/memory", { action: "delete", id: "m_not_exist" })
+    apiChecks.push({ name: "删除不存在的记忆 (400)", ok: memDelMiss.status === 400, detail: "HTTP " + memDelMiss.status })
     if (mItem) {
       const mDel = await post("/api/memory", { action: "delete", id: mItem.id })
       const still = (((mDel.json || {}).items) || []).some((x) => x.id === mItem.id)

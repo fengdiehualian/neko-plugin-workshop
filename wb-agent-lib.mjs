@@ -158,7 +158,9 @@ export function formatUserMemory(items, opts = {}) {
   const foot = "(以上是用户明确要求长期记住的个性化设计偏好;做插件时必须遵守,与本轮需求冲突时以本轮需求为准)"
   const lines = []
   for (const raw of list) {
-    const line = `${lines.length + 1}. ${raw.replace(/\s+/g, " ").slice(0, 300)}`
+    // 按码点截断:直接 slice 会把 emoji/生僻字的代理对劈成两半,提示词里出现乱码
+    const clipped = Array.from(raw.replace(/\s+/g, " ")).slice(0, 300).join("")
+    const line = `${lines.length + 1}. ${clipped}`
     const next = lines.length ? `${lines.join("\n")}\n${line}` : line
     if (head.length + next.length + foot.length + 4 > maxChars) break
     lines.push(line)

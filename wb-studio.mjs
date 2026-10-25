@@ -24,6 +24,20 @@ import { driveAgent, driveAgentCli, planModelRetry, formatUserMemory } from "./w
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+// 统一的 JSON 原子落盘:先写临时文件再 rename。
+// 直接 writeFileSync 覆盖,遇到断电/强杀会留下半截 JSON,下次启动整份配置或会话就读废了。
+function writeJsonAtomic(file, obj) {
+  try {
+    const { mkdirSync, writeFileSync, renameSync } = require("node:fs")
+    mkdirSync(dirname(file), { recursive: true })
+    const tmp = `${file}.tmp`
+    writeFileSync(tmp, JSON.stringify(obj, null, 2), "utf8")
+    renameSync(tmp, file)
+  } catch (e) {
+    console.error(`[wb-studio] 落盘失败(${basename(file)}):`, e.message)
+  }
+}
+
 // 控制台输出同步落盘到 runtime\studio.log:引擎静默崩溃/任务异常时,事后有线索可查
 try {
   const studioLogPath = join(__dirname, "runtime", "studio.log")
@@ -459,13 +473,12 @@ function loadUserSettings() {
   } catch {}
 }
 function saveUserSettings() {
-  try {
-    const { mkdirSync, writeFileSync } = require("node:fs")
-    mkdirSync(join(__dirname, "runtime"), { recursive: true })
-    writeFileSync(SETTINGS_FILE, JSON.stringify({ strictVerify: !!config.strictVerify, contextLimit: config.contextLimit, retryMax: config.retryMax, retryDelaySec: config.retryDelaySec }, null, 2), "utf8")
-  } catch (e) {
-    console.error("[wb-studio] 设置落盘失败:", e.message)
-  }
+  writeJsonAtomic(SETTINGS_FILE, {
+    strictVerify: !!config.strictVerify,
+    contextLimit: config.contextLimit,
+    retryMax: config.retryMax,
+    retryDelaySec: config.retryDelaySec,
+  })
 }
 loadUserSettings()
 
@@ -485,16 +498,12 @@ function loadUserMemory() {
       .filter((x) => x && typeof x.text === "string" && x.text.trim())
       .slice(0, MEMORY_MAX_ITEMS)
       .map((x) => ({ id: String(x.id || `m_${Math.random().toString(36).slice(2, 10)}`), text: String(x.text).slice(0, MEMORY_MAX_TEXT), at: Number(x.at) || Date.now() }))
-  } catch {}
+  } catch (e) {
+    if (existsSync(MEMORY_FILE)) console.warn("[wb-studio] 长期记忆文件读取失败,已按空记忆启动:", e.message)
+  }
 }
 function saveUserMemory() {
-  try {
-    const { mkdirSync, writeFileSync } = require("node:fs")
-    mkdirSync(join(__dirname, "runtime"), { recursive: true })
-    writeFileSync(MEMORY_FILE, JSON.stringify(userMemory, null, 2), "utf8")
-  } catch (e) {
-    console.error("[wb-studio] 长期记忆落盘失败:", e.message)
-  }
+  writeJsonAtomic(MEMORY_FILE, userMemory)
 }
 function userMemoryPrompt() {
   if (!userMemory.enabled) return ""
@@ -512,13 +521,7 @@ function loadApis() {
   } catch {}
 }
 function saveApis() {
-  try {
-    const { mkdirSync, writeFileSync } = require("node:fs")
-    mkdirSync(join(__dirname, "runtime"), { recursive: true })
-    writeFileSync(APIS_FILE, JSON.stringify(apis, null, 2), "utf8")
-  } catch (e) {
-    console.error("[wb-studio] API 配置落盘失败:", e.message)
-  }
+  writeJsonAtomic(APIS_FILE, apis)
 }
 function enabledApi() {
   return apis.items.find((a) => a.id === apis.enabledId) || null
@@ -1613,7 +1616,7 @@ function renderMem(){
     box.innerHTML='<div style="padding:10px 12px;border:1px dashed var(--border);border-radius:10px;color:var(--muted-2);font-size:12.5px">还没有记录。把希望长期遵守的偏好写在上面的框里,比如配色、命名、交互习惯。</div>';
     return;
   }
-  box.innerHTML=memState.items.map(it=>'<div class="memrow"><div class="memtxt">'+esc(it.text)+'</div><button type="button" class="memdel" data-memdel="'+esc(it.id)+'">删除</button></div>').join('');
+  box.innerHTML=memState.items.map(it=>'<div class="memrow"><div class="memtxt">'+esc(it.text)+'</div><button type="button" class="memdel" data-memdel="'+esca(it.id)+'">删除</button></div>').join('');
 }
 async function memPost(payload){
   try{
@@ -1795,7 +1798,9 @@ function loadSessions() {
   try {
     const raw = JSON.parse(readFileSync(SESSIONS_FILE, "utf8"))
     if (raw && Array.isArray(raw.items)) sessions = raw
-  } catch {}
+  } catch (e) {
+    if (existsSync(SESSIONS_FILE)) console.warn("[wb-studio] 会话文件读取失败,已按空会话启动(文件可能损坏):", e.message)
+  }
   if (!sessions.items.length) {
     const s = newSession(null)
     sessions.current = s.id
@@ -1807,13 +1812,7 @@ function loadSessions() {
   }
 }
 function saveSessions() {
-  try {
-    const { mkdirSync, writeFileSync } = require("node:fs")
-    mkdirSync(join(__dirname, "runtime"), { recursive: true })
-    writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), "utf8")
-  } catch (e) {
-    console.error("[wb-studio] 会话落盘失败:", e.message)
-  }
+  writeJsonAtomic(SESSIONS_FILE, sessions)
 }
 function newSession(engineSessionId) {
   const s = {
@@ -2620,13 +2619,29 @@ const srv = createServer(async (req, res) => {
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify({ ok: true, enabled: userMemory.enabled, items: userMemory.items, maxItems: MEMORY_MAX_ITEMS, maxText: MEMORY_MAX_TEXT }))
       }
+      // 长期记忆是用户私人偏好:读也要 token(GET 默认不走全局写入门禁)
+      if (String(req.headers["x-wb-token"] || "") !== API_TOKEN) {
+        res.writeHead(403, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: "token 校验失败(请从本工作台页面操作)" }))
+        return
+      }
       if (req.method === "GET") return out()
       if (req.method === "POST") {
         let body = ""
-        for await (const ch of req) body += ch
+        let tooBig = false
+        for await (const ch of req) {
+          body += ch
+          if (body.length > 64 * 1024) { tooBig = true; break }
+        }
+        if (tooBig) {
+          res.writeHead(413, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, error: "请求体过大" }))
+          return
+        }
         let b = {}
         try { b = JSON.parse(body) } catch {}
         const act = String(b.action || "")
+        const id = String(b.id || "").slice(0, 64)
         const text = String(b.text || "").replace(/\s+/g, " ").trim()
         const bad = (msg) => {
           res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
@@ -2638,14 +2653,16 @@ const srv = createServer(async (req, res) => {
           if (userMemory.items.length >= MEMORY_MAX_ITEMS) return bad(`最多 ${MEMORY_MAX_ITEMS} 条,先删几条再添加`)
           userMemory.items.push({ id: `m_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, text, at: Date.now() })
         } else if (act === "update") {
-          const it = userMemory.items.find((x) => x.id === String(b.id || ""))
+          const it = userMemory.items.find((x) => x.id === id)
           if (!it) return bad("找不到这条记忆")
           if (!text) return bad("记忆内容是空的")
           if ([...text].length > MEMORY_MAX_TEXT) return bad(`单条记忆最多 ${MEMORY_MAX_TEXT} 字`)
           it.text = text
           it.at = Date.now()
         } else if (act === "delete") {
-          userMemory.items = userMemory.items.filter((x) => x.id !== String(b.id || ""))
+          const before = userMemory.items.length
+          userMemory.items = userMemory.items.filter((x) => x.id !== id)
+          if (userMemory.items.length === before) return bad("找不到这条记忆")
         } else if (act === "clear") {
           userMemory.items = []
         } else if (act === "toggle") {
