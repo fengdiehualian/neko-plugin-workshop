@@ -517,6 +517,42 @@ result = await evalJs(`(async () => {
     localStorage.getItem('wb_theme') !== null ? pass('主题记忆 (localStorage)') : fail('主题记忆', '没有写入');
   } else fail('主题切换', '没有 .themeopt');
 
+  // 12.5) 界面字体与字号:选字体 / 拉字号 / 落库 / 还原
+  if (tabs.length > 1) { tabs[1].click(); await sleep(60); }
+  const fontChips = $$('.fontopt');
+  if (fontChips.length >= 4) {
+    const hs = fontChips.find((x) => x.dataset && x.dataset.f === 'hengshui');
+    hs.click(); await sleep(150);
+    const fam = getComputedStyle(document.body).fontFamily || '';
+    const curOk = hs.classList.contains('cur');
+    const sl = $('#fontSize');
+    sl.value = '130';
+    sl.dispatchEvent(new Event('input', { bubbles: true }));
+    sl.dispatchEvent(new Event('change', { bubbles: true }));
+    let saved = null;
+    const applied = await (async () => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < 4000) {
+        const j = await (await fetch('/api/ui')).json();
+        saved = j;
+        if (j && j.ok && j.font === 'hengshui' && j.size === 130) return true;
+        await sleep(150);
+      }
+      return false;
+    })();
+    const zoomed = Math.abs(parseFloat(document.body.style.zoom || '1') - 1.3) < 0.001;
+    const labelOk = ($('#fontSizeVal').textContent || '').includes('130');
+    // 还原
+    fontChips.find((x) => x.dataset.f === 'default').click();
+    $('#fontSizeReset').click();
+    await sleep(300);
+    const backFam = (getComputedStyle(document.body).fontFamily || '').includes('Microsoft YaHei');
+    const backZoom = Math.abs(parseFloat(document.body.style.zoom || '1') - 1) < 0.001;
+    (fam.includes('楷体') || fam.includes('KaiTi')) && curOk && zoomed && labelOk && applied && backFam && backZoom
+      ? pass('字体与字号 切换/缩放/还原', '衡水体 + 130% → 默认 + 100%')
+      : fail('字体与字号 切换/缩放/还原', 'fam=' + fam.slice(0, 40) + ' cur=' + curOk + ' zoom=' + zoomed + ' label=' + labelOk + ' saved=' + applied + ' back=' + backFam + '/' + backZoom + ' ' + JSON.stringify(saved || {}).slice(0, 80));
+  } else fail('字体选项', '只有 ' + fontChips.length + ' 个');
+
   // 13) 主动测试按钮(只测不存)
   const n4 = calls().filter((c) => c.url.includes('/api/test')).length;
   const urlEl = $('#apiURL'), keyEl = $('#apiKey'), modelEl = $('#apiModel');
@@ -799,6 +835,26 @@ if (argv.includes("--mutate")) {
     })
     const tuneBack = await post("/api/retry", { timeoutSec: 1500, stallTimeoutSec: 360, retryMax: 2, retryDelaySec: 3 })
     apiChecks.push({ name: "运行参数 还原", ok: tuneBack.status === 200 && (tuneBack.json || {}).timeoutSec === 1500, detail: "HTTP " + tuneBack.status })
+
+    // ---- 界面字体与字号 ----
+    const ui0 = await localReq("/api/ui", { timeout: 8000, headers: H })
+    apiChecks.push({
+      name: "外观 读取",
+      ok: ui0.status === 200 && typeof (ui0.json || {}).size === "number" && Array.isArray((ui0.json || {}).fonts),
+      detail: `${(ui0.json || {}).font} / ${(ui0.json || {}).size}%`,
+    })
+    const uiBadFont = await post("/api/ui", { font: "comic" })
+    apiChecks.push({ name: "未知字体被拒 (400)", ok: uiBadFont.status === 400, detail: "HTTP " + uiBadFont.status })
+    const uiBadSize = await post("/api/ui", { size: 10 })
+    apiChecks.push({ name: "字号越界 (400)", ok: uiBadSize.status === 400, detail: "HTTP " + uiBadSize.status })
+    const uiOk = await post("/api/ui", { font: "cute", size: 115 })
+    apiChecks.push({
+      name: "外观 保存",
+      ok: uiOk.status === 200 && (uiOk.json || {}).font === "cute" && (uiOk.json || {}).size === 115,
+      detail: JSON.stringify(uiOk.json || {}).slice(0, 60),
+    })
+    const uiBack = await post("/api/ui", { font: "default", size: 100 })
+    apiChecks.push({ name: "外观 还原", ok: uiBack.status === 200 && (uiBack.json || {}).font === "default", detail: "HTTP " + uiBack.status })
 
     // ---- 上下文压缩:导入长文档 → 手动压缩 → 校验摘要/计数/幂等 ----
     const longMd = "## 背景\n" + "这是一段用于测试压缩的长文本,包含用户需求与已确认的决策。".repeat(80)

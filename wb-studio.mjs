@@ -84,6 +84,8 @@ const defaultConfig = {
   retryDelaySec: 3, // 首次退避秒数,之后翻倍(3s → 6s → 12s,上限 30s)
   strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告)
   contextLimit: 128000, // 上下文容量(tokens):模型上下文窗口大小,用于底部容量显示
+  uiFont: "default", // 界面字体预设 id(见页面 FONT_PRESETS)
+  uiFontSize: 100, // 界面字号百分比(85~130),用 CSS zoom 整体缩放
   openBrowser: true,
   openMode: "app", // "app"=内置窗口(Edge/Chrome --app,关窗即退出);"browser"=系统浏览器(不随窗口退出)
   appWindow: "1200x860",
@@ -403,6 +405,8 @@ function loadUserSettings() {
     if (typeof s.retryDelaySec === "number" && s.retryDelaySec > 0) config.retryDelaySec = Math.min(60, Math.floor(s.retryDelaySec))
     if (typeof s.timeoutSec === "number" && s.timeoutSec > 0) config.timeoutSec = Math.min(7200, Math.max(60, Math.floor(s.timeoutSec)))
     if (typeof s.stallTimeoutSec === "number" && s.stallTimeoutSec > 0) config.stallTimeoutSec = Math.min(1800, Math.max(30, Math.floor(s.stallTimeoutSec)))
+    if (typeof s.uiFont === "string" && s.uiFont) config.uiFont = s.uiFont
+    if (typeof s.uiFontSize === "number" && s.uiFontSize > 0) config.uiFontSize = Math.min(130, Math.max(85, Math.floor(s.uiFontSize)))
   } catch {}
 }
 function saveUserSettings() {
@@ -413,6 +417,8 @@ function saveUserSettings() {
     retryDelaySec: config.retryDelaySec,
     timeoutSec: config.timeoutSec,
     stallTimeoutSec: config.stallTimeoutSec,
+    uiFont: config.uiFont,
+    uiFontSize: config.uiFontSize,
   })
 }
 loadUserSettings()
@@ -1083,6 +1089,10 @@ const PAGE = `<!doctype html>
   .themeopt:hover{border-color:var(--muted-2)}
   .themeopt.cur{border-color:var(--pink);background:var(--tint)}
   .themeopt.cur::after{content:'✓ 使用中';font-size:11px;color:var(--pink-d);font-weight:700}
+  .fontopt{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:2px solid var(--border);border-radius:12px;cursor:pointer;font-size:15px;font-weight:700;color:var(--ink);background:var(--card)}
+  .fontopt:hover{border-color:var(--muted-2)}
+  .fontopt.cur{border-color:var(--pink);background:var(--tint)}
+  .fontopt.cur::after{content:'✓';font-size:11px;color:var(--pink-d);font-weight:700}
   .sw{width:64px;height:34px;border-radius:9px;border:1px solid rgba(128,128,128,.35)}
   .sw-pink{background:linear-gradient(135deg,#ff9ec2,#ff7ba9)}
   .sw-blue{background:linear-gradient(135deg,#7fb0f8,#4f8ef7)}
@@ -1196,6 +1206,23 @@ const PAGE = `<!doctype html>
       <div class="themeopt" data-t="blue"><span class="sw sw-blue"></span>天空蓝</div>
       <div class="themeopt" data-t="white"><span class="sw sw-white"></span>纯净白</div>
       <div class="themeopt" data-t="black"><span class="sw sw-black"></span>暗夜黑</div>
+    </div>
+    <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
+      <div style="font-size:13.5px;color:var(--ink)"><b>界面字体</b> <span style="color:var(--muted-2);font-size:12px">(点了立即生效;系统没装这个名字会自动落到相近的中文字体)</span></div>
+      <div id="fontlist" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">
+        <div class="fontopt cur" data-f="default">默认</div>
+        <div class="fontopt" data-f="nailao" style="font-family:'奶酪体','幼圆',YouYuan,'Microsoft YaHei',sans-serif">奶酪体</div>
+        <div class="fontopt" data-f="cute" style="font-family:'可爱体','幼圆',YouYuan,'Comic Sans MS',sans-serif">可爱体</div>
+        <div class="fontopt" data-f="hengshui" style="font-family:'衡水体','楷体',KaiTi,STKaiti,serif">衡水体</div>
+        <div class="fontopt" data-f="song" style="font-family:'宋体',SimSun,serif">宋体</div>
+      </div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:13px;color:var(--ink)"><b>字号</b></span>
+        <input id="fontSize" type="range" min="85" max="130" step="5" value="100" style="width:220px;accent-color:var(--pink)">
+        <span id="fontSizeVal" style="font-size:12.5px;color:var(--muted-2);min-width:52px">100%</span>
+        <button type="button" id="fontSizeReset" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer">恢复 100%</button>
+      </div>
+      <div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">字号是整体缩放(85% ~ 130%),按钮和间距一起变;系统里没装"奶酪体/可爱体/衡水体"时会用幼圆、楷体这些相近字体顶上</div>
     </div>
     <div style="margin-top:16px;border-top:1px dashed var(--border);padding-top:12px">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;color:var(--ink)">
@@ -1601,6 +1628,42 @@ function applyTheme(t){
   document.querySelectorAll('.themeopt').forEach(o=>o.classList.toggle('cur',o.dataset.t===t));
 }
 document.querySelectorAll('.themeopt').forEach(o=>{o.onclick=()=>applyTheme(o.dataset.t);});
+// 界面字体与字号:本地先应用(避免闪烁),再从服务端取真值;改动即存 runtime/settings.json
+const FONT_PRESETS={
+  default:{css:'"Microsoft YaHei",system-ui,sans-serif'},
+  nailao:{css:'"奶酪体","NaiLao","幼圆",YouYuan,"Microsoft YaHei",sans-serif'},
+  cute:{css:'"可爱体","方正卡通","幼圆",YouYuan,"Comic Sans MS",sans-serif'},
+  hengshui:{css:'"衡水体","楷体",KaiTi,STKaiti,"Microsoft YaHei",serif'},
+  song:{css:'"宋体",SimSun,serif'},
+};
+let uiFont='default',uiFontSize=100;
+function applyUi(font,size,persist){
+  uiFont=FONT_PRESETS[font]?font:'default';
+  const n=Number(size);
+  uiFontSize=Math.min(130,Math.max(85,Number.isFinite(n)&&n>0?Math.round(n/5)*5:100));
+  document.body.style.fontFamily=FONT_PRESETS[uiFont].css;
+  document.body.style.zoom=(uiFontSize/100).toFixed(2);
+  document.querySelectorAll('.fontopt').forEach(o=>o.classList.toggle('cur',o.dataset.f===uiFont));
+  const sl=document.getElementById('fontSize');if(sl)sl.value=uiFontSize;
+  const lab=document.getElementById('fontSizeVal');if(lab)lab.textContent=uiFontSize+'%';
+  try{localStorage.setItem('wb_ui',JSON.stringify({font:uiFont,size:uiFontSize}))}catch(e){}
+  if(persist){
+    fetch('/api/ui',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({font:uiFont,size:uiFontSize})}).catch(()=>{});
+  }
+}
+(function initUi(){
+  try{const c=JSON.parse(localStorage.getItem('wb_ui')||'null');if(c)applyUi(c.font,c.size,false);}catch(e){}
+  fetch('/api/ui').then(r=>r.json()).then(j=>{if(j&&j.ok)applyUi(j.font,j.size,false)}).catch(()=>{});
+})();
+document.querySelectorAll('.fontopt').forEach(o=>{o.onclick=()=>applyUi(o.dataset.f,uiFontSize,true)});
+(function(){
+  const sl=document.getElementById('fontSize');
+  if(!sl)return;
+  sl.addEventListener('input',()=>applyUi(uiFont,Number(sl.value),false));
+  sl.addEventListener('change',()=>applyUi(uiFont,Number(sl.value),true));
+})();
+const fsReset=document.getElementById('fontSizeReset');
+if(fsReset)fsReset.onclick=()=>applyUi(uiFont,100,true);
 // 严格校验开关(读后端状态,切换立即生效)
 (async()=>{try{const j=await(await fetch('/api/strict')).json();document.getElementById('strictToggle').checked=!!j.strictVerify;}catch(e){}})();
 document.getElementById('strictToggle').onchange=async e=>{
@@ -2534,6 +2597,38 @@ const srv = createServer(async (req, res) => {
       return
     }
     // ---------- 严格校验开关 ----------
+    // ---------- 界面字体与字号 ----------
+    if (url.pathname === "/api/ui") {
+      const fonts = ["default", "nailao", "cute", "hengshui", "song"]
+      const out = () => {
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, font: config.uiFont, size: config.uiFontSize, fonts }))
+      }
+      if (req.method === "GET") return out()
+      if (req.method === "POST") {
+        let body = ""
+        for await (const ch of req) body += ch
+        let b = {}
+        try { b = JSON.parse(body) } catch {}
+        const bad = (msg) => {
+          res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, error: msg }))
+        }
+        if (b.font !== undefined) {
+          const f = String(b.font)
+          if (!fonts.includes(f)) return bad("未知字体:" + f)
+          config.uiFont = f
+        }
+        if (b.size !== undefined) {
+          const v = Math.floor(Number(b.size))
+          if (!Number.isFinite(v) || v < 85 || v > 130) return bad("字号要在 85 ~ 130 之间")
+          config.uiFontSize = v
+        }
+        saveUserSettings()
+        console.log(`[wb-studio] 外观已更新:font=${config.uiFont} size=${config.uiFontSize}%`)
+        return out()
+      }
+    }
     if (url.pathname === "/api/strict") {
       if (req.method === "GET") {
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
