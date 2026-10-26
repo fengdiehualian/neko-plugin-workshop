@@ -24,6 +24,11 @@ import { driveAgent, driveAgentCli, planModelRetry, formatUserMemory, buildWishP
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+// 当前版本:用于内置更新比较(打包后 package.json 就在根目录)
+const APP_VERSION = (() => {
+  try { return JSON.parse(readFileSync(join(__dirname, "package.json"), "utf8")).version || "0.0.0" } catch { return "0.0.0" }
+})()
+
 // 统一的 JSON 原子落盘:先写临时文件再 rename。
 // 直接 writeFileSync 覆盖,遇到断电/强杀会留下半截 JSON,下次启动整份配置或会话就读废了。
 function writeJsonAtomic(file, obj) {
@@ -1128,6 +1133,7 @@ const PAGE = `<!doctype html>
     <button type="button" class="sptab" data-tab="look">🎨 外观</button>
     <button type="button" class="sptab" data-tab="run">🔁 重试</button>
     <button type="button" class="sptab" data-tab="mem">🧠 记忆</button>
+    <button type="button" class="sptab" data-tab="update">⬆️ 更新</button>
     <button type="button" id="setclose" class="sp-close">收起 ▴</button>
   </div>
   <div class="sp-body" id="tab-api">
@@ -1241,6 +1247,34 @@ const PAGE = `<!doctype html>
         <button type="button" id="ctxSave" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">保存</button>
       </div>
       <div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">填 K 数(128 = 128K tokens),改完即生效;占用为估算值(最近一轮输入+输出)</div>
+    </div>
+  <div class="sp-body" id="tab-update" style="display:none">
+    <div class="sp-head">版本更新 <span class="sp-tip">检查优先走 GitHub,失败自动改用码云镜像</span></div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:13px;color:var(--ink)">当前版本 <b id="updCur">-</b></span>
+      <button type="button" id="updCheck" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">检查更新</button>
+      <span id="updMsg" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div id="updBox" style="display:none;margin-top:14px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted-2)">
+        <span id="updPhase">准备中…</span><span id="updPct"></span>
+      </div>
+      <div style="margin-top:6px;height:10px;background:var(--tint);border:1px solid var(--border);border-radius:999px;overflow:hidden">
+        <div id="updBar" style="height:100%;width:0;background:var(--pink);transition:width .2s"></div>
+      </div>
+      <div id="updDetail" style="margin-top:6px;font-size:11.5px;color:var(--muted-2)"></div>
+    </div>
+    <div style="margin-top:14px;color:var(--muted-2);font-size:11.5px">下载完成后工坊会退出,安装器接管并自动重新启动;安装完成后临时文件自动删除。更新不会动 runtime/(密钥、会话、记忆)与 workspace/(插件项目)。</div>
+  </div>
+</div>
+</div>
+<div id="updModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
+  <div style="width:min(430px,90vw);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 12px 40px var(--shadow)">
+    <div style="font-size:16px;font-weight:800;color:var(--ink)">发现新版本</div>
+    <div id="updModalBody" style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.8"></div>
+    <div style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end">
+      <button type="button" id="updCancel" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:9px;padding:7px 16px;font-size:12.5px;font-weight:700;cursor:pointer">以后再说</button>
+      <button type="button" id="updGo" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:9px;padding:7px 18px;font-size:12.5px;font-weight:700;cursor:pointer">立即更新</button>
     </div>
   </div>
 </div>
@@ -1582,6 +1616,8 @@ document.querySelectorAll('.sptab').forEach(tb=>{tb.onclick=()=>{
   document.getElementById('tab-mem').style.display=tb.dataset.tab==='mem'?'':'none';
   if(tb.dataset.tab==='mem')loadMem();
   if(tb.dataset.tab==='run')loadTuning();
+  document.getElementById('tab-update').style.display=tb.dataset.tab==='update'?'':'none';
+  if(tb.dataset.tab==='update')updLoad();
 };});
 // 长期记忆:读 → 渲染 → 增 / 删 / 启用开关(存服务端 runtime/user-memory.json)
 let memState={enabled:true,items:[]};
@@ -1664,6 +1700,58 @@ document.querySelectorAll('.fontopt').forEach(o=>{o.onclick=()=>applyUi(o.datase
 })();
 const fsReset=document.getElementById('fontSizeReset');
 if(fsReset)fsReset.onclick=()=>applyUi(uiFont,100,true);
+// 版本更新:检查 → 弹窗确认 → 下载(轮询实时进度) → 自动退出安装
+const UPD={timer:null};
+function updMB(n){return ((Number(n)||0)/1048576).toFixed(1)+' MB'}
+function updRender(s){
+  if(!s)return;
+  const cur=document.getElementById('updCur');
+  if(cur&&s.current)cur.textContent='v'+s.current;
+  const box=document.getElementById('updBox'),bar=document.getElementById('updBar'),pct=document.getElementById('updPct'),
+        ph=document.getElementById('updPhase'),det=document.getElementById('updDetail'),msg=document.getElementById('updMsg');
+  const busy=['downloading','merging','verifying','extracting','applying'].includes(s.phase);
+  box.style.display=busy?'':'none';
+  if(busy){
+    bar.style.width=(s.percent||0)+'%';
+    pct.textContent=(s.percent||0)+'%';
+    const src=s.source==='github'?'GitHub':s.source==='gitee'?'码云镜像':'测试源';
+    ph.textContent={downloading:'下载中('+src+')',merging:'合并分卷…',verifying:'校验安装包…',extracting:'解压安装中,工坊即将重启…',applying:'正在安装,工坊即将退出…'}[s.phase]||'处理中…';
+    det.textContent=s.total?updMB(s.received)+' / '+updMB(s.total)+(s.speed?' · '+updMB(s.speed)+'/s':''):'';
+    msg.textContent='';
+  }
+  if(s.phase==='error'){msg.style.color='#c0392b';msg.textContent='更新失败:'+(s.error||'未知错误');}
+  else if(s.phase==='done'){msg.style.color='';msg.textContent='已是最新版本';}
+}
+async function updLoad(){try{const j=await(await fetch('/api/update')).json();updRender(j);}catch(e){}}
+async function updCheck(){
+  const msg=document.getElementById('updMsg');msg.style.color='';msg.textContent='检查中…';
+  try{
+    const j=await(await fetch('/api/update',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'check'})})).json();
+    updRender(j);
+    if(!j.ok||j.phase==='error'){msg.textContent='检查失败:'+(j.error||'未知错误');return;}
+    if(j.hasUpdate){
+      msg.textContent='发现新版本 v'+j.latest;
+      document.getElementById('updModalBody').innerHTML='当前版本 v'+j.current+' → 最新版本 <b>v'+j.latest+'</b><br>来源:'+(j.source==='github'?'GitHub':j.source==='gitee'?'码云镜像':'测试源')+'<br><span style="color:var(--muted-2);font-size:12px">更新时工坊会自动退出并重启;runtime(密钥/会话/记忆)与 workspace(插件项目)都会保留。</span>';
+      document.getElementById('updModal').style.display='flex';
+    }else{msg.textContent='已是最新版本(v'+j.current+')';}
+  }catch(e){msg.textContent='检查失败:'+e.message;}
+}
+function updStart(){
+  document.getElementById('updModal').style.display='none';
+  fetch('/api/update',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'start'})}).then(r=>r.json()).then(updRender).catch(()=>{});
+  if(UPD.timer)clearInterval(UPD.timer);
+  UPD.timer=setInterval(async()=>{
+    try{
+      const j=await(await fetch('/api/update')).json();updRender(j);
+      if(!['downloading','merging','verifying','extracting','applying'].includes(j.phase)){clearInterval(UPD.timer);UPD.timer=null;}
+    }catch(e){/* 安装时进程退出,轮询自然失败 */}
+  },600);
+}
+updLoad();
+document.getElementById('updCheck').onclick=updCheck;
+document.getElementById('updGo').onclick=updStart;
+document.getElementById('updCancel').onclick=()=>{document.getElementById('updModal').style.display='none';};
+document.getElementById('updModal').onclick=e=>{if(e.target.id==='updModal')e.target.style.display='none';};
 // 严格校验开关(读后端状态,切换立即生效)
 (async()=>{try{const j=await(await fetch('/api/strict')).json();document.getElementById('strictToggle').checked=!!j.strictVerify;}catch(e){}})();
 document.getElementById('strictToggle').onchange=async e=>{
@@ -2599,6 +2687,342 @@ const srv = createServer(async (req, res) => {
       return
     }
     // ---------- 严格校验开关 ----------
+// ---------- 内置更新:检查 → 下载(GitHub 优先,码云兜底) → 安装 ----------
+// 说明:官方发布产物是自解压 Setup.exe(支持 --silent)。运行中的 bun.exe 会被占用,
+// 所以先落盘,再交给一个等待本进程退出的 cmd 去安装,装完自动启动新版本并删临时文件。
+const GH_REPO = "fengdiehualian/neko-plugin-workshop"
+const GITEE_REPO = "maple-butterfly-flower-love/neko-plugin-workshop"
+const UPDATE_DIR = join(__dirname, "runtime", "update")
+const updateState = {
+  phase: "idle", // idle|checking|downloading|merging|verifying|extracting|applying|done|error
+  kind: "", // exe | zip
+  current: APP_VERSION,
+  latest: "",
+  source: "",
+  notes: "",
+  percent: 0,
+  received: 0,
+  total: 0,
+  speed: 0,
+  error: "",
+  checkedAt: 0,
+  sources: [],
+  startedAt: 0,
+}
+let updateTimer = null
+let updateRunning = false
+
+function cmpVersion(a, b) {
+  const pa = String(a).replace(/^v/i, "").split(/[.+-]/).map((x) => parseInt(x, 10) || 0)
+  const pb = String(b).replace(/^v/i, "").split(/[.+-]/).map((x) => parseInt(x, 10) || 0)
+  for (let i = 0; i < 3; i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0)
+    if (d) return d > 0 ? 1 : -1
+  }
+  return 0
+}
+
+function updSnapshot() {
+  return {
+    ok: true,
+    pid: process.pid,
+    phase: updateState.phase,
+    current: updateState.current,
+    latest: updateState.latest,
+    source: updateState.source,
+    notes: updateState.notes,
+    percent: updateState.percent,
+    received: updateState.received,
+    total: updateState.total,
+    speed: updateState.speed,
+    error: updateState.error,
+    checkedAt: updateState.checkedAt,
+    hasUpdate: !!updateState.latest && cmpVersion(updateState.latest, updateState.current) > 0,
+  }
+}
+
+async function fetchJSON(url) {
+  const headers = { "user-agent": "neko-workshop/" + APP_VERSION, accept: "application/json" }
+  // 环境里可能有失效的 HTTP_PROXY(公司代理/加速器残留):先按默认走,失败再显式绕过代理重试一次
+  const attempts = [{ headers, redirect: "follow" }, { headers, redirect: "follow", proxy: "" }]
+  let lastErr = null
+  for (const opt of attempts) {
+    try {
+      const r = await fetch(url, opt)
+      if (!r.ok) throw new Error("HTTP " + r.status)
+      return await r.json()
+    } catch (e) { lastErr = e }
+  }
+  throw lastErr || new Error("fetch failed")
+}
+
+// 返回 [{source:'github'|'gitee'|'feed', version, notes, assets:[{name,url,size}]}]
+async function resolveReleaseSources() {
+  const out = []
+  // 开发者/离线测试:WB_UPDATE_FEED 指向一个本地 JSON(不暴露给 UI)
+  if (process.env.WB_UPDATE_FEED) {
+    try {
+      const j = await fetchJSON(process.env.WB_UPDATE_FEED)
+      out.push({ source: "feed", version: String(j.version || "").replace(/^v/i, ""), notes: j.notes || "", assets: j.assets || [] })
+    } catch (e) {
+      console.warn("[wb-studio] 更新测试源不可用:", e.message)
+    }
+  }
+  try {
+    const j = await fetchJSON(`https://api.github.com/repos/${GH_REPO}/releases/latest`)
+    // 优先用绿色包 zip(解压即更新),没有 zip 再用自解压 exe
+    const asset = (j.assets || []).find((a) => /\.zip$/i.test(a.name)) || (j.assets || []).find((a) => /\.exe$/i.test(a.name))
+    if (asset && j.tag_name) {
+      out.push({ source: "github", version: String(j.tag_name).replace(/^v/i, ""), notes: j.body || "", assets: [{ name: asset.name, url: asset.browser_download_url, size: asset.size }] })
+    }
+  } catch (e) {
+    console.warn("[wb-studio] GitHub 版本检查失败:", e.message)
+  }
+  try {
+    const j = await fetchJSON(`https://gitee.com/api/v5/repos/${GITEE_REPO}/releases/latest`)
+    const assets = (j.assets || []).filter((a) => /\.(zip|exe|part\d+)$/i.test(a.name))
+    const parts = assets.filter((a) => /\.part\d+$/i.test(a.name)).sort((x, y) => Number(x.name.match(/part(\d+)/)[1]) - Number(y.name.match(/part(\d+)/)[1]))
+    const single = assets.find((a) => /\.zip$/i.test(a.name)) || assets.find((a) => /\.exe$/i.test(a.name))
+    const list = single ? [single] : parts
+    if (list.length && j.tag_name) {
+      out.push({
+        source: "gitee",
+        version: String(j.tag_name).replace(/^v/i, ""),
+        notes: j.body || "",
+        assets: list.map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size })),
+      })
+    }
+  } catch (e) {
+    console.warn("[wb-studio] 码云版本检查失败:", e.message)
+  }
+  return out
+}
+
+async function checkUpdate() {
+  updateState.phase = "checking"
+  updateState.error = ""
+  updateState.percent = 0
+  updateState.received = 0
+  updateState.total = 0
+  updateState.speed = 0
+  try {
+    const list = await resolveReleaseSources()
+    updateState.checkedAt = Date.now()
+    if (!list.length) throw new Error("GitHub 与码云都没取到版本信息(检查网络或加速器)")
+    const best = list.reduce((a, b) => (cmpVersion(b.version, a.version) > 0 ? b : a))
+    updateState.latest = best.version
+    updateState.source = best.source
+    updateState.notes = String(best.notes || "").slice(0, 1500)
+    updateState.sources = list
+    updateState.phase = "idle"
+    return updSnapshot()
+  } catch (e) {
+    updateState.phase = "error"
+    updateState.error = String(e.message || e)
+    return updSnapshot()
+  }
+}
+
+function updateTotalBytes() {
+  const src = updateState.sources.find((s) => s.source === updateState.source)
+  if (!src) return 0
+  return src.assets.reduce((n, a) => n + (Number(a.size) || 0), 0)
+}
+
+async function downloadOne(url, dest) {
+  const fs = require("node:fs")
+  let res = await fetch(url, { headers: { "user-agent": "neko-workshop/" + APP_VERSION }, redirect: "follow" })
+  if (!res.ok || !res.body) {
+    // 代理挡了直连/大文件时,换绕过代理再试一次
+    res = await fetch(url, { headers: { "user-agent": "neko-workshop/" + APP_VERSION }, redirect: "follow", proxy: "" })
+  }
+  if (!res.ok || !res.body) throw new Error("下载失败 HTTP " + res.status)
+  const out = fs.createWriteStream(dest)
+  const reader = res.body.getReader()
+  let lastAt = Date.now()
+  let lastBytes = updateState.received
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      updateState.received += value.length
+      updateState.percent = updateState.total ? Math.min(100, Math.round((updateState.received / updateState.total) * 100)) : 0
+      const now = Date.now()
+      if (now - lastAt > 500) {
+        updateState.speed = Math.round(((updateState.received - lastBytes) * 1000) / (now - lastAt))
+        lastAt = now
+        lastBytes = updateState.received
+      }
+      if (!out.write(Buffer.from(value))) await new Promise((r) => out.once("drain", r))
+    }
+  } finally {
+    await new Promise((res2) => out.end(res2))
+  }
+}
+
+async function mergeParts(parts, dest) {
+  const fs = require("node:fs")
+  const out = fs.createWriteStream(dest)
+  try {
+    for (const p of parts) {
+      await new Promise((res, rej) => {
+        const rs = fs.createReadStream(p)
+        rs.on("error", rej)
+        rs.on("end", res)
+        rs.pipe(out, { end: false })
+      })
+    }
+  } finally {
+    await new Promise((r) => out.end(r))
+  }
+}
+
+async function downloadFrom(src) {
+  const fs = require("node:fs")
+  updateState.source = src.source
+  updateState.phase = "downloading"
+  updateState.received = 0
+  updateState.percent = 0
+  updateState.total = src.assets.reduce((n, a) => n + (Number(a.size) || 0), 0)
+  fs.rmSync(UPDATE_DIR, { recursive: true, force: true })
+  fs.mkdirSync(UPDATE_DIR, { recursive: true })
+  const firstName = String((src.assets[0] || {}).name || "")
+  const kind = /\.zip$/i.test(firstName) || src.assets.length > 1 ? (/\.zip$/i.test(firstName) ? "zip" : "exe") : "exe"
+  updateState.kind = kind
+  const exe = join(UPDATE_DIR, kind === "zip" ? "payload.zip" : "setup.exe")
+  if (src.assets.length === 1) {
+    await downloadOne(src.assets[0].url, exe)
+  } else {
+    const parts = []
+    for (const a of src.assets) {
+      const p = join(UPDATE_DIR, String(a.name).replace(/[^\w.-]/g, "_"))
+      await downloadOne(a.url, p)
+      parts.push(p)
+    }
+    updateState.phase = "merging"
+    await mergeParts(parts, exe)
+    for (const p of parts) fs.rmSync(p, { force: true })
+  }
+  updateState.phase = "verifying"
+  const head = fs.readFileSync(exe).subarray(0, 2).toString("latin1")
+  if (kind === "zip" ? head !== "PK" : head !== "MZ") throw new Error("下载的更新包无效(可能被代理/镜像截断)")
+  if (updateState.total && updateState.received < updateState.total * 0.95) throw new Error("下载不完整")
+  return exe
+}
+
+function scheduleApply(filePath, kind) {
+  const fs = require("node:fs")
+  const helper = join(UPDATE_DIR, "apply-update.cmd")
+  const sys = "%SystemRoot%\\System32"
+  const apply =
+    kind === "zip"
+      ? [
+          // 绿色包:解压覆盖安装目录(tar 是 Windows 10 自带)。全部用绝对路径,
+          // 避免 PATH 里混进 Git/MSYS 的同名 find/tar 导致脚本行为异常。
+          `cd /d "${__dirname}"`,
+          `"${sys}\\tar.exe" -xf "${filePath}" -C "${__dirname}"`,
+          `"${sys}\\cmd.exe" /c start "" "${join(__dirname, "start.cmd")}"`,
+        ]
+      : [`"${sys}\\cmd.exe" /c start "" /wait "${filePath}" --silent`]
+  const lines = [
+    "@echo off",
+    "setlocal",
+    "set /a n=0",
+    ":wait",
+    "set /a n+=1",
+    "if %n% GTR 90 goto apply",
+    // PID 会被复用:同时按镜像名过滤;找不到 tasklist 就当进程已退出
+    `"${sys}\\tasklist.exe" /FI "PID eq ${process.pid}" /FI "IMAGENAME eq bun.exe" 2>nul | "${sys}\\findstr.exe" /I "bun.exe" >nul`,
+    "if not errorlevel 1 (",
+    "  ping -n 2 127.0.0.1 >nul",
+    "  goto wait",
+    ")",
+    ":apply",
+    ...apply,
+    `del /f /q "${filePath}" >nul 2>&1`,
+    `rd /s /q "${UPDATE_DIR}" >nul 2>&1`,
+    "exit /b 0",
+  ]
+  fs.writeFileSync(helper, lines.join("\r\n") + "\r\n", "ascii")
+  const { spawn } = require("node:child_process")
+  const child = spawn("cmd.exe", ["/c", helper], { detached: true, stdio: "ignore", cwd: __dirname, windowsHide: true })
+  child.unref()
+  updateState.phase = kind === "zip" ? "extracting" : "applying"
+  console.log("[wb-studio] 更新包已就绪,退出后由安装器接管:", filePath)
+  // 给前端留出最后一次状态轮询的时间,再退出(bun.exe 解锁后安装器/解压才能覆盖文件)
+  setTimeout(() => {
+    try { stopEngine() } catch {}
+    try { server.close() } catch {}
+    setTimeout(() => process.exit(0), 300)
+  }, 1500)
+}
+
+async function runUpdate() {
+  if (updateRunning) return updSnapshot()
+  updateRunning = true
+  updateState.phase = "downloading"
+  updateState.received = 0
+  updateState.percent = 0
+  updateState.speed = 0
+  updateState.error = ""
+  try {
+  if (!updateState.sources.length) await checkUpdate()
+  console.log("[wb-studio] 开始更新:current=" + updateState.current + " latest=" + updateState.latest + " sources=" + updateState.sources.map((x) => x.source).join(","))
+  if (cmpVersion(updateState.latest, updateState.current) <= 0) {
+    updateState.phase = "done"
+    return updSnapshot()
+  }
+  updateState.startedAt = Date.now()
+  updateState.error = ""
+  // 顺序:测试源 > GitHub > 码云。正式环境没有 feed,等价于 GitHub 优先、码云兜底
+  const rank = { feed: 0, github: 1, gitee: 2 }
+  const ordered = [...updateState.sources].sort((a, b) => (rank[a.source] ?? 9) - (rank[b.source] ?? 9))
+  let lastErr = ""
+  for (const src of ordered) {
+    try {
+      const exe = await downloadFrom(src)
+      scheduleApply(exe, updateState.kind)
+      return updSnapshot()
+    } catch (e) {
+      lastErr = `${src.source}: ${e.message || e}`
+      console.warn("[wb-studio] 更新下载失败,尝试下一个源:", lastErr)
+      updateState.speed = 0
+    }
+  }
+  updateState.phase = "error"
+  updateState.error = lastErr || "下载失败"
+  try { require("node:fs").rmSync(UPDATE_DIR, { recursive: true, force: true }) } catch {}
+  return updSnapshot()
+  } finally {
+    updateRunning = false
+  }
+}
+
+
+    // ---------- 内置更新(检查/下载/安装) ----------
+    if (url.pathname === "/api/update") {
+      const json = (obj) => {
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify(obj))
+      }
+      if (req.method === "GET") return json(updSnapshot())
+      if (req.method === "POST") {
+        let body = ""
+        for await (const ch of req) body += ch
+        let b = {}
+        try { b = JSON.parse(body || "{}") } catch {}
+        const action = String(b.action || "")
+        if (action === "check") return json(await checkUpdate())
+        if (action === "start") {
+          runUpdate().catch((e) => {
+            updateState.phase = "error"
+            updateState.error = String(e.message || e)
+          })
+          return json({ ...updSnapshot(), phase: "downloading" })
+        }
+        return json({ ok: false, error: "未知动作:" + action })
+      }
+    }
     // ---------- 界面字体与字号 ----------
     if (url.pathname === "/api/ui") {
       const fonts = ["default", "nailao", "cute", "hengshui", "song"]

@@ -500,6 +500,20 @@ result = await evalJs(`(async () => {
     tabs[0].click(); await sleep(50);
   } else fail('运行参数输入框', [!!tT, !!tS, !!tR, !!tD].join(','));
 
+  // 11.7) 更新页签:面板存在、当前版本可读、能点检查(不发真实下载)
+  const updTab = tabs.find((x) => x.dataset && x.dataset.tab === 'update');
+  if (updTab) {
+    updTab.click();
+    await wbWait(() => (($('#updCur') || {}).textContent || '').trim().length > 1, 3000);
+    const shown = !!$('#tab-update') && getComputedStyle($('#tab-update')).display !== 'none';
+    const curTxt = ($('#updCur').textContent || '').trim();
+    const hasBtn = !!$('#updCheck') && !!$('#updGo') && !!$('#updModal');
+    shown && /^v\\d+\\.\\d+\\.\\d+/.test(curTxt) && hasBtn
+      ? pass('更新页签 面板/版本号/按钮', curTxt)
+      : fail('更新页签 面板/版本号/按钮', 'shown=' + shown + ' cur=' + curTxt + ' btn=' + hasBtn);
+    tabs[0].click(); await sleep(50);
+  } else fail('更新页签', '找不到 data-tab=update');
+
   // 12) 主题切换:逐个点,校验 body 类名与 localStorage
   const themes = $$('.themeopt');
   if (themes.length) {
