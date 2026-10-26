@@ -2113,7 +2113,9 @@ const srv = createServer(async (req, res) => {
   if (req.method === "POST" || req.method === "DELETE" || req.method === "PUT" || req.method === "PATCH") {
     const ct = String(req.headers["content-type"] || "").toLowerCase()
     // 没有 body 的写请求(如 curl -X DELETE、POST 建会话)没有 JSON 可解析,不该被 415 挡掉
-    const bodyless = !req.headers["content-length"] && !req.headers["transfer-encoding"]
+    // 注意:http.client/curl 发 POST 时会带 content-length: 0,这也算"没有 body"
+    const cl = req.headers["content-length"]
+    const bodyless = (!cl || cl === "0") && !req.headers["transfer-encoding"]
     if (!bodyless && !ct.startsWith("application/json")) {
       res.writeHead(415, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify({ ok: false, error: "写接口只接受 application/json" }))
