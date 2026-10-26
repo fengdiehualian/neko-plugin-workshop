@@ -226,6 +226,11 @@ def check(root):
                 warn("R13", f"{os.path.relpath(p, root)} 用了 time.sleep(阻塞事件循环,建议 asyncio.sleep)")
 
 
+    # R14 发布仓库:插件目录自身要是 git 仓库(publish 前置;本地使用不影响)
+    if not os.path.isdir(os.path.join(root, ".git")):
+        warn("R14", "缺少 .git/,neko-plugin publish 要求插件目录自身是 git 仓库(本地使用与打包不受影响)")
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     as_json = "--json" in sys.argv

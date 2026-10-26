@@ -12,6 +12,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "check:page": "node tools/check-page.mjs"
+    "check:page": "node tools/check-page.mjs",
+    "check:plugin": "python tools/plugin_conformance.py"
   }
 }
