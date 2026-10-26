@@ -2771,7 +2771,8 @@ async function resolveReleaseSources() {
   try {
     const j = await fetchJSON(`https://api.github.com/repos/${GH_REPO}/releases/latest`)
     // 优先用绿色包 zip(解压即更新),没有 zip 再用自解压 exe
-    const asset = (j.assets || []).find((a) => /\.zip$/i.test(a.name)) || (j.assets || []).find((a) => /\.exe$/i.test(a.name))
+    const zip = (j.assets || []).find((a) => /\.zip$/i.test(a.name) && /payload|setup|workshop/i.test(a.name))
+    const asset = zip || (j.assets || []).find((a) => /\.exe$/i.test(a.name))
     if (asset && j.tag_name) {
       out.push({ source: "github", version: String(j.tag_name).replace(/^v/i, ""), notes: j.body || "", assets: [{ name: asset.name, url: asset.browser_download_url, size: asset.size }] })
     }
@@ -2782,7 +2783,7 @@ async function resolveReleaseSources() {
     const j = await fetchJSON(`https://gitee.com/api/v5/repos/${GITEE_REPO}/releases/latest`)
     const assets = (j.assets || []).filter((a) => /\.(zip|exe|part\d+)$/i.test(a.name))
     const parts = assets.filter((a) => /\.part\d+$/i.test(a.name)).sort((x, y) => Number(x.name.match(/part(\d+)/)[1]) - Number(y.name.match(/part(\d+)/)[1]))
-    const single = assets.find((a) => /\.zip$/i.test(a.name)) || assets.find((a) => /\.exe$/i.test(a.name))
+    const single = assets.find((a) => /\.zip$/i.test(a.name) && /payload|setup|workshop/i.test(a.name)) || assets.find((a) => /\.exe$/i.test(a.name))
     const list = single ? [single] : parts
     if (list.length && j.tag_name) {
       out.push({
@@ -2923,7 +2924,7 @@ function scheduleApply(filePath, kind) {
           `"${sys}\\tar.exe" -xf "${filePath}" -C "${__dirname}"`,
           `"${sys}\\cmd.exe" /c start "" "${join(__dirname, "start.cmd")}"`,
         ]
-      : [`"${sys}\\cmd.exe" /c start "" /wait "${filePath}" --silent`]
+      : [`"${sys}\\cmd.exe" /c start "" /wait "${filePath}"`]
   const lines = [
     "@echo off",
     "setlocal",
