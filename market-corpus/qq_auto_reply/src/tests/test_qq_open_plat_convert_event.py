@@ -18,8 +18,7 @@ actually comes from.
 """
 
 import pytest
-
-QQOpenPlatformConnection = pytest.importorskip("utils.connection.onebot.qq_open_plat").QQOpenPlatformConnection
+from plugin.plugins.qq_auto_reply.connector_seam import QQOpenPlatformConnection
 
 
 def _connection() -> QQOpenPlatformConnection:

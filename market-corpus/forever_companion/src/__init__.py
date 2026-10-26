@@ -254,7 +254,40 @@ from .core.state import (
     _AFFECT_VALENCE_TAU_SEC as _AFFECT_VALENCE_TAU_SEC,
 )
 from .core.state import (
+    _AGENT_TIER_MAX_BUDGET as _AGENT_TIER_MAX_BUDGET,
+)
+from .core.state import (
+    _AGENT_TIER_MIN_BUDGET as _AGENT_TIER_MIN_BUDGET,
+)
+from .core.state import (
+    _AGENT_TIER_MIN_INTERVAL_SEC as _AGENT_TIER_MIN_INTERVAL_SEC,
+)
+from .core.state import (
     _ASSIST_KEY_FIELDS as _ASSIST_KEY_FIELDS,
+)
+from .core.state import (
+    _CHANNEL_BREAK_FAILURES as _CHANNEL_BREAK_FAILURES,
+)
+from .core.state import (
+    _CHANNEL_BREAK_REASON as _CHANNEL_BREAK_REASON,
+)
+from .core.state import (
+    _CHANNEL_BUDGET_REASON as _CHANNEL_BUDGET_REASON,
+)
+from .core.state import (
+    _CHANNEL_MODE_CUSTOM as _CHANNEL_MODE_CUSTOM,
+)
+from .core.state import (
+    _CHANNEL_MODE_HOST as _CHANNEL_MODE_HOST,
+)
+from .core.state import (
+    _CHANNEL_MODES as _CHANNEL_MODES,
+)
+from .core.state import (
+    _CHANNEL_TRANSPORT_DIRECT as _CHANNEL_TRANSPORT_DIRECT,
+)
+from .core.state import (
+    _CHANNEL_TRANSPORT_HOST as _CHANNEL_TRANSPORT_HOST,
 )
 from .core.state import (
     _COLD_ACTIONS as _COLD_ACTIONS,
@@ -273,6 +306,9 @@ from .core.state import (
 )
 from .core.state import (
     _FRAGMENT_DEFAULT_MIN_INTERVAL_SEC as _FRAGMENT_DEFAULT_MIN_INTERVAL_SEC,
+)
+from .core.state import (
+    _FRAGMENT_DEFAULT_MODE as _FRAGMENT_DEFAULT_MODE,
 )
 from .core.state import (
     _FRAGMENT_DEFAULT_NUDGE_GAP_MIN as _FRAGMENT_DEFAULT_NUDGE_GAP_MIN,
@@ -333,6 +369,9 @@ from .core.state import (
 )
 from .core.state import (
     _REVIEW_DEFAULT_DAYS as _REVIEW_DEFAULT_DAYS,
+)
+from .core.state import (
+    _REVIEW_DEFAULT_MODE as _REVIEW_DEFAULT_MODE,
 )
 from .core.state import (
     _REVIEW_DEFAULT_SLOT as _REVIEW_DEFAULT_SLOT,
@@ -458,6 +497,15 @@ from .core.state import (
 from .core.state import (
     _weekly_key as _weekly_key,
 )
+from .core.state import (
+    tier_budget_left as tier_budget_left,
+)
+from .core.state import (
+    tier_budget_spend as tier_budget_spend,
+)
+from .core.state import (
+    tier_budget_used as tier_budget_used,
+)
 from .core.stats import (
     anniversary_due,
     mark_anniversary_pushed,
@@ -491,6 +539,7 @@ from .core.stats import record_turn as stats_record_turn
 from .core.stats import (
     summary_payload as summary_payload,
 )
+from .mixins.backup import BackupMixin
 from .mixins.capabilities import CapabilityMixin
 from .mixins.debug_entries import DebugEntriesMixin
 from .mixins.host_coord import HostCoordMixin
@@ -499,7 +548,11 @@ from .mixins.panel import PanelEntriesMixin
 from .mixins.senses import SensesMixin
 from .mixins.shards import ShardsMixin
 from .mixins.whisper import WhisperMixin
+from .services.data_guard import guard_data_operations
 from .services.emotion_sense import EmotionSenseService
+from .services.tone_slot import (
+    _channel_mode as _channel_mode,
+)
 from .services.tone_slot import (
     _parse_tone_result as _parse_tone_result,
 )
@@ -533,7 +586,9 @@ LANLAN_NAME_TOKEN = "{LANLAN_NAME}"
 
 
 @neko_plugin
+@guard_data_operations
 class ForeverCompanionPlugin(
+    BackupMixin,
     CapabilityMixin,
     ShardsMixin,
     WhisperMixin,
@@ -546,6 +601,7 @@ class ForeverCompanionPlugin(
 ):
     def __init__(self, ctx: Any) -> None:
         super().__init__(ctx)
+        self._init_data_backup()
         self._tide_cfg: JsonObject = {}
         self._phases_cfg: JsonObject = {}
         self._forbidden_words: list[str] = []
@@ -553,6 +609,8 @@ class ForeverCompanionPlugin(
         self._fragments_cfg: JsonObject = {}
         self._journal_cfg: JsonObject = {}
         self._review_cfg: JsonObject = {}
+        # agent 档节流配置（[agent_tier]，1.3.3 修订轮）：日预算的读取口，见 tier_budget_left
+        self._agent_tier_cfg: JsonObject = {}
         self._stats_cfg: JsonObject = {}
         self._emotion_sense_cfg: JsonObject = {}
         # 语气感知运行态缓存（_csrf_token / _last_tone_error_logged / _core_config_cache）
@@ -601,6 +659,16 @@ class ForeverCompanionPlugin(
         # 面板"语气分析模型槽位"下拉选项缓存（60s TTL，面板 5s 轮询不必每次拉宿主）；
         # None = 未拉取过；失败不缓存（与 _fetch_known_catgirls 同例）
         self._tone_slot_options_cache: tuple[list[JsonObject] | None, float] = (None, -1000.0)
+        # 宿主管线槽位解析缓存（1.3.2）：slot → (解析结果或 None, 取到时刻)。宿主侧
+        # aget_model_api_config 每次都重开 core_config.json，而面板 5s 轮询 + tick 都会
+        # 问同一个槽；TTL 与 _load_core_config 同用 _CORE_CONFIG_CACHE_TTL。
+        # 缺键 = 未取过（与"取到但无端点"的 None 值区分开）；config_change 时整体作废
+        self._host_slot_cache: dict[str, tuple[JsonObject | None, float]] = {}
+        # 模型通道熔断（1.3.3 修订轮）：key = "<角色>|<通道>"，值 = {route, fails}。
+        # 同一条路上连续失败到 _CHANNEL_BREAK_FAILURES 次就不再对它发请求（面板灯
+        # 改报 rejected）。纯内存态：进程重启、槽位/通道被改（路变了）、宿主配置变更
+        # 都会复位，让用户"改点东西就能再试一次"，不需要专门的复位入口
+        self._channel_break: dict[str, JsonObject] = {}
         # 面板潮汐日历缓存：key = (角色, 当天日期, 周期参数指纹)；
         # 参数/锚点/快进/跨天/切角色都会改变 key，自然失效，无需显式清理
         self._calendar_cache: tuple[tuple, list[JsonObject] | None] = ((), None)
@@ -615,7 +683,9 @@ class ForeverCompanionPlugin(
         # 我的日记在飞成文的角色集合（1.2.3）：同一角色成文期间不允许多条链路
         #（tick 自动 / 面板队列 / 调试入口）并发跑模型，见 _maybe_write_review
         self._review_writing: set[str] = set()
+        self._journal_writing: set[str] = set()
         self._supervise_lock = threading.Lock()
+        self._init_media_gallery()
         self._last_tool_health_ts = 0.0
         # 调试模式（[tide].debug_mode）：活动快照覆写与调试入口注册水位；
         # 关闭时不注册任何调试入口，面向用户的表面零痕迹
@@ -828,6 +898,7 @@ class ForeverCompanionPlugin(
 
     @lifecycle(id="shutdown")
     async def shutdown(self, **_: Any):
+        await self._media_shutdown()
         if not self._state_trusted:
             # 本次启动没能在 store 通电后读到真实状态（见 _ensure_store_ready），
             # 内存里的分片是从"空"起步、混着本次会话改动的幻影。整体回写会把上一
@@ -864,10 +935,15 @@ class ForeverCompanionPlugin(
         await self._refresh_config()
         # [capabilities] 段可能变了（含 hide_disabled_tools）：重同步工具显隐
         self._sync_tool_visibility()
-        # 按旧配置/旧端口解析出的缓存作废：宿主 API base、语气槽位下拉选项
-        # （日历缓存 key 含参数指纹与当天日期，自然失效，无需清理）
+        # 按旧配置/旧端口解析出的缓存作废：宿主 API base、语气槽位下拉选项、
+        # 宿主管线槽位解析（[fragments/review].mode 与宿主槽位配置都可能刚变；
+        # 日历缓存 key 含参数指纹与当天日期，自然失效，无需清理）
         self._proactive_api_base_cache = None
         self._tone_slot_options_cache = (None, -1000.0)
+        self._host_slot_cache = {}
+        # 熔断一并复位：用户在宿主里新配了服务商（免费路由→付费）正是最常见的
+        # "我刚改好了，再试一次"，不该被上一轮的连拒继续挡着
+        self._channel_break = {}
         self._sync_debug_entries()
         # 锚点/周期参数变了，重新校验一次并报告（针对当前角色 shard）
         try:
@@ -876,6 +952,14 @@ class ForeverCompanionPlugin(
             return Err(SdkError(f"invalid tide config: {exc}"))
         return Ok(build_status_payload(phase, enabled=self._enabled()))
 
+
+    @timer_interval(id="diary_write_tick", seconds=2, auto_start=True)
+    async def diary_write_tick(self, **_: Any):
+        # Host timers own separate threads/loops; tasks created in tide_tick would
+        # be cancelled when its asyncio.run returns.
+        await self._drain_pending_review_writes()
+        await self._drain_pending_journal_writes()
+        return Ok({"status": "drained"})
 
     @timer_interval(id="tide_tick", seconds=10, auto_start=True)
     async def tick(self, **_: Any):
@@ -886,10 +970,6 @@ class ForeverCompanionPlugin(
         # 必须在 _ensure_tools_registered 之前：巡检要看到最新隐藏名单
         self._sync_tool_visibility()
         await self._ensure_tools_registered()
-        # 面板「立即写一篇」的排队成文同样在 enabled 拦截之前消费（1.2.3）：
-        # 入口只做受理秒回，写在这里起跑——"我的日记"只认 [review].enabled，
-        # 潮汐总开关关着时队列也必须能被写掉
-        await self._drain_pending_review_writes()
         # enabled 判定前移到角色解析之前：没有任何 shard 显式开启且全局默认关闭时
         # （默认安装即此态），后续步骤全部跳过——否则角色解析 HTTP（15s 缓存）
         # 在空闲期每天空转数千次。

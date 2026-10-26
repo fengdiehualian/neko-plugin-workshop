@@ -47,7 +47,7 @@ class _Plugin:
         {"attention_fall_rate": float("inf")},
         {"attention_base_rise_rate": float("-inf")},
         {"attention_consume_ratio": float("nan")},
-        {"group_attention_max_score": float("inf")},
+        {"attention_max_score": float("inf")},
         {"attention_message_boost": float("nan")},
     ],
 )
@@ -66,10 +66,10 @@ def _save_locked(**kwargs) -> dict:
     """
     plugin = SimpleNamespace(
         _qq_settings={
-            "group_attention_focus_threshold": 4.0,
-            "group_attention_focus_send_threshold": 2.0,
-            "group_attention_min_threshold": 1.0,
-            "group_attention_max_score": 10.0,
+            "attention_focus_threshold": 4.0,
+            "attention_focus_hold_threshold": 2.0,
+            "attention_min_threshold": 1.0,
+            "attention_max_score": 10.0,
         },
         _user_sessions={},
         _emit_log=lambda *a, **k: None,
@@ -78,12 +78,10 @@ def _save_locked(**kwargs) -> dict:
         qq_client=None,
         _running=False,
         _startup_error=None,
-        _strategy_mode="",
         _ensure_qq_client_initialized=lambda: None,
     )
     service = QQSettingsService.__new__(QQSettingsService)
     service.plugin = plugin
-    service._enforce_attention_for_dynamic_mode = lambda: None
     service._stamp_group_memory_transition = lambda *, enabled_after: None
     service._spawn_group_memory_sync_task = lambda coro: coro.close()
 
@@ -98,36 +96,36 @@ def _save_locked(**kwargs) -> dict:
 def test_save_settings_clamps_send_threshold_to_focus_ceiling():
     """A send line saved above the focus line must be clamped down to the focus line."""
     settings = _save_locked(
-        group_attention_focus_threshold=4.0,
-        group_attention_focus_send_threshold=8.0,
+        attention_focus_threshold=4.0,
+        attention_focus_hold_threshold=8.0,
     )
-    assert settings["group_attention_focus_threshold"] == 4.0
-    assert settings["group_attention_focus_send_threshold"] == 4.0
+    assert settings["attention_focus_threshold"] == 4.0
+    assert settings["attention_focus_hold_threshold"] == 4.0
 
 
 def test_save_settings_keeps_send_threshold_below_focus():
     """A send line already below the focus line is left untouched."""
     settings = _save_locked(
-        group_attention_focus_threshold=4.0,
-        group_attention_focus_send_threshold=2.5,
+        attention_focus_threshold=4.0,
+        attention_focus_hold_threshold=2.5,
     )
-    assert settings["group_attention_focus_send_threshold"] == 2.5
+    assert settings["attention_focus_hold_threshold"] == 2.5
 
 
 def test_save_settings_clamps_stored_send_when_focus_lowered():
     """Lowering the focus line below a stored higher send line pulls the send line down."""
-    settings = _save_locked(group_attention_focus_threshold=1.5)
-    assert settings["group_attention_focus_threshold"] == 1.5
-    assert settings["group_attention_focus_send_threshold"] == 1.5
+    settings = _save_locked(attention_focus_threshold=1.5)
+    assert settings["attention_focus_threshold"] == 1.5
+    assert settings["attention_focus_hold_threshold"] == 1.5
 
 
 def test_save_settings_same_request_uses_new_focus_ceiling():
     """Both keys in one batch: the send line clamps against the new focus line."""
     settings = _save_locked(
-        group_attention_focus_threshold=2.0,
-        group_attention_focus_send_threshold=9.0,
+        attention_focus_threshold=2.0,
+        attention_focus_hold_threshold=9.0,
     )
-    assert settings["group_attention_focus_threshold"] == 2.0
-    assert settings["group_attention_focus_send_threshold"] == 2.0
+    assert settings["attention_focus_threshold"] == 2.0
+    assert settings["attention_focus_hold_threshold"] == 2.0
 
 

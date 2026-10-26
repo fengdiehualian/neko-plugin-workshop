@@ -6,7 +6,8 @@
 
 **范围边界**：NapCat 本体随插件内置，不存在"从哪下载 / 选哪个资产"的问题，所以本模块
 不管获取、不管安装。唯一越界的是 ``needs_system_node``/``node_available`` —— 它们是
-**启动前的前置校验**（POSIX 上缺 Node 必然起不来），属于连接的前置条件，故留在这里。
+**启动前的前置校验**（POSIX 上缺 Node 必然起不来；Windows 用 QQ 自带的运行时，所以
+那里它只是"可选"），属于连接的前置条件，故留在这里。
 
 本模块刻意做成**无状态纯函数**：不碰网络、不碰 plugin 对象，平台判断只依赖
 `sys.platform` 与可注入的参数，因此可以在 Windows 上直接单测 Linux 分支。
@@ -163,3 +164,28 @@ def node_available() -> tuple[bool, str]:
     if out.returncode != 0:
         return False, (out.stderr or out.stdout or "").strip() or "node --version 返回非零"
     return True, (out.stdout or "").strip()
+
+
+def node_requirement(*, windows: bool | None = None) -> tuple[bool, str]:
+    """系统 Node 是不是**硬要求** + 一句解释（判定与理由**同源**，不会各说一套）。
+
+    **Windows 上不是**：`launch_spec` 走 ``cmd /c launcher*.bat`` →
+    ``NapCatWinBootMain.exe`` 把 ``loadNapCat.js`` 注入 ``QQ.exe``（``qqnt.json`` 的
+    ``main`` 已被改成它），``napcat.mjs`` 跑在 **QQ 自带的 Node 运行时**里；NapCat
+    官方的 Windows 教程也只要求「装好 QQ + 双击 launcher.bat」。
+
+    **POSIX 上是**：``launch_spec`` 直接 ``node napcat.mjs``，没有 node 真起不来。
+
+    这条判定的用途是**别把 Windows 用户挡在下载之前**：真机上出现过「用户报『卡在
+    下载 NapCat』，实际是 node 缺失让整次部署在下载代码之前就抛了」（见
+    ``tests/test_qq_napcat_node_requirement.py``）。
+    """
+    win = is_windows() if windows is None else windows
+    if win:
+        return False, "Windows 上 NapCat 跑在 QQ 自带的 Node 运行时里，不需要系统 Node"
+    return True, "非 Windows 是 node napcat.mjs，需要系统 Node 18+"
+
+
+def needs_system_node(*, windows: bool | None = None) -> bool:
+    """只要那个布尔量时用（调用方要解释就调 ``node_requirement``，别各写一份）。"""
+    return node_requirement(windows=windows)[0]

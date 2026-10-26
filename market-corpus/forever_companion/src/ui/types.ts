@@ -22,7 +22,19 @@ export type Mood = {
   action_label?: string
   reason?: string
   expires_at?: number | null
+  started_at?: number
+  origin?: string
+  history?: MoodEvent[]
   affect?: { valence: number; arousal: number; arousal_baseline?: number }
+}
+
+export type MoodEvent = {
+  ts: number
+  kind: "choose" | "switch" | "release" | "expire"
+  origin: "self" | "user" | "timer"
+  action: string
+  previous_action?: string
+  reason?: string
 }
 
 export type Settings = {
@@ -39,18 +51,26 @@ export type Settings = {
   mood_enabled?: boolean
   default_action_minutes?: number
   emotion_sense_enabled?: boolean
+  tone_min_interval_sec?: number
   tone_check_rate?: number
   tone_phase_sensitivity_enabled?: boolean
   tone_phase_sensitivity?: number
   tone_slot?: string
   fragments_enabled?: boolean
   fragments_slot?: string
+  fragments_mode?: string
   review_enabled?: boolean
   review_slot?: string
+  review_mode?: string
   review_turns_threshold?: number
   review_days_threshold?: number
+  agent_daily_budget?: number
   debug_mode?: boolean
 }
+
+// agent 档当日消耗读数（dashboard agent_tier_usage，1.3.3 修订轮）：预算是全局配置、
+// 消耗按角色记；面板只给读数，限速策略（300 秒地板）不在这里说话
+export type AgentTierUsage = { used?: number; budget?: number }
 
 // 时光日记时间线条目：source=self 为她手写的（mood/entry），source=auto 为自动碎片
 //（kind/quote/note）；旧数据（0.6.x）缺 source 按 self 处理
@@ -67,6 +87,7 @@ export type DiaryItem = {
 // 个人日记页眉统计（journal_index 用）；entries 仅 journal_current / get_journal 返回
 export type JournalPageHeader = {
   page_no?: number
+  title?: string
   started_at?: string
   last_ts?: string
   entry_count?: number
@@ -118,11 +139,28 @@ export type ToneSlotOption = { value?: string; model?: string }
 // thumb 为面板生成并回填的小缩略图 data URL（旧图迁移后短暂为空，随后补齐）
 export type GalleryItem = {
   id?: string
+  kind?: string
   name?: string
   mime?: string
   size?: number
   added_at?: string
   thumb?: string
+}
+
+export type MediaStorage = {
+  schema_version: number
+  backend: string
+  single_limit_bytes: number
+  total_limit_bytes: number
+  hard_single_limit_bytes: number
+  chunk_bytes: number
+  video_bytes: number
+  pending_bytes: number
+  reclaim_bytes: number
+  occupied_bytes: number
+  available_bytes: number | null
+  storage_reclaim_pending: boolean
+  cleanup_pending: boolean
 }
 
 // 面板外观参数（与后端 panel_appearance 记录同构）：draft=编辑中实时预览，
@@ -139,6 +177,7 @@ export type Appearance = {
   glass: number
   card_alpha: number
   text_weight: number
+  motion: boolean
 }
 
 // 我的日记素材快照（1.3.0）：成文时随正文固化进篇目的「本卷依据」——
@@ -147,6 +186,7 @@ export type ReviewQuote = { kind?: string; quote?: string }
 
 // 我的日记：已成文的一篇评价（get_review 返回，时间倒序）
 export type ReviewEntry = {
+  title?: string
   ts?: string
   turns?: number
   span?: string
@@ -180,6 +220,7 @@ export type ReviewProgress = {
 }
 
 export type ReviewBrief = {
+  last_ts?: string
   enabled?: boolean
   entries?: number
   progress_turns?: number
@@ -187,12 +228,21 @@ export type ReviewBrief = {
   // 「立即写一篇」排队成文（1.2.3）：writing=排队中/在飞；last_result 是队列
   // 成文的成败结论（内存即弃、只留最近一次），面板按 ts 去重弹一次完成 toast
   writing?: boolean
-  last_result?: { ts?: number; written?: boolean; reason?: string } | null
+  last_result?: DiaryWriteResult | null
 }
 
-// 模型通道状态灯（dashboard channel_status）：dormant_reason ∈
-// ""(ok) / free_route / no_model / disabled
-export type ChannelStatusItem = { enabled?: boolean; dormant_reason?: string }
+export type DiaryWriteResult = { ts?: number; written?: boolean; reason?: string; dormant_reason?: string }
+
+export type JournalWrite = {
+  writing?: boolean
+  last_result?: DiaryWriteResult | null
+}
+
+// 模型通道状态灯（dashboard channel_status）：dormant_reason ∈ ""(正常) /
+// free_route / no_model / disabled（"正常"的下发值是空串，没有 "ok" 这个字面量）；
+// transport = 这次实际走的那条路（host=复用宿主 LLM 管线，direct=插件直连该槽端点）。
+// 缺 transport（后端未下发）不参与回落判定：见 settings_tone.tsx 的 channelLight
+export type ChannelStatusItem = { enabled?: boolean; dormant_reason?: string; transport?: string }
 export type ChannelStatus = { tone?: ChannelStatusItem; fragments?: ChannelStatusItem; review?: ChannelStatusItem }
 
 // ---- 相处统计（1.1.0）----
@@ -262,6 +312,7 @@ export type StatsState = {
 }
 
 export type State = {
+  backup_recovery_required?: boolean
   status?: Status
   anchor_date?: string
   advance_days?: number
@@ -278,11 +329,13 @@ export type State = {
   review_archive_brief?: ReviewArchiveBrief
   // 个人日记邀请挂起态（1.2.3）：递过邀请、她还没落笔
   journal_invite_pending?: boolean
+  journal_write?: JournalWrite
   lanlan?: string
   lanlan_list?: LanlanItem[]
   tone_slot_options?: ToneSlotOption[]
   review_brief?: ReviewBrief
   channel_status?: ChannelStatus
+  agent_tier_usage?: AgentTierUsage
   week_activity?: number
   stats_summary?: StatsState
   // 新手引导 + 就绪清单（1.2.6）
@@ -346,16 +399,20 @@ export type FormValues = {
   mood_enabled: boolean
   default_action_minutes: number
   emotion_sense_enabled: boolean
+  tone_min_interval_sec: number
   tone_check_rate: number
   tone_phase_sensitivity_enabled: boolean
   tone_phase_sensitivity: number
   tone_slot: string
   fragments_enabled: boolean
   fragments_slot: string
+  fragments_mode: string
   review_enabled: boolean
   review_slot: string
+  review_mode: string
   review_turns_threshold: number
   review_days_threshold: number
+  agent_daily_budget: number
   anniversary_inject: boolean
   debug_mode: boolean
 }

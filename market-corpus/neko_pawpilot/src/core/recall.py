@@ -90,6 +90,51 @@ class Recall:
                                  {"count": ev.get("count", 0) + trip.get("crashes", 0)},
                                  importance=0.8)
 
+    def on_player_remark(self, text: str) -> None:
+        """记住主人自己说的话（陪玩的关键：说过的要被记住，之后主动提起）。
+
+        与"设定/昵称"不同，这些是随口的闲聊内容，用时间戳做 key、按 weight 自然衰减。
+        """
+        clean = " ".join(str(text or "").split())[:80]
+        if len(clean) < 2:
+            return
+        # 指令类/系统类的话不算"闲聊记忆"（"装上遥测""打开设置"这种记了没意义）
+        if any(k in clean for k in ("遥测", "插件", "设置", "面板", "皮肤", "安装", "卸载")):
+            return
+        ts = __import__("time").time()
+        # key 用原话本身：同一句重复说就当加权，不同的话不会因为同一秒而互相覆盖
+        self.memory.remember("player_notes", clean,
+                             {"text": clean, "ts": ts, "day": datetime.date.today().isoformat()},
+                             importance=0.6)
+
+    def recent_remark(self, max_age_h: float = 72.0) -> Optional[str]:
+        """最近一条主人说过的话（用于之后主动提起）。
+
+        "提过一句记忆"之后全局静默 15 分钟：翻旧账一次是甜，连着翻就是烦。
+        """
+        import time as _time
+        now = _time.time()
+        if now - float(getattr(self, "_last_remark_at", 0.0)) < 900:
+            return None
+        store = self.memory.query("player_notes") or {}
+        best = None
+        for key, e in store.items():
+            if not isinstance(e, dict) or e.get("archived"):
+                continue
+            ts = float(e.get("ts", 0) or 0)
+            if ts <= 0 or (now - ts) > max_age_h * 3600:
+                continue
+            if best is None or ts >= best[0]:
+                best = (ts, key, str(e.get("text", "")))
+        if best is None:
+            return None
+        self._last_remark_key = best[1]
+        return best[2]
+
+    def mark_remark_spoken(self) -> None:
+        """标记"刚提过一句记忆"（全局静默，避免连着翻旧账）。"""
+        self._last_remark_at = __import__("time").time()
+
     def on_relationship(self, key: str, data: Dict[str, Any],
                         importance: float = 0.6) -> None:
         """写入关系记忆（玩家偏好/昵称/赌约）。"""

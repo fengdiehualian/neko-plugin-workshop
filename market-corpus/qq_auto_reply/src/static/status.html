@@ -4,64 +4,121 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n="ui.status.title">QQ 一键部署</title>
+<link rel="stylesheet" href="theme.css?v=6">
 <style>
+/* 本页用**森林插画**当底图（使用者指定），其余三页用默认的蓝白图形。
+ * 这张比默认那张暗（暗部 25%）且细节多（边缘密度 2.3 倍），所以本页要两处让步：
+ *   ① 纱 .30 —— 图看得清；再往上加纱只会把插画洗白，而换不回多少可读性；
+ *   ② 卡片做实到 --surface-strong —— .84 的半透明白压在深色插画上会跟着变暗，
+ *      卡片里的次要文字会掉到 4.2 左右。 */
+:root {
+    --page-bg-image: url('assets/page-bg-forest.webp?v=1');
+    --page-scrim-color: rgba(255, 255, 255, .30);
+    --card-bg: var(--surface-strong);
+}
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f0f2f5; color:#1a1a2e; padding:20px; }
+body { color:var(--text-primary); padding:20px; }
 .wrap { max-width:760px; margin:0 auto; }
 header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
 header h1 { font-size:20px; flex:1 1 auto; }
-button, .btn { padding:7px 14px; border:none; border-radius:8px; background:#6366f1; color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
-button.ghost { background:#fff; color:#4b5563; border:1px solid #e2e8f0; }
-button:disabled { opacity:.5; cursor:default; }
-label.auto { font-size:13px; color:#4b5563; display:flex; align-items:center; gap:6px; cursor:pointer; }
-.card { background:#fff; border-radius:12px; padding:16px 18px; border:1px solid #e8ecf1; margin-bottom:14px; }
-.card > h2 { font-size:14px; margin-bottom:12px; color:#4b5563; font-weight:700; }
+/* 猫娘标记：直接用本体的 logo 图（来源见 static/assets/README.md），不再手画 SVG。
+   装饰性、无文案，所以不需要 i18n 键 */
+.mascot { width:40px; height:40px; flex:none; object-fit:contain; }
+button, .btn { padding:8px 14px; border:1px solid var(--primary-border); border-radius:var(--radius-md); background:var(--primary); color:#fff; font-size:13px; font-weight:650; cursor:pointer; transition:transform .14s, box-shadow .14s, background-color .14s; }
+button:not(:disabled):hover, .btn:not(:disabled):hover { transform:translateY(-1px); box-shadow:0 8px 18px var(--primary-glow); }
+button:not(:disabled):active, .btn:not(:disabled):active { transform:none; box-shadow:none; }
+button.ghost { background:var(--primary-tint); color:var(--primary-on-tint); border:1px solid var(--primary-border); }
+button:disabled { opacity:.55; cursor:wait; transform:none; }
+label.auto { font-size:13px; color:var(--text-main); display:flex; align-items:center; gap:6px; cursor:pointer; }
+.card { background:var(--card-bg); border-radius:var(--radius-md); padding:16px 18px; border:1px solid var(--border); margin-bottom:14px; box-shadow:var(--shadow-card); }
+.card > h2 { font-size:14px; margin-bottom:12px; color:var(--text-main); font-weight:700; }
 
 .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-.row input { flex:1 1 200px; min-width:0; padding:7px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; }
+.row input { flex:1 1 200px; min-width:0; padding:7px 11px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; background:var(--input-bg); color:var(--text-main); }
 
-#err { display:none; background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; border-radius:12px; padding:12px 16px; font-size:13px; margin-bottom:14px; white-space:pre-wrap; word-break:break-all; }
+#err { display:none; background:var(--danger-tint); border:1px solid var(--danger-border); color:var(--danger-on-tint); border-radius:var(--radius-md); padding:12px 16px; font-size:13px; margin-bottom:14px; white-space:pre-wrap; word-break:break-all; }
 
-#deploy-log { margin-top:10px; font-size:12px; font-family:ui-monospace,Consolas,monospace; color:#475569; max-height:260px; overflow:auto; }
-#deploy-log div { padding:3px 0; border-bottom:1px dashed #eef1f5; }
+#deploy-log { margin-top:10px; font-size:12px; font-family:ui-monospace,Consolas,monospace; color:var(--text-main); max-height:260px; overflow:auto; }
+#deploy-log div { padding:3px 0; border-bottom:1px dashed var(--border-subtle); }
 #deploy-log div:last-child { border-bottom:none; }
 
 #qrbox { display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
-#qrbox img { width:150px; height:150px; image-rendering:pixelated; border:1px solid #e8ecf1; border-radius:10px; background:#fff; }
-#qrbox .empty { color:#94a3b8; font-size:13px; }
-.muted { color:#94a3b8; font-size:12px; }
+#qrbox img { width:150px; height:150px; image-rendering:pixelated; border:1px solid var(--border); border-radius:var(--radius); background:#fff; }
+#qrbox .empty { color:var(--text-secondary); font-size:13px; }
+.muted { color:var(--text-secondary); font-size:12px; }
 
 /* 连接方式：按钮卡片，当前生效的那张高亮 */
 .modes { display:flex; gap:10px; flex-wrap:wrap; }
-button.mode { flex:1 1 170px; min-width:150px; text-align:left; background:#fff; color:#4b5563;
-  border:2px solid #e8ecf1; border-radius:10px; padding:10px 13px; cursor:pointer;
-  font-size:13px; font-weight:400; line-height:1.5; transition:border-color .15s, background .15s; }
-button.mode:hover:not(:disabled) { border-color:#c7d2fe; }
-button.mode.active { border-color:#6366f1; background:#f5f6ff; color:#1a1a2e; }
+button.mode { flex:1 1 170px; min-width:150px; text-align:left; background:var(--card-bg); color:var(--text-main);
+  border:2px solid var(--border); border-radius:var(--radius-md); padding:10px 13px; cursor:pointer;
+  font-size:13px; font-weight:400; line-height:1.5; box-shadow:none; transition:border-color .15s, background .15s, transform .12s; }
+button.mode:hover:not(:disabled) { border-color:var(--accent); transform:translateY(-2px); }
+button.mode.active { border-color:var(--accent); background:var(--primary-light); color:var(--text-primary); }
 button.mode b { display:block; font-weight:700; font-size:13px; }
-button.mode span { display:block; font-size:11px; color:#94a3b8; margin-top:3px; }
-button.mode.active span { color:#6366f1; }
+button.mode span { display:block; font-size:11px; color:var(--text-secondary); margin-top:3px; }
+button.mode.active span { color:var(--primary-on-tint); }
 
 /* 信任名单 */
-select { padding:7px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; background:#fff; color:#4b5563; }
+select { padding:7px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; background:var(--card-bg); color:var(--text-main); }
 ul.list { list-style:none; margin-top:10px; }
-ul.list li { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px dashed #eef1f5; font-size:13px; }
+ul.list li { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px dashed var(--border-subtle); font-size:13px; }
 ul.list li:last-child { border-bottom:none; }
 ul.list .id { font-family:ui-monospace,Consolas,monospace; }
-ul.list .lv { color:#94a3b8; font-size:12px; }
-ul.list .del { margin-left:auto; padding:3px 10px; font-size:12px; background:#fff; color:#b91c1c; border:1px solid #fecaca; border-radius:6px; cursor:pointer; }
-ul.list .empty { color:#94a3b8; font-size:12px; padding:4px 0; }
+ul.list .lv { color:var(--text-secondary); font-size:12px; }
+ul.list .del { margin-left:auto; padding:3px 11px; font-size:12px; background:var(--card-bg); color:var(--danger-on-tint); border:1px solid var(--danger); border-radius:var(--radius-pill); cursor:pointer; box-shadow:none; }
+ul.list .empty { color:var(--text-secondary); font-size:12px; padding:4px 0; }
+
+/* ── 操作条：自动刷新 / 刷新 / 刷新二维码 / 返回 ─────────────────────
+   这四个原本和标题挤在同一个 <header> 里（flex-wrap，窄一点就折行，很难看），
+   而且页面有 6 张卡片，滑到底就够不着了。
+
+   改成一条 sticky 操作条：
+     · sticky **不脱离文档流** → 不会横向压住内容，也不用给 .wrap 预留遮挡空间
+       （上一版用的是 fixed 浮动按钮，得靠 padding-bottom 才能不压住最后一张卡）
+     · 贴住视口顶部 → 任何滚动位置都点得到
+     · 玻璃底沿用本体 .app-header 的做法（半透明白 + blur + 发丝投影） */
+#actions {
+    position:sticky; top:0; z-index:40;
+    display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap;
+    margin:0 0 16px;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:var(--radius-md);
+    background:var(--surface-glass);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
+    box-shadow:var(--header-shadow);
+}
+/* 操作条里的按钮比正文里的小一号，免得抢标题的视线 */
+#actions button, #actions .btn { padding:6px 13px; font-size:12px; }
+
+/* ── 拖入表情包 ──────────────────────────────────────────────────
+   落区/输入框的样式与 napcat、open_platform 的表情包页保持一致，方便对照。 */
+.drop-zone { border:2px dashed var(--border); border-radius:var(--radius-md); padding:28px 20px; text-align:center; color:var(--text-secondary); font-size:13px; transition:.2s; cursor:pointer; }
+.drop-zone:hover { border-color:var(--primary-border); }
+.drop-zone.drag-over { border-color:var(--primary); background:var(--primary-tint-soft); color:var(--primary-on-tint); }
+.form-group { margin-bottom:10px; }
+.form-label { display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px; }
+.form-input { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-md); font-size:13px; outline:none; transition:.15s; background:var(--input-bg); color:var(--text); }
+.form-input:focus { border-color:var(--primary-focus-border); box-shadow:0 0 0 3px var(--primary-tint); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
+    <img class="mascot" src="assets/neko-logo.png?v=1" alt="" aria-hidden="true" draggable="false" onerror="this.style.display='none'">
     <h1 id="title" data-i18n="ui.status.title">QQ 一键部署</h1>
+  </header>
+
+  <!-- 操作条：自动刷新 / 刷新 / 刷新二维码 / 返回。
+       这四个原本挤在 <header> 里标题旁边（又挤又难看），而且页面有 6 张卡片，
+       滑到底就够不着了。挪出来做成一条 sticky 操作条 —— 见 <style> 里的说明。 -->
+  <div id="actions">
     <label class="auto"><input type="checkbox" id="auto" checked><span data-i18n="ui.status.auto">自动刷新</span></label>
     <button class="ghost" id="btn-refresh" data-i18n="ui.status.refresh">刷新</button>
     <button class="ghost" id="btn-qr" data-i18n="ui.status.refresh_qr">刷新二维码</button>
-    <a class="btn" href="index.html" style="text-decoration:none" data-i18n="ui.status.back">返回</a>
-  </header>
+    <a class="btn" href="index.html" data-nav="index.html" style="text-decoration:none" data-i18n="ui.status.back">返回</a>
+  </div>
 
   <div id="err"></div>
 
@@ -101,7 +158,7 @@ ul.list .empty { color:#94a3b8; font-size:12px; padding:4px 0; }
   <div class="card">
     <h2 data-i18n="ui.status.deploy">一键部署</h2>
     <div class="row">
-      <input id="uin" inputmode="numeric" placeholder="机器人 QQ 号（选填）" data-i18n-ph="ui.status.uin_ph">
+      <input id="uin" inputmode="numeric" placeholder="机器人 QQ 号（选填）" data-i18n-placeholder="ui.status.uin_ph">
       <button id="btn-deploy" data-i18n="ui.status.deploy_btn">一键部署</button>
       <button class="ghost" id="btn-apply" data-i18n="ui.status.apply_btn">补写 OneBot 配置</button>
     </div>
@@ -137,7 +194,7 @@ ul.list .empty { color:#94a3b8; font-size:12px; padding:4px 0; }
       <span id="bind-status" class="muted"></span>
     </div>
     <div id="bind-qr" style="display:none;margin-top:12px;gap:14px;align-items:flex-start;flex-wrap:wrap">
-      <img id="bind-qr-img" alt="QR" style="width:150px;height:150px;image-rendering:pixelated;border:1px solid #e8ecf1;border-radius:10px;background:#fff;display:none">
+      <img id="bind-qr-img" alt="QR" style="width:150px;height:150px;image-rendering:pixelated;border:1px solid var(--border);border-radius:var(--radius);background:#fff;display:none">
       <div class="muted" style="flex:1 1 200px;min-width:0;line-height:1.7">
         <div>用手机 QQ 扫码完成绑定 —— 扫完自动获取凭据、写入配置并启动自动回复。</div>
         <div id="bind-qr-raw" style="margin-top:6px;word-break:break-all;font-size:11px"></div>
@@ -150,31 +207,52 @@ ul.list .empty { color:#94a3b8; font-size:12px; padding:4px 0; }
     <h2 data-i18n="ui.status.lists">信任名单</h2>
 
     <div class="row">
-      <input id="u-qq" inputmode="numeric" placeholder="QQ 号" data-i18n-ph="ui.status.qq_ph">
+      <input id="u-qq" inputmode="numeric" placeholder="QQ 号" data-i18n-placeholder="ui.status.qq_ph">
       <select id="u-level">
         <option value="trusted" data-i18n="ui.status.u_trusted">信任用户（私聊回复）</option>
         <option value="admin" data-i18n="ui.status.u_admin">管理员</option>
         <option value="normal" data-i18n="ui.status.u_normal">普通（仅转发）</option>
+        <option value="blacklist" data-i18n="ui.status.u_blacklist">黑名单（不处理其消息）</option>
       </select>
       <button id="btn-add-user" data-i18n="ui.status.add_user">添加用户</button>
     </div>
     <ul class="list" id="user-list"></ul>
 
     <div class="row" style="margin-top:14px">
-      <input id="g-id" inputmode="numeric" placeholder="群号" data-i18n-ph="ui.status.group_ph">
+      <input id="g-id" inputmode="numeric" placeholder="群号" data-i18n-placeholder="ui.status.group_ph">
       <select id="g-level">
         <option value="trusted" data-i18n="ui.status.g_trusted">信任群（被点名才回）</option>
-        <option value="open" data-i18n="ui.status.g_open">开放群（按概率回复）</option>
         <option value="normal" data-i18n="ui.status.g_normal">普通群（仅转发）</option>
       </select>
       <button id="btn-add-group" data-i18n="ui.status.add_group">添加群聊</button>
     </div>
     <ul class="list" id="group-list"></ul>
   </div>
+
+  <!-- 拖入表情包：和 napcat / open_platform 的表情包页**同一个后端契约**
+       （asset / upload_sticker）。注意后端那三个参数 filename / data_base64 / desc
+       **都是必填**，desc 为空会直接报 INVALID_INPUT —— 所以下面留空时用文件名兜底。
+       文案键全部复用已有的 ui.shared.* 键，不新增语言包条目。 -->
+  <div class="card">
+    <h2 data-i18n="ui.shared.card.sticker_upload">上传新表情包</h2>
+    <div class="drop-zone" id="sk-drop" onclick="document.getElementById('sk-file').click()">
+      <div style="font-size:14px;margin-bottom:6px;color:var(--primary-on-tint)" data-i18n="ui.shared.sticker.drop_text">[ 拖拽图片到此处 ]</div>
+      <span data-i18n="ui.shared.sticker.or_click">或点击选择文件</span>
+      <div id="sk-file-name" style="margin-top:6px;font-weight:600;color:var(--primary-on-tint)"></div>
+    </div>
+    <input type="file" id="sk-file" accept="image/*" multiple style="display:none" onchange="skFilePicked(this.files)">
+    <div class="form-group" style="margin-top:12px">
+      <input class="form-input" id="sk-desc" data-i18n-placeholder="ui.shared.sticker.desc_placeholder" placeholder="描述（如：一只猫在摇头）">
+    </div>
+    <div id="sk-desc-list"></div>
+    <button id="btn-upload-sticker" data-i18n="ui.shared.btn.upload_sticker">上传并注册</button>
+    <label style="margin-left:10px;font-size:12px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" id="sk-auto-desc" checked> <span data-i18n="ui.shared.sticker.auto_desc">自动解析描述（VLM）</span></label>
+  </div>
 </div>
 
 <script src="i18n.js?v=2"></script>
-<script src="ui-sse.js?v=2"></script>
+<script src="nav.js?v=1"></script>
+<script src="ui-sse.js?v=3"></script>
 <script>
 const P = 'qq_auto_reply', RUNS = '/runs';
 function t(k, fb) { return (window.I18n && typeof I18n.t === 'function') ? I18n.t(k, fb) : (fb || k); }
@@ -503,7 +581,7 @@ document.getElementById('btn-deploy').addEventListener('click', async () => {
   stopLoginPoll();
   busy('btn-deploy', true);
   document.getElementById('deploy-log').innerHTML = '';
-  deployLog('开始一键部署（首次需要下载 NapCat，可能需要几分钟）…');
+  deployLog('开始一键部署（先检查运行环境；需要时才下载 NapCat，那时可能要几分钟）…');
   try {
     const r = await call('deploy', {action:'one_click',  uin: document.getElementById('uin').value.trim() },
                          { timeout: DEPLOY_TIMEOUT_MS });
@@ -544,6 +622,169 @@ document.getElementById('btn-apply').addEventListener('click', async () => {
     deployLog('失败：' + ((e && e.message) ? e.message : e));
   } finally { busy('btn-apply', false); }
 });
+
+/* ── 拖入表情包 ─────────────────────────────────────────────────────
+   后端契约与 napcat / open_platform 的表情包页完全一致：
+     call('asset', {action:'upload_sticker', filename, data_base64, desc, auto_desc})
+   filename / data_base64 / desc **三个都是必填**（后端 desc 为空直接报 INVALID_INPUT），
+   所以描述留空时用"去掉扩展名的文件名"兜底。
+
+   `auto_desc`（默认勾选）会让后端用 VLM 生成描述并**覆盖** desc；VLM 失败
+   （模型没配 / 超时 / 返回空）时后端沿用上面那个兜底描述，不会因为模型抖动丢图。
+   所以手填的描述只在"自动解析失败"时才有意义。
+
+   注意这页的辅助函数和那两页不同：这里用 esc() 而不是 escapeHtml()，
+   报错走 showErr()（页面顶部的 #err）而不是 toast() —— 从那边照抄会静默失效，
+   test_qq_status_sticker_drop.py 里专门钉了这两点。 */
+let _skFiles = null;
+
+function skFilePicked(files) {
+  const all = [...(files || [])];
+  const imgs = all.filter(f => f && String(f.type).startsWith('image/'));
+  _skFiles = imgs.length ? imgs : null;
+  skBuildDescList();
+  if (!imgs.length && all.length) {
+    showErr(t('ui.shared.sticker.select_file', '请选择或拖入图片'));
+  }
+}
+
+function skBuildDescList() {
+  const list = document.getElementById('sk-desc-list');
+  const label = document.getElementById('sk-file-name');
+  if (!list || !label) return;
+  if (!_skFiles || !_skFiles.length) { list.innerHTML = ''; label.textContent = ''; return; }
+  label.textContent = _skFiles.length + t('ui.shared.sticker.images_count', ' 张图片');
+  list.innerHTML = _skFiles.map((f, i) =>
+    '<div class="form-group"><label class="form-label">' + (i + 1) + '. ' + esc(f.name) + '</label>' +
+    '<input class="form-input sk-desc-input" placeholder="' + esc(f.name.replace(/\.[^.]+$/, '')) + '"></div>'
+  ).join('');
+  /* 只有一张时，上面的总描述框和它**双向**同步。
+     单向会静默丢描述：用户很可能先在总描述框里打好字、再回来选文件；而上传读的是
+     每个文件自己的输入框，于是那段描述被丢掉，后端只拿到文件名当描述。
+     实测过：在总描述框填「一只猫在摇头」，注册下去的描述是 "cat-nod"（文件名）。
+     后端 desc 是必填的，所以这种丢法不会报错，只会把错的描述写进 sticker.json，
+     猫娘之后按这个错描述挑图。 */
+  if (_skFiles.length === 1) {
+    const one = list.querySelector('.sk-desc-input');
+    const top = document.getElementById('sk-desc');
+    if (one && top) {
+      one.value = top.value;
+      one.addEventListener('input', () => { top.value = one.value; });
+      top.addEventListener('input', () => { one.value = top.value; });
+    }
+  }
+}
+
+async function uploadStickers() {
+  if (!_skFiles || !_skFiles.length) {
+    showErr(t('ui.shared.sticker.select_file', '请选择或拖入图片'));
+    return;
+  }
+  const inputs = document.querySelectorAll('.sk-desc-input');
+  /* 自动解析：勾了就由 VLM 生成描述（手填只作为失败兜底） */
+  const autoEl = document.getElementById('sk-auto-desc');
+  const autoDesc = !!(autoEl && autoEl.checked);
+  const label = document.getElementById('sk-file-name');
+  const files = _skFiles;
+  const total = files.length;
+  let done = 0;
+  showErr('');
+  busy('btn-upload-sticker', true);
+  try {
+    for (let i = 0; i < total; i++) {
+      const f = files[i];
+      /* 后端 desc 必填：留空就用去掉扩展名的文件名兜底 */
+      const desc = String((inputs[i] && inputs[i].value.trim()) || f.name.replace(/\.[^.]+$/, '')).trim();
+      label.textContent = (i + 1) + '/' + total;
+      let b64;
+      try {
+        b64 = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = () => reject(new Error(t('ui.shared.sticker.read_failed', '读取失败')));
+          r.readAsDataURL(f);
+        });
+      } catch (e) {
+        showErr(f.name + t('ui.shared.sticker.batch_fail_infix', ' 失败: ') + ((e && e.message) ? e.message : e));
+        continue;
+      }
+      try {
+        await call('asset', { action: 'upload_sticker', filename: f.name, data_base64: String(b64), desc: desc, auto_desc: autoDesc });
+        done++;
+      } catch (e) {
+        showErr(f.name + t('ui.shared.sticker.batch_fail_infix', ' 失败: ') + ((e && e.message) ? e.message : e));
+      }
+    }
+  } finally {
+    busy('btn-upload-sticker', false);
+  }
+  _skFiles = null;
+  const picker = document.getElementById('sk-file');
+  if (picker) picker.value = '';
+  const top = document.getElementById('sk-desc');
+  if (top) top.value = '';
+  const list = document.getElementById('sk-desc-list');
+  if (list) list.innerHTML = '';
+  label.textContent = t('ui.shared.sticker.complete_prefix', '完成 ') + done + '/' + total +
+    t('ui.shared.sticker.complete_suffix', ' 张');
+}
+
+(function () {
+  const dz = document.getElementById('sk-drop');
+  const isImg = f => f && String(f.type).startsWith('image/');
+
+  async function collect(dt) {
+    /* 先用 webkitGetAsEntry 递归扫目录 —— 整包表情包可以直接拖文件夹进来。
+       拿不到 entry（浏览器不支持、或是合成事件）就退回普通文件列表。 */
+    const found = [];
+    const items = dt && dt.items ? [...dt.items] : [];
+    const first = items.length && items[0].webkitGetAsEntry ? items[0].webkitGetAsEntry() : null;
+    if (first) {
+      async function scan(entry) {
+        if (!entry) return;
+        if (entry.isFile) {
+          const f = await new Promise(r => entry.file(r));
+          if (isImg(f)) found.push(f);
+        } else if (entry.isDirectory) {
+          const reader = entry.createReader();
+          const kids = await new Promise(r => reader.readEntries(r));
+          for (const kid of kids) await scan(kid);
+        }
+      }
+      for (const item of items) await scan(item.webkitGetAsEntry());
+    }
+    if (!found.length && dt && dt.files) found.push(...[...dt.files].filter(isImg));
+    return found;
+  }
+
+  if (dz) {
+    ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => {
+      e.preventDefault(); dz.classList.add('drag-over');
+    }));
+    ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => {
+      e.preventDefault(); dz.classList.remove('drag-over');
+    }));
+    dz.addEventListener('drop', async e => {
+      const found = await collect(e.dataTransfer);
+      if (found.length) skFilePicked(found);
+      else showErr(t('ui.shared.sticker.select_file', '请选择或拖入图片'));
+    });
+  }
+
+  /* 拖到落区**外面**松手时，浏览器默认会直接打开那张图、把整个页面顶掉。
+     统一拦一下默认行为，免得误操作把页面弄没了。 */
+  ['dragover', 'drop'].forEach(ev => document.addEventListener(ev, e => {
+    const hasFiles = e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+    if (hasFiles) e.preventDefault();
+  }));
+})();
+
+document.getElementById('btn-upload-sticker').addEventListener('click', uploadStickers);
+
+/* 这页**只负责上传**：已注册表情包的列表和删除按钮在表情包管理页
+   （napcat.html / open_platform.html 的「表情包」页）。使用者明确要求别把删除放这页 ——
+   这里放列表会让"上传"和"管理"两件事混在一起，也容易误删。
+   要改已注册的表情包，去那边。 */
 
 (async () => {
   await load();

@@ -22,15 +22,15 @@ def _make_service(groups=("A", "B")):
         ),
         _qq_settings={
             "enable_group_attention": True,
-            "group_attention_focus_threshold": 4.0,
-            "group_attention_focus_send_threshold": 2.0,
-            "group_attention_min_threshold": 1.0,
-            "group_attention_max_score": 10.0,
+            "attention_focus_threshold": 4.0,
+            "attention_focus_hold_threshold": 2.0,
+            "attention_min_threshold": 1.0,
+            "attention_max_score": 10.0,
         },
         _emit_log=lambda *a, **k: None,
     )
     svc = QQAttentionService(plugin)
-    svc._current_time = lambda: 1000  # 冻结时钟：last_decay_at 对齐，避免相位衰减
+    svc._current_time = lambda: 1000  # 冻结时钟：last_decay_at 对齐，避免时间衰减
     return svc
 
 
@@ -38,7 +38,7 @@ def _set_score(svc, gid, score, *, focus=False):
     state = svc._load_state(gid)
     state.attention_score = score
     state.last_decay_at = 1000
-    state.phase_started_at = 1000
+    state.last_message_at = 1000       # 刚刚还有人说话 → 热度档 warm（不参与本文件被测的分档）
     if focus:
         state.focus_acquired_at = 1000
         state.last_focus_at = 1000

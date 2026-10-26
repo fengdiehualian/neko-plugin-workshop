@@ -16,6 +16,12 @@ const BACKEND_ERROR_KEYS = {
   NOT_INITIALIZED: 'ui.error.operation_failed',
   INVALID_ARGUMENT: 'ui.error.operation_failed',
   SEND_FAILED: 'ui.error.operation_failed',
+  DYNAMIC_INVALID_INPUT: 'ui.dynamic.invalid_input',
+  DYNAMIC_INVALID_IMAGE: 'ui.dynamic.invalid_image',
+  DYNAMIC_IMAGE_TOO_LARGE: 'ui.dynamic.image_too_large',
+  DYNAMIC_NOT_CONFIGURED: 'ui.dynamic.not_configured',
+  DYNAMIC_PUBLISH_FAILED: 'ui.dynamic.failed',
+  DYNAMIC_PUBLISH_UNCERTAIN: 'ui.dynamic.uncertain',
   USER_NOT_FOUND: 'ui.error.operation_failed',
   ADMIN_NO_NICKNAME: 'ui.error.operation_failed',
   SET_FAILED: 'ui.error.operation_failed',
@@ -403,7 +409,71 @@ async function removeTrustedUser(uid) {
   }
 }
 
+function readDynamicFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(tr('ui.dynamic.invalid_image', 'Unable to read the image.')));
+    reader.onabort = () => reject(new Error(tr('ui.dynamic.invalid_image', 'Unable to read the image.')));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function publishDynamic(event) {
+  event.preventDefault();
+  if (state.busy) return;
+  const textInput = document.getElementById('dynamic-text');
+  const urlInput = document.getElementById('dynamic-urls');
+  const fileInput = document.getElementById('dynamic-files');
+  const result = document.getElementById('dynamic-result');
+  const text = textInput.value.trim();
+  const urls = urlInput.value.split(/\r?\n/).map((url) => url.trim()).filter(Boolean);
+  const files = Array.from(fileInput.files || []);
+  if ((!text && !urls.length && !files.length) || Array.from(text).length > 2000 || urls.length + files.length > 9 || urls.some((url) => !/^https?:\/\//i.test(url))) {
+    showToast(tr('ui.dynamic.invalid_input', 'Enter text or up to 9 images.'), true);
+    return;
+  }
+  if (files.some((file) => !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type))) {
+    showToast(tr('ui.dynamic.invalid_image', 'Use PNG, JPEG, GIF or WebP images.'), true);
+    return;
+  }
+  if (files.some((file) => !file.size || file.size > 10 * 1024 * 1024)) {
+    showToast(tr('ui.dynamic.image_too_large', 'Each image must be at most 10 MiB.'), true);
+    return;
+  }
+  setBusy(true);
+  // Keep the submitted draft unchanged while the publication is in flight.
+  [textInput, urlInput, fileInput].forEach((input) => { input.disabled = true; });
+  result.hidden = true;
+  try {
+    const images = [...urls, ...await Promise.all(files.map(readDynamicFile))];
+    const published = await callPlugin('publish_dynamic', { text, images });
+    if (!/^[1-9]\d*$/.test(String(published?.dynamic_id || ''))) {
+      throw new Error(tr('ui.dynamic.uncertain', 'Check Bilibili before publishing again.'));
+    }
+    const link = document.createElement('a');
+    link.href = `https://t.bilibili.com/${published.dynamic_id}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = tr('ui.dynamic.view', 'View published dynamic');
+    result.replaceChildren(link);
+    result.hidden = false;
+    textInput.value = '';
+    urlInput.value = '';
+    fileInput.value = '';
+    showToast(tr('ui.dynamic.success', 'Dynamic published'));
+  } catch (error) {
+    result.textContent = localizedError(error, 'ui.dynamic.uncertain', 'Check Bilibili before publishing again.');
+    result.hidden = false;
+    showToast(result.textContent, true);
+  } finally {
+    [textInput, urlInput, fileInput].forEach((input) => { input.disabled = false; });
+    setBusy(false);
+  }
+}
+
 function initializePanel() {
+  document.getElementById('dynamic-form').addEventListener('submit', publishDynamic);
   document.getElementById('btn-refresh').addEventListener('click', () => refreshDashboard(false));
   document.getElementById('btn-save').addEventListener('click', () => saveSettings());
   document.getElementById('btn-qr-login').addEventListener('click', requestQrLogin);

@@ -10,14 +10,97 @@ import base64
 import json
 import time
 from collections import OrderedDict, deque
+from functools import partial
 from typing import Any, Dict, List, Optional
 
 import httpx
 from bilibili_api import Credential
+from bilibili_api import session as bili_session
 from bilibili_api.session import Event, EventType, Session
 from bilibili_api.user import User as BiliUser
 from bilibili_api.user import get_self_info
 from bilibili_api.video import Video as BiliVideo
+
+
+class _CompatibleSession(Session):
+    """Isolate message parsing failures in bilibili-api-dev 18.0.0a1."""
+
+    async def run(self, exclude_self: bool = True) -> None:
+        # Keep upstream initialization, status and the six-second scheduler.
+        # AsyncIOScheduler cannot run its job until this coroutine yields, so
+        # replace the callback before the first query can start.
+        await super().run(exclude_self)
+        self.sched.modify_job("query", func=partial(self._query, exclude_self))
+
+    def _parse_event(self, message: dict) -> Optional[Event]:
+        try:
+            if message["msg_type"] not in {kind.value for kind in EventType}:
+                raise ValueError("Unsupported private-message type")
+            if message["msg_type"] in (
+                EventType.PICTURE.value,
+                EventType.GROUPS_PICTURE.value,
+            ):
+                content = json.loads(message["content"])
+                # Upstream unconditionally pops this optional metadata field.
+                # Copy the envelope so callers retain the original payload.
+                content.setdefault("original", 1)
+                message = {**message, "content": json.dumps(content)}
+            return Event(message, self.uid)
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
+            # Do not include private message content or credentials in logs.
+            self.logger.warning(
+                "跳过无法解析的 B站私信: msg_key=%s, msg_type=%s, error=%s",
+                message.get("msg_key"),
+                message.get("msg_type"),
+                type(exc).__name__,
+            )
+            return None
+
+    async def _query(self, exclude_self: bool) -> None:
+        # This mirrors the pinned upstream query, with a per-message parsing
+        # boundary. A malformed message must not discard the rest of the batch.
+        result = await bili_session.new_sessions(self.credential, self.maxTs)
+        sessions = result.get("session_list")
+        if sessions is None:
+            return
+
+        pending = set()
+        for session in sessions:
+            self.maxTs = max(self.maxTs, session["session_ts"])
+            talker_id = session["talker_id"]
+            pending.add(
+                asyncio.create_task(
+                    bili_session.fetch_session_msgs(
+                        talker_id,
+                        self.credential,
+                        session["session_type"],
+                        self.maxSeqno.get(talker_id),
+                    )
+                )
+            )
+            self.maxSeqno[talker_id] = session["max_seqno"]
+
+        while pending:
+            done, pending = await asyncio.wait(pending)
+            for task in done:
+                result = await task
+                if result is None or result.get("messages") is None:
+                    continue
+                for message in reversed(result["messages"]):
+                    event = self._parse_event(message)
+                    if event is None:
+                        continue
+                    if event.msg_type == EventType.WITHDRAW.value:
+                        self.logger.info(
+                            "%s 被撤回(%s)",
+                            self.events.get(event.content, f"key={event.content}"),
+                            event.timestamp,
+                        )
+                    else:
+                        self.logger.info(event)
+                    if event.sender_uid != self.uid or not exclude_self:
+                        self.dispatch(str(event.msg_type), event)
+                    self.events[str(event.msg_key)] = event
 
 
 class BiliDMClient:
@@ -117,7 +200,7 @@ class BiliDMClient:
 
     def _create_session(self) -> Session:
         """Create a fresh private-message session with all event handlers."""
-        session = Session(self._credential, debug=False)
+        session = _CompatibleSession(self._credential, debug=False)
 
         @session.on(EventType.TEXT)
         async def on_text(event: Event):
@@ -1059,6 +1142,13 @@ class BiliDMClient:
             if self.logger:
                 self.logger.error(f"下载图片失败 {url}: {e}")
             return None
+
+    async def publish_dynamic(self, text: str = "", images: list[str] | None = None) -> dict[str, str]:
+        """Publish a public text or image dynamic without starting message listeners."""
+        from .dynamic_publisher import publish_dynamic
+
+        self._disable_brotli_for_bilibili_api()
+        return await publish_dynamic(self._credential, text, images)
 
     async def send_text(self, user_id: str, text: str):
         """发送文本私信"""

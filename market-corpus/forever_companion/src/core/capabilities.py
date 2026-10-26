@@ -50,7 +50,7 @@ class CapabilitySpec:
     """一项能力的静态声明。
 
     id: 能力标识（进 Store 否决集与面板协议，勿改名）
-    group: 面板分组展示用（rhythm=身体节律 / mood=情绪感知 / diary=日记与记录）
+    group: 面板分组展示用（rhythm=状态与提醒 / mood=情绪感知 / diary=日记与记录）
     label: 展示名兜底（面板 i18n 缺 key 时用；正常走 panel.features.<id>.label）
     depends: 上游能力 id（解析按声明序进行，声明表顺序即拓扑序）
     config: 配置绑定 (cfg 段名, 键, 默认)；None = 无既有配置键，默认常开
@@ -74,11 +74,11 @@ class CapabilitySpec:
 CAPABILITY_SPECS: dict[str, CapabilitySpec] = {
     spec.id: spec
     for spec in (
-        # ---- 身体节律（rhythm）----
+        # ---- 状态与提醒（rhythm）----
         CapabilitySpec(
             id="whisper",
             group="rhythm",
-            label="身体轻语",
+            label="状态提示",
             llm="injection",
             # 无独立配置键：历史上身体轻语只被总开关与 inject_mode 频控管着，
             # 能力层补上独立否决闸（关掉后 read 注入停，统计/情绪链路照常）
@@ -86,14 +86,14 @@ CAPABILITY_SPECS: dict[str, CapabilitySpec] = {
         CapabilitySpec(
             id="phase_openers",
             group="rhythm",
-            label="阶段开场白",
+            label="阶段问候",
             config=("tide", "phase_openers", True),
             llm="injection",
         ),
         CapabilitySpec(
             id="activity_sense",
             group="rhythm",
-            label="生活感知",
+            label="活动感知",
             depends=("whisper",),  # 活动行搭载在身体轻语的注入里
             config=("tide", "activity_context", True),
             llm="none",  # 读宿主 OS 活动快照，不动用模型
@@ -101,14 +101,14 @@ CAPABILITY_SPECS: dict[str, CapabilitySpec] = {
         CapabilitySpec(
             id="anniversary",
             group="rhythm",
-            label="纪念日轻语",
+            label="纪念日提醒",
             config=("stats", "anniversary_inject", True),
             llm="injection",
         ),
         CapabilitySpec(
             id="birthday",
             group="rhythm",
-            label="生日轻语",
+            label="生日提醒",
             config=("birthday", "enabled", True),
             llm="injection",
         ),
@@ -116,7 +116,7 @@ CAPABILITY_SPECS: dict[str, CapabilitySpec] = {
         CapabilitySpec(
             id="mood_engine",
             group="mood",
-            label="情绪引擎",
+            label="情绪系统",
             config=("mood", "enabled", True),
             llm="tool",
             tools=(
@@ -144,7 +144,7 @@ CAPABILITY_SPECS: dict[str, CapabilitySpec] = {
         CapabilitySpec(
             id="fragments",
             group="diary",
-            label="时光日记·自动碎片",
+            label="对话片段",
             depends=("mood_engine",),
             config=("fragments", "enabled", True),
             llm="direct",

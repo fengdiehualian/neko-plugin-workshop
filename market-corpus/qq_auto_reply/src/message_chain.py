@@ -1,7 +1,12 @@
-"""Message-chain model -- mirrors KiraAI's recursive MessageChain structure.
+"""Message-chain model.
 
-Each message element exposes a ``.repr`` for LLM prompt injection; a
-``MessageChain`` can be nested (``reply.chain``, ``forward.chains``).
+数据模型借用 KiraAI 的**嵌套消息链形状**（``Reply.chain`` / ``Forward.chains``），但
+``.repr`` 的用途与上游不同：上游 ``repr`` 是**日志表示**（docstring 原文 "Returns a
+string to display in logs"，且 ``Reply.repr`` 是不递归的 ``[Reply <id>]``），真正的
+prompt 输入走另一条路径 ``MessageManager.message_format_to_text()``；本插件把这两件事
+合并到了 ``repr`` 上（日志与 prompt 注入共用一份表示）。
+
+一个 ``MessageChain`` 可以嵌套（``reply.chain``、``forward.chains``）。
 """
 
 from __future__ import annotations
@@ -9,7 +14,7 @@ from __future__ import annotations
 import json as _json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 # ── base elements ──────────────────────────────────────────
 
@@ -204,44 +209,14 @@ class MessageChain:
 
 
 # ── builders ───────────────────────────────────────────────
+#
+# 这里**曾经**有一个 ``chain_from_onebot_message()``。它是死代码（全库零调用），
+# 而且是能力更弱的那个版本：reply 段只建 ``Reply(message_id=...)`` 而**不填充**
+# ``Reply.chain``（于是 ``repr`` 退化成 ``[引用 <id>]``）、forward 段恒为
+# ``Forward(chains=[])``、at 不解析昵称、file 不解真实 URL。
+#
+# 真正的解析入口是 ``QQMessageEnricher._build_message_chain``
+# （enrichment.py）：它才做递归 ``get_msg``、深度上限 ``_MAX_REPLY_DEPTH``、
+# ``seen`` 防环、以及上面这些缺失的解析。两个解析器并存的风险是有人误调弱的
+# 那个，于是 prompt 里出现裸消息 ID —— 所以删掉，模块只保留数据模型。
 
-def chain_from_onebot_message(msg: dict[str, Any]) -> MessageChain:
-    """Build a message chain from an OneBot message dict (no nested expansion)."""
-    chain = MessageChain(
-        sender_name=(msg.get("sender") or {}).get("nickname") or str(msg.get("user_id") or ""),
-        sender_id=str(msg.get("user_id") or ""),
-        timestamp=int(msg.get("time") or 0),
-        message_id=str(msg.get("message_id") or ""),
-    )
-    segments = msg.get("message") or []
-    if not isinstance(segments, list):
-        return chain
-    for seg in segments:
-        if not isinstance(seg, dict):
-            continue
-        t = seg.get("type") or ""
-        data = seg.get("data") or {}
-        if t == "text":
-            chain.add(Text(str(data.get("text") or "")))
-        elif t == "image":
-            chain.add(Image(
-                url=str(data.get("url") or ""),
-                file=str(data.get("file") or ""),
-            ))
-        elif t == "at":
-            chain.add(At(pid=str(data.get("qq") or "")))
-        elif t == "reply":
-            chain.add(Reply(message_id=str(data.get("id") or "")))
-        elif t == "face":
-            chain.add(Emoji(emoji_id=str(data.get("id") or "")))
-        elif t == "record":
-            chain.add(Record(file_id=str(data.get("file") or "")))
-        elif t == "forward":
-            chain.add(Forward(chains=[]))
-        elif t == "video":
-            chain.add(Text("[视频]"))
-        elif t == "json":
-            chain.add(JsonCard(raw_json=str(data.get("data") or "")))
-        elif t == "file":
-            chain.add(File(name=str(data.get("file") or "")))
-    return chain

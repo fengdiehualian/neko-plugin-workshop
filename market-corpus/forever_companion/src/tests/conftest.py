@@ -253,6 +253,9 @@ class FakeStore:
         # 与宿主 PluginStore.delete 对齐：返回 Ok(bool) 表示 key 是否原本存在
         return Ok(self.data.pop(key, None) is not None)
 
+    async def keys(self, prefix=""):
+        return Ok(sorted(key for key in self.data if key.startswith(prefix)))
+
 
 class FakeConfig:
     def __init__(self, section=None):
@@ -287,6 +290,10 @@ async def _default_http_stub(method, path, body=None, headers=None):
     return None
 
 
+# 模型通道的测试默认走法（1.3.3）：业务用例一律钉 custom，理由见 make_plugin。
+DEFAULT_CHANNEL_SECTIONS = {"fragments": {"mode": "custom"}, "review": {"mode": "custom"}}
+
+
 def make_plugin(tide_section=None, store_initial=None, mood_section=None, http=None, current_lanlan=""):
     """构建一个挂好假依赖的 ForeverCompanionPlugin 实例。
 
@@ -295,6 +302,14 @@ def make_plugin(tide_section=None, store_initial=None, mood_section=None, http=N
     section = {"tide": dict(tide_section or {})}
     if mood_section is not None:
         section["mood"] = dict(mood_section)
+    # 通道传输层与业务逻辑在测试里解耦：官方市场 CI 会把本仓挂进宿主包树跑
+    # `check -r`，那里 `utils.*` 可导入，mode=host 的默认值就会真去解析宿主端点——
+    # 既绕开打在直连层（_resolve_tone_slot / _post_chat_completion）的桩，又把开发者
+    # 本机的 core_config 读进测试。碎片/成文/持久化这些用例测的是业务逻辑本身，
+    # 传输层由 tests/test_host_pipeline.py 用假宿主模块显式专测（那边自己设 host）。
+    # 要改走法的用例在构造后直接 p._fragments_cfg["mode"] = ... 覆盖即可。
+    for name, values in DEFAULT_CHANNEL_SECTIONS.items():
+        section[name] = dict(values)
     ctx = FakeCtx()
     ctx._current_lanlan = current_lanlan
     p = forever_companion.ForeverCompanionPlugin(ctx)

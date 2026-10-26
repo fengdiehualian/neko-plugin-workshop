@@ -203,5 +203,22 @@
   "ui.error.clear_failed": "Clear failed",
   "ui.error.invalid_uid": "Enter a numeric Bilibili UID",
   "ui.error.add_failed": "Add failed",
-  "ui.error.remove_failed": "Remove failed"
+  "ui.error.remove_failed": "Remove failed",
+  "actions.publish_dynamic.label": "Publish dynamic",
+  "entries.publish_dynamic.name": "Publish Bilibili dynamic",
+  "entries.publish_dynamic.description": "Publish a public text or image dynamic using the signed-in account, with up to 9 images",
+  "ui.dynamic.section": "PUBLISH",
+  "ui.dynamic.hint": "Publish publicly with your saved account, without starting listeners. Up to 2000 characters and 9 images, each at most 10 MiB.",
+  "ui.dynamic.text": "Dynamic text",
+  "ui.dynamic.files": "Choose images (optional)",
+  "ui.dynamic.urls": "Image URLs (optional, one per line)",
+  "ui.dynamic.view": "View published dynamic",
+  "ui.dynamic.success": "Dynamic published",
+  "ui.dynamic.invalid_input": "Enter up to 2000 characters or add up to 9 images. Image URLs must use HTTP(S).",
+  "ui.dynamic.invalid_image": "Use valid PNG, JPEG, GIF or WebP images.",
+  "ui.dynamic.image_too_large": "Images must be nonempty and at most 10 MiB each.",
+  "ui.dynamic.not_configured": "Save your Bilibili login credentials first.",
+  "ui.dynamic.failed": "Unable to publish. Check your login status and image sources.",
+  "ui.dynamic.uncertain": "The publication result is uncertain. Check your Bilibili feed before publishing again to avoid duplicates.",
+  "tools.publish_dynamic.description": "Publish a public Bilibili dynamic using the configured account. text is plain text (up to 2000 characters); images is an optional list of up to 9 HTTP(S) URLs or base64 image data URLs (PNG, JPEG, GIF, WebP; 10 MiB each). Provide text or images. Returns dynamic_id and url. Listening is not required. Do not automatically retry when the publication result is uncertain; check the Bilibili feed first."
 }

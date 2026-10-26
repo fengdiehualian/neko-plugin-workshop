@@ -9,17 +9,65 @@
 
 from __future__ import annotations
 
+import re
+from datetime import datetime, timedelta
 from typing import Any
 
 from .state import (
+    _DIARY_MAX_ENTRIES,
     _FRAGMENT_EXTRACTION_PROMPT,
     _FRAGMENT_KINDS,
     _FRAGMENT_NOTE_MAX_CHARS,
     _FRAGMENT_NUDGE_KINDS,
     _FRAGMENT_QUOTE_MAX_CHARS,
+    _now_utc,
 )
 
 JsonObject = dict[str, Any]
+
+
+def fabricate_demo_diary(count: int = 24, *, now: datetime | None = None) -> list[JsonObject]:
+    """生成混合手记与四类碎片的调试时间线，时间递增、每条带 demo 标记。"""
+    current = now or _now_utc()
+    count = max(1, min(int(count), _DIARY_MAX_ENTRIES))
+    notes = (
+        ("开心", "今天聊起了一件小事，听他说完以后，心里暖暖的。"),
+        ("平静", "一起安静地待了一会儿。没有很多话，也觉得很踏实。"),
+        ("委屈", "刚才有一点不开心，想等心情平复以后再慢慢说。"),
+        ("期待", "记住了下次想一起做的事，开始有一点期待了。"),
+    )
+    fragments = (
+        ("like", "我喜欢下雨的时候听轻音乐。", "记下他明确说过的喜好。"),
+        ("dislike", "我不喜欢休息的时候被催着做事。", "记下他希望被尊重的边界。"),
+        ("important", "以后遇到事情，我们都慢慢说清楚。", "记下这句认真说过的约定。"),
+        ("overstep", "刚才我说你很烦，那句话确实太重了。", "记下伤人的表达，不替任何一方判断释怀。"),
+    )
+    records: list[JsonObject] = []
+    for i in range(count):
+        ts = (current - timedelta(hours=(count - i - 1) * 8)).isoformat(timespec="seconds")
+        if i % 2 == 0:
+            mood, text = notes[(i // 2) % len(notes)]
+            item = {"ts": ts, "source": "self", "phase": "follicular", "mood": mood,
+                    "entry": text}
+        else:
+            kind, quote, note = fragments[(i // 2) % len(fragments)]
+            item = fragment_record(ts, "follicular", {
+                "kind": kind, "quote": quote,
+                "note": note, "confidence": 0.95,
+            })
+        item["demo"] = True
+        records.append(item)
+    return records
+
+
+def diary_display_record(item: JsonObject) -> JsonObject:
+    """旧调试记录只在显示时去掉前缀，保留原始记录及还原备份。"""
+    visible = dict(item)
+    if item.get("demo") is True:
+        for field in ("entry", "quote"):
+            if isinstance(item.get(field), str):
+                visible[field] = re.sub(r"^【调试示例\s*\d*\s*】", "", item[field], count=1)
+    return visible
 
 
 def build_fragment_prompt(user_text: str, her_text: str) -> str:

@@ -190,7 +190,10 @@ def test_get_capability_intro_json_serializable(plugin_factory_full):
 # ---------- i18n 对账（防漂移护栏）----------
 
 
-@pytest.mark.parametrize("locale_file", ["zh-CN.json", "en.json"])
+@pytest.mark.parametrize(
+    "locale_file",
+    ["zh-CN.json", "zh-TW.json", "en.json", "ja.json", "ko.json", "ru.json", "es.json", "pt.json"],
+)
 def test_i18n_files_cover_intro_keys(locale_file):
     from forever_companion.core.capabilities import CAPABILITY_SPECS
     from forever_companion.core.intros import (
@@ -207,6 +210,10 @@ def test_i18n_files_cover_intro_keys(locale_file):
         required += [scenario_key(cap_id, i) for i in range(1, len(intro.scenarios) + 1)]
         required += [limit_key(cap_id, i) for i in range(1, len(intro.limits) + 1)]
         required += [flow_key(cap_id, i) for i in range(1, len(intro.flow) + 1)]
+        if intro.actions:
+            required += [f"panel.capintro.{cap_id}.actionsTitle"]
+        for action_id, _, _ in intro.actions:
+            required += [f"mood.{action_id}", f"panel.capintro.{cap_id}.action.{action_id}"]
         missing = [k for k in required if not messages.get(k)]
         assert not missing, f"{locale_file} 缺 key: {missing[:3]} ({cap_id})"
 
@@ -220,6 +227,9 @@ def test_i18n_files_cover_intro_keys(locale_file):
                 assert messages[limit_key(cap_id, i)] == s, (cap_id, i)
             for i, n in enumerate(intro.flow, 1):
                 assert messages[flow_key(cap_id, i)] == n.label, (cap_id, i)
+            for action_id, label, description in intro.actions:
+                assert messages[f"mood.{action_id}"] == label, (cap_id, action_id)
+                assert messages[f"panel.capintro.{cap_id}.action.{action_id}"] == description, (cap_id, action_id)
         # 声明表没有的能力不应留孤儿 key
         orphan = [
             k for k in messages
@@ -229,6 +239,60 @@ def test_i18n_files_cover_intro_keys(locale_file):
                 "open", "purpose", "scenarios", "limits", "deps", "flowTitle",
                 "flowEmpty", "stateOn", "stateOff", "depsNone", "depUpstream",
                 "toolsCount", "loading", "loadError", "notFound", "close", "back",
+                "requirements", "masterRequired", "technical", "model", "config",
+                "configNone", "tools", "toolsNone", "modelTool", "modelDirect",
+                "modelHost", "modelInjection", "modelLocal",
             }
         ]
         assert not orphan, f"孤儿 capintro key: {orphan[:3]}"
+
+
+def test_intro_chinese_copy_stays_brief():
+    from forever_companion.core.intros import CAP_INTROS
+
+    for cap_id, intro in CAP_INTROS.items():
+        assert len(intro.purpose) <= 90, f"{cap_id}: purpose should remain a short summary"
+        assert all(len(text) <= 45 for text in intro.scenarios), cap_id
+        assert all(len(text) <= 85 for text in intro.limits), cap_id
+
+
+def test_mood_action_guide_covers_states_and_release_without_diary_tools():
+    from forever_companion.core.capabilities import CAPABILITY_SPECS
+    from forever_companion.core.intros import build_intro_payload
+
+    spec = CAPABILITY_SPECS["mood_engine"]
+    payload = build_intro_payload(spec, _fake_ref)
+    actions = {action["id"]: action for action in payload["actions"]}
+    assert len(actions) == len(payload["actions"]) == 9
+    assert {f"mood_{action_id}" for action_id in actions} == set(spec.tools) - {"mood_drift_bottle"}
+    assert actions["rising_tide"]["label"]["$i18n"] == "mood.rising_tide"
+    assert "心情好了" in actions["rising_tide"]["description"]["default"]
+    assert "不是新的持续状态" in actions["rising_tide"]["description"]["default"]
+    assert "默认 120 分钟的兜底解除" in actions["seek_harbor"]["description"]["default"]
+    assert build_intro_payload(CAPABILITY_SPECS["whisper"], _fake_ref)["actions"] == []
+
+
+def test_intro_copy_keeps_hint_and_simulation_boundaries():
+    from forever_companion.core.intros import CAP_INTROS
+
+    whisper = CAP_INTROS["whisper"]
+    assert "后台" in whisper.purpose and "不单独显示消息" in whisper.purpose
+    assert any("模型决定" in text and "不能保证措辞" in text for text in whisper.limits)
+    assert any("模拟状态" in text and "现实健康判断" in text for text in whisper.limits)
+    assert any("不补发" in text for text in CAP_INTROS["anniversary"].limits)
+    assert any("不计算或提供年龄" in text for text in CAP_INTROS["birthday"].limits)
+    assert any("工具仍可用" in text and "自主写作" in text for text in CAP_INTROS["journal"].limits)
+
+
+def test_intro_technical_explanations_keep_master_and_transport_boundaries():
+    messages = json.loads((ROOT / "i18n" / "zh-CN.json").read_text(encoding="utf-8"))
+
+    assert "当前角色" in messages["panel.capintro.masterRequired"]
+    assert "模拟总开关" in messages["panel.capintro.masterRequired"]
+    assert messages["panel.capintro.stateOn"] == "已启用"
+    assert messages["panel.features.llm.direct"] == "模型服务"
+    assert messages["panel.features.llm.local"] == "本地处理"
+    direct = messages["panel.capintro.modelDirect"]
+    assert "默认" in direct and "N.E.K.O" in direct and "直连" in direct
+    local = messages["panel.capintro.modelLocal"]
+    assert "不单独调用模型" in local and "加入对话" in local

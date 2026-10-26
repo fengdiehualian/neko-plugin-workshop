@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.venv/
+venv/
+vendor/
+dist/
+build/
+target/
+*.egg-info/
+*.neko-plugin
+*.neko-bundle
+.coverage
+coverage.xml
+htmlcov/
+store.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env
+*.log
+.DS_Store
+
+# These CLI-generated repository support files are ignored by N.E.K.O's
+# root rules, but belong to the standalone plugin release scaffold.
+!.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json

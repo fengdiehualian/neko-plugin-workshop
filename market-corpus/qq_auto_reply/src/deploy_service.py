@@ -19,9 +19,14 @@ from . import napcat_install, napcat_onebot_config, napcat_platform
 from .napcat_service import bundled_napcat_dir
 
 #: 步骤名 → 界面展示用的标签
+#:
+#: ``node`` 与 ``fetch`` 是**两步**：环境检查（Node）与"下载 + 解包"混在一个
+#: 「获取 NapCat」标签下时，检查失败在界面上就是"卡在下载"——真机上用户报的
+#: 正是这个（下载代码一行没跑）。
 STEP_LABELS: dict[str, str] = {
     "locate": "定位 NapCat",
-    "fetch": "获取 NapCat",
+    "node": "检查运行环境",
+    "fetch": "下载并解包 NapCat",
     "config": "写入 OneBot 配置",
     "start": "启动 NapCat",
     "qrcode": "等待登录二维码",
@@ -53,6 +58,20 @@ class QQDeployService:
             except Exception:
                 pass
         self.plugin._emit_log("INFO", f"[Deploy] {message}")
+        # 同时落盘：面板那份是**内存**缓冲（500 行、重启即失），而用户来报"卡在下载"
+        # 时我们手上只有文件日志 —— 真机上因此只剩一句 `一键部署失败: …`，看不出
+        # 停在哪一步、试过几个源、续传到多少字节。
+        self._log_to_file(f"[Deploy] {message}")
+
+    def _log_to_file(self, line: str) -> None:
+        """把部署明细也写进文件日志（尽力而为：日志失败不该掀翻部署）。"""
+        logger = getattr(self.plugin, "logger", None)
+        if logger is None:
+            return
+        try:
+            logger.info(line)
+        except Exception:
+            pass
 
     def _progress(self, emit, step: str, done: int, total: int, *,
                   phase: str = "download") -> None:
@@ -121,11 +140,20 @@ class QQDeployService:
         launcher = napcat_platform.find_launcher(napcat_dir) if napcat_dir else None
 
         if configured and launcher is None:
-            # 用户显式指了一个目录却没有启动器 —— 不要"帮"他装到别处，
-            # 那会让设置与实际位置长期不一致，下次更难看懂。
-            raise RuntimeError(
-                f"napcat_directory 指向的目录里没有 NapCat 启动器: {configured}"
-            )
+            # 配置指向的目录里没有启动器 —— 那是个**陈旧存档**（仓库搬过、目录被手删、
+            # 或早期版本把解析结果回填过）。这里不硬失败，而是就地清掉它：
+            # 一键部署无论如何都只装到 ``bundled_napcat_dir()``（见 _fetch 的
+            # target），所以这个配置**既不可能被满足、也不影响安装位置** ——
+            # 留着只会让用户卡在"部署不了、也改不动"的死角。
+            #
+            # 原实现是 raise（注释说"不要帮他装到别处，那会让设置与实际位置长期
+            # 不一致"）—— 那条理由在"配置能决定安装位置"的前提下成立，而这个前提
+            # 不成立。清掉存档反而是唯一能让设置与实际重新一致的动作。
+            step("locate", f"配置的 NapCat 目录里没有启动器，已清除该存档: {configured}")
+            await self.plugin.settings_service.save_settings(napcat_directory="")
+            configured = ""
+            napcat_dir = svc.get_napcat_directory()
+            launcher = napcat_platform.find_launcher(napcat_dir) if napcat_dir else None
         if launcher is not None and not force:
             step("locate", f"已有可用 NapCat: {napcat_dir}")
         else:
@@ -182,24 +210,50 @@ class QQDeployService:
             **self.plugin._auto_start_fields(auto),
         }
 
+    def _check_node(self, step) -> None:
+        """Node 检查 —— **单独一步**上报，且**按平台**决定它是不是硬要求。
+
+        历史上这里是所有平台的硬门槛，于是没有 node 的 Windows 用户"卡在下载
+        NapCat"：`download_asset()` 一行都没跑，界面停在「获取 NapCat」，日志里只有
+        一句 `缺少 Node.js`（真机现场，见 tests/test_qq_napcat_node_requirement.py）。
+
+        现在：Windows 上缺 node 只是**降级提示**（NapCat 跑在 QQ 自带的 Node 运行时
+        里，见 `napcat_platform.needs_system_node`）；非 Windows 缺 node 仍然是硬失败
+        —— 那边是 `node napcat.mjs`，装不上就真起不来，此时拦在下载之前才是对的。
+        """
+        ok, ver = napcat_platform.node_available()
+        required, why = napcat_platform.node_requirement()
+        if ok:
+            step("node", f"Node 就绪: {ver}")
+            return
+        if required:
+            raise RuntimeError(
+                f"缺少 Node.js（{ver}）。{why}；插件不会代为安装系统级软件包。"
+            )
+        step("node", f"未检测到系统 Node（{ver}）；{why}，继续部署")
+
     async def _fetch(self, step, emit) -> Path:
         """下载并解包到插件自带位置。"""
-        ok, ver = napcat_platform.node_available()
-        if not ok:
-            raise RuntimeError(
-                f"缺少 Node.js（{ver}）。NapCat 的发行包是 Node 程序，需要系统已安装 Node 18+；"
-                "插件不会代为安装系统级软件包。"
-            )
-        self._emit(emit, "fetch", f"Node 就绪: {ver}")
+        self._check_node(step)
 
         target = bundled_napcat_dir()
         asset = napcat_install.asset_name()
         downloads = self.plugin.data_path("downloads")
 
         step("fetch", f"下载 {asset}（{napcat_install.NAPCAT_VERSION}）…")
+
+        def _on_attempt(index: int, total: int, url: str, resume_from: int) -> None:
+            """每个候选源都报一行：不然换源/续传在界面上完全看不出来。"""
+            host = url.split("/")[2] if "://" in url else url
+            text = f"尝试下载源 {index}/{total}: {host}"
+            if resume_from > 0:
+                text += f"（从 {resume_from / 1048576:.1f} MB 续传）"
+            step("fetch", text)
+
         zip_path = await napcat_install.download_asset(
             asset, downloads,
             progress=lambda d, t: self._progress(emit, "fetch", d, t),
+            on_attempt=_on_attempt,
         )
         step("fetch", f"下载完成并通过校验: {zip_path.stat().st_size / 1048576:.1f} MB")
 

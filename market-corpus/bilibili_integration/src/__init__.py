@@ -21,10 +21,29 @@ from plugin.sdk.plugin import (
 
 from .bili_client import BiliDMClient
 from .config_store import BiliDMConfigStore
+from .dynamic_publisher import DynamicInputError, DynamicPublishUncertainError
 from .permission import PermissionManager
 from .qr_login import BiliDMQrLogin
 
-UI_ASSET_VERSION = "1.2.4"
+UI_ASSET_VERSION = "1.3.0"
+
+DYNAMIC_PUBLISH_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "text": {"type": "string", "maxLength": 2000, "default": ""},
+        "images": {"type": "array", "items": {"type": "string"}, "maxItems": 9},
+    },
+    "additionalProperties": False,
+}
+DYNAMIC_TOOL_TIMEOUT_SECONDS = 50
+DYNAMIC_TOOL_ERROR_KEYS = {
+    "DYNAMIC_INVALID_INPUT": "ui.dynamic.invalid_input",
+    "DYNAMIC_INVALID_IMAGE": "ui.dynamic.invalid_image",
+    "DYNAMIC_IMAGE_TOO_LARGE": "ui.dynamic.image_too_large",
+    "DYNAMIC_NOT_CONFIGURED": "ui.dynamic.not_configured",
+    "DYNAMIC_PUBLISH_FAILED": "ui.dynamic.failed",
+    "DYNAMIC_PUBLISH_UNCERTAIN": "ui.dynamic.uncertain",
+}
 
 
 def build_open_ui_payload(*, plugin_id: str, available: bool) -> dict[str, Any]:
@@ -446,6 +465,7 @@ class BiliDMPlugin(NekoPluginBase):
                 }
             ]
         )
+        self._register_publish_dynamic_tool()
         self.logger.info("B站集成客户端已初始化")
 
         return Ok(self._build_dashboard_state())
@@ -890,6 +910,80 @@ class BiliDMPlugin(NekoPluginBase):
         except Exception as e:
             self.logger.error(f"发送私信失败: {e}")
             return Err(SdkError(f"SEND_FAILED: 发送私信失败: {e}"))
+
+    def _register_publish_dynamic_tool(self) -> None:
+        if any(tool["name"] == "publish_bilibili_dynamic" for tool in self.list_llm_tools()):
+            return
+        self.register_llm_tool(
+            name="publish_bilibili_dynamic",
+            description=self.i18n.t(
+                "tools.publish_dynamic.description",
+                default=(
+                    "Publish a public Bilibili dynamic using the configured account. "
+                    "text is plain text (up to 2000 characters); images is an optional list of up to 9 "
+                    "HTTP(S) URLs or base64 image data URLs (PNG, JPEG, GIF, WebP; 10 MiB each). "
+                    "Provide text or images. Returns dynamic_id and url. Listening is not required. "
+                    "Do not automatically retry when the publication result is uncertain."
+                ),
+            ),
+            parameters=DYNAMIC_PUBLISH_INPUT_SCHEMA,
+            handler=self.publish_bilibili_dynamic,
+            timeout=60.0,
+        )
+
+    def _dynamic_tool_error(self, code: str) -> dict[str, Any]:
+        return {
+            "output": {
+                "message": self.i18n.t(
+                    DYNAMIC_TOOL_ERROR_KEYS.get(code, "ui.dynamic.failed"),
+                    default="Publishing failed. Check Bilibili before publishing again.",
+                ),
+                "retryable": False,
+            },
+            "is_error": True,
+            "error": code,
+        }
+
+    async def publish_bilibili_dynamic(self, text: str = "", images: list[str] | None = None, **_) -> dict[str, Any]:
+        """Expose the existing publisher to the dialogue model with explicit error semantics."""
+        try:
+            # Include lifecycle-lock wait time so a queued call finishes before the IPC timeout.
+            async with asyncio.timeout(DYNAMIC_TOOL_TIMEOUT_SECONDS):
+                result = await self.publish_dynamic(text=text, images=images)
+        except TimeoutError:
+            return self._dynamic_tool_error("DYNAMIC_PUBLISH_UNCERTAIN")
+        if isinstance(result, Err):
+            code = str(result.error).partition(":")[0]
+            return self._dynamic_tool_error(code)
+        return {"output": result.value, "is_error": False}
+
+    @ui.action(
+        id="publish_dynamic",
+        label=tr("actions.publish_dynamic.label", default="发布动态"),
+    )
+    @plugin_entry(
+        id="publish_dynamic",
+        name=tr("entries.publish_dynamic.name", default="发布 B站动态"),
+        description=tr(
+            "entries.publish_dynamic.description",
+            default="使用当前登录账号发布公开的文字或图文动态，最多 9 张图片",
+        ),
+        input_schema=DYNAMIC_PUBLISH_INPUT_SCHEMA,
+    )
+    async def publish_dynamic(self, text: str = "", images: list[str] | None = None, **_):
+        """Publish through the configured account; listening is not required."""
+        async with self._lifecycle_lock:
+            if not self.bili_client:
+                return Err(SdkError("DYNAMIC_NOT_CONFIGURED: Save Bilibili login credentials first"))
+            try:
+                return Ok(await self.bili_client.publish_dynamic(text, images))
+            except DynamicInputError as exc:
+                return Err(SdkError(str(exc)))
+            except DynamicPublishUncertainError:
+                return Err(SdkError("DYNAMIC_PUBLISH_UNCERTAIN: Check Bilibili before publishing again"))
+            except Exception as exc:
+                self.logger.warning(f"Bilibili dynamic publishing failed: {type(exc).__name__}")
+                return Err(SdkError("DYNAMIC_PUBLISH_FAILED: Unable to publish the dynamic"))
 
     @ui.action(
         id="add_trusted_user",

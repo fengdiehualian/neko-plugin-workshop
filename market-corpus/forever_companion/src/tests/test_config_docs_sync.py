@@ -172,3 +172,72 @@ def test_config_example_covers_every_config_key():
     assert not missing, (
         "config.example.toml 缺少以下配置键（新增配置必须同步示例）：" + ", ".join(sorted(missing))
     )
+
+
+# ---------------------------------------------------------------------------
+# 第 4 道：前端兜底默认值与出厂值同源（1.3.3 修订轮补）
+#
+# 为什么钉这一道：settingsToForm 里那种 `|| "host"` 兜底名义上是"快照未到那一帧"的
+# 占位，实际上就是用户打开面板第一眼看到的默认值。2026-09-22 一天里被这种重复坑两次——
+# plugin.toml 已经改成 fragments_mode=custom / review_slot=agent，ui/utils.ts 还写着
+# host / summary，而它不报错，只会让面板说谎。机器门比记忆可靠。
+# ---------------------------------------------------------------------------
+
+_UI_FORM_DEFAULTS = {
+    "tone_min_interval_sec": ("emotion_sense", "min_interval_sec", int),
+    "fragments_slot": ("fragments", "slot", str),
+    "fragments_mode": ("fragments", "mode", str),
+    "review_slot": ("review", "slot", str),
+    "review_mode": ("review", "mode", str),
+    "agent_daily_budget": ("agent_tier", "daily_budget", int),
+}
+
+
+def _ui_form_fallback(body: str, field: str, cast) -> tuple[bool, object]:
+    """从 settingsToForm 函数体里取某个字段的兜底字面量。返回 (找到与否, 值)。
+
+    刻意不用正则：这里只有两种写法（String(... || "x") / Number(... ?? 12)），
+    直读字符串比模式好维护，也不会被转义绊倒。
+    """
+    for prefix, terminator in (
+        (f'{field}: String(settings.{field} || "', '"'),
+        (f"{field}: Number(settings.{field} ?? ", ")"),
+    ):
+        start = body.find(prefix)
+        if start < 0:
+            continue
+        rest = body[start + len(prefix):]
+        end = rest.index(terminator)
+        try:
+            return True, cast(rest[:end].strip())
+        except ValueError:
+            return True, None
+    return False, None
+
+
+def test_ui_form_fallbacks_match_shipped_defaults() -> None:
+    utils_src = (PLUGIN_ROOT / "ui" / "utils.ts").read_text(encoding="utf-8")
+    body = utils_src.split("function settingsToForm(", 1)[-1]
+    shipped = tomllib.loads(TOML_PATH.read_text(encoding="utf-8"))
+    drifted: list[str] = []
+    for field, (section, key, cast) in _UI_FORM_DEFAULTS.items():
+        want = shipped[section][key]
+        found, got = _ui_form_fallback(body, field, cast)
+        if not found:
+            drifted.append(f"{field}: ui/utils.ts 的 settingsToForm 里找不到兜底写法")
+        elif got != want:
+            drifted.append(f"{field}: ui/utils.ts={got!r} / plugin.toml={want!r}")
+    assert not drifted, "前端兜底默认值与 plugin.toml 不一致：\n  " + "\n  ".join(drifted)
+
+
+def test_ui_budget_input_range_matches_backend_bounds(tm) -> None:
+    """面板数字框的 min/max 要和后端取值口同一把尺子：前端放行而后端拒收，用户只会
+    看到一个读不懂的错误码；反过来则把配置里本来允许的区间挡在门外。"""
+    src = (PLUGIN_ROOT / "ui" / "settings_tone.tsx").read_text(encoding="utf-8")
+    anchor = src.find("value={form.agent_daily_budget}")
+    assert anchor >= 0, "ui/settings_tone.tsx 里找不到 agent 预算输入框"
+    window = src[anchor:anchor + 200]
+
+    bounds = dict(re.findall(r"(min|max)=\{(\d+)\}", window))
+    assert int(bounds.get("min", -1)) == tm._AGENT_TIER_MIN_BUDGET, bounds
+    assert int(bounds.get("max", -1)) == tm._AGENT_TIER_MAX_BUDGET, bounds

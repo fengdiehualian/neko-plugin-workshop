@@ -17,9 +17,7 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
-OneBotClient = pytest.importorskip("utils.connection.onebot.onebot_client").OneBotClient
+from plugin.plugins.qq_auto_reply.connector_seam import OneBotClient
 
 
 class _FakeWS:
@@ -313,7 +311,14 @@ def _plugin_stub(*, mode: str):
         "qq_open_app_id": "",
         "qq_open_client_secret": "",
     }
-    plugin.logger = None
+    # logger 要可用：_make_qq_connection 会把连接器来源同时写进真日志
+    # （控制台/日志文件），与 push_legacy_speaker_trust_forever 同一口径。
+    from types import SimpleNamespace as _NS
+
+    plugin.logger = _NS(
+        info=lambda *a, **k: None, warning=lambda *a, **k: None,
+        debug=lambda *a, **k: None, error=lambda *a, **k: None,
+    )
     plugin._emit_log = lambda level, msg: None
     plugin._describe_reply_image = None
     plugin._transcribe_voice = None

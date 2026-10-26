@@ -75,7 +75,7 @@ export function CalendarPane(props: {
           {calendar?.error || !m || !m.cells ? (
             <EmptyState
               title={t("panel.calendar.unavailable", { defaultValue: "日历不可用" })}
-              description={calendar?.error || t("panel.calendar.needAnchor", { defaultValue: "设置潮汐首日锚点后即可推算" })}
+              description={calendar?.error || t("panel.calendar.needAnchor", { defaultValue: "设置周期起点后即可查看" })}
             />
           ) : (
             <div>
@@ -128,7 +128,7 @@ export function CalendarPane(props: {
                     )}
                     {picked ? (
                       <Button tone="primary" disabled={!canSetAnchor} onClick={handleSetAnchor}>
-                        {t("actions.set_anchor.label", { defaultValue: "设置潮汐首日" })}
+                        {t("actions.set_anchor.label", { defaultValue: "设置周期起点" })}
                       </Button>
                     ) : null}
                     <Button disabled={!canAdvance} onClick={onAdvance}>
@@ -138,7 +138,7 @@ export function CalendarPane(props: {
                 ) : null}
               </div>
               <div className="tm-cal-meta">
-                {t("panel.anchorCurrent", { defaultValue: "当前锚点" })}: {anchorDate || "-"}
+                {t("panel.anchorCurrent", { defaultValue: "当前周期起点" })}: {anchorDate || "-"}
                 {" · "}
                 {t("panel.advancedN", { n: String(advanceDays ?? 0), defaultValue: "已快进 {n} 天" })}
               </div>

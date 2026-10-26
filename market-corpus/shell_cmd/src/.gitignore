@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# 测试 / 缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 插件运行时数据
+store.db
+*.log
+
+# 编辑器
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# 系统
+.DS_Store
+Thumbs.db

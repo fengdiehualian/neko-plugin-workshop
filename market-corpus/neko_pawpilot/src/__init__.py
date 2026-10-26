@@ -197,6 +197,79 @@ class NekoPawpilotPlugin(NekoPluginBase):
             self.logger.warning("pilot_release failed: %s", exc)
             return Err(SdkError("交还驾驶失败喵"))
 
+    @plugin_entry(
+        id="set_pacing",
+        name="陪玩节奏配置",
+        description="面板改陪玩节奏与内容开关（陪聊间隔/电台间隔/途经半径/内容开关等），会持久化。",
+        input_schema={"type": "object", "properties": {
+            "values": {"type": "object", "description": "要改的键值对（白名单）"}}},
+    )
+    async def entry_set_pacing(self, values: dict = None, **_) -> Any:
+        """面板改配置：白名单 + 类型转换 + 落盘。"""
+        try:
+            if not self.rt:
+                return Err(SdkError("猫爪副驾还没准备好喵"))
+            result = self.rt.set_pacing(values or {})
+            await self.rt.settings_save()
+            return Ok(result)
+        except Exception as exc:
+            self.logger.warning("set_pacing failed: %s", exc)
+            return Err(SdkError("保存节奏配置失败喵"))
+
+    @plugin_entry(
+        id="get_pacing",
+        name="读取陪玩节奏配置",
+        description="读当前陪玩节奏与内容开关（面板显示用）。",
+        input_schema={"type": "object", "properties": {}},
+    )
+    async def entry_get_pacing(self, **_) -> Any:
+        try:
+            if not self.rt:
+                return Err(SdkError("猫爪副驾还没准备好喵"))
+            return Ok({"state": self.rt.pacing_state()})
+        except Exception as exc:
+            self.logger.warning("get_pacing failed: %s", exc)
+            return Err(SdkError("读取节奏配置失败喵"))
+
+    @plugin_entry(
+        id="diagnose",
+        name="自检",
+        description="逐个试一遍各子系统（遥测/地图/记忆/识屏/播报/陪玩）到底能不能用，返回体检表。面板上也有按钮。",
+        input_schema={"type": "object", "properties": {}},
+    )
+    async def entry_diagnose(self, **_) -> Any:
+        """子系统体检：把静默失效的东西摊开说。"""
+        try:
+            if not self.rt:
+                return Err(SdkError("猫爪副驾还没准备好喵"))
+            report = await self.rt.diagnose()
+            failed = report.get("failed") or []
+            summary = ("全部正常喵" if not failed
+                       else "有问题：" + "、".join(failed))
+            return Ok({"summary": summary, **report})
+        except Exception as exc:
+            self.logger.warning("diagnose failed: %s", exc)
+            return Err(SdkError("自检失败喵"))
+
+    @plugin_entry(
+        id="take_photo",
+        name="拍一张",
+        description="把当前画面拍下来存进美景相册。玩家说拍照/拍一张/拍吧/截个图时调用，面板上也有按钮。",
+        input_schema={"type": "object", "properties": {}},
+    )
+    async def action_take_photo(self, **_) -> Any:
+        """主人答应了拍照（或自己在面板上点了按钮）。"""
+        try:
+            if not self.rt:
+                return Err(SdkError("猫爪副驾还没准备好喵"))
+            result = await self.rt.take_photo()
+            if not result.get("ok"):
+                return Ok({"reply": result.get("summary", "")})
+            return Ok({"reply": result.get("summary", ""), "photos": self.rt.photo_album.snapshot()})
+        except Exception as exc:
+            self.logger.warning("take_photo failed: %s", exc)
+            return Err(SdkError("拍照失败了喵"))
+
     @ui.action(id="set_dry_run", label="切换播报开关", tone="primary", group="runtime", order=20, refresh_context=True)
     @plugin_entry(
         id="set_dry_run",
@@ -333,26 +406,6 @@ class NekoPawpilotPlugin(NekoPluginBase):
         except Exception as exc:
             self.logger.warning("install_telemetry failed: %s", exc)
             return Err(SdkError("导入遥测文件失败喵"))
-
-    @ui.action(id="reparse_map", label="重新解析地图", tone="primary", group="diagnostics", order=32, refresh_context=True)
-    @plugin_entry(
-        id="reparse_map",
-        name="重新解析地图",
-        description="用 TruckLib 重新解析游戏地图，更新道路/设施/红绿灯知识库（耗时长，需游戏已安装）。玩家说解析地图/更新地图/重建地图数据时调用。",
-        input_schema={"type": "object", "properties": {}},
-    )
-    async def action_reparse_map(self, **_) -> Any:
-        """手动重新解析地图知识库。"""
-        try:
-            if not self.rt:
-                return Err(SdkError("猫爪副驾还没准备好喵"))
-            result = await self.rt.reparse_map()
-            if result.get("ok"):
-                return Ok(result)
-            return Err(SdkError(result.get("detail", "地图解析失败喵")))
-        except Exception as exc:
-            self.logger.warning("reparse_map failed: %s", exc)
-            return Err(SdkError("重新解析地图失败喵"))
 
     @plugin_entry(id="get_panel_state", name="获取面板状态",
                   description="供面板轮询的完整状态入口。",

@@ -9,7 +9,26 @@ from .pipeline_models import QQReplyContext
 # 会被 handle_message 就地改写成 group 轮的通知类型：会话键必须与
 # 改写后一致，否则这些轮次全程无锁。新增改写分支时同步补进来（
 # test_converted_notice_types_take_the_group_session_lock 会盯着）。
-CONVERTED_NOTICE_TYPES = frozenset({"group_increase", "poke"})
+CONVERTED_NOTICE_TYPES = frozenset({"group_increase", "poke", "group_ban"})
+
+#: 会话表的上限与回收门槛（见 `reap_stale_sessions`）。
+#:
+#: ``_user_sessions`` 的键是 `group:{gid}` / `private:{sender}`，随"见过的群 +
+#: 见过的私聊对象"单调增长。唯一会淘汰它的 `_flush_idle_memory_sessions` 在这
+#: 类会话上是 **no-op**：它的第一句就是 `if not memory_enabled: continue`，而群
+#: 记忆默认关闭（`group_memory_enabled` 默认 False）——于是**默认配置下没有任何
+#: 周期性淘汰**，只有"会话替换类事件"（超时/身份变化/提示词变更/权限变更）才会
+#: 清掉某一条。每个存活会话都攥着一个活的对话客户端、其无长度上限的
+#: `_conversation_history`、reply_chunks 与一把锁。
+#:
+#: 因此这里补一道**容量 + 空闲**双闸的 reaper，只针对"没有任何记忆要结算"的会话
+#: （真正的 idle 结算由 `_flush_idle_memory_sessions` 负责，两者不重叠）。
+SESSION_HARD_LIMIT = 2000
+#: 只有空闲超过这个时长的会话才会被容量闸回收 —— 避免把"刚刚热过、马上还要用"
+#: 的会话误杀（后者重建成本高：一次 bootstrap + 历史）。
+SESSION_REAP_MIN_IDLE_SECONDS = 3600.0
+#: 单轮最多回收多少条：一次全清会把事件循环卡住（每条都要关客户端）。
+SESSION_REAP_MAX_PER_SWEEP = 200
 
 
 class QQSessionRuntimeService:
@@ -233,6 +252,14 @@ class QQSessionRuntimeService:
                 )
                 return False
         user_data = self.plugin._user_sessions.pop(session_key, None)
+        # 会话没了之前，留一句"刚才聊到哪儿"给下一个会话（接续摘要）。
+        # 放在 pop 之后、close 之前：历史还在这个对象上，而 pop 保证不会重复捕获。
+        handoff = getattr(self.plugin, "session_handoff_service", None)
+        if handoff is not None and user_data is not None:
+            try:
+                handoff.capture(session_key, user_data)
+            except Exception as exc:  # noqa: BLE001
+                self.plugin.logger.warning(f"[Handoff] 捕获接续摘要失败 ({session_key}): {exc}")
         session = user_data.get("session") if user_data else None
         if session is None and not finalized and peek:
             # finalize 的 early-exit（缺 her_name/session 元数据）会弹出
@@ -246,17 +273,92 @@ class QQSessionRuntimeService:
                 self.plugin.logger.warning(f"[{reason}] 关闭会话失败: {close_error}")
         return True
 
+    async def reap_stale_sessions(self) -> int:
+        """容量 + 空闲双闸回收"没有记忆要结算"的会话，返回回收条数。
+
+        为什么需要它：``_flush_idle_memory_sessions`` 只处理 ``memory_enabled``
+        为真的会话（它第一句就 `continue`），而群记忆默认关闭 —— 于是默认配置下
+        ``_user_sessions`` 没有任何**周期性**回收路径，随"见过的群 + 私聊对象"
+        单调增长。每个存活会话都攥着活的对话客户端 + 无上限的
+        ``_conversation_history`` + reply_chunks + 一把锁。
+
+        与 idle 结算的**分工**（刻意不重叠）：
+          - ``_flush_idle_memory_sessions``：memory_enabled 为真 → 先结算再淘汰；
+          - 本方法：memory 关闭（无东西要结算）→ 纯资源回收。
+
+        安全闸（任一不满足就不碰）：
+          - 有 `pending_disable_settle` 或 `pending_settle_*`：还有 opt-out 结算
+            欠账，交给既有路径；
+          - `_has_pending_session_settlement`：在途投递未定局，``discard_session``
+            内部也会再查一次，这里先筛掉避免无谓唤醒；
+          - 空闲时长达不到 ``SESSION_REAP_MIN_IDLE_SECONDS``：刚热过的会话不杀。
+        """
+        sessions = getattr(self.plugin, "_user_sessions", None) or {}
+        if len(sessions) <= SESSION_HARD_LIMIT:
+            return 0
+        now = time.time()
+        candidates: list[tuple[float, str]] = []
+        for key, data in list(sessions.items()):
+            if not isinstance(data, dict):
+                continue
+            if data.get("memory_enabled") or data.get("pending_disable_settle"):
+                continue
+            if any(k.startswith("pending_settle") for k in data):
+                continue
+            if self.plugin._has_pending_session_settlement(key):
+                continue
+            idle = now - float(data.get("last_activity_at") or 0.0)
+            if idle < SESSION_REAP_MIN_IDLE_SECONDS:
+                continue
+            candidates.append((idle, key))
+        if not candidates:
+            return 0
+        # 最久没动的先回收；只回收**刚好降回上限**的量（多杀是白白的重建成本），
+        # 再受单轮上限约束。
+        candidates.sort(reverse=True)
+        excess = len(sessions) - SESSION_HARD_LIMIT
+        budget = min(excess, SESSION_REAP_MAX_PER_SWEEP)
+        reaped = 0
+        for _idle, key in candidates[:budget]:
+            try:
+                await self.discard_session(key, reason="capacity_reap")
+                reaped += 1
+            except Exception as exc:  # 单条失败不影响其余
+                self.plugin.logger.warning(f"[Reap] 回收会话失败 {key}: {exc}")
+        if reaped:
+            self.plugin.logger.info(
+                f"[Reap] 会话数 {len(sessions)} 超上限 {SESSION_HARD_LIMIT}，"
+                f"已回收 {reaped} 条（memory 未开启、空闲 ≥"
+                f"{int(SESSION_REAP_MIN_IDLE_SECONDS)}s）"
+            )
+        return reaped
+
     async def session_housekeeping_loop(self) -> None:
+        """会话清扫驱动（idle 记忆结算 + 注意力衰减）。
+
+        单轮失败不得终止循环：``_flush_idle_memory_sessions`` 与
+        ``decay_all`` 都要碰磁盘与记忆服务，任何一次异常此前会直接终结这个
+        task（且无 done 回调，异常没人取回）——此后 idle 会话永不结算、
+        注意力永不衰减，全程无日志。改为逐轮兜底。
+        """
         try:
             while True:
                 await asyncio.sleep(self.plugin.SESSION_SWEEP_INTERVAL_SECONDS)
-                # 群显示名刷新挂在这个既有周期上（TTL 门在服务内部，绝大多
-                # 数轮次是零开销判断），不为它单开定时器。
-                display_names = getattr(self.plugin, "display_name_service", None)
-                if display_names is not None:
-                    display_names.maybe_schedule_refresh()
-                await self.plugin._flush_idle_memory_sessions()
-                if getattr(self.plugin, "attention_service", None):
-                    await self.plugin.attention_service.decay_all()
+                try:
+                    # 群显示名刷新挂在这个既有周期上（TTL 门在服务内部，绝大多
+                    # 数轮次是零开销判断），不为它单开定时器。
+                    display_names = getattr(self.plugin, "display_name_service", None)
+                    if display_names is not None:
+                        display_names.maybe_schedule_refresh()
+                    await self.plugin._flush_idle_memory_sessions()
+                    # 容量闸：memory 未开启的会话不走上面那条（它只处理
+                    # memory_enabled 为真的），在默认配置下没有别的周期回收。
+                    await self.reap_stale_sessions()
+                    if getattr(self.plugin, "attention_service", None):
+                        await self.plugin.attention_service.decay_all()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    self.plugin.logger.warning(f"[Session] 清扫轮次异常，已跳过本轮: {e}")
         except asyncio.CancelledError:
             raise

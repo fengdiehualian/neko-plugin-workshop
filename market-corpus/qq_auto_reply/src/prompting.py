@@ -12,6 +12,7 @@ from PIL import Image
 from utils.llm_client import strip_thinking_segments
 from utils.screenshot_utils import compress_screenshot
 
+from . import addressing
 from .pipeline_models import QQInstructionBundle
 from .prompt_fragment_templates import LOGIN_IDENTITY_PROMPT
 
@@ -77,6 +78,7 @@ class QQAutoReplyPromptingMixin:
         quoted_message_id: str = "",
         mentions_other_user: bool = False,
         mentions_all: bool = False,
+        addressee: "addressing.AddresseeVerdict | None" = None,
     ) -> str:
         return self.prompt_builder.build_prompt_message(
             is_group=is_group,
@@ -91,6 +93,7 @@ class QQAutoReplyPromptingMixin:
             quoted_message_id=quoted_message_id,
             mentions_other_user=mentions_other_user,
             mentions_all=mentions_all,
+            addressee=addressee,
         )
 
     @staticmethod
@@ -231,11 +234,27 @@ class QQAutoReplyPromptingMixin:
         return queued
 
     @staticmethod
-    def _build_group_turn_message(*, group_scene_mode: str, user_title: str, sender_id: str, group_id: str | None, message: str, current_message_id: str = "", is_reply_to_bot: bool = False, quoted_message_id: str = "", mentions_other_user: bool = False, mentions_all: bool = False) -> str:
+    def _build_group_turn_message(*, group_scene_mode: str, user_title: str, sender_id: str, group_id: str | None, message: str, current_message_id: str = "", is_reply_to_bot: bool = False, quoted_message_id: str = "", mentions_other_user: bool = False, mentions_all: bool = False, first_reply_after_own_speech: bool = False, addressee: "addressing.AddresseeVerdict | None" = None) -> str:
         msg_id_line = f"当前消息ID: {current_message_id}\n" if current_message_id else ""
         is_at_bot = (str(group_scene_mode or "").strip() == "directed_user")
         # 构建定向提示：明确告诉模型这条消息是冲谁来的
-        if is_at_bot:
+        #
+        # 判据分两层：**显式指向**（@ 你 / 引用你 / 引用别人 / @ 别人 / @全体）优先，
+        # 都判不出来时再看**对话时序** —— `first_reply_after_own_speech` 表示
+        # "她刚说完话，而这是之后的第一条发言"。真机（2026-09-27 17:37）踩的就是
+        # 缺了这一层：她破冰开口 30 秒后对方回「是吗」（没 @ 没引用），被判成
+        # 「不是冲你来的…不要每条都接」，她于是输出 `<feeling>bored</feeling>` 走人，
+        # 一个字都没回 —— 使用者看到的是「破冰完没有后续」。
+        #
+        # 第三层（2026-09-27 追加）：门控算好的 `addressee` 结论（`addressing.py`）。
+        # 它比这里的布尔量**多知道两件事**：① 引用的到底是**谁**的消息（连接器给的
+        # `quoted_sender_id`，此前没人读）；② 文本里是不是叫了她的名字。所以有结论时
+        # 优先用它的措辞，只有结论为 None（开放平台通道 / 合成轮 / 旁路）时才落到下面
+        # 这套老标签 —— 老标签一行都没删，是那种情况下的正确行为。
+        rich_hint = addressing.aim_label(addressee)
+        if rich_hint:
+            hint = f"【{rich_hint}】"
+        elif is_at_bot:
             hint = "【这条消息是冲你来的】对方直接@了你，在对你说话。你应该回复。"
         elif is_reply_to_bot:
             hint = "【这条消息是冲你来的】对方回复了你的某条消息。你应该回复。"
@@ -245,6 +264,8 @@ class QQAutoReplyPromptingMixin:
             hint = "【这条消息不是冲你来的】对方@了别人，不是在跟你说话。不要自作多情。除非内容与你高度相关，不要插话。"
         elif mentions_all:
             hint = "【这条消息是@全体成员】对方对全群广播。内容与你或群里讨论的话题相关时可以回复。"
+        elif first_reply_after_own_speech:
+            hint = "【这条消息很可能是在接你的话】你刚刚才在群里说过话，而这是之后的第一条发言 —— 大概率是在回应你。该接就接，别晾着对方；确实与你无关再忽略。"
         else:
             hint = "【这条消息不是冲你来的】群里的人在和其他人聊天，不是跟你说话。只有当你真的有话想说、能贡献独特见解时再回复，不要每条都接。"
         return (

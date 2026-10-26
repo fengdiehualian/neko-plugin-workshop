@@ -20,7 +20,7 @@ export function GuideCard(props: {
   const doneCount = items.filter((item) => item.ok === true).length
 
   return (
-    <Card title={t("panel.guide.title", { defaultValue: "把她准备到最佳状态" })}>
+    <Card title={t("panel.guide.title", { defaultValue: "准备清单" })}>
       <div className="tm-guide-progress">
         <span className="tm-guide-bar">
           <span className="tm-guide-bar-fill" style={{ width: `${Math.round((doneCount / items.length) * 100)}%` }} />
@@ -33,7 +33,7 @@ export function GuideCard(props: {
             <span className={item.ok ? "tm-guide-dot tm-guide-dot-ok" : "tm-guide-dot"} />
             <span className="tm-guide-text">{guideItemLabel(t, item)}</span>
             {!item.ok && item.level === "must" ? (
-              <span className="tm-guide-must">{t("panel.guide.must", { defaultValue: "必办" })}</span>
+              <span className="tm-guide-must">{t("panel.guide.must", { defaultValue: "基础" })}</span>
             ) : null}
             <span className="tm-guide-spacer" />
             {!item.ok && item.id === "rhythm" ? (
@@ -54,7 +54,7 @@ export function GuideCard(props: {
         ))}
       </div>
       <div className="tm-guide-foot">
-        {t("panel.guide.foot", { defaultValue: "「建议」项不点亮也能开始陪伴——它们决定的是她能记多深、读你多准" })}
+        {t("panel.guide.foot", { defaultValue: "建议项可以稍后配置，不影响正常聊天。" })}
       </div>
     </Card>
   )
@@ -64,10 +64,10 @@ export function GuideCard(props: {
 // 面板未更新时的容忍面，与全插件"坏数据宽容"纪律一致）
 function guideItemLabel(t: TFunc, item: GuideItem): string {
   const id = String(item.id || "")
-  if (id === "rhythm") return t("panel.guide.item.rhythm", { defaultValue: "开启她的身体节律（总开关）" })
-  if (id === "anchor") return t("panel.guide.item.anchor", { defaultValue: "周期起点已确认（想改去「周期」页）" })
+  if (id === "rhythm") return t("panel.guide.item.rhythm", { defaultValue: "开启模拟总开关" })
+  if (id === "anchor") return t("panel.guide.item.anchor", { defaultValue: "确认周期起点" })
   if (id === "mood") return t("panel.guide.item.mood", { defaultValue: "情绪系统已开启" })
-  if (id === "channels") return t("panel.guide.item.channels", { defaultValue: "至少一条模型通道在线（碎片/成文/语气）" })
-  if (id === "together") return t("panel.guide.item.together", { defaultValue: "去和她聊聊天——相处记录从今天点亮" })
+  if (id === "channels") return t("panel.guide.item.channels", { defaultValue: "配置可用的模型通道" })
+  if (id === "together") return t("panel.guide.item.together", { defaultValue: "开始聊天，留下相处记录" })
   return id
 }

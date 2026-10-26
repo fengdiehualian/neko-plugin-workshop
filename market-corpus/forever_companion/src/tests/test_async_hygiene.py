@@ -86,19 +86,37 @@ def _deferred_call_ids(tree: ast.AST) -> set[int]:
     return deferred
 
 
-def test_no_unawaited_async_self_calls() -> None:
-    modules = _plugin_modules()
+def _unawaited_async_calls(modules: list[tuple[Path, ast.Module]]) -> list[str]:
     async_names: set[str] = set()
+    context_names: set[str] = set()
     for _, tree in modules:
         for node in ast.walk(tree):
             if isinstance(node, ast.AsyncFunctionDef):
                 async_names.add(node.name)
-    assert async_names, "没解析到任何 async 方法，门本身失效"
+                decorated = any(
+                    (getattr(decorator, "id", None) or getattr(decorator, "attr", None)) == "asynccontextmanager"
+                    for decorator in node.decorator_list
+                )
+                if decorated and any(isinstance(inner, (ast.Yield, ast.YieldFrom)) for inner in ast.walk(node)):
+                    context_names.add(node.name)
 
     offenders: list[str] = []
     for path, tree in modules:
         awaited = {id(n.value) for n in ast.walk(tree) if isinstance(n, ast.Await) and isinstance(n.value, ast.Call)}
         deferred = _deferred_call_ids(tree)
+        for statement in ast.walk(tree):
+            if not isinstance(statement, ast.AsyncWith):
+                continue
+            for item in statement.items:
+                call = item.context_expr
+                if (
+                    isinstance(call, ast.Call)
+                    and isinstance(call.func, ast.Attribute)
+                    and isinstance(call.func.value, ast.Name)
+                    and call.func.value.id == "self"
+                    and call.func.attr in context_names
+                ):
+                    deferred.add(id(call))
         for call in _self_calls(tree):
             name = call.func.attr  # type: ignore[union-attr]
             if name not in async_names:
@@ -106,10 +124,48 @@ def test_no_unawaited_async_self_calls() -> None:
             if id(call) in awaited or id(call) in deferred:
                 continue
             offenders.append(f"{path.relative_to(PLUGIN_ROOT)}:{call.lineno}: self.{name}() 未 await")
+    return offenders
+
+
+def test_no_unawaited_async_self_calls() -> None:
+    modules = _plugin_modules()
+    assert any(
+        isinstance(node, ast.AsyncFunctionDef) for _, tree in modules for node in ast.walk(tree)
+    ), "没解析到任何 async 方法，门本身失效"
+    offenders = _unawaited_async_calls(modules)
 
     assert not offenders, (
         "async 方法被当同步方法调用（漏 await 会把协程对象当值传递）：\n  " + "\n  ".join(offenders)
     )
+
+
+def test_async_contextmanager_exemption_only_applies_to_async_with() -> None:
+    source = """
+class Example:
+    @asynccontextmanager
+    async def guard(self):
+        yield
+    async def work(self):
+        return 1
+    @asynccontextmanager
+    async def not_a_generator(self):
+        return 1
+    async def caller(self):
+        async with self.guard():
+            pass
+        self.guard()
+        async with self.work():
+            pass
+        async with self.not_a_generator():
+            pass
+        with self.guard():
+            pass
+"""
+    offenders = _unawaited_async_calls([(PLUGIN_ROOT / "probe.py", ast.parse(source))])
+    assert len(offenders) == 4
+    assert sum("self.guard()" in item for item in offenders) == 2
+    assert any("self.work()" in item for item in offenders)
+    assert any("self.not_a_generator()" in item for item in offenders)
 
 
 def test_no_sync_blocking_calls_inside_async_defs() -> None:

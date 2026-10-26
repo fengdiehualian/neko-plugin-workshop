@@ -38,11 +38,17 @@ class ScenarioMachine:
 
     def update(self, snap) -> str:
         """由快照推导场景并返回。"""
-        if not snap.sdk_active:
+        moving = snap.speed_kmh > 5
+        # 主菜单/未接管：SDK 不活跃且车没动 → IDLE（只放行 lifecycle）
+        if not snap.sdk_active and not moving:
             self._set(IDLE)
             return self.current
+        # 自由驾驶（没接单但在跑）同样算驾驶。
+        # 旧版这里直接判 IDLE，而 IDLE 只允许 safety/lifecycle/chatter，
+        # 于是"不开任务随便跑"时 task/trip 全被门控挡掉——玩家只能听见超速提醒
+        # （2026-10 实测反馈："除了问我超速其他什么都不知道聊"）。
         if not snap.on_job:
-            self._set(IDLE)
+            self._set(DRIVING if moving else IDLE)
             return self.current
         if snap.paused:
             self._set(JOB_PICKUP if not self.current else self.current)

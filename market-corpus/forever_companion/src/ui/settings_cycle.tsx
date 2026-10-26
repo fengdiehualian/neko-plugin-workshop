@@ -13,7 +13,7 @@ export function CycleSettingsCard(props: {
   const { t, settings, form, updateForm, lanlan } = props
 
   return (
-    <Card title={t("panel.settings.sectionCycle", { defaultValue: "她的周期" })}>
+    <Card title={t("panel.settings.sectionCycle", { defaultValue: "周期设置" })}>
       {lanlan ? (
         <div className="tm-derived">
           {t("panel.settings.sectionCycleHint", { defaultValue: "仅作用于当前查看的角色" })}：{lanlan}
@@ -21,12 +21,12 @@ export function CycleSettingsCard(props: {
       ) : null}
       <TmSwitch
         checked={form.auto_derive}
-        label={t("panel.settings.autoDerive", { defaultValue: "自动演算（潮汐期长度、活跃日、活跃窗口由周期长度自动推导）" })}
+        label={t("panel.settings.autoDerive", { defaultValue: "自动计算阶段参数" })}
         onChange={(value: boolean) => updateForm({ auto_derive: value })}
       />
       {form.auto_derive ? (
         <div className="tm-derived">
-          {t("panel.settings.derivedResult", { defaultValue: "演算结果" })}：
+          {t("panel.settings.derivedResult", { defaultValue: "计算结果" })}：
           {t("panel.settings.tideNDays", { n: String(settings.period_length ?? 5), defaultValue: "潮汐期 {n} 天" })}
           {" · "}
           {t("panel.settings.activeDayN", { n: String(settings.ovulation_day ?? 14), defaultValue: "活跃日 第 {n} 天" })}

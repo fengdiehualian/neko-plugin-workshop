@@ -4,7 +4,7 @@ name = "猫爪副驾"
 description = "欧卡2陪玩：遥测感知驾驶、事故急救、超时提醒、路线规划、画面畅聊，让每趟长途都有猫娘陪伴。"
 short_description = "ETS2 catgirl copilot companion."
 keywords = ["ets2", "欧卡2", "欧卡", "副驾驶", "驾驶", "卡车", "euro truck", "truck", "copilot", "陪玩", "开车"]
-version = "0.0.1"
+version = "0.0.2"
 entry = "plugin.plugins.neko_pawpilot:NekoPawpilotPlugin"
 
 [plugin.author]
@@ -53,6 +53,11 @@ event_cooldown_s = 10.0
 time_warn_min = 60
 low_fuel_percent = 15
 crash_damage_delta = 0.05
+# 碰撞时间窗（秒）：窗口内车损累计上升超过上面的阈值即判碰撞（解决"刮蹭式
+# 撞击损伤分散在多帧、单帧不足阈值"导致的漏报——实测曾整场事故零播报）
+crash_damage_window_s = 5.0
+# 碰撞加速度阈值(g)：实测撞击峰值 1.80g、正常驾驶 <0.4g；0 = 关闭该信号
+crash_accel_g = 1.5
 hard_brake_force = 0.9
 hard_brake_speed_kmh = 60
 global_rate_limit_s = 12.0
@@ -61,6 +66,21 @@ safety_window_s = 60.0
 safety_failure_limit = 5
 safety_auto_stop = true
 broadcast_frequency = "standard"
+# ── 内容层（2026-10 玩法扩充）──
+content_passing_places = true    # 途经已知地点时介绍该地风土
+content_radio_dj = true          # 猫娘电台 DJ 节目
+content_opening_story = true     # 每单开场故事 + 起点地域文化
+content_arrival_culture = true   # 到达地文化介绍
+radio_interval_s = 600.0         # 电台节目间隔（秒）
+passing_radius_km = 6.0          # 途经判定半径
+passing_cooldown_s = 1800.0      # 同一地点播报冷却
+mountain_pass_delta_m = 120.0    # 山口判定：180s 内海拔变化阈值（米）
+# ── 接力驾驶（她真的开一段；v2 前视点跟踪）──
+pilot_relay_enabled = true       # 开阔路段主动提议接管
+pilot_lookahead_m = 45.0         # 前视点距离
+pilot_steer_gain = 1.6           # 横向偏角 → 转向指令增益
+pilot_steer_step = 6.0           # 每拍鼠标相对位移上限（像素）
+pilot_max_lateral_m = 8.0        # 横向偏差超过即交还（安全带）
 broadcast_categories = { safety = true, task = true, trip = true, lifecycle = true, chatter = false }
 telemetry_plugin_rel = "bin/win_x64/plugins/scs-telemetry.dll"
 telemetry_bundle_rel = "data/telemetry/scs-telemetry.dll"

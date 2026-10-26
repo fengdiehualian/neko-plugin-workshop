@@ -16,5 +16,17 @@
     "model": "",
     "api_key": "",
     "base_url": ""
+  },
+  "pacing": {
+    "companion_gap_s": 90.0,
+    "companion_event_quiet_s": null,
+    "radio_interval_s": 900.0,
+    "passing_radius_km": 6.0,
+    "passing_cooldown_s": 1800.0,
+    "companion_enabled": true,
+    "content_passing_places": true,
+    "content_radio_dj": true,
+    "content_opening_story": true,
+    "content_arrival_culture": true
   }
 }

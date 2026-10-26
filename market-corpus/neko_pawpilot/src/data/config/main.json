@@ -8,9 +8,13 @@
   "time_warn_min": 60,
   "low_fuel_percent": 15,
   "crash_damage_delta": 0.05,
+  "crash_damage_window_s": 5.0,
+  "crash_accel_g": 1.5,
   "hard_brake_force": 0.9,
   "hard_brake_speed_kmh": 60,
-  "push_visibility": ["chat"],
+  "push_visibility": [
+    "chat"
+  ],
   "push_enabled": true,
   "global_rate_limit_s": 12.0,
   "critical_cooldown_s": 5.0,
@@ -18,13 +22,28 @@
   "safety_failure_limit": 5,
   "safety_auto_stop": true,
   "broadcast_frequency": "standard",
+  "content_passing_places": true,
+  "content_radio_dj": true,
+  "content_opening_story": true,
+  "content_arrival_culture": true,
+  "radio_interval_s": 900.0,
+  "passing_radius_km": 6.0,
+  "passing_cooldown_s": 1800.0,
+  "mountain_pass_delta_m": 120.0,
+  "pilot_relay_enabled": true,
+  "pilot_lookahead_m": 45.0,
+  "pilot_steer_gain": 1.6,
+  "pilot_steer_step": 6.0,
+  "pilot_max_lateral_m": 8.0,
   "broadcast_categories": {
     "safety": true,
     "task": true,
     "trip": true,
     "lifecycle": true,
-    "chatter": false
+    "chatter": true
   },
   "telemetry_plugin_rel": "bin/win_x64/plugins/scs-telemetry.dll",
-  "telemetry_bundle_rel": "data/telemetry/scs-telemetry.dll"
+  "telemetry_bundle_rel": "data/telemetry/scs-telemetry.dll",
+  "companion_enabled": true,
+  "companion_gap_s": 90.0
 }

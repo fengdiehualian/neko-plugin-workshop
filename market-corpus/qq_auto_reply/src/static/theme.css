@@ -1,0 +1,197 @@
+/* 统一主题 —— 插件界面的**唯一视觉真源**。
+ *
+ * 色板来源：**本体（N.E.K.O 主程序）自带的插件界面语言**，不是自创配色。
+ * 逐条对齐下列本体文件（都在前端插件管理器里）：
+ *
+ *   frontend/plugin-manager/src/components/plugin/hosted/ui-kit/styles.css
+ *       → token 原样照抄（--bg / --surface / --text / --primary / --radius-* …）
+ *   frontend/plugin-manager/src/components/layout/Sidebar.vue
+ *       → 侧栏与导航项做法（半透明 surface、蓝色 active、inset 3px 左条、hover 平移）
+ *   frontend/plugin-manager/src/assets/base.css
+ *       → 字体栈
+ *   frontend/plugin-manager/src/assets/styles/common.css
+ *       → 滚动条（8px、4px 圆角）
+ *
+ * 为什么以前四个页面像一个插件拼出来的：这里曾经长出两套平行色板，而且都
+ * 没被线上页面用上（详见 git 历史）。现在只有这一个文件定义颜色。
+ *
+ * 关于深色模式：本体的 ui-kit 用 `prefers-color-scheme` 变暗，但插件管理器是
+ * 把 `data-theme="dark"` 加在**自己的** `<html>` 上（composables/useDarkMode.ts），
+ * 而静态插件页跑在另一个 origin 的 iframe 里 —— 宿主只通过 `?locale=` 传语言
+ * （components/plugin/staticUiUrl.ts），**没有任何主题通道**。管理器切深色时
+ * 插件页无从得知，所以这里固定浅色，并用 `color-scheme: light` 明确表态，
+ * 免得操作系统深色时浏览器把表单控件单独涂黑。
+ *
+ * 命名：本体 token 名保持原样（以后本体改色可以逐条对照），另外给四页历史上
+ * 用过的名字留一组别名，指向同一批值 —— 页面不必逐个改 var() 引用。
+ */
+
+:root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+
+    /* ── 本体 token（照抄 ui-kit/styles.css 的 :root）───────────────── */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+
+    --bg: #f7f9fc;                          /* 页面底：冷调近白 */
+    --surface: rgba(255, 255, 255, .84);    /* 卡片：半透明白 */
+    --surface-strong: rgba(255, 255, 255, .96);
+    --text: #1f2937;
+    --muted: #667085;
+    --primary: #409eff;                     /* Element Plus 蓝，本体主色 */
+    --success: #67c23a;
+    --warning: #e6a23c;
+    --danger: #f56c6c;
+    --info: #14b8a6;
+    --shadow-soft: 0 12px 36px rgba(15, 23, 42, .12);
+
+    /* ── 中性填充／描边 ──────────────────────────────────────────────
+     * 这一组**故意不透明**（等于把本体的半透明值预先合成到白底上）。
+     *
+     * 为什么：本体 kit 里这些是 rgba(...)，因为它的页面底色永远是浅的。
+     * 我们这轮开始用**深色插画当底图**，半透明淡底压在深色底图上会跟着变暗，
+     * 压在上面的同色文字立刻糊掉 —— 实测 status.html 的错误框 3.88 → 2.36、
+     * 标题栏的 ghost 按钮 3.68 → 2.45。做成不透明后这些面板与背景无关，
+     * 而浅色底图上的观感几乎无差别。
+     *
+     * **只有 --surface / --surface-glass* 保持半透明** —— 毛玻璃是刻意的效果。 */
+    --border: #d9dee5;                      /* rgba(148,163,184,.36) over white */
+    --fill-subtle: #f9fafb;                 /* rgba(148,163,184,.06) */
+    --border-subtle: #eceef2;               /* rgba(148,163,184,.18) */
+    --overlay: #ebecef;                     /* rgba(15,23,42,.08) */
+
+    /* ── 语义色的淡底与淡描边（同样不透明，理由同上）────────────────── */
+    --primary-tint: #e8f3ff;                /* rgba(64,158,255,.12) */
+    --primary-tint-soft: #f3f9ff;           /* rgba(64,158,255,.06) */
+    --primary-border: #b6daff;              /* rgba(64,158,255,.38) */
+    --primary-focus-border: #90c7ff;        /* rgba(64,158,255,.58) */
+    --primary-glow: rgba(64, 158, 255, .14);/* 投影色，保持半透明 */
+    --success-tint: #f0f9eb;                /* rgba(103,194,58,.1) */
+    --success-tint-strong: #e4f4dc;         /* rgba(103,194,58,.18) */
+    --success-border: #c5e8b4;              /* rgba(103,194,58,.38) */
+    --warning-tint: #fcf5ea;                /* rgba(230,162,60,.11) */
+    --warning-border: #f7e1c1;              /* rgba(230,162,60,.32) */
+    --danger-tint: #fef0f0;                 /* rgba(245,108,108,.1) */
+    --danger-border: #fbc7c7;               /* rgba(245,108,108,.38) */
+    --danger-focus-border: #f89595;         /* rgba(245,108,108,.72) */
+    --info-tint: #e8f8f6;                   /* rgba(20,184,166,.1) */
+    --info-border: #a6e5dd;                 /* rgba(20,184,166,.38) */
+
+    /* ── 淡底上的**文字**色：upstream 用 dark-2 一档 ──────────────────
+     * 本体的 .neko-button 是「同色字压同色淡底」（例如 #409eff on 12% 蓝底），
+     * 实测对比度只有 2.36:1 —— 而旧的 ghost 按钮是深灰字压白卡（7.56:1）。
+     * 照抄 kit 会把按钮文字的可读性从 7.56 拉到 2.36，所以这里取 Element Plus
+     * 官方的 dark-2 一档当淡底上的文字色（同一个色相、官方色号），
+     * 实测 2.36 → 3.57、成功色 1.95 → 3.00、危险色 2.44 → 3.68。
+     * 实心按钮仍保留本体原样（白字压 #409eff = 2.78）。 */
+    --primary-on-tint: #337ecc;             /* EP primary dark-2 */
+    --success-on-tint: #529b2e;             /* EP success dark-2 */
+    --warning-on-tint: #b88230;             /* EP warning dark-2 */
+    --danger-on-tint: #c45656;              /* EP danger dark-2 */
+
+    --table-head-bg: #f6f8f9;               /* rgba(148,163,184,.08) */
+
+    /* ── 整页背景图（**分页面配**，见 static/assets/README.md）──────────
+     * 这里是**默认值**，napcat / open_platform / index 用它：
+     *
+     *   默认 蓝白图形   assets/page-bg-blue.webp  + 纱 .45
+     *       使用者给的其中一张。实测代价与纯色底打平（四页合计 37 对 37）。
+     *
+     * status.html 在**它自己的 <style> 里覆写**成森林插画（另一张）。
+     * 另外还有一张备选：本体的原背景 assets/page-bg.webp（37 KB，纱 .30），
+     * 取自 static/icons/model_manager_background.png。
+     *
+     * 切换时图和纱要**成对**改：森林那张偏暗，纱太薄会让直接压在底图上的文字糊掉。
+     * 也正因为底图不是纯色，本体那套半透明 surface（.84 / .72 / .65）才成立，
+     * 所以卡片用 --surface 而不是不透明的白。 */
+    --page-bg-image: url('assets/page-bg-blue.webp?v=1');
+
+    /* 底图上的「纱」。本体自己就是这么干的：character_card_manager.css 里
+     * background-image: linear-gradient(...), url('steam_shop_bg.png') ——
+     * 一层渐变压在图上面保可读性。
+     *
+     * .45 是量出来的：napcat 的不达标项从 21（.30）降到 17，与纯色底的 16 基本持平。
+     * 注意纱能买到的东西有限 —— 淡底/描边这轮已改成不透明（见上面的说明），
+     * 所以剩下的低对比度主要是实心语义按钮（白字压 #409eff 等，与底图无关）。 */
+    --page-scrim-color: rgba(255, 255, 255, .45);
+
+    /* ── 毛玻璃外壳（照抄 AppLayout.vue 的 .app-sidebar / .app-header）── */
+    --surface-glass: rgba(255, 255, 255, .72);      /* = .app-sidebar 底色 */
+    --surface-glass-header: rgba(255, 255, 255, .65);/* = .app-header 底色 */
+    --glass-blur: blur(32px) saturate(160%);
+    --hairline: rgba(255, 255, 255, .15);           /* 面板自己的白色发丝描边 */
+    --header-shadow: inset 0 -.5px 0 rgba(255, 255, 255, .15), 0 1px 4px rgba(100, 120, 160, .04);
+
+    /* ── 别名：四页历史上用过的名字，全部指向上面这批值 ───────────── */
+    --accent: var(--primary);
+    --accent-hover: #337ecc;                /* Element Plus primary dark-2 */
+    --accent-soft: var(--primary-tint);
+    --primary-light: var(--primary-tint);
+
+    --bg-main: var(--bg);
+    --bg-card: var(--surface);
+    --card-bg: var(--surface);
+    --input-bg: var(--surface-strong);      /* 表单控件保持更实的底，保证可读 */
+    --bg-subtle: var(--fill-subtle);
+
+    --text-main: var(--text);
+    --text-primary: var(--text);
+    --text-secondary: var(--muted);
+
+    /* 侧栏与顶栏：本体是**毛玻璃浅色 surface + 蓝色 active**，不是深色底。
+     * 见 AppLayout.vue .app-sidebar / .app-header 与 Sidebar.vue 的导航项做法 */
+    --bg-sidebar: var(--surface-glass);
+    --bg-topbar: var(--surface-glass-header);
+    --text-sidebar: var(--muted);
+    --text-sidebar-active: var(--primary-on-tint);   /* active 项压在 12% 蓝底上 */
+
+    --radius: var(--radius-md);             /* 通用控件圆角 */
+    --radius-pill: 999px;                   /* 徽标 / 药丸按钮 */
+
+    /* 卡片：本体是**扁平**的 —— 描边 + 无投影（.neko-card { box-shadow: none }） */
+    --shadow-card: none;
+    --shadow-hover: var(--shadow-soft);
+}
+
+/* ── 页面底色：整页背景图是**这里**统一决定的 ──────────────────────
+ * 四个页面各自的 body 规则不要再写 background（写了会盖掉底图，因为页面的
+ * <style> 在 <link> 之后）。要用别的底图，只改 --page-bg-image。
+ * 背景层的顺序：底色 → 底图 → 纱（列表里靠前的画在上面）。 */
+body {
+    background-color: var(--bg);
+    background-image:
+        linear-gradient(var(--page-scrim-color), var(--page-scrim-color)),
+        var(--page-bg-image);
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+
+/* ── 细节：选中文字与滚动条（对齐 common.css）───────────────────── */
+::selection {
+    background: var(--primary-tint);
+    color: var(--primary);
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, .45);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, .65);
+}

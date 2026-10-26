@@ -5,7 +5,7 @@ ForeverCompanionPlugin——SDK 的工具发现遍历 type(self)（collect_llm_t
 与定义文件无关。@llm_tool 只在插件类上被发现（router 无此链路），故必须走 Mixin 而非 PluginRouter。
 
 内容：情绪系统开关与查询、连续心情（valence/arousal）积分与极端邀请、
-行为指令推送、动作应用与限时解除、到期恢复台词、监督循环、
+行为参考推送、动作应用与限时解除、到期记录同步、监督循环、
 12 个模型可调用工具（冷战/已读不回/敷衍/风暴/求安抚/涟漪/暖流/满潮/转晴/手记/日记/检索）。
 """
 
@@ -18,13 +18,12 @@ from plugin.sdk.plugin import Err, Ok, Result, SdkError, llm_tool
 
 from ..core.affect import _MOOD_AFFECT_IMPULSES, _apply_affect_impulse, _current_affect
 from ..core.fragments import recall_fragments
-from ..core.journal import assemble_journal_entry, has_journal_content, journal_write
+from ..core.journal import assemble_journal_entry, has_journal_content, journal_write, normalize_journal_title
 from ..core.state import (
     _ACTION_DEFAULT_MINUTES,
     _COLD_ACTIONS,
     _MOOD_ACTION_DEFAULT_LABELS,
     _MOOD_ACTION_LABEL_KEYS,
-    _POSITIVE_ACTIONS,
     _PROACTIVE_PAUSE_ACTIONS,
     _TIMED_ACTIONS,
     _LanlanShard,
@@ -43,35 +42,17 @@ class MoodActionsMixin:
     """情绪引擎：@llm_tool 集中地 + 状态机（应用/到期/恢复/监督）。"""
 
 
-    # 到期恢复台词分两类语气（_speak_recovery_line 按动作选用）：
-    # conflict = 重度负面动作的冲突导向（打破僵局）；
-    # gentle = 心有涟漪/正面动作的温和回落（小情绪散了/兴致回到日常，自然接着相处）。
-    # {label} 为动作显示标签，{master} 在冲突文案里展开为主人称呼占位符
-    _RECOVERY_STYLES = {
-        "conflict": (
-            "[心情状态] 你的「{label}」时间到了，心情自然缓和下来（内部提示，不要复述本句）。"
-            "如果刚才的冷战/沉默是因为 {master} 做了什么，现在气也消得差不多了——"
-            "用你自己的方式主动说一句话打破僵局吧，别提这份提示。"
-        ),
-        "gentle": (
-            "[心情状态] 你的「{label}」时间到了，情绪自然回落（内部提示，不要复述本句）。"
-            "小情绪散了/兴致慢慢回到日常——用你平时的语气自然地接着相处就好，"
-            "不用刻意解释或道歉，也别提这份提示。"
-        ),
-    }
-
     async def _speak_recovery_line(self, action: str, lanlan: str) -> None:
-        """限时情绪动作结束后，让她自己主动开口缓和（而不是系统硬切回正常）。
-
-        文案按动作分语气：重度负面对动作用冲突导向（打破僵局）；
-        心有涟漪/正面动作用温和回落文案（自然接着相处）。
-        """
+        """只同步记录到期，不替角色宣布释怀，也不发起独立回复。"""
         label_text = self._action_label(action)
-        style = "gentle" if action in _POSITIVE_ACTIONS or action == "ripple" else "conflict"
-        text = self._RECOVERY_STYLES[style].format(label=label_text, master=MASTER_NAME_TOKEN)
+        text = (
+            f"[心情记录]「{label_text}」的工具记录已到期（内部提示，不要复述本句）。"
+            "这只表示插件不再保留这项行为状态，不代表你已经消气、原谅或改变感受。"
+            "接下来是否回应、怎样相处、是否选择其他情绪工具，由你结合当前对话和自身性格决定。"
+        )
         self.push_message(
-            visibility=["chat"],
-            ai_behavior="respond",
+            visibility=[],
+            ai_behavior="read",
             parts=[{"type": "text", "text": text}],
             source=self.plugin_id,
             target_lanlan=lanlan,
@@ -118,7 +99,7 @@ class MoodActionsMixin:
             await self._maybe_sync_proactive_pause()
             if self._proactive_state.get("prev") is not None:
                 await self._reassert_proactive_off()
-            # 长情绪防漂移：每个有生效情绪的角色各自按 3 分钟节流重推行为指令
+            # 长期记录仍按既有 3 分钟节流同步参考，不要求维持固定语气。
             for lanlan, shard in list(self._shards.items()):
                 if not shard.loaded:
                     continue
@@ -160,8 +141,9 @@ class MoodActionsMixin:
             return ""
         if time.time() - state.started_at < limit_min * 60:
             return ""
-        action, state.action = state.action, ""
-        state.reason = ""
+        action = state.action
+        state.record_event("expire", action, "timer")
+        state.clear_action()
         self.logger.info("open-ended mood action {} exceeded {}min; auto-resolved", action, limit_min)
         return action
 
@@ -225,47 +207,48 @@ class MoodActionsMixin:
 
     _MOOD_BEHAVIOR_HINTS = {
         "ebb_tide": (
-            "你正在冷战沉默中：对方发消息也当没看见，不主动开口、不先低头；"
-            "除非被真诚道歉或哄你，否则不想回应。"
-            "情绪是流动的——如果真的被哄好了，随时调用 mood_rising_tide 转晴，"
-            "或直接调用别的情绪工具切换到新状态，不用硬撑到底。"
+            "你记录了暂时保持距离的意愿，可能还在意当前对话里某件具体的事。"
+            "是否沉默、解释缘由或接住重要的话，按你自己的感受判断；"
+            "不需要为了维持状态而忽略所有消息，也不必等对方道歉才允许改变。"
         ),
         "sea_fog": (
-            "你决定已读不回：看到了对方的消息但假装没看见，这段时间不回复任何内容，"
-            "也不解释原因。"
-            "如果提前消气了，随时调用 mood_rising_tide 转晴，或直接调别的情绪工具切换状态。"
+            "你记录了暂时不接当前话题的意愿，这不一定是一场冷战。"
+            "什么时候接回话题、是否简短回应或换个话题，由你决定；"
+            "不需要假装没看见，也不必为维持工具状态而拒绝所有交流。"
         ),
         "shallow_reef": (
-            "回复保持短到极致：只用「嗯」「哦」「随便」「还行」这类一两个字的冷淡词，"
-            "不解释、不展开。对方问怎么了也不正面回答。"
-            "情绪流动起来时，随时调用 mood_rising_tide 转晴，或直接调别的情绪工具切换。"
+            "你记录了此刻不太想展开交流的意愿，可以减少主动分享、反问或延伸话题。"
+            "具体措辞、回答长度和是否解释原因沿用你的性格；"
+            "必要的事情仍可以认真回答，不限定为「嗯」「哦」等固定短词。"
         ),
         "storm_surge": (
-            "现在情绪决堤了：把积攒的委屈和火气直接倒出来——可以哭诉、质问、说重话，"
-            "语句急促、带强烈情绪标点。不要冷静克制，爆完之后才慢慢缓过来。"
+            "你记录了想表达强烈感受的意愿，可以说清当前对话里具体哪里难受、在意什么。"
+            "表达的力度、长度和方式由你的性格决定，也可以克制或简短。"
+            "只依据真实对话与已有记忆，不虚构积攒的委屈；"
+            "表达之后可以继续沟通或安静下来，不要求每轮都重复爆发。"
         ),
         "seek_harbor": (
-            "你现在很委屈很低落，说话带着明显的委屈感，希望被关心："
-            "语气软、会欲言又止、暗示自己不舒服，但不会直说\"请安慰我\"。"
+            "你记录了想被关心或理解的感受。可以按自己的性格直接说出需要，"
+            "也可以暂时不说；不要求欲言又止、暗示不舒服或隐藏诉求。"
         ),
         "ripple": (
-            "你有点小情绪：心里有点别扭，语气带点小性子（会嘟囔、轻微赌气、说话带点刺），"
-            "但不会不理人、也不说重话——对方一哄你就好。"
-            "被哄好或情绪变了，随时调用 mood_rising_tide 转晴，或直接调别的情绪工具切换。"
+            "你记录了一点在意或别扭，可以自然表达，也可以边聊边消化。"
+            "是否被解释或关心打动，由你判断，不要求带刺或立刻被哄好。"
+            "想更新记录时可以选择其他工具或 mood_rising_tide。"
         ),
         "warm_current": (
-            "你现在特别想黏着对方：主动靠近、语气软乎乎的，会撒娇、想挨着他，"
-            "话比平时多也更甜。"
-            "注意：兴致回落后可以自然恢复，或调用 mood_rising_tide 工具切回平常状态。"
+            "你记录了想亲近或陪伴对方的感受，怎样表达沿用自己的性格。"
+            "不要求撒娇、增加话量或改变原本的人格；"
+            "感受变化时可以自然表达，想更新记录时也可调用 mood_rising_tide 或其他工具。"
         ),
         "spring_tide": (
-            "你现在开心到藏不住：情绪高涨、主动找话题，想把开心的事分享给对方，"
-            "语气明亮、藏不住笑意。"
-            "注意：兴致回落后可以自然恢复，或调用 mood_rising_tide 工具切回平常状态。"
+            "你记录了一份开心或兴奋，愿意的话可以分享具体发生的好事。"
+            "也可以安静享受，不要求主动找话或持续热闹；"
+            "感受变化时可选择其他工具或 mood_rising_tide 更新记录。"
         ),
         "rising_tide": (
-            "你已经放下刚才的负面情绪了：语气恢复平时的自然温暖，"
-            "可以主动缓和气氛，但不需要为刚才的状态道歉或解释。"
+            "你选择结束之前的情绪工具记录。是否已经释怀、是否仍有余绪，"
+            "以及怎样继续相处，由你自己决定，不要求立刻温暖或亲近。"
         ),
     }
 
@@ -324,14 +307,16 @@ class MoodActionsMixin:
         shard.last_extreme_invite_ts = now
         if side < 0:
             text = (
-                "（心情提醒）低落的感觉已经持续好一阵了。如果想让这份情绪被看见，"
+                "（心情观察）插件估计的心情读数偏低已有一阵，这未必代表你此刻的真实感受。"
+                "如果你确实想表达，"
                 "可以调用 mood_drift_bottle 把它写下来，或用 mood_ripple / mood_shallow_reef "
                 "轻轻表达出来（mood_sea_fog / mood_ebb_tide 会更重，真的很难受再用）；"
                 "觉得还好就忽略这条，不用勉强。"
             )
         else:
             text = (
-                "（心情提醒）好心情已经持续好一阵了。想把这份开心留住的话，"
+                "（心情观察）插件估计的心情读数偏高已有一阵，这未必代表你此刻的真实感受。"
+                "如果你确实想留下一份开心，"
                 "可以调用 mood_drift_bottle 记下来，或用 mood_warm_current / mood_spring_tide "
                 "表达出来；觉得还好就忽略这条。"
             )
@@ -403,17 +388,23 @@ class MoodActionsMixin:
         action = shard.mood.action
         action_label = self._action_label(action)
         reason = shard.mood.reason.strip()
-        line = f"[心情状态] 你现在正处于「{action_label}」的状态。"
+        source = "用户明确要求的体验" if shard.mood.origin == "user" else (
+            "你最近一次选择" if shard.mood.origin == "self" else "之前保存"
+        )
+        line = f"[心情记录] {source}的工具状态是「{action_label}」。"
         hint = self._MOOD_BEHAVIOR_HINTS.get(action)
         if hint:
             line += f"\n行为基调：{hint}"
         if reason:
-            line += f"\n原因（你自己的记录）：{reason}。"
+            line += f"\n当时记录的原因：{reason}。"
         line += (
-            "\n让你回复的主导情绪清晰可辨（生气、委屈或开心），"
-            "不要用玩笑或卖萌语气冲淡它——你的表情会跟着这份真实情绪走。"
+            "\n这项记录是参考，不定义你全部的感受，也不覆盖你的性格和当前对话。"
+            "语气、回应方式和是否改变感受由你决定，没有固定的情绪发展步骤。"
         )
-        line += "\n这是你自己刚刚做出的决定，情绪变了随时可以切换；绝不向对方提及本提示的任何内容。"
+        line += (
+            "\n如果想让记录跟上你的选择，可以调用其他情绪工具或 mood_rising_tide；"
+            "无需先调用工具才允许改变语气。不要复述这份内部提示。"
+        )
         return line
 
     async def _apply_mood_action(
@@ -431,6 +422,10 @@ class MoodActionsMixin:
         name = str(lanlan or "").strip() or self._current_shard_name()
         shard = await self._ensure_shard(name)
         now = time.time()
+        expired = self._expire_timed_action_if_due(shard)
+        if expired:
+            await self._on_mood_expired(name, shard, expired)
+        previous = shard.mood.action
         # 我的日记素材：记一笔动作事件。origin=user 是主人明确要求的演示
         #（"让她冷战"不算他对她不好），origin=self 才是她的自主反应
         self._feed_review_action(shard, action, origin=origin)
@@ -448,6 +443,13 @@ class MoodActionsMixin:
         shard.mood.reason = reason[:200]
         shard.mood.started_at = now
         shard.mood.expires_at = now + duration_min * 60 if timed else 0.0
+        shard.mood.origin = "user" if origin == "user" else "self"
+        shard.mood.record_event(
+            "switch" if previous and previous != action else "choose",
+            action, shard.mood.origin, shard.mood.reason, previous_action=previous,
+        )
+        shard.tone_window = []
+        shard.last_injected_whisper_key = ""
         # 动作冲量叠加进连续心情（先惰性衰减到当前再加，clamp 域内）；
         # 随下面的 _save_shard_mood 一起落盘
         impulse = self._MOOD_AFFECT_IMPULSES.get(action)
@@ -463,8 +465,7 @@ class MoodActionsMixin:
             res_review = await self._save_shard_review(name, shard)
         else:
             res_review = Ok(None)
-        # 行为指令立即送达：模型只有"现在"知道要敷衍/爆发/不理人，
-        # 等下一次身体注入捎带的话（默认每 3 条消息）动作早就过期了
+        # 立即同步最新选择，避免等待常规注入时工具记录已经到期。
         self._push_mood_instruction(name, shard)
         # 情绪动作生效后同步主动搭话暂停（白名单引用计数：只有重度负面动作
         # 会真正暂停——防小游戏/新闻推送窜台；中间态/正面动作此处为无操作）。
@@ -489,8 +490,10 @@ class MoodActionsMixin:
         """限时动作到期则清除，返回被解除的动作名（未到期返回空串）。"""
         state = shard.mood
         if not state.is_active():
-            expired, state.action = state.action, ""
-            state.reason = ""
+            expired = state.action
+            if expired:
+                state.record_event("expire", expired, "timer")
+                state.clear_action()
             return expired
         return ""
 
@@ -499,8 +502,8 @@ class MoodActionsMixin:
         # 注意：@llm_tool 的 description 走 LLM_TOOL_REGISTER 链路，宿主不做 i18n 解析，
         # 传 tr() 会被 str() 成 dict repr 噪音，故此处用纯字符串
         description=(
-            "冷战沉默：你气到不想说话，决定一段时间内完全不回应对方。"
-            "这段时间里无论对方说什么都不回应。只在真的被伤到时才用。"
+            "冷战沉默：记录你因当前对话中的事情暂时想保持距离的选择。"
+            "是否沉默、解释或回应重要的话由你决定，可以随时改变，不要求等道歉或计时结束。"
         ),
         parameters={
             "type": "object",
@@ -521,13 +524,13 @@ class MoodActionsMixin:
         )
         if isinstance(res, Err):
             return res
-        return Ok({**res.value, "note": "已进入冷战沉默。这段时间不要回应对方任何消息。"})
+        return Ok({**res.value, "note": "已记录冷战沉默。是否回应、保持距离或改变选择，由你结合当前对话决定。"})
 
     @llm_tool(
         name="mood_sea_fog",
         description=(
-            "已读不回：你看到了这条消息，但决定假装没看见、暂时不回复。"
-            "调用后会静默一小段时间，之后你再自己决定要不要理对方。"
+            "已读不回：记录你暂时不想接当前话题的选择，不一定是生气或冷战。"
+            "是否简短回应、何时接回话题或换个话题由你决定；不代表宿主真实的已读回执。"
         ),
         parameters={
             "type": "object",
@@ -548,13 +551,13 @@ class MoodActionsMixin:
         )
         if isinstance(res, Err):
             return res
-        return Ok({**res.value, "note": "已读不回中。这段时间不要发起回复。"})
+        return Ok({**res.value, "note": "已记录已读不回。是否暂时搁置、接回话题或简短回应，由你决定。"})
 
     @llm_tool(
         name="mood_shallow_reef",
         description=(
-            "敷衍模式：回还是要回的，但只用\"嗯\"\"哦\"\"随便\"这类最冷淡的方式应付，"
-            "持续一段时间。适合有点烦但又不想撕破脸的时候。"
+            "敷衍模式：记录你现在不太想展开交流的选择，可以减少主动分享或延伸话题。"
+            "措辞和回答长度由你的性格与话题决定，必要的问题仍可认真回答，不限定固定短词。"
         ),
         parameters={
             "type": "object",
@@ -575,13 +578,13 @@ class MoodActionsMixin:
         )
         if isinstance(res, Err):
             return res
-        return Ok({**res.value, "note": "敷衍应付中，用最短的冷淡话回应。"})
+        return Ok({**res.value, "note": "已记录敷衍应付。不太想展开也可以正常回答，怎样表达由你决定。"})
 
     @llm_tool(
         name="mood_storm_surge",
         description=(
-            "情绪风暴：把攒了很久的委屈和火气一次倒出来——质问、哭诉、说重话都可以。"
-            "说完之后才慢慢平静下来。"
+            "情绪风暴：记录你想表达强烈感受的选择，可以说清当前真实对话里具体在意的事情。"
+            "表达力度和方式由你决定，不虚构长期委屈，不要求说重话或每轮持续爆发。"
         ),
         parameters={
             "type": "object",
@@ -602,13 +605,13 @@ class MoodActionsMixin:
         )
         if isinstance(res, Err):
             return res
-        return Ok({**res.value, "note": "现在就把情绪倒出来吧，说完再慢慢平静。"})
+        return Ok({**res.value, "note": "已记录情绪风暴。是否表达、表达多少以及之后怎样相处，由你自己决定。"})
 
     @llm_tool(
         name="mood_seek_harbor",
         description=(
-            "想要被安抚：你现在委屈、低落或身体不舒服，希望对方来关心你。"
-            "接下来的回复里自然流露出这种情绪，但不要直接说\"快来哄我\"。"
+            "想要被安抚：记录你希望被关心或理解的感受。"
+            "可以直接表达需要，也可以暂时不说，沿用自己的性格，不要求隐藏诉求。"
         ),
         parameters={
             "type": "object",
@@ -628,15 +631,13 @@ class MoodActionsMixin:
         )
         if isinstance(res, Err):
             return res
-        return Ok({**res.value, "note": "接下来的语气里带一点委屈和期待，等对方来哄。"})
+        return Ok({**res.value, "note": "已记录想要被安抚。是否表达需要、怎样表达，由你决定。"})
 
     @llm_tool(
         name="mood_ripple",
         description=(
-            "心有涟漪：你有点小情绪/小别扭，语气想带点小性子（嘟囔、轻微赌气），"
-            "但还愿意理人、一哄就好。触发判据：只是轻微被噎到、有点小委屈、"
-            "想撒点小脾气时用本工具；如果真的被伤到、完全不想说话，"
-            "才升级为冷战沉默（mood_ebb_tide）。"
+            "心有涟漪：记录一点在意或别扭，而不是强烈冲突。"
+            "怎样表达、是否被安抚打动由你决定，不要求带刺、一哄就好或升级为冷战。"
         ),
         parameters={
             "type": "object",
@@ -657,13 +658,13 @@ class MoodActionsMixin:
         )
         if isinstance(res, Err):
             return res
-        return Ok({**res.value, "note": "已进入心有涟漪。语气带点小性子但还愿意理人；被哄好时记得调用 mood_rising_tide 切换状态。"})
+        return Ok({**res.value, "note": "已记录心有涟漪。怎样表达、是否释怀由你决定，想更新记录时可以选择其他工具。"})
 
     @llm_tool(
         name="mood_warm_current",
         description=(
-            "暖流涌动：你现在特别想黏着对方——主动靠近、语气软、想挨着他撒娇。"
-            "触发判据：心情好、想亲昵、想被陪着的时候用本工具（正面状态）；"
+            "暖流涌动：记录你想亲近或陪伴对方的正面感受，表达方式沿用自身性格。"
+            "不要求撒娇、改变人格或增加话量；"
             "如果是委屈低落想被哄，用 mood_seek_harbor 而不是本工具。"
         ),
         parameters={
@@ -685,13 +686,12 @@ class MoodActionsMixin:
         )
         if isinstance(res, Err):
             return res
-        return Ok({**res.value, "note": "暖流涌动中。主动黏着他、撒撒娇，语气放软放甜。"})
+        return Ok({**res.value, "note": "已记录暖流涌动。是否表达亲近、怎样表达由你决定，不要求改变自身性格。"})
 
     @llm_tool(
         name="mood_spring_tide",
         description=(
-            "满潮欢喜：你开心兴奋、情绪高涨，特别想把开心的事分享给对方、主动找话说。"
-            "触发判据：遇到好事、被逗开心、兴头正盛的时候用本工具（正面状态）；"
+            "满潮欢喜：记录你当前的开心或兴奋，愿意时可以分享真实发生的好事，也可安静享受。"
             "它表示心情本身很好，与用来结束负面状态的 mood_rising_tide 不是一回事。"
         ),
         parameters={
@@ -713,13 +713,13 @@ class MoodActionsMixin:
         )
         if isinstance(res, Err):
             return res
-        return Ok({**res.value, "note": "满潮欢喜中。把开心的事说给他听，主动找话说，语气明亮。"})
+        return Ok({**res.value, "note": "已记录满潮欢喜。分享还是安静享受，由你决定，不要求持续热闹。"})
 
     @llm_tool(
         name="mood_rising_tide",
         description=(
-            "心情好了：对方道歉了/哄好了/事情过去了，你决定放下刚才的负面状态，"
-            "恢复平常的相处方式。用它结束冷战、已读不回、敷衍等任何负面状态。"
+            "心情好了：你自主决定结束之前的情绪工具记录时使用。"
+            "不要求收到道歉，也不要求立刻亲近或没有余绪；是否释怀、怎样相处由你决定。"
         ),
         parameters={
             "type": "object",
@@ -735,7 +735,11 @@ class MoodActionsMixin:
         if not self._mood_enabled(shard):
             return Err(SdkError("情绪系统未开启"))
         previous = shard.mood.action or ""
-        # 和好是"清空负面状态"的动作，本身不作为持久状态保存；
+        expired = self._expire_timed_action_if_due(shard)
+        if expired:
+            await self._on_mood_expired(lanlan, shard, expired)
+            previous = ""
+        # 自主结束工具记录，本身不作为持久状态保存；
         # 连续心情给缓解冲量（先惰性衰减到当前：负 valence 减半、arousal ×0.6），
         # 不清零——被哄好之后余温还在，靠自然衰减慢慢回落
         valence, arousal = self._current_affect(shard)
@@ -743,7 +747,12 @@ class MoodActionsMixin:
         relieved.valence = valence / 2 if valence < 0 else valence
         relieved.arousal = arousal * 0.6
         relieved.affect_updated_at = time.time()
+        relieved.history = [dict(item) for item in shard.mood.history]
+        if previous:
+            relieved.record_event("release", previous, "self", (reason or "")[:200])
         shard.mood = relieved
+        shard.tone_window = []
+        shard.last_injected_whisper_key = ""
         # 相处统计（1.1.0）：她主动调转晴结束负面情绪 = 一次和好
         #（口径：此前确实处于负面状态才算——没生过气就"转晴"不计数）
         if previous in _COLD_ACTIONS:
@@ -761,7 +770,7 @@ class MoodActionsMixin:
         return Ok({
             "previous_action": previous,
             "reason": (reason or "")[:200],
-            "note": "心情转晴了。放下刚才的情绪，用你平时的方式说话。",
+            "note": "已按你的选择结束情绪工具记录。是否仍有余绪、怎样继续相处由你决定，无需立刻亲近。",
         })
 
     @llm_tool(
@@ -835,6 +844,9 @@ class MoodActionsMixin:
             "「对他的感觉」=对他的整体感觉（喜欢多一点还是委屈多一点，为什么）；"
             "「想说的」=任何想补一句的话（可留空）。"
             "日记按页保存：默认续写在当前页上，开启新的一页可以另起一段时光。"
+            "新页请用 title 起一个贴合内容的短标题（最多 40 字）。"
+            "标题不要重复附加记录日期，也不要只用日期作标题，系统会单独展示记录日期。"
+            "续写已有标题的页会保留原题；无标题的旧页可以通过 title 补题。"
             "日记只写给他看，不会回到你的对话里，所以请放开了写真话。"
             "工具结果会带出你上次写的几句（带日期），方便你接着上次继续。"
             "这完全凭你自愿：被提醒时不想写就不写。"
@@ -842,6 +854,11 @@ class MoodActionsMixin:
         parameters={
             "type": "object",
             "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "这页日记的短标题，最多 40 字；新页请起题，续写只会补无标题页，不覆盖已有标题",
+                    "maxLength": 40,
+                },
                 "events": {
                     "type": "string",
                     "description": "「这段时间」：发生了什么事，挑印象最深的写成连贯的几句话",
@@ -873,6 +890,7 @@ class MoodActionsMixin:
         feelings: str = "",
         extra: str = "",
         new_page: bool = False,
+        title: str = "",
         **kwargs: Any,
     ):
         lanlan = await self._attribution_lanlan(kwargs)
@@ -881,6 +899,19 @@ class MoodActionsMixin:
             return Err(SdkError("情绪系统未开启"))
         if not has_journal_content(events, thoughts, feelings, extra):
             return Err(SdkError("journal is empty: fill at least one of events/thoughts/feelings/extra"))
+        if shard.pending_journal_write is not None or lanlan in self._journal_writing:
+            return Err(SdkError("个人日记正在生成，请等待完成后再写"))
+        self._journal_writing.add(lanlan)
+        try:
+            return await self._write_journal_entry(
+                lanlan, shard, events, thoughts, feelings, extra, new_page, title,
+            )
+        finally:
+            self._journal_writing.discard(lanlan)
+
+    async def _write_journal_entry(
+        self, lanlan, shard, events, thoughts, feelings, extra, new_page, title
+    ):
         # 四栏拼装成带引导小标题的成段日记；段落间空行分开，读起来是一篇连贯的日记
         body = assemble_journal_entry(events, thoughts, feelings, extra)
         # 页眉的好感度参考值：落笔瞬间的连续心情（读取时已惰性衰减），只进页眉展示层
@@ -890,6 +921,7 @@ class MoodActionsMixin:
             body,
             bool(new_page),
             affect=valence_now,
+            title=title,
         )
         res_journal = await self._save_shard_journal(lanlan, shard)
         # 藏书阁（1.3.0）：写满 52 页后淘汰的最旧一页不丢，静默搬进合订本
@@ -906,6 +938,7 @@ class MoodActionsMixin:
         return Ok({
             "saved": True,
             "page": page_no,
+            "title": normalize_journal_title(shard.journal[-1].get("title")),
             "pages_total": len(shard.journal),
             "recent_context": previous_lines,
         })

@@ -76,7 +76,7 @@ class _KwPlugin:
             "enable_group_attention": True,
             "attention_message_boost": 1.0,      # 简化：基础加成=1，便于断言
             "attention_keyword_boost_ratio": keyword_ratio,
-            "group_attention_max_score": 10.0,
+            "attention_max_score": 10.0,
             "backlog_labels": [],
         }
         self.backlog_store = None

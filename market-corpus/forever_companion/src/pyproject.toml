@@ -1,6 +1,6 @@
 [project]
 name = "forever_companion"
-version = "1.3.1"
+version = "1.4.2"
 requires-python = ">=3.11"
 dependencies = []
 
@@ -29,6 +29,7 @@ exclude_dirs = [
     ".vscode",
     ".venv",
     ".pytest_cache",
+    ".pytest-tmp",
     ".ruff_cache",
     ".benchmarks",
     "__pycache__",
@@ -36,6 +37,14 @@ exclude_dirs = [
     # 开发期工具（hosted 链接自检门等）：依赖仓外宿主 scanner，运行时零引用，
     # 不进发行包
     "tools",
+    "data",
+    "wallpapers",
+    "wallpaper_playback",
+    "temp",
+    "staging",
+    "backup",
+    "backups",
+    "published",
 ]
 exclude_files = [
     ".gitignore",
@@ -43,4 +52,12 @@ exclude_files = [
     "ruff.toml",
     "DESIGN.md",
     "CHANGELOG.md",
+    "*.db",
+    "*.db-*",
+    "*.sqlite",
+    "*.sqlite3",
+    "*.mp4",
+    "*.webm",
+    "*.part",
+    "*.bin",
 ]

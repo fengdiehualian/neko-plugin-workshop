@@ -37,7 +37,12 @@ def _stub_install(monkeypatch, tmp_path, *, extract_progress) -> None:
     monkeypatch.setattr(ds, "bundled_napcat_dir", lambda: tmp_path / "NapCat.Shell")
     monkeypatch.setattr(ds.napcat_install, "asset_name", lambda: "NapCat.Shell.zip")
 
-    async def fake_download(asset, downloads, progress=None):
+    async def fake_download(asset, downloads, progress=None, on_attempt=None):
+        # `on_attempt` 是每个候选源的上报钩子（真实实现在镜像循环里逐个调它）。
+        # 桩必须收下这个关键字 —— 签名漂移会让这条测试以 TypeError 红掉，
+        # 而它真正要钉的是"解包进度必须回到事件循环线程"。
+        if on_attempt is not None:
+            on_attempt(1, 1, "https://mirror.example/NapCat.Shell.zip", 0)
         zip_path = tmp_path / "NapCat.Shell.zip"
         zip_path.write_bytes(b"")
         return zip_path

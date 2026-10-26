@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import re
 import time
 from typing import Any
 
@@ -9,6 +10,54 @@ from .display_name_service import QQDisplayNameService
 from .pipeline_models import is_synthetic_source
 
 _CURRENT_TURN_AI_ROW = object()
+
+#: 与投递层**同一份标签表**（`reply_delivery_node._compose_text` 的兜底清洗）。
+#:
+#: 为什么记忆写入侧也要清：历史里的 `ai` 行是**模型原始输出**（宿主把模型文本原样
+#: append 进 `_conversation_history`），带 `<feeling>`/`<msg>`/`<text>` 这套插件自己的
+#: 格式标记；而用户实际看到的只有投递层剥出来的内文。实测（2026-09-25 真实落盘）：
+#:
+#:   recent.json     含内部标记 19 处
+#:   outbox.ndjson   含内部标记 173 处
+#:   facts / reflections / persona  —— 0 处（提取器会重写文本，所以持久语义层是干净的）
+#:
+#: 也就是说这不是隐私泄漏，而是**卫生问题**：记忆的近窗/续接文本里带着内部控件标记，
+#: 它们可能被喂回 prompt（教模型在不用 XML 格式的场合也吐标记），也会污染任何直接
+#: 渲染记忆文本的界面。
+#:
+#: 分类**按真实数据定**（从 145 条落盘 ai 行里枚举出的全部标签：`msg`/`text`/`feeling`/
+#: `sticker`/`emoji`/`reply`，均无属性）：
+#:
+#: * **连内容一起丢** —— 里面装的是内部状态或 ID，用户看不到对应文字：
+#:   `<feeling>playful</feeling>`（只剥壳会留下 "playful" 这种内部状态词！）、
+#:   `<sticker>11</sticker>`、`<emoji>277</emoji>`、`<reply>消息ID</reply>`、
+#:   `<at>`/`<poke>`（裸 QQ 号不如不留）、`<think>`（实测 0 条，作为防推理外泄的护栏留着）。
+#: * **只剥壳、保留内文** —— 内文就是用户看到/听到的那句话：`<msg>`、`<text>`、
+#:   `<record>`（语音念出来的就是这段）、`<keyboard>`（NapCat 会并进正文）、`<forward>`（转发卡片上的那句总结）、`<ark>`。
+#:
+#: **只清洗 `ai` 行**：真人用户完全可以自己打 `<msg>`，他的话必须逐字保留。
+_MEMORY_DROP_WITH_CONTENT = re.compile(
+    r"<(feeling|emoji|sticker|at|reply|poke|think)\b[^>]*>.*?</\1\s*>"
+    r"|<mark\b[^>]*/?>",
+    re.IGNORECASE | re.DOTALL,
+)
+#: 兜底：上面漏掉的孤立标签壳（配对不完整时），至少别把标记本身留在记忆里。
+_MEMORY_DROP_SHELL = re.compile(
+    r"</?(?:feeling|emoji|sticker|at|reply|poke|think|mark)\b[^>]*/?>",
+    re.IGNORECASE,
+)
+_MEMORY_UNWRAP = re.compile(
+    r"</?(?:msg|text|record|keyboard|forward|ark)\b[^>]*/?>",
+    re.IGNORECASE,
+)
+
+
+def _strip_internal_markup(text: str) -> str:
+    """把猫娘自己那行里的插件内部标记清掉，留下用户实际看到的那句话。"""
+    cleaned = _MEMORY_DROP_WITH_CONTENT.sub("", text)
+    cleaned = _MEMORY_DROP_SHELL.sub("", cleaned)
+    cleaned = _MEMORY_UNWRAP.sub("", cleaned)
+    return cleaned.strip()
 
 
 
@@ -249,6 +298,30 @@ class QQSessionMemoryService:
             len(user_data.get("pending_settle_buckets") or {}),
         )
 
+    #: 同步给 Memory Server 的**单条消息**上限（字符）。
+    #:
+    #: 为什么必须有 —— 2026-09-26 真机实测（私聊、开放平台）。用户把一个 13981 字符的
+    #: 文件发给猫娘，链路是：
+    #:
+    #:   附件正文并进消息正文 → 会话历史里是一条 human 行 → **逐字**同步给
+    #:   Memory Server → 服务端 bootstrap 的"最近对话"块**逐字**回灌 → 进
+    #:   system prompt 的「核心记忆」段
+    #:
+    #: 每发一次文件就多一份，而且**跨重启存活**（在服务端）。当时用临时插桩量到的
+    #: 分段时间线（`system_instruction_service` 每段长度，见 §4.0ae）：
+    #:
+    #:   13:06:21  total=12550  核心记忆= 4505
+    #:   13:06:35  total=12596  核心记忆= 4514   ← 刚收到那个文件
+    #:   13:07:01  total=25303  核心记忆=17221   ← +12707，**全在核心记忆这一段**
+    #:
+    #: 同样的动作做三次就把每轮 prompt 从 12.5k 抬到 50.7k，而每一轮都在为同一段
+    #: 文本付费。记忆要的是"够提取事实"，不是原文存档，所以这里按量截断。
+    #:
+    #: **只截同步出去的那一份**：会话历史对象一个字节都不动，本轮她照样读得到全文
+    #: （`conversation_slice_to_memory_messages` 返回的是新 dict，且下面用的是局部
+    #: 变量 `text`）。
+    MEMORY_MESSAGE_MAX_CHARS = 4000
+
     def conversation_slice_to_memory_messages(
         self, conversation_history: list, start_index: int = 0,
         *, user_data: dict[str, Any] | None = None,
@@ -283,8 +356,22 @@ class QQSessionMemoryService:
                 text = "".join(parts)
             else:
                 text = str(content)
+            if role == "assistant":
+                # 只清猫娘自己的行：那是模型原始输出，带插件自己的 XML 格式标记
+                # （见 `_MEMORY_DROP_WITH_CONTENT` 的注释）。用户实际看到的就是剥掉
+                # 标记后的内文，记忆里该存同一句话。真人用户的行逐字保留 —— 他可能
+                # 真的在聊 `<msg>` 这种东西。
+                text = _strip_internal_markup(text)
             if not text:
                 continue
+            # 单条过长就截断（见 MEMORY_MESSAGE_MAX_CHARS 的实测）。截断要留痕：
+            # 记忆里看不出"这条被砍过"的话，事后没人能解释为什么她只记得开头。
+            if len(text) > self.MEMORY_MESSAGE_MAX_CHARS:
+                dropped = len(text) - self.MEMORY_MESSAGE_MAX_CHARS
+                text = (
+                    text[:self.MEMORY_MESSAGE_MAX_CHARS]
+                    + f"\n…（本条过长，已省略后 {dropped} 字）"
+                )
             memory_messages.append({
                 "role": role,
                 "content": [{"type": "text", "text": text}],
@@ -1500,7 +1587,7 @@ class QQSessionMemoryService:
                 except Exception as exc:
                     self.plugin.logger.error(
                         f"[{reason}] 群 {group_id} 一批 {len(batch_senders)} "
-                        f"个成员记忆结算失败: {exc}"
+                        f"个成员记忆结算失败: {type(exc).__name__}: {exc}"
                     )
                     return list(batch_senders)
                 failed: set[str] = set()
@@ -1911,6 +1998,8 @@ class QQSessionMemoryService:
         level = str(permission_level or "").strip().lower()
         if level == "user":
             level = "normal"
+        # 黑名单（用户级别 blacklist）：他们的话在派发层最前面就被拦下、根本到不了
+        # 这里；真到了也只落到最低档 "none" —— 未知档位绝不能被当成更高权限。
         if level in {"admin", "trusted", "normal", "none"}:
             return level
         manager = getattr(self.plugin, "permission_mgr", None)
@@ -2337,7 +2426,8 @@ class QQSessionMemoryService:
                     )
                 except Exception as digest_error:
                     self.plugin.logger.error(
-                        f"[{reason}] 群 {group_id} scoped 结算失败: {digest_error}"
+                        f"[{reason}] 群 {group_id} scoped 结算失败: "
+                        f"{type(digest_error).__name__}: {digest_error}"
                     )
                     group_settled = False
                 member_memory_enabled = bool(
@@ -2437,7 +2527,7 @@ class QQSessionMemoryService:
                     except Exception as digest_error:
                         self.plugin.logger.error(
                             f"[{reason}] 私聊 {sender_id} scoped 结算失败: "
-                            f"{digest_error}"
+                            f"{type(digest_error).__name__}: {digest_error}"
                         )
                         participant_settled = False
                     if not participant_settled:
@@ -2481,6 +2571,17 @@ class QQSessionMemoryService:
             if user_data.get(cutoff_key) == consumed_cutoff:
                 user_data.pop(cutoff_key, None)
             return True
+        handoff = getattr(self.plugin, "session_handoff_service", None)
+        if handoff is not None:
+            # 会话在这里消失（idle 结算 / 关机结算 / discard 的 finalize 都走这条）：
+            # 留一句"刚才聊到哪儿"给下一个会话。capture 内部按 memory_enabled 与
+            # 未授权边界自行取舍，失败也不影响结算本身。
+            try:
+                handoff.capture(session_key, user_data)
+            except Exception as handoff_err:  # noqa: BLE001
+                self.plugin.logger.warning(
+                    f"[Handoff] 捕获接续摘要失败 ({session_key}): {handoff_err}"
+                )
         self.plugin._user_sessions.pop(session_key, None)
         try:
             await session.close()
@@ -2498,6 +2599,21 @@ class QQSessionMemoryService:
         Returns False when batches remain (the cap keeps one flush from
         holding the session lock for minutes); raises when a batch fails,
         so the cursor stays at the last confirmed batch."""
+        if not group_id:
+            # 群会话却没有 group_id：此前这里会**静默 `return True`**（循环条件
+            # `while group_id:` 直接不成立），调用方据此认为"群 digest 已结算"，
+            # 于是 :2374 的 `if not group_settled` 不触发、会话被 pop ——
+            # **该群的历史整个丢掉，且没有任何日志**。
+            #
+            # 修法是把伪成功改成显式拒绝：既不复述"成功"这个假话，也让调用方
+            # 的未结算分支照常生效。丢失本身没法在这里补救（没有 group_id 就
+            # 没有可写的域，且这正是它为空的原因），所以必须至少让它**可见**。
+            self.plugin.logger.error(
+                f"[{reason}] 群会话缺少 group_id，群 digest 无法结算。"
+                f"这是会话状态异常，请上报：group_id 为空意味着没有任何可写的域，"
+                f"该群待结算的历史既写不出去也不会被重试成功。"
+            )
+            return False
         digest_batches_left = 5
         while group_id:
             if digest_batches_left <= 0:
@@ -2745,6 +2861,19 @@ class QQSessionMemoryService:
                     return
 
             user_data = self.plugin._user_sessions.pop(session_key, None)
+            # 权限变更（移除用户 / 降级）：接续摘要里可能有撤权之前的原文，
+            # 不能留给下一个会话 —— 先捕获（若仍被授权）再无条件抹掉旧的。
+            handoff = getattr(self.plugin, "session_handoff_service", None)
+            if handoff is not None:
+                try:
+                    if user_data is not None and user_data.get("memory_enabled"):
+                        handoff.capture(session_key, user_data)
+                    else:
+                        handoff.forget(session_key)
+                except Exception as handoff_err:  # noqa: BLE001
+                    self.plugin.logger.warning(
+                        f"[Handoff] 权限变更时处理接续摘要失败 ({session_key}): {handoff_err}"
+                    )
             session = user_data.get("session") if user_data else None
             if session:
                 await session.close()

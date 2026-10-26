@@ -6,11 +6,15 @@ short_description = "Random and daily quotes from Hitokoto, with categories, dai
 keywords = [
     "一言", "每日一言", "今日一言", "来一句", "来句诗", "诗词", "动漫台词",
     "哲学", "毒鸡汤", "语录", "hitokoto", "quote", "daily quote", "anime quote",
-    "quotation", "名言", "句子", "ひとこと", "名言", "오늘의 문장", "인용문",
+    "quotation", "名言", "句子", "ひとこと", "오늘의 문장", "인용문",
 ]
 version = "0.1.0"
 type = "plugin"
 entry = "plugin.plugins.hitokoto:HitokotoPlugin"
+# Quotes reach the character through the two conversation tools; keep the
+# Agent task analyzer from dispatching the same request (or panel-only
+# management entries) a second time.
+passive = true
 
 [plugin.author]
 name = "Alumin-Hydro"

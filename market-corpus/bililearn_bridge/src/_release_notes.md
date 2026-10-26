@@ -1,16 +1,52 @@
-# N.E.K.O 桥接插件 v1.0.0
+# N.E.K.O 桥接插件 v2.0.2
 
-桥接独立程序 **BiliLearn（B站 AI 学习机器人）** 的 exe，使其能被 N.E.K.O 猫娘拉起并控制。
+> 相对 v2.0.1 的改动：**取消仓库自带安装包**，市场包体从 106.8MB 降到 51KB，
+> 安装改为纯自动下载（多镜像源自动切换）。
 
-## 功能
-- 宿主启动 N.E.K.O 时，按配置以无头 `--serve` 模式拉起 BiliLearn（不弹浏览器面板、不建系统托盘）
-- 提供入口：`start` / `stop` / `restart` / `status` / `open_panel` / `bot_start` / `bot_stop` / `bot_status`
-- 通过 BiliLearn 本地 Web API（默认 `127.0.0.1:18083`）查询与控制
-- 纯标准库实现，零第三方依赖
+从「拉起 exe + 三个接口」升级为对 BiliLearn 3.1.6 的**全功能嫁接**。
 
-## 用法
-1. 把本插件目录放入 N.E.K.O 的插件目录
-2. 在 `config.toml` 填 `exe_path`（或让它自动在 `dist/BiliLearn Web/` 查找 BiliLearn exe）
-3. 重启 `agent_server`，即可由猫娘桥接管理
+## 新功能
 
-详见 `README.md`。
+- **开箱即用**：不再需要手动填 exe 路径。插件按
+  「本地已装 → 自动下载 → 自带包兜底」的顺序取得 BiliLearn，
+  自动解包到插件数据目录后无头拉起。安装包不再放进仓库（不再有 100MB 的包袱），
+  一律从 GitHub release 下载，**多镜像源自动切换**：
+  官方直连 → gh-proxy.com → ghfast.top，单个源失败自动换下一个，
+  全部失败才报错；下载后校验 SHA256。
+- **自动登录面板**：BiliLearn 3.1.6 的面板对 `/api/*` 有「免责声明 → 登录」两道门槛，
+  v1 的所有业务调用实际会被 401 挡下。v2 自动完成握手并保持会话 Cookie，
+  会话失效时自动重登一次；凭据按 `配置 > 插件保存 > 预置默认` 顺序尝试，
+  失败后进入冷却，避免触发面板的登录限流。
+- **全量接口接入**：内嵌 BiliLearn 3.1.6 全部 **308 个 Web API** 的目录（含参数）。
+  - 通用透传：`api_call`（任意接口）、`api_batch`（批量，最多 20 个）
+  - 能力发现：`api_groups`（分组总览）、`api_search`（关键词搜索）、`api_describe`（某组详情）
+- **41 个语义化入口**：机器人、实时监听、待机、B站扫码、视频总结/转网页/思维导图/弹幕、
+  知识库、兴趣、搜索学习、学习目标、Agent、人格、心情、日记、日志、配置等。
+- **端口自动对齐**：打包版 BiliLearn 会把端口写进账户注册表（`accounts.json`），
+  v1 写死的端口会与真实端口错位。v2 启动后读取注册表，始终连到真实端口。
+- **附接优先**：已在运行的实例直接附接；只有自己拉起的进程才负责停止。
+- **exe 定位**：除上述自动安装链路外，仍支持配置路径、PATH、常见安装位置、
+  自定义 `search_dirs` 及插件目录旁的浅层扫描。
+
+## 入口数量
+
+入口保持在 **43 个**（含 5 个通用透传），未列出的长尾功能全部通过 `bililearn_api_call` 触达。
+
+## 兼容性
+
+- 纯标准库实现（`subprocess` / `urllib` / `http.cookiejar` / `zipfile` / `asyncio`），
+  零第三方依赖。
+- 针对 BiliLearn **3.1.6** 生成接口目录；BiliLearn 升级后可用 `tools/` 下脚本重新生成。
+- v1 的入口 id（`start` / `stop` / `restart` / `status` / `open_panel` / `bot_start` /
+  `bot_stop` / `bot_status`）全部保留，原有调用方无需改动。
+
+## 已验证
+
+- 官方校验器 `neko-plugin check -r`：**通过**（已不含 100MB 安装包，包体恢复到数百 KB）。
+- Ruff（市场门禁同款规则）：All checks passed。
+- 插件测试套件：**30 项通过**（含镜像源顺序、镜像切换、全部源失败、
+  分卷重组与篡改拒绝、解包幂等、zip-slip 防御、缓存清理）。
+- 镜像源可用性实测（2026-10-23）：官方 / gh-proxy.com / ghfast.top 均 HTTP 200
+  且返回真实内容；ghproxy.net 超时、hub.gitmirror.com / github.moeyy.xyz 不可达。
+- 真实 exe 端到端（v2.0.0 阶段）：自带包 → 解包 → `--serve` 拉起 → **3.3s 就绪** →
+  自动登录 → `/api/info` 返回 version=3.1.6。

@@ -44,7 +44,18 @@ async def resolve_group_recall_subjects(
     这个口子是单独的决定，不在这里顺手做。
     """
     bridge = plugin.memory_bridge
-    subjects = [bridge.group_subject(group_id)]
+    # 空 group_id 必须 fail-closed —— 与写侧同口径（`_settle_group_digest_batches`
+    # 的 `while group_id:`）。`group_subject` 只做 strip，空串会拼出 `qq:`，
+    # 而那是**所有"没有群号"的群共用的一个桶**：一旦落到那里，任何一个畸形群
+    # 轮都会读到（并可能写进）别的群的记忆。
+    #
+    # 这里此前不设防，靠两个调用方各自早退兜住（`memory_tool_service` 的 handler
+    # 入口、`session_instruction_service._build_core_memory_section`）。纵深防御
+    # 不该只剩一层：新调用方少写一个 if 就是跨群读取。
+    normalized_group_id = str(group_id or "").strip()
+    if not normalized_group_id:
+        return [], False
+    subjects = [bridge.group_subject(normalized_group_id)]
     member_sender = str(memory_sender_id or "").strip()
     if member_sender and bool(
         (getattr(plugin, "_qq_settings", {}) or {}).get(
@@ -54,13 +65,13 @@ async def resolve_group_recall_subjects(
         # 实时复检（对偶群开关的读点复检）：member 记忆关掉后不得再召回
         # participant 域。sender 规范化与写侧一致，避免读写落进不同桶。
         subjects.append(
-            bridge.group_participant_subject(group_id, member_sender)
+            bridge.group_participant_subject(normalized_group_id, member_sender)
         )
         for other_sender in await _recent_other_speakers(
-            plugin, group_id=group_id, exclude=member_sender,
+            plugin, group_id=normalized_group_id, exclude=member_sender,
         ):
             subjects.append(
-                bridge.group_participant_subject(group_id, other_sender)
+                bridge.group_participant_subject(normalized_group_id, other_sender)
             )
     return subjects, len(subjects) > 1
 

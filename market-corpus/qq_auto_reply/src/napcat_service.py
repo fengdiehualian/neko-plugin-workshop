@@ -432,12 +432,35 @@ class QQNapcatService:
                 process.kill()
             except ProcessLookupError:
                 pass
+        # 收尸阶段整体兜底：``wait_for`` 除 TimeoutError 外还可能抛
+        # ChildProcessError（handle 已失效）或事件循环正在关闭时的
+        # RuntimeError。此前这一句在 try 之外、只捕 TimeoutError，异常会
+        # 一路穿出 stop_managed_napcat → runtime_ops_service（无 try）→
+        # plugin.shutdown() 的 ``_stop_auto_reply_runtime(stop_napcat=True)``
+        # （同样无 try），把 shutdown 后面**隐私关键的记忆结算 join 与
+        # flush_all_memory_sessions 整段吃掉**。停机清理是尽力而为，
+        # 任何失败都只该降级成日志。
         try:
-            await asyncio.wait_for(process.wait(), timeout=3.0)
-        except asyncio.TimeoutError:
-            # SIGTERM 没送走（POSIX 上 NapCat 带着子进程时常见）：补一发 SIGKILL。
-            if not napcat_platform.is_windows() and napcat_platform.signal_terminate(pid, force=True):
-                try:
-                    await asyncio.wait_for(process.wait(), timeout=3.0)
-                except asyncio.TimeoutError:
-                    pass
+            try:
+                await asyncio.wait_for(process.wait(), timeout=3.0)
+            except asyncio.TimeoutError:
+                # SIGTERM 没送走（POSIX 上 NapCat 带着子进程时常见）：补一发 SIGKILL。
+                if not napcat_platform.is_windows() and napcat_platform.signal_terminate(pid, force=True):
+                    try:
+                        await asyncio.wait_for(process.wait(), timeout=3.0)
+                    except asyncio.TimeoutError:
+                        pass
+        except Exception as e:
+            if self.logger:
+                # 带上异常**类型**并截断正文：这里的 repr 会长成
+                # `Task <Task pending name='Task-889' coro=<Process.wait()…>> got Future … attached
+                # to a different loop` 那一大坨（真机 2026-09-27 一天 6 条），
+                # 既刷日志又看不清是哪一类失败。
+                #
+                # 典型成因：插件重载后，`self._napcat_process` 里那个 subprocess 对象
+                # 属于**旧事件循环**，在新循环里 await `process.wait()` 必然报
+                # "attached to a different loop"。停机收尸本来就是尽力而为
+                # （kill 已经发过），所以这里只降级成一行警告。
+                self.logger.warning(
+                    f"等待 NapCat 进程退出失败 (PID={pid}): {type(e).__name__}: {str(e)[:160]}"
+                )

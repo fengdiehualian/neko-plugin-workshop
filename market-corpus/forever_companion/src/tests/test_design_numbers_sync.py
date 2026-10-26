@@ -18,6 +18,8 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 ENTRY_PATH = PLUGIN_ROOT / "__init__.py"
 DESIGN_PATH = PLUGIN_ROOT / "DESIGN.md"
 PANEL_TSX = PLUGIN_ROOT / "ui" / "panel.tsx"
+STATE_PATH = PLUGIN_ROOT / "core" / "state.py"
+README_PATH = PLUGIN_ROOT / "README.md"
 
 
 def _timer_seconds() -> dict[str, int]:
@@ -57,7 +59,11 @@ def test_design_timer_line_matches_decorator_seconds():
     stale: list[str] = []
     for timer_id, seconds in timers.items():
         # 只查提到"轮询"的 timer 说明行；用 \n 锚定行首避免命中行中间
-        lines = [ln for ln in design.splitlines() if "timer" in ln.lower() and "轮询" in ln]
+        lines = [
+            ln for ln in design.splitlines()
+            if "timer" in ln.lower() and "轮询" in ln and timer_id in ln
+        ]
+        assert lines, f"DESIGN.md 缺少 {timer_id} 的轮询节奏说明"
         for line in lines:
             nums = [int(n) for n in re.findall(r"每\s*(\d+)\s*秒", line)]
             for num in nums:
@@ -69,7 +75,10 @@ def test_design_timer_line_matches_decorator_seconds():
 def test_panel_poll_interval_matches_design():
     """ui/panel.tsx 的 dashboard 轮询毫秒值必须与 DESIGN.md 写的秒数一致。"""
     tsx = PANEL_TSX.read_text(encoding="utf-8")
-    polls = {int(n) for n in re.findall(r"setInterval\(.*?\},\s*(\d+)\s*\)", tsx, re.S)}
+    polls = {int(n) for n in re.findall(
+        r"setInterval\(\s*(?:[A-Za-z_$][\w$]*|\(\)\s*=>\s*\{.*?\})\s*,\s*(\d+)\s*\)",
+        tsx, re.S,
+    )}
     assert polls, "没在 ui/panel.tsx 解析到 setInterval 的毫秒字面量"
 
     seconds = {ms // 1000 for ms in polls if ms % 1000 == 0}
@@ -90,3 +99,35 @@ def test_panel_poll_interval_matches_design():
         f"DESIGN.md 声明了 {sorted(claims)}s 轮询，但 ui/panel.tsx 实际轮询是 "
         f"{sorted(polls)}ms（={sorted(seconds)}s）；不匹配项：{unbacked}"
     )
+
+
+def _state_number(name: str) -> float:
+    """core/state.py 里某个模块级数值字面量（AST 取，不 import：纯文档比对不该执行插件代码）。"""
+    tree = ast.parse(STATE_PATH.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(isinstance(t, ast.Name) and t.id == name for t in node.targets):
+            continue
+        value = node.value
+        if isinstance(value, ast.Constant) and isinstance(value.value, (int, float)):
+            return float(value.value)
+    raise AssertionError(f"core/state.py 没找到数值常量 {name}")
+
+
+def test_readme_review_timeout_matches_constant():
+    """自动成文仍使用常规 tick 的超时，手动成文另有独立期限。"""
+    timeout = _state_number("_HOST_LLM_TIMEOUT_REVIEW_SEC")
+    text = README_PATH.read_text(encoding="utf-8")
+    claims = {float(n) for n in re.findall(r"模型调用最长\s*(\d+(?:\.\d+)?)\s*秒", text)}
+    assert claims, "README 里找不到「模型调用最长 N 秒」的承诺句（措辞变了要同步本门）"
+    assert claims == {timeout}, f"README 写 {sorted(claims)} 秒，常量 _HOST_LLM_TIMEOUT_REVIEW_SEC 是 {timeout} 秒"
+
+
+def test_readme_manual_diary_deadlines_match_constants():
+    text = README_PATH.read_text(encoding="utf-8")
+    claims = re.findall(r"每次最多等\s*(\d+)\s*秒、总期限\s*(\d+)\s*秒", text)
+    assert claims, "README 缺少手动成文的每次与总期限"
+    expected = (_state_number("_MANUAL_DIARY_ATTEMPT_SEC"), _state_number("_MANUAL_DIARY_TOTAL_SEC"))
+    assert {(float(attempt), float(total)) for attempt, total in claims} == {expected}
+

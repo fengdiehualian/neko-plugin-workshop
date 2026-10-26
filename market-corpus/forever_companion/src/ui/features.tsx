@@ -48,7 +48,7 @@ export function FeaturesPane(props: {
         if (payload) setIntroCache({ ...introCache, [item.id]: payload })
       })
       .catch(() => {
-        setIntroError(t("panel.capintro.loadError", { defaultValue: "介绍加载失败，请返回列表重试；若反复失败，重启插件服务后即可生效" }))
+        setIntroError(t("panel.capintro.loadError", { defaultValue: "介绍加载失败，请返回列表重试。若仍不可用，请查看插件日志。" }))
       })
       .finally(() => setIntroLoading(false))
   }
@@ -66,11 +66,11 @@ export function FeaturesPane(props: {
       return t("panel.features.hint.masterOff", { defaultValue: "该角色的总开关未开启" })
     }
     if (item.source === "config_off") {
-      return t("panel.features.hint.configOff", { defaultValue: "功能配置里已关闭（到对应设置页打开）" })
+      return t("panel.features.hint.configOff", { defaultValue: "设置中已关闭，请先在对应页面开启" })
     }
     if (item.source === "upstream_off") {
       const deps = (item.blocked_by || []).map(capLabel).join("、")
-      return t("panel.features.hint.upstream", { defaultValue: `依赖的功能未生效：${deps}` })
+      return t("panel.features.hint.upstream", { defaultValue: "需要先开启：{deps}", deps })
     }
     if (item.source === "user_off") {
       return t("panel.features.hint.userOff", { defaultValue: "已在功能管理里关闭" })
@@ -98,12 +98,12 @@ export function FeaturesPane(props: {
   }
 
   return (
-    <div className="tm-pane">
+    <div className="tm-pane tm-features-pane">
       {!masterOn ? (
         <Alert
           tone="warning"
           message={t("panel.features.masterBanner", {
-            defaultValue: "该角色的总开关未开启：下面所有功能都不会生效（这里改的开关仍会记住）。",
+            defaultValue: "当前角色的模拟总开关未开启。以下功能暂不生效，但会保留你的开关设置。",
           })}
         />
       ) : null}
@@ -165,20 +165,20 @@ export function FeaturesPane(props: {
         <span
           className="tm-feat-adv-switch"
           title={t("panel.features.hideToolsHelp", {
-            defaultValue: "默认温和模式：关闭的功能其工具仍在位、调用时被拒绝。开启后，对所有角色都不生效的功能，其工具会真正对模型隐藏（省上下文）；恢复生效自动重挂。",
+            defaultValue: "默认保留工具，但不执行已关闭的功能。开启后，对所有角色都不生效的工具会从模型工具列表中隐藏；功能恢复时重新显示。",
           })}
         >
           <TmSwitch
             checked={!!(caps && caps.hide_disabled_tools)}
             disabled={loading}
-            label={t("panel.features.hideTools", { defaultValue: "关闭的功能从模型可见面摘除工具" })}
+            label={t("panel.features.hideTools", { defaultValue: "隐藏已关闭功能的工具" })}
             onChange={(value: boolean) => onToggleHideTools(value)}
           />
         </span>
         <span className="tm-feat-adv-help">
           {caps && caps.hide_disabled_tools
-            ? t("panel.features.hideToolsOn", { defaultValue: "已开启：不生效功能的工具会摘除" })
-            : t("panel.features.hideToolsOff", { defaultValue: "温和模式：工具在位、调用时才拒" })}
+            ? t("panel.features.hideToolsOn", { defaultValue: "隐藏对所有角色都不生效的工具" })
+            : t("panel.features.hideToolsOff", { defaultValue: "保留工具，已关闭的功能不执行" })}
         </span>
       </div>
     </div>

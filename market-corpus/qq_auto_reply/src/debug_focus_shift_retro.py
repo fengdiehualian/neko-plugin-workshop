@@ -1,5 +1,9 @@
 #!/usr/bin/env python
-"""调试脚本：模拟两个群聊 → 焦点切换 → 回溯补回生成的摘要文本。
+"""调试脚本：模拟两个群聊 → 本群凉转热 → 回溯补回生成的摘要文本。
+
+2026-09-29：触发点从"跨群焦点切换"改成"**这个群自己**凉转热"（跨群取舍已删除，
+使用者口径「每个群自己管自己的注意力」）。文件名保留 `focus_shift_retro` 是为了
+让老笔记里的命令还能直接跑。
 
 代入**实际生产环境**：
 - 加载真实的生产配置 ``business_config.json``（注意力阈值、回溯参数、标签、
@@ -12,7 +16,7 @@
 隔离与确定性：
 - 回溯/注意力数据写入临时目录（``backlog_state.json`` 副本），绝不污染生产
   backlog；
-- 时间用可控时钟驱动（覆盖 ``attention._current_time``），让焦点切换确定性发生。
+- 时间用可控时钟驱动（覆盖 ``attention._current_time``），让"凉转热"确定性发生。
 
 用法：
     python plugin/plugins/qq_auto_reply/debug_focus_shift_retro.py --data-dir <qq_auto_reply 数据目录>
@@ -118,7 +122,6 @@ def build_facade(data_dir: Path, tmp_dir: Path, config: dict) -> SimpleNamespace
     )
     facade.runtime_service = SimpleNamespace(record_pipeline_outcome=lambda *a, **k: None)
     facade.reply_buffer_service = None
-    facade.fatigue_service = None
     facade.qq_client = SimpleNamespace(needs_attention=True)
     facade.captured = captured
     return facade
@@ -145,8 +148,8 @@ async def run(data_dir: Path, messages_b: list[tuple[str, str, str]]) -> int:
         config_store = QQAutoReplyConfigStore(data_dir)
         config = await config_store.load()
         log(f"生产配置加载: {config_store.path}")
-        log(f"  焦点线 focus_threshold={config.get('group_attention_focus_threshold', 4.0)}, "
-            f"发送门控 focus_send_threshold={config.get('group_attention_focus_send_threshold', 2.0)}, "
+        log(f"  焦点线 focus_threshold={config.get('attention_focus_threshold', 4.0)}, "
+            f"发送门控 focus_send_threshold={config.get('attention_focus_hold_threshold', 2.0)}, "
             f"回溯上限 retroactive_review_max_messages={config.get('retroactive_review_max_messages', 30)}")
 
         facade = build_facade(data_dir, tmp_dir, config)
@@ -160,7 +163,7 @@ async def run(data_dir: Path, messages_b: list[tuple[str, str, str]]) -> int:
         # 3. 群 A 先成为焦点（注意力 ≥ 焦点线）
         attention.mark_focus(GROUP_A)
         _a = attention._load_state(GROUP_A)
-        _a.attention_score = float(config.get("group_attention_focus_threshold", 4.0))
+        _a.attention_score = float(config.get("attention_focus_threshold", 4.0))
         attention._write_state(_a)
         log(f"群 {GROUP_A} 成为焦点，score={_a.attention_score:.1f}")
 
@@ -176,25 +179,33 @@ async def run(data_dir: Path, messages_b: list[tuple[str, str, str]]) -> int:
             log(f"  注入 B 消息: [{nickname}] {text}")
         log(f"群 {GROUP_B} 已注入 {len(messages_b)} 条消息（backlog 未审核）")
 
-        # 5. 群 B 注意力反超 → 焦点切到 B
+        # 5. 群 B **凉转热** —— 回溯补回的触发点
+        #
+        # 2026-09-29 起触发点不再是"焦点切到 B"：跨群取舍已删除（使用者口径「每个群自己
+        # 管自己的注意力」），取而代之的是**每群自己的状态迁移**（`_note_in_conversation`）。
         clock["now"] += 60
         _b = attention._load_state(GROUP_B)
-        _b.attention_score = float(config.get("group_attention_focus_threshold", 4.0)) + 2.0
+        _b.attention_score = float(config.get("attention_focus_threshold", 4.0)) + 2.0
         _b.last_message_at = clock["now"]
         attention._write_state(_b)
-        gate._last_focus_group = GROUP_A  # 模拟接收时焦点是 A
-
-        shift = await gate.check_focus_shift()
-        log(f"check_focus_shift → {shift.previous_focus_group or '无'} → {shift.new_focus_group}"
-            if shift else "check_focus_shift → 无切换")
+        gate._in_conversation[GROUP_B] = False    # 模拟"上一次判定：这个群凉着"
+        transitioned = gate._note_in_conversation(GROUP_B)
+        log(f"_note_in_conversation({GROUP_B}) → {transitioned}（True = 凉转热，该补回）")
 
         # 6. 回溯前先取快照（run_retroactive_review 结束后会把消息标记为已审阅）
         max_msgs = int(config.get("retroactive_review_max_messages", 30) or 30)
         unreviewed_before = await facade.backlog_store.get_unreviewed_messages_since(
             GROUP_B, since_timestamp=0, limit=max_msgs,
         )
+        log(f"群 {GROUP_B} 未审核消息 {len(unreviewed_before)} 条；"
+            f"门槛 retroactive_review_min_unreviewed="
+            f"{config.get('retroactive_review_min_unreviewed', 5)}")
 
-        # 触发回溯补回（拦截 LLM，捕获摘要 prompt）
+        # 触发回溯补回（拦截 LLM，捕获摘要 prompt）。
+        # 本脚本要观察的是**摘要文本本身**，所以把两道"别白花 LLM 调用"的闸（攒够多少条
+        # 才补、同群冷却）在本进程里关掉：否则注入的消息少于门槛时会被静默跳过。
+        facade._qq_settings["retroactive_review_min_unreviewed"] = 0
+        facade._qq_settings["retroactive_review_cooldown_seconds"] = 0
         await gate.run_retroactive_review(GROUP_B)
 
         # 7. 打印结果
@@ -216,7 +227,7 @@ async def run(data_dir: Path, messages_b: list[tuple[str, str, str]]) -> int:
         # 避免「回溯没触发 / 摘要为空」时误报成功（退出码 0）。
         problems: list[str] = []
         if not facade.captured:
-            problems.append("未捕获到回溯补回请求（backlog 为空 / 焦点未切换 / 回溯被跳过）")
+            problems.append("未捕获到回溯补回请求（backlog 为空 / 本群没凉转热 / 回溯被跳过）")
         else:
             prompt_text = str(getattr(facade.captured[0], "message_text", "") or "")
             if "摘要：" not in prompt_text:

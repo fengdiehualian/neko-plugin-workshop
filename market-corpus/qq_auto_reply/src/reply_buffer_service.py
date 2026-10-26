@@ -4,10 +4,12 @@
 消息到达 → LLM 生成回复 → 按正态分布取一个发送延迟 → 等待 → 发送
 等待期间新消息到达 → LLM 决定合并/替换/丢弃 → 重置计时
 
-**发送延迟由脚本取样，不再由 LLM 决定**（见 :meth:`QQReplyBufferService.sample_wait_seconds`）：
-让模型在正文里额外产出一个数字，既占生成预算、又要求它每次自己变随机，实测不稳定；
-在基数附近按正态分布取样只要一行，节奏反而更像人。``<wait>`` 标签连同提示词里那条指令
-一并移除 —— 插件里不再有任何解析或剥离它的代码。
+**发送延迟由脚本决定，不再由 LLM 决定**（见 :meth:`QQReplyBufferService.send_pause_seconds`）：
+让模型在正文里额外产出一个数字，既占生成预算、又要求它每次自己变随机，实测不稳定。
+``<wait>`` 标签连同提示词里那条指令一并移除 —— 插件里不再有任何解析或剥离它的代码。
+
+这个停顿只是「生成完之后别秒回」的一小块，**总时长由收集窗口把控**
+（见 :meth:`send_pause_seconds` 与 :meth:`_send_at` 的说明）。
 """
 
 from __future__ import annotations
@@ -18,8 +20,6 @@ import re
 import time
 from typing import Any, Optional
 
-_MAX_BUFFER_COUNT = 17
-
 
 class PendingReply:
     """待发送的回复（缓冲模式：收消息时不合成，等暂停后统一生成回复）"""
@@ -28,7 +28,8 @@ class PendingReply:
                  "sender_id", "is_group", "group_id", "_acked", "first_blocks",
                  "draft_rows", "mention_context", "has_nonconsent_input",
                  "consent_snapshot", "used_fallback_reply", "generation",
-                 "private_permission_level_at_receipt")
+                 "private_permission_level_at_receipt", "delivering",
+                 "created_at")
 
     def __init__(
         self, first_text: str, wait_seconds: float, sender_id: str,
@@ -44,7 +45,10 @@ class PendingReply:
         # only honest initial value. schedule_reply advances this after the
         # generation path confirms that the first human row exists.
         self.materialized_user_count: int = 0
-        self.wait_until = time.time() + wait_seconds
+        #: 本条缓冲**首次消息**的到达时刻。"收集窗口"（见 _send_at）以它为锚点 ——
+        #: 与 wait_until 一样只在构造时定，追加消息不改它。
+        self.created_at = time.time()
+        self.wait_until = self.created_at + wait_seconds
         self.task: Optional[asyncio.Task] = None
         # 代际：每次新消息作废当前等待任务时 +1。归属**不能**只看
         # pending.task——追加消息的路径先 cancel、再 await（10-16 条的
@@ -59,6 +63,9 @@ class PendingReply:
         self.is_group = is_group
         self.group_id = group_id
         self._acked = False
+        #: 本 pending 的回复**已经开始投递**（见 _deliver_after_wait）。置起后
+        #: 一律不再收新消息 —— 否则会多跑一轮总结，把刚发出去的话再答一遍。
+        self.delivering = False
         self.first_blocks: list = []
         # 本缓冲期截停的草稿历史行（消息对象引用）：单条路径投递后只撤
         # 这些行的未投递记录，绝不动此前合并场景留下的旧标。
@@ -87,7 +94,7 @@ class QQReplyBufferService:
     """异步回复缓冲。
 
     合并/替换/丢弃的决策仍由 LLM 做；**发送延迟不是** —— 它由
-    :meth:`sample_wait_seconds` 按正态分布取样（见模块 docstring）。
+    :meth:`send_pause_seconds` 给出（见模块 docstring）。
     """
 
     # 群聊等得**更久**：一屋子人在聊，晚一点插话更自然，也留出"话题会不会自己
@@ -95,12 +102,19 @@ class QQReplyBufferService:
     DEFAULT_WAIT_SECONDS = 6.0      # 群聊延迟基数（正态分布中心）
     DEFAULT_WAIT_PRIVATE = 3.0      # 私聊基数
 
-    #: 延迟取样的标准差，取基数的一半左右 —— 约 2/3 的取值落在基数 ±σ 内。
-    WAIT_SIGMA_SECONDS = 3.0
-    WAIT_SIGMA_PRIVATE = 1.5
-    #: 夹住正态分布的尾巴：不夹的话偶尔会甩出一个十几秒的静默。
-    MIN_WAIT_SECONDS = 1.5
-    MAX_WAIT_SECONDS = 10.0
+
+    def _max_buffer_count(self) -> int:
+        """缓冲多少条就强制总结（可配 ``buffer_max_count``，默认 17）。
+
+        "我在听"那条闸的门槛由它推导（见 ``_ack_floor``），否则把上限调到 10 以下
+        会让那条分支永远不可达 —— 不会出错，但功能会静默消失。
+        """
+        value = (self.plugin._qq_settings or {}).get("buffer_max_count")
+        return 17 if value is None else max(1, int(value))
+
+    def _ack_floor(self) -> int:
+        """触发"我在听"的最少条数。默认上限 17 时等于 10（与历史行为一致）。"""
+        return max(1, min(10, self._max_buffer_count() - 1))
 
     @staticmethod
     def _participant_memory_at_receipt(pending: PendingReply) -> bool | None:
@@ -251,6 +265,41 @@ class QQReplyBufferService:
         self.plugin = plugin
         self._pending: dict[str, PendingReply] = {}  # session_key → PendingReply
 
+    def _log(self, level: str, message: str) -> None:
+        """缓冲区的决策**同时进文件日志**（原来 14 处 `_emit_log` 只进内存环形缓冲）。
+
+        由来（使用者 2026-09-27：「为什么破冰完没有后续的回复，看」）：
+        真机 17:37:53 生成了一条 24 字回复，之后日志里**什么都没有** ——
+        没有 `[Send]`、没有 `未投递`、也没有任何"丢掉/合并/作废"的记录；
+        全天 151 轮生成里 **104 轮没有对应的发送**（其中一部分是设计上的
+        合并，但至少这一次不是：那条消息之后 23 分钟没有新消息）。
+        而缓冲区的全部 14 处日志走的都是 `_emit_log`（UI 面板的内存环形缓冲，
+        重启即失、只有 15 行），文件里一个字都查不到 —— 诊断只能停在
+        "生成之后消失了"。这条通道必须打通：**"她明明生成了却没说话"这类
+        问题，全部要经过缓冲区**。
+
+        仍然照旧发一份 `_emit_log`（面板里那条时间线不能少），
+        只是**多加**一路文件日志。任何一路失败都不影响另一路。
+        """
+        text = message if message.startswith("[") else f"[Buffer] {message}"
+        logger = getattr(self.plugin, "logger", None)
+        if logger is not None:
+            try:
+                writer = {
+                    "DEBUG": getattr(logger, "debug", None),
+                    "INFO": getattr(logger, "info", None),
+                    "WARN": getattr(logger, "warning", None),
+                    "ERROR": getattr(logger, "error", None),
+                }.get(level) or getattr(logger, "info", None)
+                if callable(writer):
+                    writer(text)
+            except Exception:      # noqa: BLE001 —— 日志失败不该影响投递
+                pass
+        try:
+            self.plugin._emit_log(level, message)
+        except Exception:          # noqa: BLE001
+            pass
+
     # ── 开关 ──
 
     #: 两个独立开关的配置键。群聊与私聊**分开**控制，因为缓冲动机不同：
@@ -270,21 +319,56 @@ class QQReplyBufferService:
 
     # ── 发送延迟：脚本取样，不问 LLM ──
 
-    @classmethod
-    def sample_wait_seconds(cls, *, private: bool = False) -> float:
-        """按正态分布取一个发送延迟（秒）。
+    def _collect_window(self, *, private: bool) -> float:
+        """收集窗口（秒）：从**消息到达**算起，至少等这么久才发。
 
-        原先由 LLM 在正文里用 ``<wait>N</wait>`` 指定 —— 那既占生成预算，又要求模型
-        每次自己"随机变化"，实测并不稳定。改成一行正态取样后节奏更像人，提示词里
-        那段要求也一并去掉了。
-
-        中心取该会话类型的基数（群聊 :attr:`DEFAULT_WAIT_SECONDS` / 私聊
-        :attr:`DEFAULT_WAIT_PRIVATE`），最后夹到 ``[MIN_WAIT_SECONDS, MAX_WAIT_SECONDS]``
-        —— 正态分布的尾巴理论无界，不夹会偶尔甩出十几秒的静默。
+        这是"后续消息能不能并进同一批"的机会窗口 —— 想并进来，就必须还在等。可配：
+        ``buffer_collect_window_seconds`` / ``buffer_collect_window_private_seconds``。
+        群聊给得比私聊长：一屋子人在聊，晚一点插话更自然，也让"话题会不会自己走开"
+        有个观察窗口；私聊是两个人面对面，对方正等着你回。
         """
-        base = cls.DEFAULT_WAIT_PRIVATE if private else cls.DEFAULT_WAIT_SECONDS
-        sigma = cls.WAIT_SIGMA_PRIVATE if private else cls.WAIT_SIGMA_SECONDS
-        return max(cls.MIN_WAIT_SECONDS, min(cls.MAX_WAIT_SECONDS, random.gauss(base, sigma)))
+        key = (
+            "buffer_collect_window_private_seconds" if private
+            else "buffer_collect_window_seconds"
+        )
+        fallback = 1.0 if private else 3.0
+        value = (getattr(self.plugin, "_qq_settings", None) or {}).get(key)
+        return max(0.0, fallback if value is None else float(value))
+
+    def _send_at(self, pending: "PendingReply", send_delay: float, *, is_group: bool) -> float:
+        """发送时刻 = ``max(生成完成 + 发送停顿, 消息到达 + 收集窗口)``。
+
+        为什么是**下限**而不是把停顿叠加在生成之上 —— 生成耗时是不稳定的（同一轮
+        对话实测 1.0s 与 4.0s 两种），叠加会让总延迟既慢又随机：生成快时收集窗口小到
+        后续消息几乎并不进来，生成慢时又白等一笔。取下限则两头都对：
+
+            生成 1s、窗口 3s → 3.0s（补足窗口，后续消息并得进来）
+            生成 4s、窗口 3s → 4.0s + 停顿（生成早已超过窗口，不白等）
+
+        即结果不依赖生成时间的随机性，行为可预期。
+        """
+        return max(
+            time.time() + max(0.0, float(send_delay)),
+            pending.created_at + self._collect_window(private=not is_group),
+        )
+
+    @classmethod
+    def send_pause_seconds(cls, *, private: bool = False, settings: Any = None) -> float:
+        """生成完成之后的**发送停顿**（秒）—— 让回复别看起来是秒回的。
+
+        只读一个配置值，**不再取样**。原先这里按正态分布取样，另有 sigma / 下限 / 上限
+        三个旋钮夹住尾巴；那套是在「发送时刻 = 生成完成 + 停顿」的**加法**语义下设计的。
+        改成下限语义（见 :meth:`_send_at`）之后总时长由**收集窗口**把控，停顿只剩
+        「别秒回」这一个作用 —— 正态尾巴与区间夹取都没有意义了，四个旋钮并成一个。
+
+        ``settings`` 为 None 时回退类常量（不传参的调用方：测试、旧调用点）。
+        **用 ``is None`` 判缺值而不是 ``or``**：停顿设成 0 是有意义的（不额外等），
+        ``or`` 会把它当未设置吞掉 —— 这个坑本仓库在注意力参数上已经踩过一次。
+        """
+        key = "buffer_delay_private_seconds" if private else "buffer_delay_mean_seconds"
+        fallback = cls.DEFAULT_WAIT_PRIVATE if private else cls.DEFAULT_WAIT_SECONDS
+        value = (settings or {}).get(key)
+        return max(0.0, float(fallback) if value is None else float(value))
 
     # ── 话题摘要 ──
 
@@ -349,7 +433,12 @@ class QQReplyBufferService:
         now = time.time()
         existing = self._pending.get(session_key)
 
-        if existing and (existing.task is None or not existing.task.done()):
+        if (
+            existing
+            and (existing.task is None or not existing.task.done())
+            # 投递已开始的 pending 不能再收 —— 见下方 delivering 的说明。
+            and not existing.delivering
+        ):
             # 已有缓冲 → 追加
             self._supersede(existing)
             existing.buffered_texts.append(message_text)
@@ -376,7 +465,7 @@ class QQReplyBufferService:
             existing.task = asyncio.create_task(
                 self._deliver_after_wait(session_key, existing, existing.generation)
             )
-            self.plugin._emit_log("DEBUG", f"[Buffer] 预缓冲追加（共{n}条），等待 {extra:.1f}s，跳过 LLM 生成")
+            self._log("DEBUG", f"[Buffer] 预缓冲追加（共{n}条），等待 {extra:.1f}s，跳过 LLM 生成（{session_key}）")
             return True
 
         # 无缓冲 → 创建新缓冲，等 pipeline 完成后 schedule_reply 会填充回复
@@ -459,7 +548,7 @@ class QQReplyBufferService:
             if consent_snapshot is not None:
                 self._merge_consent_snapshot(existing, consent_snapshot)
 
-        if existing and existing.task and not existing.task.done():
+        if existing and existing.task and not existing.task.done() and not existing.delivering:
             # 已有缓冲 → 追加消息，转发子条数计入。作废必须早于下面
             # 10-16 条确认轮的 await：替补任务要等那个 await 结束才建。
             self._supersede(existing)
@@ -479,11 +568,11 @@ class QQReplyBufferService:
             else:
                 extra = 0.0
             existing.wait_until = time.time() + extra
-            self.plugin._emit_log("DEBUG", f"缓冲追加（共{n}条），等待 {extra:.1f}s")
+            self._log("INFO", f"[Buffer] 追加回复（共{n}条，等待 {extra:.1f}s，{session_key}）")
 
-            # 10-16 条 → 走 pipeline 发简短确认
+            # 中段条数 → 走 pipeline 发简短确认（门槛随上限推导，见 _ack_floor）
             if (
-                10 <= n < 17
+                self._ack_floor() <= n < self._max_buffer_count()
                 and not getattr(existing, "_acked", False)
                 and not self._consent_revoked_since(existing)
             ):
@@ -519,8 +608,8 @@ class QQReplyBufferService:
                 finally:
                     self._record_synthetic_prompt_rows(session_key, hist_before)
 
-            # 17+ 条 → 走 pipeline 强制总结 + 清空缓冲
-            if n >= _MAX_BUFFER_COUNT and self._consent_revoked_since(existing):
+            # 到上限 → 走 pipeline 强制总结 + 清空缓冲
+            if n >= self._max_buffer_count() and self._consent_revoked_since(existing):
                 # 与 ack 同理：总结的 prompt 会原样引用这些记忆派生的旧
                 # 草稿。授权撤销后不总结、不投递，草稿保持未投递（排除
                 # 记录留存）并解除游标屏障——与 _deliver_after_wait 的
@@ -538,7 +627,7 @@ class QQReplyBufferService:
                     existing,
                 )
                 return
-            if n >= _MAX_BUFFER_COUNT:
+            if n >= self._max_buffer_count():
                 # 本分支提前 return，函数尾部的补关联不会执行——先把本轮
                 # 草稿行绑上，否则 settle 按 draft_rows 清 provisional 时
                 # 漏掉它，游标屏障永久卡死、此后所有消息进不了 scoped 记忆。
@@ -635,6 +724,9 @@ class QQReplyBufferService:
             self._merge_consent_snapshot(existing, consent_snapshot)
         if not consented:
             existing.has_nonconsent_input = True
+        # 发送时刻统一在这里定：下限语义（见 _send_at）。放在"启动等待任务"之前，
+        # 而不是在各分支里各写一遍 —— 占位填充与完全新建两条路都要盖到。
+        existing.wait_until = self._send_at(existing, wait_seconds, is_group=is_group)
         existing.task = asyncio.create_task(
             self._deliver_after_wait(session_key, existing, existing.generation)
         )
@@ -711,9 +803,16 @@ class QQReplyBufferService:
         """等待暂停后，汇总缓冲消息让 LLM 生成最终回复并发送。"""
         now = time.time()
         delay = max(0.0, pending.wait_until - now)
+        self._log(
+            "INFO",
+            f"[Buffer] 排定投递（{session_key}，等待 {delay:.1f}s，"
+            f"message_count={pending.message_count}，草稿 {len(pending.buffered_texts)} 条）",
+        )
         try:
             await asyncio.sleep(delay)
         except asyncio.CancelledError:
+            # 静默丢弃点之一 —— 必须留痕，否则"生成了一条却没发出去"查不到原因
+            self._log("WARN", f"[Buffer] 等待被取消（新消息到达/任务被撤），本条不投递（{session_key}）")
             return  # 新消息打断了等待
 
         if (
@@ -722,14 +821,22 @@ class QQReplyBufferService:
         ):
             # 两道都要：换了 pending 对象（缓冲已作废）与同对象换了代际
             # （新消息就地重建了任务）是两回事，后者对象身份分辨不出。
+            # ⚠️ 这里是**最隐蔽的丢弃点**（原来是静默 return）：本轮草稿既不投递、
+            # 也无人再管，而 `schedule_reply` 早已向上报告过 delivered=True。
+            gone = self._pending.get(session_key) is not pending
+            self._log(
+                "WARN",
+                f"[Buffer] 归属检查未通过，本条不投递（{'缓冲已作废' if gone else '已换新代际'}，"
+                f"{session_key}，等待 {pending.wait_until - time.time():.1f}s）",
+            )
             return
 
         if self._consent_revoked_since(pending):
             # 等待期间授权被撤销：这条草稿是在旧授权下生成的（prompt 里
             # 可能带 scoped/跨群内容），不得再送出。草稿保持未投递、屏障
             # 解除、不记 mention。
-            self.plugin._emit_log(
-                "WARN", "[Buffer] 记忆授权已撤销，丢弃缓冲中的旧回复",
+            self._log(
+                "WARN", f"[Buffer] 记忆授权已撤销，丢弃缓冲中的旧回复（{session_key}）",
             )
             if self._detach_pending(session_key, pending, generation):
                 self._settle_provisional(
@@ -739,6 +846,15 @@ class QQReplyBufferService:
                     pending,
                 )
             return
+
+        # 到这里这一轮**必定会投递**（等待结束、两道归属检查过关、授权未撤销）。
+        # 先立旗：此后到达的消息不再往本 pending 里塞，而是各自新建缓冲走自己的
+        # pipeline。
+        #
+        # 不立旗的后果（实测）：本轮的回复已经在**发出去**了，新消息却还被追加进来、
+        # 并新建一轮投递；那一轮看到 message_count>=2 就走总结分支 —— 于是同一条消息
+        # 先被单独回答一次，又被总结再答一次。用户看到的是"同一句话被回了两次"。
+        pending.delivering = True
 
         # 汇总缓冲内容
         texts = pending.buffered_texts
@@ -765,12 +881,22 @@ class QQReplyBufferService:
             except Exception as e:
                 # NapCat 传输失败以异常上浮：与"未确认"同等对待——不跑
                 # 清理会让 provisional 屏障永久卡死后续 digest。
-                self.plugin._emit_log("WARN", f"[Buffer] 单条投递失败: {e}")
+                # ⚠️ 这里原来**只进内存**：真机上一旦投递抛异常，文件日志里
+                # 就是"生成了、然后什么都没有"，与"被静默丢弃"完全分辨不出。
+                self._log(
+                    "WARN",
+                    f"[Buffer] 单条投递失败（{session_key}，{type(e).__name__}: {str(e)[:150]}）",
+                )
                 delivery = None
             if delivery is None or not getattr(delivery, "delivered", False):
                 # 发送未确认（开放平台失败返回 None 不抛异常）：草稿仍属
                 # 未投递——排除记录保留、mention 不记，没送出去的回复不得
                 # 进 scoped 提取。命运已定（不重试），解除游标屏障。
+                self._log(
+                    "WARN",
+                    f"[Buffer] 投递未确认，草稿保持未投递（{session_key}，"
+                    f"delivery={'None' if delivery is None else 'delivered=False'}）",
+                )
                 if self._detach_pending(session_key, pending, generation):
                     # 屏障与 pending 同进退：替补代际还在缓冲时草稿命运未
                     # 定，解除屏障会让游标越过一条随后可能被投递的行。
@@ -790,6 +916,7 @@ class QQReplyBufferService:
             # 混进替补的总结素材里，比起把新消息整条丢掉不回，这是更轻的
             # 代价——正常无替补路径不受影响。
             self._detach_pending(session_key, pending, generation)
+            self._log("INFO", f"[Buffer] 单条投递完成（{session_key}）")
             # 单条草稿真的送出去了：只撤本次 pending 的未投递记录——此前
             # 合并场景留下的旧记录必须留存。
             async def _settle_delivered() -> None:
@@ -840,7 +967,31 @@ class QQReplyBufferService:
             return
 
         # 多条缓冲 → 走 pipeline 生成总结（兼容 Lanlan）
-        self.plugin._emit_log("INFO", f"缓冲{pending.message_count}条消息，走 pipeline 生成总结...")
+        #
+        # 例外：整批都是"刚跟着复读过的同一句"就不再总结 —— 否则群里会连着看到
+        # 两条互相矛盾的回复：她刚跟着复读了一句，紧接着又吐槽"你是复读机吗喵？"。
+        # 判据在 repeat_echo_service（要求整批归一化后是同一句，且这一句在冷却期内
+        # 刚被她跟过），混了别的内容的批次照常总结。
+        _repeat_echo = getattr(self.plugin, "repeat_echo_service", None)
+        if (
+            _repeat_echo is not None
+            and pending.is_group
+            and _repeat_echo.should_skip_batch_summary(
+                group_id=str(pending.group_id or ""),
+                texts=list(pending.buffered_user_texts or texts),
+            )
+        ):
+            self.plugin._emit_log("INFO", "[Repeat] 整批都是刚跟过的复读，跳过总结")
+            if self._detach_pending(session_key, pending, generation):
+                self._settle_provisional(
+                    (getattr(self.plugin, "_user_sessions", {}) or {}).get(
+                        session_key
+                    ),
+                    pending,
+                )
+            return
+
+        self._log("INFO", f"[Buffer] 缓冲 {pending.message_count} 条消息，走 pipeline 生成总结（{session_key}）")
         try:
             from .pipeline_models import QQReplyRequest
             # buffered_texts[0] 是 bot 自己的草稿回复（schedule_reply 覆盖），
@@ -898,7 +1049,13 @@ class QQReplyBufferService:
     # ── LLM 合并决策 ──
 
     async def _generate_ack(self, texts: list[str]) -> str:
-        """让 LLM 决定是否发简短确认，以及确认内容。返回空字符串表示不发。"""
+        """让 LLM 决定是否发简短确认，以及确认内容。返回空字符串表示不发。
+
+        **必须带本体人设**：免费端（lanlan）只认带人设的请求，不带一律 400，而这里
+        是 `except Exception: pass` 的尽力而为路径 —— 静默失败等于"我在听"这条闸
+        永远不响（见 docs/SESSION-HANDOFF.md §4.0t）。提示词本来就要求"要符合你的
+        人设"，人设进 system 与它的意图一致。
+        """
         try:
             from utils.config_manager import get_config_manager
             from utils.llm_client import create_chat_llm_async
@@ -924,8 +1081,13 @@ class QQReplyBufferService:
                 "如果不需要，只输出 SKIP。\n"
                 "只输出确认语或 SKIP，不要输出其他内容。"
             )
+            messages: list[dict[str, Any]] = []
+            free_system = self.plugin._free_route_system_prompt(model_config)
+            if free_system:
+                messages.append({"role": "system", "content": free_system})
+            messages.append({"role": "user", "content": prompt})
             resp = await asyncio.wait_for(
-                llm.ainvoke([{"role": "user", "content": prompt}]),
+                llm.ainvoke(messages),
                 timeout=5.0,
             )
             result = str(getattr(resp, "content", "") or "").strip()
@@ -936,7 +1098,14 @@ class QQReplyBufferService:
         return ""
 
     async def _summarize_buffered(self, texts: list[str], is_group: bool) -> str:
-        """缓冲结束后，让 LLM 看所有缓冲消息生成一条总结回复。"""
+        """缓冲结束后，让 LLM 看所有缓冲消息生成一条总结回复。
+
+        **两条路都必须带本体人设**：免费端（lanlan）只认带人设的请求，不带就一律
+        400 —— 主路（`OmniOfflineClient.stream_text`）以前既不 `connect()` 也不带
+        人设，等于这条请求必然被拒，再落到同样不带人设的 raw LLM 兜底，一起 400。
+        结果是"对方连发一堆消息"这个场景下总结回复永远出不来
+        （见 docs/SESSION-HANDOFF.md §4.0t）。
+        """
         try:
             combined = "\n".join(f"[{i+1}] {t[:150]}" for i, t in enumerate(texts))
             prompt = (
@@ -968,6 +1137,11 @@ class QQReplyBufferService:
                 model=str(_mc.get("model", "")),
                 on_text_delta=_on_text,
             )
+            # 人设只能经 `connect(instructions=…)` 进这条路（system 消息就是会话的
+            # instructions）。非免费线没有这道门，维持原来的"不 connect"行为。
+            free_system = self.plugin._free_route_system_prompt(_mc)
+            if free_system:
+                await client.connect(instructions=free_system)
             await _asyncio.wait_for(client.stream_text(prompt), timeout=10.0)
             result = resp_text.strip()
             if result:
@@ -985,7 +1159,12 @@ class QQReplyBufferService:
                 max_completion_tokens=300, timeout=10.0,
                 provider_type=model_config.get("provider_type"),
             )
-            resp = await _asyncio.wait_for(llm.ainvoke([{"role": "user", "content": prompt}]), timeout=10.0)
+            messages: list[dict[str, Any]] = []
+            fallback_system = self.plugin._free_route_system_prompt(model_config)
+            if fallback_system:
+                messages.append({"role": "system", "content": fallback_system})
+            messages.append({"role": "user", "content": prompt})
+            resp = await _asyncio.wait_for(llm.ainvoke(messages), timeout=10.0)
             result = str(getattr(resp, "content", "") or "").strip()
             return result if result else ""
         except Exception as e:

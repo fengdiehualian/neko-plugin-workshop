@@ -23,20 +23,7 @@ class QQRuntimeService:
             "show_napcat_window": bool((self.plugin._qq_settings or {}).get("show_napcat_window", False)),
             "startup_error": self.plugin.napcat_service.get_startup_error() or None,
             "attention": attention_snapshot,
-            "fatigue": self._build_fatigue_snapshot(),
             "recent_pipeline_traces": self.get_recent_pipeline_traces(),
-        }
-
-    def _build_fatigue_snapshot(self) -> dict[str, Any]:
-        f = getattr(self.plugin, "fatigue_service", None)
-        if not f:
-            return {"available": False}
-        return {
-            "available": True,
-            "total_fatigue": round(f.calculate_fatigue("global"), 1),
-            "circadian": round(f._circadian_fatigue(), 1),
-            "global_load": round(f._global_load_fatigue(), 1),
-            "time": time.strftime("%H:%M:%S"),
         }
 
     def record_pipeline_outcome(self, *, source: str, request: Any, outcome: Any) -> None:
@@ -80,13 +67,19 @@ class QQRuntimeService:
             "target_scope": target_state["conversation_scope"],
             "target_id": target_state["conversation_id"],
             "operator_target_id": target_state["operator_target_id"],
-            "suppression_reason": str(getattr(request, "suppression_reason", "") or ""),
             **target_state,
             "summary": {},
             "traces": traces,
         }
         entry["summary"] = self._build_entry_summary(entry)
         self._store_recent_trace_entry(entry)
+        # 主动搭话（管理员私聊）的登记点：这一轮她有没有留下"晚点告诉你"这类承诺。
+        # 选这里是**单漏斗**：私聊/群聊/主动/回投所有回合都会经过 `record_pipeline_outcome`，
+        # 而"只认管理员私聊的非合成轮"这个筛选条件放在服务里（`note_turn`）。
+        # best effort —— 它不许影响已经发出去的那一轮。
+        initiative = getattr(self.plugin, "proactive_initiative_service", None)
+        if initiative is not None:
+            initiative.note_turn(source=source, request=request, outcome=outcome)
 
     def record_manual_trace(
         self,
@@ -259,7 +252,6 @@ class QQRuntimeService:
             "result_kind": self._derive_result_kind(action=action, traces=traces),
             "delivery_mode": self._derive_delivery_mode(action=action, delivery_target_id=delivery_target_id),
             "response_length": len(response_text),
-            "suppression_reason": str(entry.get("suppression_reason") or ""),
         }
 
     def _derive_result_kind(self, *, action: str, traces: list[dict[str, Any]]) -> str:

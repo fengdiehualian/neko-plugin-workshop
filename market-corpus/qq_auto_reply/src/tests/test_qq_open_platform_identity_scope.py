@@ -30,9 +30,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from plugin.plugins.qq_auto_reply import message_dispatcher as dispatcher_mod
+from plugin.plugins.qq_auto_reply.connector_seam import qq_open_plat as _qq_plat
 from plugin.plugins.qq_auto_reply.message_dispatcher import QQMessageDispatcher
 
-_qq_plat = pytest.importorskip("utils.connection.onebot.qq_open_plat")
 open_plat_mod = _qq_plat
 QQOpenPlatformConnection = _qq_plat.QQOpenPlatformConnection
 build_identity_probe_line = _qq_plat.build_identity_probe_line
@@ -568,7 +568,11 @@ def test_the_probe_copy_exists_in_every_locale():
     # Adding the key to zh-CN only would leave eight languages showing the
     # previous wording -- which is where the jargon was.
     files = _locale_files()
-    assert len(files) >= 9, files
+    # 精确集合而不是 >=9：插件只保留中文与英文（其余 7 个语言早已落后 25 个键、
+    # 无人维护，界面本来就回退显示中文）。精确断言比原来的下限**更严** —— 它同时
+    # 挡住"又混进来一个没人管的语言文件"，且下面的循环仍然逐个检查每个实际发布的
+    # 语言，PROBE_KEYS 的覆盖不会因为删文件而被跳过。
+    assert {path.name for path in files} == {"zh-CN.json", "en.json"}, files
     for path in files:
         catalogue = json.loads(path.read_text(encoding="utf-8"))
         for key in PROBE_KEYS:

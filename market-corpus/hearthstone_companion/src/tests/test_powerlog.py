@@ -41,6 +41,19 @@ def add_entity(
     feed(parser, f"    tag=ZONE value={zone}")
 
 
+def recruit_parser() -> PowerLogParser:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+    )
+    return parser
+
+
 @pytest.mark.parametrize("verb", ["Creating", "Updating"])
 def test_full_entity_accepts_creating_and_id_updating_forms(verb: str) -> None:
     parser = PowerLogParser()
@@ -453,6 +466,227 @@ def test_constructed_metadata_and_private_player_refs_drive_live_turn_and_mana()
     assert all(private_local not in entity.name for entity in parser.entities.values())
 
 
+def test_constructed_uniquely_infers_anonymized_opponent_task_reference() -> None:
+    parser = PowerLogParser()
+    private_local = "PRIVATE_LOCAL#1234"
+    private_opponent = "PRIVATE_OPPONENT#5678"
+
+    parser.feed_line(source_line("GameState", "CREATE_GAME"), now=100.0)
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_RANKED",
+        now=100.1,
+    )
+    parser.feed_line(
+        f"D 12:00:00.0000000 GameState.DebugPrintGame() - PlayerID=1, PlayerName={private_local}",
+        now=100.2,
+    )
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintGame() - "
+        "PlayerID=2, PlayerName=UNKNOWN HUMAN PLAYER",
+        now=100.3,
+    )
+    parser.feed_line(source_line("GameState", "GameEntity EntityID=1"), now=100.4)
+    parser.feed_line(
+        source_line(
+            "GameState",
+            "Player EntityID=2 PlayerID=1 GameAccountId=[hi=0 lo=0]",
+        ),
+        now=100.5,
+    )
+    parser.feed_line(
+        source_line(
+            "GameState",
+            "Player EntityID=3 PlayerID=2 GameAccountId=[hi=0 lo=0]",
+        ),
+        now=100.6,
+    )
+    parser.feed_line(source_line("PowerTaskList", "CREATE_GAME"), now=101.0)
+    feed(parser, f"TAG_CHANGE Entity={private_local} tag=MULLIGAN_STATE value=INPUT")
+    feed(
+        parser,
+        f"TAG_CHANGE Entity={private_opponent} tag=MULLIGAN_STATE value=DONE",
+        f"TAG_CHANGE Entity={private_opponent} tag=RESOURCES value=3",
+        f"TAG_CHANGE Entity={private_opponent} tag=RESOURCES_USED value=1",
+        f"TAG_CHANGE Entity={private_opponent} tag=CURRENT_PLAYER value=1",
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=2",
+        "TAG_CHANGE Entity=GameEntity tag=STEP value=MAIN_READY",
+    )
+
+    snapshot = parser.snapshot()
+    public_json = json.dumps(snapshot.to_public_dict(), ensure_ascii=False)
+
+    assert parser.local_controller == 1
+    assert parser.current_controller == 2
+    assert snapshot.active_side == "opponent"
+    assert snapshot.constructed is not None
+    assert snapshot.constructed.opponent.mana_max == 3
+    assert snapshot.constructed.opponent.mana_available == 2
+    assert private_local not in repr(parser.__dict__)
+    assert private_opponent not in repr(parser.__dict__)
+    assert private_local not in public_json
+    assert private_opponent not in public_json
+
+
+
+
+def test_inactive_constructed_side_does_not_reuse_previous_turn_mana() -> None:
+    parser = PowerLogParser()
+    private_local = "PRIVATE_LOCAL#1234"
+    private_opponent = "PRIVATE_OPPONENT#5678"
+
+    parser.feed_line(source_line("GameState", "CREATE_GAME"), now=100.0)
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_RANKED",
+        now=100.1,
+    )
+    parser.feed_line(
+        f"D 12:00:00.0000000 GameState.DebugPrintGame() - PlayerID=1, PlayerName={private_local}",
+        now=100.2,
+    )
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintGame() - "
+        "PlayerID=2, PlayerName=UNKNOWN HUMAN PLAYER",
+        now=100.3,
+    )
+    parser.feed_line(source_line("GameState", "GameEntity EntityID=1"), now=100.4)
+    parser.feed_line(
+        source_line(
+            "GameState",
+            "Player EntityID=2 PlayerID=1 GameAccountId=[hi=0 lo=0]",
+        ),
+        now=100.5,
+    )
+    parser.feed_line(
+        source_line(
+            "GameState",
+            "Player EntityID=3 PlayerID=2 GameAccountId=[hi=0 lo=0]",
+        ),
+        now=100.6,
+    )
+    parser.feed_line(source_line("PowerTaskList", "CREATE_GAME"), now=101.0)
+    feed(
+        parser,
+        f"TAG_CHANGE Entity={private_local} tag=MULLIGAN_STATE value=INPUT",
+        f"TAG_CHANGE Entity={private_local} tag=MULLIGAN_STATE value=DONE",
+        f"TAG_CHANGE Entity={private_opponent} tag=MULLIGAN_STATE value=DONE",
+        f"TAG_CHANGE Entity={private_opponent} tag=RESOURCES value=3",
+        f"TAG_CHANGE Entity={private_opponent} tag=RESOURCES_USED value=1",
+        f"TAG_CHANGE Entity={private_local} tag=RESOURCES value=4",
+        f"TAG_CHANGE Entity={private_local} tag=RESOURCES_USED value=2",
+        f"TAG_CHANGE Entity={private_local} tag=CURRENT_PLAYER value=1",
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=7",
+        "TAG_CHANGE Entity=GameEntity tag=STEP value=MAIN_READY",
+    )
+
+    local_turn = parser.snapshot()
+    assert local_turn.active_side == "player"
+    assert local_turn.player.mana_available == 2
+    assert local_turn.opponent.mana_available == 0
+    assert local_turn.constructed is not None
+    assert local_turn.constructed.player.mana_available == 2
+    assert local_turn.constructed.player.mana_max == 4
+    assert local_turn.constructed.opponent.mana_available == 0
+    assert local_turn.constructed.opponent.mana_max == 3
+
+    feed(
+        parser,
+        f'TAG_CHANGE Entity={private_local} tag=CURRENT_PLAYER value=0',
+        f'TAG_CHANGE Entity={private_opponent} tag=CURRENT_PLAYER value=1',
+        'TAG_CHANGE Entity=GameEntity tag=TURN value=8',
+    )
+    opponent_turn = parser.snapshot()
+    assert opponent_turn.active_side == 'opponent'
+    assert opponent_turn.player.mana_available == 0
+    assert opponent_turn.opponent.mana_available == 2
+    assert opponent_turn.constructed is not None
+    assert opponent_turn.constructed.player.mana_available == 0
+    assert opponent_turn.constructed.opponent.mana_available == 2
+
+def test_constructed_does_not_guess_unresolved_player_without_unique_task_candidate() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=2 PlayerID=1 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=3 PlayerID=2 GameAccountId=[hi=0 lo=0]",
+        "TAG_CHANGE Entity=2 tag=MULLIGAN_STATE value=INPUT",
+        "TAG_CHANGE Entity=UNMAPPED_PLAYER#9999 tag=RESOURCES value=4",
+    )
+
+    assert parser.local_controller == 1
+    assert parser.entities[3].tags.get("RESOURCES") is None
+    assert "UNMAPPED_PLAYER#9999" not in repr(parser.__dict__)
+
+
+def test_constructed_weak_playstate_aliases_do_not_block_or_misbind_later_inference() -> None:
+    parser = PowerLogParser()
+    private_local = "PRIVATE_LOCAL#1234"
+    private_opponent = "PRIVATE_OPPONENT#5678"
+    one_shot_local = "ONESHOT_LOCAL#1"
+    one_shot_opponent = "ONESHOT_OPPONENT#1"
+    late_local = "LATE_LOCAL#1"
+
+    parser.feed_line(source_line("GameState", "CREATE_GAME"), now=100.0)
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_RANKED",
+        now=100.1,
+    )
+    parser.feed_line(
+        f"D 12:00:00.0000000 GameState.DebugPrintGame() - "
+        f"PlayerID=1, PlayerName={private_local}",
+        now=100.2,
+    )
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintGame() - "
+        "PlayerID=2, PlayerName=UNKNOWN HUMAN PLAYER",
+        now=100.3,
+    )
+    parser.feed_line(source_line("GameState", "GameEntity EntityID=1"), now=100.4)
+    parser.feed_line(
+        source_line(
+            "GameState",
+            "Player EntityID=2 PlayerID=1 GameAccountId=[hi=0 lo=0]",
+        ),
+        now=100.5,
+    )
+    parser.feed_line(
+        source_line(
+            "GameState",
+            "Player EntityID=3 PlayerID=2 GameAccountId=[hi=0 lo=0]",
+        ),
+        now=100.6,
+    )
+    parser.feed_line(source_line("PowerTaskList", "CREATE_GAME"), now=101.0)
+    feed(parser, f"TAG_CHANGE Entity={one_shot_local} tag=PLAYSTATE value=PLAYING")
+    feed(parser, f"TAG_CHANGE Entity={one_shot_opponent} tag=PLAYSTATE value=PLAYING")
+    feed(
+        parser,
+        f"TAG_CHANGE Entity={private_local} tag=MULLIGAN_STATE value=INPUT",
+        f"TAG_CHANGE Entity={private_local} tag=CURRENT_PLAYER value=1",
+        f"TAG_CHANGE Entity={private_opponent} tag=MULLIGAN_STATE value=DONE",
+        f"TAG_CHANGE Entity={private_opponent} tag=RESOURCES value=3",
+        f"TAG_CHANGE Entity={private_opponent} tag=RESOURCES_USED value=1",
+        f"TAG_CHANGE Entity={private_opponent} tag=CURRENT_PLAYER value=1",
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=2",
+        "TAG_CHANGE Entity=GameEntity tag=STEP value=MAIN_READY",
+    )
+    feed(parser, f"TAG_CHANGE Entity={late_local} tag=PLAYSTATE value=PLAYING")
+
+    snapshot = parser.snapshot()
+
+    assert parser.local_controller == 1
+    assert snapshot.active_side == "opponent"
+    assert snapshot.constructed is not None
+    assert snapshot.constructed.opponent.mana_max == 3
+    assert snapshot.constructed.opponent.mana_available == 2
+    assert parser.entities[3].tags.get("PLAYSTATE") is None
+    assert private_local not in repr(parser.__dict__)
+    assert private_opponent not in repr(parser.__dict__)
+    assert one_shot_local not in repr(parser.__dict__)
+    assert one_shot_opponent not in repr(parser.__dict__)
+    assert late_local not in repr(parser.__dict__)
+
+
 def test_constructed_snapshot_exposes_visible_local_cards_and_public_board_details() -> None:
     parser = PowerLogParser()
     feed(
@@ -516,6 +750,7 @@ def test_constructed_snapshot_exposes_visible_local_cards_and_public_board_detai
     assert hand["CS2_029"]["cost"] == 3
     assert [card["card_type"] for card in player["board"]["minions"]] == ["MINION"]
     assert player["board"]["minions"][0]["keywords"] == ["taunt"]
+    assert player["board"]["minions"][0]["keywords_complete"] is True
     assert player["locations"][0]["durability"] == 2
     assert opponent["board"]["count"] == 1
     assert opponent["board"]["attack"] == 2
@@ -524,6 +759,40 @@ def test_constructed_snapshot_exposes_visible_local_cards_and_public_board_detai
     ]
     assert opponent["hand"]["known_cards"] == []
     assert "OPPONENT_REVOKED" not in json.dumps(public)
+
+
+def test_constructed_keywords_are_complete_only_after_full_entity_packet_closes() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=2 PlayerID=1 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=3 PlayerID=2 GameAccountId=[hi=0 lo=0]",
+        "SHOW_ENTITY - Updating Entity=[entityName=幸运币 id=40 zone=HAND "
+        "zonePos=1 cardId= player=2] CardID=GAME_005",
+    )
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_RANKED",
+        now=100.0,
+    )
+    add_entity(parser, 21, "MINION_WITHOUT_KEYWORDS", controller=2, zone="PLAY", card_type="MINION")
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=ATK value=4",
+        "    tag=HEALTH value=6",
+        now=101.0,
+    )
+
+    pending = parser.snapshot().constructed.player.board[0]
+    assert pending.keywords == ()
+    assert pending.keywords_complete is False
+
+    feed(parser, "TAG_CHANGE Entity=2 tag=RESOURCES value=3", now=102.0)
+
+    complete = parser.snapshot().constructed.player.board[0]
+    assert complete.keywords == ()
+    assert complete.keywords_complete is True
 
 
 def test_constructed_local_choice_is_exposed_then_cleared_without_player_name() -> None:
@@ -796,6 +1065,51 @@ def test_constructed_opponent_ignores_controller_zero_system_entities() -> None:
     ]
 
 
+def test_constructed_change_entity_clears_all_old_identity_state() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=2 PlayerID=1 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=3 PlayerID=2 GameAccountId=[hi=0 lo=0]",
+        "TAG_CHANGE Entity=2 tag=MULLIGAN_STATE value=INPUT",
+    )
+    add_entity(
+        parser,
+        20,
+        "OLD_CARD",
+        controller=1,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    identity_tags = {
+        "COST": "4",
+        "ATK": "5",
+        "HEALTH": "6",
+        "DAMAGE": "2",
+        "DURABILITY": "3",
+        "LIFESTEAL": "1",
+        "RUSH": "1",
+        "CHARGE": "1",
+        "EXHAUSTED": "1",
+        "FROZEN": "1",
+        "IMMUNE": "1",
+        "SILENCED": "1",
+        "DORMANT": "1",
+    }
+    feed(parser, *(f"    tag={tag} value={value}" for tag, value in identity_tags.items()))
+
+    feed(
+        parser,
+        "CHANGE_ENTITY - Updating Entity=[entityName=New Card id=20 "
+        "zone=PLAY zonePos=1 cardId=OLD_CARD player=1] CardID=NEW_CARD",
+    )
+
+    entity = parser.entities[20]
+    assert entity.card_id == "NEW_CARD"
+    assert not (identity_tags.keys() & entity.tags.keys())
+
+
 def test_spectator_state_survives_create_game_until_explicit_end() -> None:
     parser = PowerLogParser()
 
@@ -856,12 +1170,12 @@ def test_battlegrounds_tracks_eight_hero_lobby_shop_phase_and_result() -> None:
 
     feed(
         parser,
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=3",
+        "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1",
         "TAG_CHANGE Entity=8 tag=RESOURCES value=5",
         "TAG_CHANGE Entity=8 tag=RESOURCES_USED value=2",
         "TAG_CHANGE Entity=8 tag=TEMP_RESOURCES value=1",
         "TAG_CHANGE Entity=8 tag=NEXT_OPPONENT_PLAYER_ID value=5",
-        "TAG_CHANGE Entity=GameEntity tag=TURN value=3",
-        "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1",
     )
     add_entity(parser, 300, "BG_MINION_001", controller=11, zone="PLAY", card_type="MINION")
     feed(parser, "    tag=ATK value=3", "    tag=HEALTH value=4", "    tag=FROZEN value=1")
@@ -880,8 +1194,7 @@ def test_battlegrounds_tracks_eight_hero_lobby_shop_phase_and_result() -> None:
     assert len([player for player in battlegrounds.lobby if player.is_local]) == 1
     assert battlegrounds.shop[0].card_id == "BG_MINION_001"
 
-    feed(parser, "TAG_CHANGE Entity=GameEntity tag=2022 value=1")
-    events = feed(parser, "TAG_CHANGE Entity=GameEntity tag=2022 value=0")
+    events = feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=4")
     assert parser.snapshot().phase == "combat"
     assert any(event.kind == "battlegrounds_combat_started" for event in events)
 
@@ -1031,6 +1344,1458 @@ def test_battlegrounds_shop_uses_newest_public_entity_per_position() -> None:
     ]
 
 
+def test_battlegrounds_snapshot_keeps_live_card_type_cost_premium_and_keywords() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+    )
+    add_entity(
+        parser,
+        300,
+        "BG_TAVERN_SPELL",
+        controller=11,
+        zone="PLAY",
+        card_type="BATTLEGROUND_SPELL",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=COST value=4",
+        "    tag=BACON_OVERRIDE_BG_COST value=2",
+        "    tag=PREMIUM value=1",
+        "    tag=TAUNT value=1",
+        "    tag=DIVINE_SHIELD value=0",
+    )
+
+    card = parser.snapshot().battlegrounds.shop[0]
+    public = card.to_public_dict()
+
+    assert public["card_type"] == "BATTLEGROUND_SPELL"
+    assert public["current_cost"] == 2
+    assert public["premium"] is True
+    assert public["keywords"]["taunt"] is True
+    assert public["keywords"]["divine_shield"] is False
+    assert public["keywords"]["reborn"] is None
+
+
+def test_complete_full_entity_baseline_defaults_absent_battlegrounds_booleans_false() -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_NORMAL_MINION",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=ATK value=4",
+        "    tag=HEALTH value=5",
+    )
+
+    incomplete = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert incomplete["premium"] is None
+    assert incomplete["keywords"]["taunt"] is None
+
+    feed(parser, "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1")
+    complete = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+
+    assert complete["premium"] is False
+    assert all(value is False for value in complete["keywords"].values())
+    assert complete["current_cost"] is None
+
+
+def test_complete_game_state_only_entity_defaults_absent_battlegrounds_booleans_false() -> None:
+    parser = recruit_parser()
+    game_state_lines = (
+        "FULL_ENTITY - Creating ID=300 CardID=BG_GAME_STATE_SPELL",
+        "    tag=CONTROLLER value=11",
+        "    tag=CARDTYPE value=BATTLEGROUND_SPELL",
+        "    tag=COST value=1",
+        "    tag=ZONE value=PLAY",
+        "    tag=ZONE_POSITION value=1",
+    )
+    for payload in game_state_lines:
+        parser.feed_line(source_line("GameState", payload), now=101.0)
+
+    incomplete = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert incomplete["premium"] is None
+    assert incomplete["keywords"]["taunt"] is None
+
+    parser.feed_line(
+        source_line("GameState", "GameEntity EntityID=1"),
+        now=102.0,
+    )
+    complete = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+
+    assert complete["premium"] is False
+    assert all(value is False for value in complete["keywords"].values())
+    assert complete["current_cost"] == 1
+
+
+def test_game_state_baseline_cannot_roll_back_realtime_true_booleans() -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_REALTIME_GOLDEN",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=PREMIUM value=1",
+        "    tag=TAUNT value=1",
+        "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1",
+    )
+
+    for payload in (
+        "FULL_ENTITY - Updating [entityName=Mirror id=300 zone=PLAY "
+        "zonePos=1 cardId=BG_REALTIME_GOLDEN player=11] CardID=BG_REALTIME_GOLDEN",
+        "    tag=CONTROLLER value=11",
+        "    tag=CARDTYPE value=MINION",
+        "    tag=ZONE value=PLAY",
+        "    tag=ZONE_POSITION value=1",
+        "GameEntity EntityID=1",
+    ):
+        parser.feed_line(source_line("GameState", payload), now=102.0)
+
+    card = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert card["premium"] is True
+    assert card["keywords"]["taunt"] is True
+
+
+@pytest.mark.parametrize(
+    "game_state_header",
+    [
+        "FULL_ENTITY - Creating ID=300 CardID=BG_OLD_MINION",
+        (
+            "FULL_ENTITY - Updating [entityName=Old Mirror id=300 zone=PLAY "
+            "zonePos=1 cardId=BG_OLD_MINION player=11] CardID=BG_OLD_MINION"
+        ),
+    ],
+)
+def test_delayed_game_state_baseline_cannot_attach_old_identity_to_changed_entity(
+    game_state_header: str,
+) -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_OLD_MINION",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=PREMIUM value=1",
+        "    tag=TAUNT value=1",
+        "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1",
+        "CHANGE_ENTITY - Updating Entity=[entityName=Changed Minion id=300 "
+        "zone=PLAY zonePos=1 cardId=BG_OLD_MINION player=11] "
+        "CardID=BG_NEW_MINION",
+    )
+
+    for payload in (
+        game_state_header,
+        "    tag=CONTROLLER value=11",
+        "    tag=CARDTYPE value=MINION",
+        "    tag=COST value=9",
+        "    tag=ATK value=12",
+        "    tag=ZONE value=PLAY",
+        "    tag=ZONE_POSITION value=1",
+        "GameEntity EntityID=1",
+    ):
+        parser.feed_line(source_line("GameState", payload), now=102.0)
+
+    entity = parser.entities[300]
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert entity.card_id == "BG_NEW_MINION"
+    assert entity.card_type == ""
+    assert entity.battlegrounds_boolean_baseline_complete is False
+    assert "COST" not in entity.tags
+    assert "ATK" not in entity.tags
+    assert battlegrounds.shop == ()
+
+
+def test_realtime_identity_change_invalidates_interleaved_game_state_packet() -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_OLD_MINION",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=1", "TAG_CHANGE Entity=8 tag=TURN value=1")
+
+    parser.feed_line(
+        source_line(
+            "GameState",
+            "FULL_ENTITY - Updating [entityName=Old Mirror id=300 zone=PLAY "
+            "zonePos=1 cardId=BG_OLD_MINION player=11] CardID=BG_OLD_MINION",
+        ),
+        now=101.0,
+    )
+    feed(
+        parser,
+        "CHANGE_ENTITY - Updating Entity=[entityName=Changed Minion id=300 "
+        "zone=PLAY zonePos=1 cardId=BG_OLD_MINION player=11] "
+        "CardID=BG_NEW_MINION",
+    )
+    for payload in (
+        "    tag=COST value=9",
+        "    tag=ATK value=12",
+        "    tag=PREMIUM value=1",
+        "    tag=TAUNT value=1",
+        "GameEntity EntityID=1",
+    ):
+        parser.feed_line(source_line("GameState", payload), now=102.0)
+
+    entity = parser.entities[300]
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert entity.card_id == "BG_NEW_MINION"
+    assert entity.card_type == ""
+    assert entity.battlegrounds_boolean_baseline_complete is False
+    assert "COST" not in entity.tags
+    assert "ATK" not in entity.tags
+    assert battlegrounds.shop == ()
+
+
+def test_complete_game_state_true_survives_while_realtime_packet_is_incomplete() -> None:
+    parser = recruit_parser()
+    feed(
+        parser,
+        "FULL_ENTITY - Creating ID=300 CardID=BG_INTERLEAVED_GOLDEN",
+        "    tag=CONTROLLER value=11",
+        "    tag=CARDTYPE value=MINION",
+        "    tag=ZONE value=PLAY",
+        "    tag=ZONE_POSITION value=1",
+    )
+
+    for payload in (
+        "FULL_ENTITY - Updating [entityName=Mirror id=300 zone=PLAY "
+        "zonePos=1 cardId=BG_INTERLEAVED_GOLDEN player=11] "
+        "CardID=BG_INTERLEAVED_GOLDEN",
+        "    tag=CONTROLLER value=11",
+        "    tag=CARDTYPE value=MINION",
+        "    tag=ZONE value=PLAY",
+        "    tag=ZONE_POSITION value=1",
+        "    tag=PREMIUM value=1",
+        "    tag=DIVINE_SHIELD value=1",
+        "GameEntity EntityID=1",
+    ):
+        parser.feed_line(source_line("GameState", payload), now=102.0)
+
+    interleaved = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert interleaved["premium"] is True
+    assert interleaved["keywords"]["divine_shield"] is True
+    assert interleaved["keywords"]["taunt"] is None
+    assert parser.snapshot().battlegrounds.areas["shop"].complete is False
+
+    feed(parser, "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1")
+    realtime_complete = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert realtime_complete["premium"] is False
+    assert realtime_complete["keywords"]["divine_shield"] is False
+    assert realtime_complete["keywords"]["taunt"] is False
+    assert parser.snapshot().battlegrounds.areas["shop"].complete is True
+
+
+def test_game_state_missing_booleans_stay_unknown_during_realtime_packet() -> None:
+    parser = recruit_parser()
+    feed(
+        parser,
+        "FULL_ENTITY - Creating ID=300 CardID=BG_INTERLEAVED_NORMAL",
+        "    tag=CONTROLLER value=11",
+        "    tag=CARDTYPE value=MINION",
+        "    tag=ZONE value=PLAY",
+        "    tag=ZONE_POSITION value=1",
+    )
+    for payload in (
+        "FULL_ENTITY - Updating [entityName=Mirror id=300 zone=PLAY "
+        "zonePos=1 cardId=BG_INTERLEAVED_NORMAL player=11] "
+        "CardID=BG_INTERLEAVED_NORMAL",
+        "    tag=CONTROLLER value=11",
+        "    tag=CARDTYPE value=MINION",
+        "    tag=ZONE value=PLAY",
+        "    tag=ZONE_POSITION value=1",
+        "GameEntity EntityID=1",
+    ):
+        parser.feed_line(source_line("GameState", payload), now=102.0)
+
+    interleaved = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert interleaved["premium"] is None
+    assert all(value is None for value in interleaved["keywords"].values())
+
+
+@pytest.mark.parametrize("packet", ["full", "show"])
+def test_truncated_entity_packet_keeps_absent_battlegrounds_booleans_unknown(
+    packet: str,
+) -> None:
+    parser = recruit_parser()
+    if packet == "full":
+        feed(parser, "FULL_ENTITY - Creating ID=300 CardID=BG_TRUNCATED")
+    else:
+        add_entity(parser, 300, "", controller=11, zone="PLAY", card_type="MINION")
+        feed(
+            parser,
+            "SHOW_ENTITY - Updating Entity=[entityName=Visible Minion id=300 "
+            "zone=PLAY zonePos=1 cardId= player=11] CardID=BG_TRUNCATED",
+        )
+    feed(
+        parser,
+        "    tag=CONTROLLER value=11",
+        "    tag=CARDTYPE value=MINION",
+        "    tag=ZONE value=PLAY",
+        "    tag=ZONE_POSITION value=1",
+        "    tag=ATK value=2",
+        "    tag=HEALTH value=3",
+    )
+
+    truncated = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert truncated["frozen"] is None
+    assert truncated["premium"] is None
+    assert truncated["keywords"]["divine_shield"] is None
+
+    parser.feed_line(
+        source_line("GameState", "GameEntity EntityID=1"),
+        now=101.0,
+    )
+    mirrored = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert mirrored["frozen"] is None
+    assert mirrored["premium"] is None
+    assert mirrored["keywords"]["divine_shield"] is None
+
+    feed(parser, "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1")
+    complete = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert complete["frozen"] is False
+    assert complete["premium"] is False
+    assert complete["keywords"]["divine_shield"] is False
+
+
+def test_complete_entity_baseline_replaces_stale_true_booleans() -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_GOLDEN_MINION",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=PREMIUM value=1",
+        "    tag=TAUNT value=1",
+        "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1",
+    )
+    golden = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert golden["premium"] is True
+    assert golden["keywords"]["taunt"] is True
+
+    feed(
+        parser,
+        "FULL_ENTITY - Updating [entityName=Normal Minion id=300 zone=PLAY "
+        "zonePos=1 cardId=BG_GOLDEN_MINION player=11] CardID=BG_NORMAL_MINION",
+        "    tag=CONTROLLER value=11",
+        "    tag=CARDTYPE value=MINION",
+        "    tag=ZONE value=PLAY",
+        "    tag=ZONE_POSITION value=1",
+    )
+    updating = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert parser.entities[300].card_id == "BG_NORMAL_MINION"
+    assert updating["premium"] is None
+    assert updating["keywords"]["taunt"] is None
+
+    feed(parser, "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1")
+    normal = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert normal["premium"] is False
+    assert normal["keywords"]["taunt"] is False
+
+
+def test_complete_entity_baseline_replaces_stale_true_frozen_on_same_identity() -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_FROZEN_MINION",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=FROZEN value=1",
+        "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1",
+    )
+    frozen = parser.snapshot().battlegrounds
+    assert frozen is not None
+    assert frozen.frozen is True
+    assert frozen.shop[0].frozen is True
+
+    feed(
+        parser,
+        "FULL_ENTITY - Updating [entityName=Frozen Minion id=300 zone=PLAY "
+        "zonePos=1 cardId=BG_FROZEN_MINION player=11] CardID=BG_FROZEN_MINION",
+        "    tag=CONTROLLER value=11",
+        "    tag=CARDTYPE value=MINION",
+        "    tag=ZONE value=PLAY",
+        "    tag=ZONE_POSITION value=1",
+    )
+    updating = parser.snapshot().battlegrounds
+    assert updating is not None
+    assert updating.frozen is None
+    assert updating.shop[0].frozen is None
+
+    feed(parser, "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1")
+    thawed = parser.snapshot().battlegrounds
+    assert thawed is not None
+    assert thawed.frozen is False
+    assert thawed.shop[0].frozen is False
+
+
+def test_hide_entity_discards_pending_battlegrounds_boolean_baseline() -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_PRIVATE_MINION",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=1", "    tag=TAUNT value=1")
+    entity = parser.entities[300]
+
+    feed(
+        parser,
+        "HIDE_ENTITY - Entity=[entityName=Private Minion id=300 zone=PLAY "
+        "zonePos=1 cardId=BG_PRIVATE_MINION player=11] tag=1068 value=1",
+        "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1",
+    )
+
+    assert parser._pending_realtime_baseline_entity is None
+    assert entity.battlegrounds_boolean_baseline_complete is False
+    assert "TAUNT" not in entity.tags
+    assert entity.hidden is True
+    assert "BG_PRIVATE_MINION" not in json.dumps(
+        parser.snapshot().to_public_dict(), ensure_ascii=False
+    )
+
+
+@pytest.mark.parametrize(
+    "reference_card_id",
+    ["BG_OLD_MINION", "BG_CHANGED_MINION"],
+)
+def test_change_entity_invalidates_boolean_baseline_until_full_show(
+    reference_card_id: str,
+) -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_OLD_MINION",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=COST value=3",
+        "    tag=ATK value=4",
+        "    tag=HEALTH value=5",
+        "    tag=TECH_LEVEL value=2",
+        "    tag=PREMIUM value=1",
+        "    tag=TAUNT value=1",
+        "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1",
+        "CHANGE_ENTITY - Updating Entity=[entityName=Changed Minion id=300 "
+        f"zone=PLAY zonePos=1 cardId={reference_card_id} player=11] "
+        "CardID=BG_CHANGED_MINION",
+    )
+
+    changed = parser.snapshot().battlegrounds
+    entity = parser.entities[300]
+    assert changed is not None
+    assert entity.card_id == "BG_CHANGED_MINION"
+    assert entity.card_type == ""
+    assert entity.name == "Changed Minion"
+    assert not (
+        {
+            "CARDTYPE",
+            "COST",
+            "ATK",
+            "HEALTH",
+            "TECH_LEVEL",
+            "PREMIUM",
+            "TAUNT",
+        }
+        & entity.tags.keys()
+    )
+    assert changed.shop == ()
+
+    feed(
+        parser,
+        "SHOW_ENTITY - Updating Entity=[entityName=Changed Minion id=300 "
+        "zone=PLAY zonePos=1 cardId= player=11] CardID=BG_CHANGED_MINION",
+        "    tag=CARDTYPE value=MINION",
+        "    tag=ATK value=0",
+        "TAG_CHANGE Entity=8 tag=CURRENT_PLAYER value=1",
+    )
+    shown = parser.snapshot().battlegrounds.shop[0].to_public_dict()
+    assert shown["premium"] is False
+
+
+def test_reset_source_discards_pending_battlegrounds_boolean_baseline() -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_PENDING_MINION",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    entity = parser.entities[300]
+
+    parser.reset_source()
+
+    assert parser._pending_realtime_baseline_entity is None
+    assert entity.battlegrounds_boolean_baseline_complete is False
+    assert parser.entities == {}
+
+
+def test_battlegrounds_keeps_strongly_observed_cards_before_cardtype_arrives() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+    )
+    add_entity(parser, 300, "BG_MINION_PENDING_TYPE", controller=11, zone="PLAY")
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=ATK value=4",
+        "    tag=HEALTH value=5",
+        "    tag=COST value=3",
+    )
+    add_entity(parser, 301, "BG_SPELL_PENDING_TYPE", controller=11, zone="PLAY")
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=2",
+        "    tag=BACON_OVERRIDE_BG_COST value=1",
+    )
+    add_entity(parser, 302, "BG_INTERNAL_PENDING_TYPE", controller=11, zone="PLAY")
+    feed(parser, "    tag=ZONE_POSITION value=3")
+    add_entity(parser, 400, "BG_HAND_PENDING_TYPE", controller=3, zone="HAND")
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=INTERACTABLE_OBJECT_COST value=2",
+    )
+
+    battlegrounds = parser.snapshot().battlegrounds
+
+    assert battlegrounds is not None
+    assert [card.card_id for card in battlegrounds.shop] == [
+        "BG_MINION_PENDING_TYPE",
+        "BG_SPELL_PENDING_TYPE",
+    ]
+    assert [card.card_type for card in battlegrounds.shop] == [None, None]
+    assert [card.current_cost for card in battlegrounds.shop] == [3, 1]
+    assert [card.card_id for card in battlegrounds.hand] == ["BG_HAND_PENDING_TYPE"]
+    assert battlegrounds.hand[0].card_type is None
+    assert battlegrounds.hand[0].current_cost == 2
+
+
+def test_battlegrounds_snapshot_uses_observed_interactable_object_cost() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+    )
+    add_entity(
+        parser,
+        300,
+        "BG_DISCOUNTED_MINION",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=INTERACTABLE_OBJECT_COST value=2",
+    )
+
+    card = parser.snapshot().battlegrounds.shop[0]
+
+    assert card.current_cost == 2
+
+
+@pytest.mark.parametrize(
+    ("helper_card_id", "target_tag", "actual_cost"),
+    [
+        ("TB_BaconShop_DragBuy", "2442", 1),
+        ("TB_BaconShop_DragBuy_Spell", "CARD_TARGET", 2),
+    ],
+)
+def test_battlegrounds_shop_uses_slot_action_actual_cost(
+    helper_card_id: str,
+    target_tag: str,
+    actual_cost: int,
+) -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=COST value=3",
+    )
+    add_entity(
+        parser,
+        301,
+        helper_card_id,
+        controller=3,
+        zone="PLAY",
+        card_type="SPELL",
+    )
+    feed(
+        parser,
+        f"    tag={target_tag} value=300",
+        f"    tag=COST value={actual_cost}",
+    )
+
+    battlegrounds = parser.snapshot().battlegrounds
+
+    assert battlegrounds is not None
+    assert [card.card_id for card in battlegrounds.shop] == ["BG_SHOP_CARD"]
+    assert battlegrounds.shop[0].current_cost == actual_cost
+
+
+def test_battlegrounds_shop_ignores_stale_dragbuy_cost_from_previous_round() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 2
+    add_entity(
+        parser,
+        300,
+        "BG_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=1", "    tag=COST value=3", now=101.0)
+    add_entity(
+        parser,
+        301,
+        "TB_BaconShop_DragBuy",
+        controller=3,
+        zone="PLAY",
+        card_type="SPELL",
+    )
+    feed(parser, "    tag=CARD_TARGET value=300", "    tag=COST value=0", now=101.0)
+
+    parser.battlegrounds_round = 3
+    feed(parser, "TAG_CHANGE Entity=300 tag=COST value=2", now=102.0)
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.shop[0].current_cost == 2
+    assert battlegrounds.areas["shop"].complete is True
+
+
+def test_battlegrounds_card_cost_ignores_stale_override_from_previous_round() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 2
+    add_entity(
+        parser,
+        300,
+        "BG_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=BACON_OVERRIDE_BG_COST value=1",
+        now=101.0,
+    )
+
+    parser.battlegrounds_round = 3
+    feed(parser, "TAG_CHANGE Entity=300 tag=COST value=3", now=102.0)
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.shop[0].current_cost == 3
+
+
+def test_battlegrounds_dragbuy_waits_for_cost_after_target_change() -> None:
+    parser = recruit_parser()
+    for entity_id, card_id, position in (
+        (300, "BG_SHOP_A", 1),
+        (301, "BG_SHOP_B", 2),
+    ):
+        add_entity(
+            parser,
+            entity_id,
+            card_id,
+            controller=11,
+            zone="PLAY",
+            card_type="MINION",
+        )
+        feed(
+            parser,
+            f"    tag=ZONE_POSITION value={position}",
+            "    tag=COST value=3",
+            now=101.0,
+        )
+    add_entity(
+        parser,
+        302,
+        "TB_BaconShop_DragBuy",
+        controller=3,
+        zone="PLAY",
+        card_type="SPELL",
+    )
+    feed(
+        parser,
+        "    tag=CARD_TARGET value=300",
+        "    tag=COST value=0",
+        now=101.0,
+    )
+    assert [card.current_cost for card in parser.snapshot().battlegrounds.shop] == [0, 3]
+
+    feed(parser, "TAG_CHANGE Entity=302 tag=CARD_TARGET value=301", now=102.0)
+    assert [card.current_cost for card in parser.snapshot().battlegrounds.shop] == [3, 3]
+
+    feed(parser, "TAG_CHANGE Entity=302 tag=COST value=0", now=102.1)
+    assert [card.current_cost for card in parser.snapshot().battlegrounds.shop] == [3, 0]
+
+
+def test_battlegrounds_dragbuy_uses_newer_base_cost_after_same_round_target() -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=1", "    tag=COST value=3", now=101.0)
+    add_entity(
+        parser,
+        301,
+        "TB_BaconShop_DragBuy",
+        controller=3,
+        zone="PLAY",
+        card_type="SPELL",
+    )
+    feed(
+        parser,
+        "    tag=CARD_TARGET value=300",
+        "    tag=BACON_OVERRIDE_BG_COST value=0",
+        now=101.0,
+    )
+
+    feed(
+        parser,
+        "TAG_CHANGE Entity=301 tag=CARD_TARGET value=300",
+        "TAG_CHANGE Entity=301 tag=COST value=2",
+        now=102.0,
+    )
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.shop[0].current_cost == 2
+
+
+def test_battlegrounds_dragbuy_does_not_fall_back_to_an_older_valid_target() -> None:
+    parser = recruit_parser()
+    add_entity(
+        parser,
+        300,
+        "BG_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=1", "    tag=COST value=3", now=101.0)
+    add_entity(
+        parser,
+        301,
+        "TB_BaconShop_DragBuy",
+        controller=3,
+        zone="PLAY",
+        card_type="SPELL",
+    )
+    feed(
+        parser,
+        "    tag=2442 value=300",
+        "    tag=COST value=0",
+        "    tag=CARD_TARGET value=999",
+        "    tag=COST value=2",
+        now=102.0,
+    )
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.shop[0].current_cost == 3
+
+
+def test_battlegrounds_empty_shop_requires_an_observed_nonempty_transition() -> None:
+    parser = recruit_parser()
+    initial = parser.snapshot().battlegrounds
+    assert initial is not None
+    assert initial.shop == ()
+    assert initial.areas["shop"].complete is False
+
+    add_entity(
+        parser,
+        300,
+        "BG_LAST_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=COST value=3",
+        now=101.0,
+    )
+    parser.finalize_quiet_packet_baselines(now=101.1, quiet_seconds=0.0)
+    assert parser.snapshot().battlegrounds.areas["shop"].complete is True
+
+    feed(parser, "TAG_CHANGE Entity=300 tag=ZONE value=HAND", now=102.0)
+    emptied = parser.snapshot().battlegrounds
+    assert emptied is not None
+    assert emptied.shop == ()
+    assert emptied.areas["shop"].complete is True
+
+    add_entity(
+        parser,
+        301,
+        "BG_NEW_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    partial = parser.snapshot().battlegrounds
+    assert partial is not None
+    assert [card.card_id for card in partial.shop] == ["BG_NEW_SHOP_CARD"]
+    assert parser._empty_shop_observation.complete is False
+
+
+def test_battlegrounds_shop_helper_falls_back_from_stale_override_to_current_cost() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 2
+    add_entity(
+        parser,
+        300,
+        "BG_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=1", "    tag=COST value=3", now=101.0)
+    add_entity(
+        parser,
+        301,
+        "TB_BaconShop_DragBuy",
+        controller=3,
+        zone="PLAY",
+        card_type="SPELL",
+    )
+    feed(
+        parser,
+        "    tag=CARD_TARGET value=300",
+        "    tag=BACON_OVERRIDE_BG_COST value=0",
+        now=101.0,
+    )
+
+    parser.battlegrounds_round = 3
+    feed(
+        parser,
+        "TAG_CHANGE Entity=300 tag=COST value=3",
+        "TAG_CHANGE Entity=301 tag=CARD_TARGET value=300",
+        "TAG_CHANGE Entity=301 tag=COST value=2",
+        now=102.0,
+    )
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.shop[0].current_cost == 2
+
+
+def test_battlegrounds_shop_area_rejects_mixed_current_and_stale_entities() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 3
+    parser.phase = "recruit"
+    add_entity(
+        parser,
+        300,
+        "BG_STALE_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=1", now=100.0)
+    add_entity(
+        parser,
+        301,
+        "BG_CURRENT_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=2", now=102.0)
+    parser.finalize_quiet_packet_baselines(now=102.1, quiet_seconds=0.0)
+    stale = parser.entities[300]
+    stale.last_battlegrounds_round = 2
+    stale.last_battlegrounds_phase = "recruit"
+
+    area = parser.snapshot().battlegrounds.areas["shop"]
+
+    assert area.complete is False
+    assert area.round == 0
+    assert area.phase == "unknown"
+    assert area.observed_at == 100.0
+
+
+def test_battlegrounds_shop_area_uses_oldest_entity_as_complete_observation() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 3
+    parser.phase = "recruit"
+    add_entity(
+        parser,
+        300,
+        "BG_FIRST_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=1", now=100.0)
+    add_entity(
+        parser,
+        301,
+        "BG_SECOND_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=2", now=102.0)
+    parser.finalize_quiet_packet_baselines(now=102.1, quiet_seconds=0.0)
+
+    area = parser.snapshot().battlegrounds.areas["shop"]
+
+    assert area.complete is True
+    assert area.round == 3
+    assert area.phase == "recruit"
+    assert area.observed_at == 100.0
+
+
+@pytest.mark.parametrize(
+    ("zone", "area_name"),
+    [("HAND", "hand"), ("PLAY", "warband")],
+)
+def test_battlegrounds_local_area_rejects_previous_round_entities(
+    zone: str,
+    area_name: str,
+) -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 2
+    parser.phase = "recruit"
+    add_entity(
+        parser,
+        300,
+        "BG_STALE_LOCAL_CARD",
+        controller=3,
+        zone=zone,
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=1", now=100.0)
+    parser.finalize_quiet_packet_baselines(now=100.1, quiet_seconds=0.0)
+
+    parser.battlegrounds_round = 3
+    feed(parser, "TAG_CHANGE Entity=8 tag=RESOURCES value=5", now=102.0)
+
+    area = parser.snapshot().battlegrounds.areas[area_name]
+    assert area.complete is False
+    assert area.round == 0
+    assert area.phase == "unknown"
+
+
+def test_battlegrounds_empty_local_areas_require_current_membership_evidence() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 2
+    parser.phase = "recruit"
+    feed(parser, "TAG_CHANGE Entity=8 tag=RESOURCES value=5", now=100.0)
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds.areas["hand"].complete is False
+    assert battlegrounds.areas["warband"].complete is False
+
+
+@pytest.mark.parametrize(
+    ("zone", "area_name"),
+    [("HAND", "hand"), ("PLAY", "warband")],
+)
+def test_battlegrounds_local_area_accepts_observed_transition_to_empty(
+    zone: str,
+    area_name: str,
+) -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 2
+    parser.phase = "recruit"
+    add_entity(
+        parser,
+        300,
+        "BG_LOCAL_CARD",
+        controller=3,
+        zone=zone,
+        card_type="MINION",
+    )
+    feed(parser, "    tag=ZONE_POSITION value=1", now=100.0)
+    parser.finalize_quiet_packet_baselines(now=100.1, quiet_seconds=0.0)
+    assert parser.snapshot().battlegrounds.areas[area_name].complete is True
+
+    feed(parser, "TAG_CHANGE Entity=300 tag=ZONE value=GRAVEYARD", now=102.0)
+
+    battlegrounds = parser.snapshot().battlegrounds
+    area = battlegrounds.areas[area_name]
+    assert getattr(battlegrounds, area_name if area_name != "warband" else "warband") == ()
+    assert area.complete is True
+    assert area.round == 2
+    assert area.phase == "recruit"
+    assert area.observed_at == 102.0
+
+
+def test_battlegrounds_snapshot_exposes_only_observed_economy_costs() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+        "TAG_CHANGE Entity=8 tag=RESOURCES value=7",
+        "TAG_CHANGE Entity=8 tag=TECH_LEVEL_MANA_GEM value=5",
+        "TAG_CHANGE Entity=8 tag=BACON_REFRESH_COST value=0",
+    )
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.gold == 7
+    assert battlegrounds.upgrade_cost is None
+    assert battlegrounds.refresh_cost == 0
+    assert battlegrounds.economy.to_public_dict()["upgrade_cost"] is None
+    assert battlegrounds.economy.to_public_dict()["refresh_cost"] == 0
+    assert battlegrounds.areas["economy"].complete is False
+
+    add_entity(
+        parser,
+        50,
+        "TB_BaconShopTechUp02_Button",
+        controller=3,
+        zone="PLAY",
+        card_type="GAME_MODE_BUTTON",
+    )
+    feed(parser, "    tag=GAME_MODE_BUTTON_SLOT value=3", "    tag=COST value=5")
+
+    observed = parser.snapshot().battlegrounds
+    assert observed is not None
+    assert observed.upgrade_cost == 5
+    assert observed.refresh_cost == 0
+    assert observed.economy.to_public_dict()["upgrade_cost"] == 5
+    assert observed.economy.to_public_dict()["refresh_cost"] == 0
+    assert observed.areas["economy"].complete is True
+
+    parser.reset_source()
+    parser.mode = "battlegrounds"
+    unknown = parser.snapshot().battlegrounds
+    assert unknown is not None
+    assert unknown.upgrade_cost is None
+    assert unknown.refresh_cost is None
+
+
+def test_battlegrounds_economy_costs_expire_across_rounds_independently() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 1
+    feed(
+        parser,
+        "TAG_CHANGE Entity=8 tag=RESOURCES value=7",
+        "TAG_CHANGE Entity=8 tag=BACON_REFRESH_COST value=0",
+        now=101.0,
+    )
+    add_entity(
+        parser,
+        50,
+        "TB_BaconShopTechUp02_Button",
+        controller=3,
+        zone="PLAY",
+        card_type="GAME_MODE_BUTTON",
+    )
+    feed(
+        parser,
+        "    tag=GAME_MODE_BUTTON_SLOT value=3",
+        "    tag=COST value=5",
+        now=101.0,
+    )
+
+    current = parser.snapshot().battlegrounds
+    assert current is not None
+    assert current.gold == 7
+    assert current.refresh_cost == 0
+    assert current.upgrade_cost == 5
+    assert current.economy.refresh_observation.complete is True
+    assert current.economy.upgrade_observation.complete is True
+
+    parser.battlegrounds_round = 2
+    feed(parser, "TAG_CHANGE Entity=8 tag=RESOURCES value=8", now=102.0)
+
+    next_round = parser.snapshot().battlegrounds
+    assert next_round is not None
+    assert next_round.gold == 8
+    assert next_round.refresh_cost is None
+    assert next_round.upgrade_cost is None
+    assert next_round.economy.gold_observation.complete is True
+    assert next_round.economy.refresh_observation.round == 1
+    assert next_round.economy.refresh_observation.complete is False
+    assert next_round.economy.upgrade_observation.round == 1
+    assert next_round.economy.upgrade_observation.complete is False
+    assert next_round.areas["economy"].complete is False
+
+
+def test_battlegrounds_button_cost_carries_forward_when_button_reenters_play() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 2
+    parser.phase = "combat"
+    add_entity(
+        parser,
+        50,
+        "TB_BaconShop_8p_Reroll_Button",
+        controller=3,
+        zone="REMOVEDFROMGAME",
+        card_type="GAME_MODE_BUTTON",
+    )
+    feed(
+        parser,
+        "    tag=GAME_MODE_BUTTON_SLOT value=2",
+        "    tag=COST value=1",
+        now=101.0,
+    )
+
+    parser.battlegrounds_round = 3
+    parser.phase = "recruit"
+    feed(parser, "TAG_CHANGE Entity=50 tag=ZONE value=PLAY", now=102.0)
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.refresh_cost == 1
+    assert battlegrounds.economy.refresh_observation.complete is True
+    assert battlegrounds.economy.refresh_observation.round == 3
+    assert battlegrounds.economy.refresh_observation.phase == "recruit"
+
+
+def test_battlegrounds_button_cost_accepts_current_game_state_baseline() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 3
+    parser.phase = "recruit"
+    parser.entities[50] = Entity(
+        entity_id=50,
+        card_id="TB_BaconShop_8p_Reroll_Button",
+        controller=3,
+        zone="PLAY",
+        card_type="GAME_MODE_BUTTON",
+        tags={"GAME_MODE_BUTTON_SLOT": "2", "COST": "1"},
+        last_seen_at=102.0,
+        last_revision=50,
+        last_battlegrounds_round=3,
+        last_battlegrounds_phase="recruit",
+        battlegrounds_game_state_boolean_baseline_complete=True,
+    )
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.refresh_cost == 1
+    assert battlegrounds.economy.refresh_observation.complete is True
+
+
+def test_battlegrounds_button_cost_accepts_other_current_button_tag() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 2
+    parser.phase = "combat"
+    add_entity(
+        parser,
+        50,
+        "TB_BaconShop_8p_Reroll_Button",
+        controller=3,
+        zone="PLAY",
+        card_type="GAME_MODE_BUTTON",
+    )
+    feed(
+        parser,
+        "    tag=GAME_MODE_BUTTON_SLOT value=2",
+        "    tag=COST value=1",
+        now=101.0,
+    )
+
+    parser.battlegrounds_round = 3
+    parser.phase = "recruit"
+    feed(parser, "TAG_CHANGE Entity=50 tag=NUM_TURNS_IN_PLAY value=1", now=102.0)
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.refresh_cost == 1
+    assert battlegrounds.economy.refresh_observation.complete is True
+
+
+def test_battlegrounds_button_cost_does_not_carry_stale_override_forward() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 2
+    parser.phase = "combat"
+    add_entity(
+        parser,
+        50,
+        "TB_BaconShop_8p_Reroll_Button",
+        controller=3,
+        zone="PLAY",
+        card_type="GAME_MODE_BUTTON",
+    )
+    feed(
+        parser,
+        "    tag=GAME_MODE_BUTTON_SLOT value=2",
+        "    tag=COST value=1",
+        "    tag=BACON_OVERRIDE_BG_COST value=0",
+        now=101.0,
+    )
+
+    parser.battlegrounds_round = 3
+    parser.phase = "recruit"
+    feed(parser, "TAG_CHANGE Entity=50 tag=NUM_TURNS_IN_PLAY value=1", now=102.0)
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.refresh_cost == 1
+    assert battlegrounds.economy.refresh_observation.complete is True
+
+
+def test_battlegrounds_button_current_override_beats_later_base_cost() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 3
+    parser.phase = "recruit"
+    add_entity(
+        parser,
+        50,
+        "TB_BaconShopTechUp02_Button",
+        controller=3,
+        zone="PLAY",
+        card_type="GAME_MODE_BUTTON",
+    )
+    feed(
+        parser,
+        "    tag=GAME_MODE_BUTTON_SLOT value=3",
+        "    tag=BACON_OVERRIDE_BG_COST value=2",
+        now=101.0,
+    )
+    feed(parser, "    tag=COST value=5", now=102.0)
+
+    battlegrounds = parser.snapshot().battlegrounds
+
+    assert battlegrounds is not None
+    assert battlegrounds.upgrade_cost == 2
+    assert battlegrounds.economy.upgrade_observation.complete is True
+
+
+def test_battlegrounds_gold_cannot_borrow_unrelated_player_tag_freshness() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 1
+    feed(parser, "TAG_CHANGE Entity=8 tag=RESOURCES value=7", now=101.0)
+
+    parser.battlegrounds_round = 2
+    feed(parser, "TAG_CHANGE Entity=8 tag=PLAYER_TECH_LEVEL value=2", now=102.0)
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.gold is None
+    assert battlegrounds.max_gold is None
+    assert battlegrounds.economy.gold_observation.complete is False
+    assert battlegrounds.economy.gold_observation.round == 1
+
+
+def test_battlegrounds_gold_ignores_expired_optional_resource_components() -> None:
+    parser = recruit_parser()
+    parser.battlegrounds_round = 1
+    feed(
+        parser,
+        "TAG_CHANGE Entity=8 tag=RESOURCES value=7",
+        "TAG_CHANGE Entity=8 tag=RESOURCES_USED value=2",
+        "TAG_CHANGE Entity=8 tag=TEMP_RESOURCES value=1",
+        "TAG_CHANGE Entity=8 tag=3148 value=10",
+        now=101.0,
+    )
+
+    parser.battlegrounds_round = 2
+    feed(parser, "TAG_CHANGE Entity=8 tag=RESOURCES value=8", now=102.0)
+
+    baseline = parser.snapshot().battlegrounds
+    assert baseline is not None
+    assert baseline.gold == 8
+    assert baseline.max_gold == 10
+    assert baseline.economy.gold_observation.complete is True
+    assert baseline.economy.gold_observation.round == 2
+
+    feed(
+        parser,
+        "TAG_CHANGE Entity=8 tag=RESOURCES_USED value=1",
+        "TAG_CHANGE Entity=8 tag=TEMP_RESOURCES value=2",
+        now=103.0,
+    )
+    current = parser.snapshot().battlegrounds
+    assert current is not None
+    assert current.gold == 9
+    assert current.max_gold == 10
+    assert current.economy.gold_observation.complete is True
+    assert current.economy.gold_observation.round == 2
+
+
+def test_battlegrounds_local_nonhero_choice_is_public_and_clears_when_chosen() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+    )
+    add_entity(
+        parser,
+        50,
+        "BG_CHOICE_SPELL",
+        controller=3,
+        zone="SETASIDE",
+        card_type="BATTLEGROUND_SPELL",
+    )
+    feed(parser, "    tag=COST value=3")
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintEntityChoices() - "
+        "id=7 Player=Unmapped TaskList=9 ChoiceType=GENERAL CountMin=1 CountMax=1",
+        now=102.0,
+    )
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintEntityChoices() -   "
+        "Entities[0]=[entityName=Choice Spell id=50 zone=SETASIDE zonePos=0 "
+        "cardId=BG_CHOICE_SPELL player=3]",
+        now=102.1,
+    )
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.current_choice is not None
+    assert battlegrounds.current_choice.options[0].card_type == "BATTLEGROUND_SPELL"
+    assert battlegrounds.current_choice.options[0].current_cost == 3
+    assert battlegrounds.areas["choice"].complete is True
+
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintEntitiesChosen() - "
+        "id=7 Player=Unmapped EntitiesCount=1",
+        now=103.0,
+    )
+    assert parser.snapshot().battlegrounds.current_choice is None
+
+
+def test_battlegrounds_choice_header_without_options_keeps_snapshot_available() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+    )
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintGame() - "
+        "PlayerID=3, PlayerName=Local Tester",
+        now=101.0,
+    )
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintEntityChoices() - "
+        "id=7 Player=Local Tester TaskList=9 ChoiceType=GENERAL CountMin=1 CountMax=1",
+        now=102.0,
+    )
+
+    battlegrounds = parser.snapshot().battlegrounds
+
+    assert battlegrounds is not None
+    assert battlegrounds.current_choice is not None
+    assert battlegrounds.current_choice.options == ()
+    assert battlegrounds.areas["choice"].complete is False
+    assert battlegrounds.areas["choice"].revision > 0
+    assert battlegrounds.areas["choice"].observed_at == 102.0
+
+
+def test_battlegrounds_warband_uses_newest_public_entity_per_position() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+    )
+    for entity_id, card_id in ((100, "BG_OLD_BOARD"), (200, "BG_NEW_BOARD")):
+        add_entity(
+            parser,
+            entity_id,
+            card_id,
+            controller=3,
+            zone="PLAY",
+            card_type="MINION",
+        )
+        feed(parser, "    tag=ZONE_POSITION value=1", "    tag=HEALTH value=4")
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert [card.card_id for card in battlegrounds.warband] == ["BG_NEW_BOARD"]
+
+
 def test_battlegrounds_setup_signals_do_not_close_live_hero_selection() -> None:
     parser = PowerLogParser()
     feed(
@@ -1127,16 +2892,106 @@ def test_battlegrounds_observes_new_bob_controlled_combat_proxy_after_phase_edge
     assert opponent.board_cards == ("BG_COMBAT_PROXY",)
     assert opponent.board_attack == 7
     assert opponent.board_health == 8
-    assert [card.to_public_dict() for card in opponent.board_minions] == [
-        {
-            "card_id": "BG_COMBAT_PROXY",
-            "name": "BG_COMBAT_PROXY",
-            "attack": 7,
-            "health": 8,
-            "tier": 0,
-            "frozen": False,
-        }
-    ]
+    public_minion = opponent.board_minions[0].to_public_dict()
+    assert public_minion["card_id"] == "BG_COMBAT_PROXY"
+    assert public_minion["card_type"] == "MINION"
+    assert public_minion["attack"] == 7
+    assert public_minion["health"] == 8
+    assert public_minion["position"] == 1
+    assert public_minion["premium"] is False
+    assert public_minion["current_cost"] is None
+
+
+def test_battlegrounds_tracks_current_and_last_opponent_without_reusing_local_player() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "GameEntity EntityID=1",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=NEXT_OPPONENT_PLAYER_ID value=5",
+    )
+    add_entity(parser, 103, "TB_BaconShop_HERO_03", controller=3, zone="PLAY", card_type="HERO")
+    feed(parser, "    tag=PLAYER_ID value=3", "    tag=HEALTH value=40")
+    add_entity(parser, 105, "TB_BaconShop_HERO_05", controller=5, zone="SETASIDE", card_type="HERO")
+    feed(parser, "    tag=PLAYER_ID value=5", "    tag=HEALTH value=40")
+    parser.battlegrounds_round = 2
+
+    feed(
+        parser,
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=1",
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=0",
+    )
+
+    combat = parser.snapshot().battlegrounds
+    assert combat is not None
+    assert combat.current_opponent_player_id == 5
+    assert combat.next_opponent_player_id == 0
+    assert combat.last_opponent_player_id == 0
+    assert next(player for player in combat.lobby if player.player_id == 5).current_opponent
+
+    feed(parser, "TAG_CHANGE Entity=8 tag=NEXT_OPPONENT_PLAYER_ID value=3")
+    assert parser.snapshot().battlegrounds.current_opponent_player_id == 5
+
+    feed(parser, "TAG_CHANGE Entity=GameEntity tag=2022 value=1")
+
+    recruit = parser.snapshot().battlegrounds
+    assert recruit is not None
+    assert recruit.current_opponent_player_id == 0
+    assert recruit.next_opponent_player_id == 0
+    assert recruit.last_opponent_player_id == 5
+    assert recruit.last_opponent_round == 2
+    public = recruit.to_public_dict()
+    assert public["opponents"]["last"]["player_id"] == 5
+    assert public["opponents"]["last"]["combat_round"] == 2
+    local = next(player for player in recruit.lobby if player.player_id == 3)
+    assert not local.next_opponent
+    assert not local.current_opponent
+    assert not local.last_opponent
+
+
+def test_battlegrounds_shop_waits_for_bob_combat_proxy_to_be_refreshed() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "GameEntity EntityID=1",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=NEXT_OPPONENT_PLAYER_ID value=5",
+    )
+    parser.battlegrounds_round = 2
+    feed(
+        parser,
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=1",
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=0",
+    )
+    add_entity(parser, 301, "BG_LAST_OPPONENT", controller=11, zone="PLAY", card_type="MINION")
+    feed(
+        parser,
+        "    tag=ATK value=7",
+        "    tag=HEALTH value=8",
+        "    tag=ZONE_POSITION value=1",
+        "TAG_CHANGE Entity=301 tag=DEFENDING value=1",
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=1",
+    )
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert battlegrounds.phase == "recruit"
+    assert battlegrounds.shop == ()
+
+    feed(
+        parser,
+        "SHOW_ENTITY - Updating Entity=[entityName=Fresh Shop Minion id=301 zone=PLAY zonePos=1 cardId=BG_FRESH_SHOP player=11] CardID=BG_FRESH_SHOP",
+    )
+
+    shop = parser.snapshot().battlegrounds.shop
+    assert [card.card_id for card in shop] == ["BG_FRESH_SHOP"]
+    assert [card.position for card in shop] == [1]
 
 
 def test_next_opponent_seen_before_local_controller_is_used_for_board_history() -> None:
@@ -1631,6 +3486,29 @@ def test_unknown_battlegrounds_play_entity_requires_public_minion_evidence() -> 
     assert [entity.entity_id for entity in parser._battlegrounds_board_entities(5)] == [301]
 
 
+def test_battlegrounds_board_excludes_non_minion_ui_entity_with_stats() -> None:
+    parser = PowerLogParser()
+    parser.mode = "battlegrounds"
+    parser.phase = "combat"
+    parser.local_controller = 3
+    add_entity(
+        parser,
+        301,
+        "BG_HOVER_RUNTIME",
+        controller=3,
+        zone="PLAY",
+        card_type="MOVE_MINION_HOVER_TARGET",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=ATK value=9",
+        "    tag=HEALTH value=9",
+    )
+
+    assert parser._battlegrounds_board_entities(3) == []
+
+
 def test_delayed_game_state_static_tag_cannot_rollback_realtime_value() -> None:
     parser = PowerLogParser()
     parser.mode = "battlegrounds"
@@ -2002,6 +3880,33 @@ def test_late_battlegrounds_hint_reconciles_completed_hero_selection() -> None:
     assert parser.snapshot().phase == "recruit"
 
 
+@pytest.mark.parametrize(
+    ("tag", "value"),
+    [
+        ("BACON_TRIPLE_UPGRADE_MINION_ID", "57339"),
+        ("BACON_TRINKETS_ACTIVE", "1"),
+    ],
+)
+def test_bacon_card_metadata_cannot_override_explicit_constructed_game_type(
+    tag: str,
+    value: str,
+) -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "GameType=GT_RANKED",
+        "FULL_ENTITY - Creating ID=40 CardID=CORE_EX1_506",
+        f"    tag={tag} value={value}",
+    )
+
+    snapshot = parser.snapshot()
+
+    assert snapshot.mode == "constructed"
+    assert snapshot.constructed is not None
+    assert snapshot.battlegrounds is None
+
+
 def test_terminal_event_escapes_stale_block_and_is_emitted_once() -> None:
     parser = PowerLogParser()
     feed(
@@ -2096,6 +4001,318 @@ def test_first_in_progress_battlegrounds_phase_zero_recovers_combat(
     assert [event.kind for event in events] == ["battlegrounds_combat_started"]
 
 
+
+@pytest.mark.parametrize(
+    ("variant", "phase_tag"),
+    [("solo", "2022"), ("duos", "3533")],
+)
+def test_global_turn_phase_hides_combat_preloads_and_restores_fresh_shop(
+    variant: str,
+    phase_tag: str,
+) -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "GameEntity EntityID=1",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+    )
+    parser.battlegrounds_variant = variant
+
+    def publish_bob_cards(
+        cards: tuple[str, ...],
+        *,
+        first_entity_id: int,
+        verb: str,
+    ) -> None:
+        for position, card_id in enumerate(cards, start=1):
+            feed(
+                parser,
+                f"FULL_ENTITY - {verb} ID={first_entity_id + position} CardID={card_id}",
+                "    tag=CONTROLLER value=11",
+                "    tag=CARDTYPE value=MINION",
+                "    tag=ZONE value=PLAY",
+                f"    tag=ZONE_POSITION value={position}",
+                f"    tag=ATK value={position}",
+                f"    tag=HEALTH value={position + 1}",
+            )
+
+    first_shop = ("BG33_140", "BGS_119", "BG20_100", "BG28_512")
+    second_shop = ("BG20_100", "BG32_236", "BG32_236", "BG28_897")
+    third_shop = ("BGS_127", "BG33_140", "BG32_235", "BG25_022", "BG28_512")
+    all_events: list[GameEvent] = []
+
+    all_events.extend(feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=1"))
+    publish_bob_cards(first_shop, first_entity_id=300, verb="Creating")
+    assert parser.snapshot().phase == "recruit"
+    assert [card.card_id for card in parser.snapshot().battlegrounds.shop] == list(first_shop)
+
+    all_events.extend(feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=2"))
+    publish_bob_cards(second_shop, first_entity_id=700, verb="Creating")
+    mirror_events = parser.feed_line(
+        source_line("GameState", "TAG_CHANGE Entity=GameEntity tag=TURN value=3"),
+        now=101.0,
+    )
+    preload_events = feed(
+        parser,
+        f"TAG_CHANGE Entity=GameEntity tag={phase_tag} value=1",
+        f"TAG_CHANGE Entity=GameEntity tag={phase_tag} value=0",
+    )
+    assert mirror_events == []
+    assert preload_events == []
+    assert parser.snapshot().phase == "combat"
+    assert parser.snapshot().battlegrounds.shop == ()
+
+    all_events.extend(feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=3"))
+    assert parser.snapshot().phase == "recruit"
+    assert parser.snapshot().battlegrounds.shop == ()
+    publish_bob_cards(second_shop, first_entity_id=700, verb="Updating")
+    assert [card.card_id for card in parser.snapshot().battlegrounds.shop] == list(second_shop)
+
+    all_events.extend(feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=4"))
+    publish_bob_cards(third_shop, first_entity_id=1000, verb="Creating")
+    feed(
+        parser,
+        f"TAG_CHANGE Entity=GameEntity tag={phase_tag} value=1",
+        f"TAG_CHANGE Entity=GameEntity tag={phase_tag} value=0",
+    )
+    assert parser.snapshot().phase == "combat"
+    assert parser.snapshot().battlegrounds.shop == ()
+
+    all_events.extend(feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=5"))
+    publish_bob_cards(third_shop, first_entity_id=1000, verb="Updating")
+    assert parser.snapshot().phase == "recruit"
+    assert [card.card_id for card in parser.snapshot().battlegrounds.shop] == list(third_shop)
+
+    all_events.extend(feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=6"))
+    assert parser.snapshot().phase == "combat"
+    assert parser.snapshot().battlegrounds.shop == ()
+    kinds = [event.kind for event in all_events]
+    assert kinds.count("battlegrounds_round") == 3
+    assert kinds.count("battlegrounds_combat_started") == 3
+    assert kinds.count("battlegrounds_combat_result") == 2
+    assert kinds.count("battlegrounds_recruit_started") == 2
+
+
+def test_global_battlegrounds_turn_ignores_entity_turn_and_keeps_choice() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "GameEntity EntityID=1",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=1",
+    )
+    add_entity(
+        parser,
+        50,
+        "BG_CHOICE_OPTION",
+        controller=3,
+        zone="SETASIDE",
+        card_type="MINION",
+    )
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintEntityChoices() - "
+        "id=7 Player=Unmapped TaskList=9 ChoiceType=GENERAL CountMin=1 CountMax=1",
+        now=102.0,
+    )
+    parser.feed_line(
+        "D 12:00:00.0000000 GameState.DebugPrintEntityChoices() -   "
+        "Entities[0]=[entityName=Visible Option id=50 zone=SETASIDE zonePos=0 "
+        "cardId=BG_CHOICE_OPTION player=3]",
+        now=102.1,
+    )
+
+    feed(
+        parser,
+        "TAG_CHANGE Entity=8 tag=TURN value=9",
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=1",
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=0",
+    )
+    assert parser.turn == 1
+    assert parser.snapshot().phase == "recruit"
+
+    feed(
+        parser,
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=2",
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=3",
+    )
+
+    choice = parser.snapshot().battlegrounds.current_choice
+    assert parser.snapshot().phase == "recruit"
+    assert choice is not None
+    assert [card.card_id for card in choice.options] == ["BG_CHOICE_OPTION"]
+
+
+def test_first_global_battlegrounds_turn_replaces_inflated_entity_fallback() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "GameEntity EntityID=1",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+        "TAG_CHANGE Entity=8 tag=TURN value=9",
+    )
+    add_entity(
+        parser,
+        301,
+        "BG_FALLBACK_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=ATK value=1",
+        "    tag=HEALTH value=2",
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=0",
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=1",
+    )
+    assert parser.turn == 9
+    assert parser.snapshot().battlegrounds.round == 5
+    assert parser.snapshot().phase == "recruit"
+    assert parser.snapshot().battlegrounds.shop == ()
+    assert parser._recruit_bob_stale_entity_ids == {301}
+
+    events = feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=1")
+
+    assert parser.turn == 1
+    assert parser.snapshot().battlegrounds.round == 1
+    assert parser.snapshot().phase == "recruit"
+    assert [card.card_id for card in parser.snapshot().battlegrounds.shop] == [
+        "BG_FALLBACK_SHOP_CARD"
+    ]
+    assert parser._recruit_bob_stale_entity_ids == set()
+    assert [event.kind for event in events] == ["battlegrounds_round"]
+
+
+def test_first_global_battlegrounds_turn_rolls_back_same_turn_fallback_combat() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "GameEntity EntityID=1",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+        "TAG_CHANGE Entity=8 tag=NEXT_OPPONENT_PLAYER_ID value=5",
+        "TAG_CHANGE Entity=8 tag=TURN value=1",
+    )
+    add_entity(
+        parser,
+        301,
+        "BG_SAME_TURN_SHOP_CARD",
+        controller=11,
+        zone="PLAY",
+        card_type="MINION",
+    )
+    feed(
+        parser,
+        "    tag=ZONE_POSITION value=1",
+        "    tag=ATK value=2",
+        "    tag=HEALTH value=3",
+    )
+    independently_observed = (BattlegroundsCardSnapshot(card_id="BG_OPPONENT"),)
+    parser._observed_boards[5] = (1, independently_observed)
+
+    feed(parser, "TAG_CHANGE Entity=GameEntity tag=2022 value=0")
+    assert parser.snapshot().phase == "combat"
+    assert parser.current_opponent_player_id == 5
+    assert parser.next_opponent_player_id == 0
+
+    events = feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=1")
+    battlegrounds = parser.snapshot().battlegrounds
+
+    assert battlegrounds is not None
+    assert parser.snapshot().phase == "recruit"
+    assert [card.card_id for card in battlegrounds.shop] == [
+        "BG_SAME_TURN_SHOP_CARD"
+    ]
+    assert parser.next_opponent_player_id == 5
+    assert parser.current_opponent_player_id == 0
+    assert parser._observed_boards[5] == (1, independently_observed)
+    assert parser._combat_active_round == 0
+    assert parser._combat_result_emitted_round == 0
+    assert parser._combat_bob_stale_entity_ids == set()
+    assert parser._recruit_bob_stale_entity_ids == set()
+    assert not any(
+        event.kind
+        in {"battlegrounds_combat_result", "battlegrounds_recruit_started"}
+        for event in events
+    )
+
+
+def test_battlegrounds_turn_replay_matches_incremental_feed() -> None:
+    payloads = (
+        "CREATE_GAME",
+        "GameEntity EntityID=1",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=1",
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=2",
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=1",
+        "TAG_CHANGE Entity=GameEntity tag=2022 value=0",
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=3",
+    )
+    incremental = PowerLogParser()
+    for payload in payloads:
+        incremental.feed_line(line(payload), now=100.0)
+    replayed = PowerLogParser()
+    replayed.feed_lines((line(payload) for payload in payloads), now=100.0)
+
+    assert replayed.snapshot().to_public_dict() == incremental.snapshot().to_public_dict()
+    assert replayed.snapshot().phase == "recruit"
+    assert replayed.snapshot().battlegrounds.round == 2
+
+
+def test_unchanged_recruit_board_rejoins_current_phase_after_combat() -> None:
+    parser = PowerLogParser()
+    feed(
+        parser,
+        "CREATE_GAME",
+        "GameEntity EntityID=1",
+        "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+        "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
+        "    tag=BACON_DUMMY_PLAYER value=1",
+        "TAG_CHANGE Entity=8 tag=MULLIGAN_STATE value=DONE",
+        "TAG_CHANGE Entity=8 tag=TURN value=1",
+    )
+    add_entity(parser, 200, "BG_REAL_MINION", controller=3, zone="PLAY", card_type="MINION")
+    feed(
+        parser,
+        "    tag=ATK value=7",
+        "    tag=HEALTH value=8",
+        "    tag=ZONE_POSITION value=1",
+    )
+
+    assert parser.snapshot().phase == "recruit"
+    feed(parser, "TAG_CHANGE Entity=8 tag=2022 value=0")
+    assert parser.snapshot().phase == "combat"
+    feed(parser, "TAG_CHANGE Entity=200 tag=ATTACKING value=1")
+    feed(parser, "TAG_CHANGE Entity=8 tag=2022 value=1")
+
+    battlegrounds = parser.snapshot().battlegrounds
+    assert battlegrounds is not None
+    assert parser.snapshot().phase == "recruit"
+    assert [card.card_id for card in battlegrounds.warband] == ["BG_REAL_MINION"]
+    assert battlegrounds.areas["warband"].complete is True
+    assert battlegrounds.areas["warband"].round == battlegrounds.round
+    assert battlegrounds.areas["warband"].phase == "recruit"
+
+
 def test_battlegrounds_caches_authoritative_recruit_board_and_filters_ui_helpers() -> None:
     parser = PowerLogParser()
     feed(
@@ -2173,12 +4390,11 @@ def test_battlegrounds_combat_result_summarizes_local_damage() -> None:
     feed(parser, "    tag=PLAYER_ID value=3", "    tag=HEALTH value=40", "    tag=DAMAGE value=0")
     feed(
         parser,
-        "TAG_CHANGE Entity=GameEntity tag=2022 value=1",
-        "TAG_CHANGE Entity=GameEntity tag=2022 value=0",
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=4",
         "TAG_CHANGE Entity=103 tag=DAMAGE value=8",
     )
 
-    events = feed(parser, "TAG_CHANGE Entity=GameEntity tag=2022 value=1")
+    events = feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=5")
     result = next(event for event in events if event.kind == "battlegrounds_combat_result")
 
     assert result.details["outcome"] == "lost"
@@ -2209,12 +4425,11 @@ def test_battlegrounds_combat_result_counts_damage_absorbed_only_by_armor() -> N
     )
     feed(
         parser,
-        "TAG_CHANGE Entity=GameEntity tag=2022 value=1",
-        "TAG_CHANGE Entity=GameEntity tag=2022 value=0",
+        "TAG_CHANGE Entity=GameEntity tag=TURN value=4",
         "TAG_CHANGE Entity=103 tag=ARMOR value=2",
     )
 
-    events = feed(parser, "TAG_CHANGE Entity=GameEntity tag=2022 value=1")
+    events = feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=5")
     result = next(event for event in events if event.kind == "battlegrounds_combat_result")
 
     assert result.details["outcome"] == "lost"
@@ -2260,14 +4475,14 @@ def test_legacy_battlegrounds_current_player_edges_drive_one_combat_cycle() -> N
         "Player EntityID=8 PlayerID=3 GameAccountId=[hi=0 lo=0]",
         "Player EntityID=9 PlayerID=11 GameAccountId=[hi=0 lo=0]",
         "    tag=BACON_DUMMY_PLAYER value=1",
-        "TAG_CHANGE Entity=GameEntity tag=TURN value=1",
+        "TAG_CHANGE Entity=8 tag=TURN value=1",
         "TAG_CHANGE Entity=Local Player tag=CURRENT_PLAYER value=1",
         "TAG_CHANGE Entity=GameEntity tag=STATE value=RUNNING",
     )
 
     started = feed(parser, "TAG_CHANGE Entity=Bob's Tavern tag=CURRENT_PLAYER value=1")
     duplicate = feed(parser, "TAG_CHANGE Entity=Bob's Tavern tag=CURRENT_PLAYER value=1")
-    feed(parser, "TAG_CHANGE Entity=GameEntity tag=TURN value=2")
+    feed(parser, "TAG_CHANGE Entity=8 tag=TURN value=2")
     recruit = feed(parser, "TAG_CHANGE Entity=Local Player tag=CURRENT_PLAYER value=1")
 
     assert [event.kind for event in started] == ["battlegrounds_combat_started"]

@@ -44,7 +44,6 @@ def _svc(mode: str, url: str) -> tuple[QQSettingsService, SimpleNamespace]:
         config_store=SimpleNamespace(
             normalize_reply_mode=lambda v: v or "text",
             normalize_backlog_labels=lambda v: v,
-            _normalize_strategy_mode=lambda v: v or "neko_dynamic",
         ),
     )
     svc = QQSettingsService(plugin)

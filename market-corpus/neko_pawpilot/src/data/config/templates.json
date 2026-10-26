@@ -17,7 +17,7 @@
   "game_end": "今天辛苦了喵，晚安~ 💤",
   "trip_progress": "已经走了{mark_ratio}了喵！还剩 {km:.0f} km~",
   "distance_mark": "快到了喵！还剩 {km:.0f} km~",
-  "summary_head": "「{dst}这趟：{distance:.0f} km",
+  "summary_head": "「{dst}」这趟：{distance:.0f} km",
   "summary_tail": "开得不错喵！",
   "time_relaxed": "时间很宽裕喵~ 慢慢开，欣赏下风景！",
   "time_tight": "时间有点紧喵… 要抓紧了！不过安全第一！",

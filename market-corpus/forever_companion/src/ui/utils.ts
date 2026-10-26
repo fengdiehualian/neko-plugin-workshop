@@ -4,6 +4,18 @@ import type { Appearance, FormValues, Settings, Status, TFunc } from "./types"
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
+export function navigateTabs(event: any): void {
+  const keys = ["ArrowLeft", "ArrowRight", "Home", "End"]
+  if (!keys.includes(event.key)) return
+  const tabs = Array.from(event.currentTarget.parentElement.querySelectorAll('[role="tab"]')) as HTMLButtonElement[]
+  const index = tabs.indexOf(event.currentTarget)
+  const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+    : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length
+  event.preventDefault()
+  tabs[next]?.focus()
+  tabs[next]?.click()
+}
+
 // 面板展示层去 emoji：情绪动作标签带 emoji 是给模型辨语气用的（后端不动），
 // 面板渲染前统一剔掉，保持纯文字观感；仅去图形符号区，不动正常文字与标点
 export function stripEmoji(text?: string): string {
@@ -118,13 +130,19 @@ export function heatDayMoodKey(day: { tone?: string; valence?: number | null }):
   return moodWordOf(Number(day.valence) || 0, 0.5)
 }
 
-// 热力图格子档位：turns → 0~4 档（0=无记录，1~4 递增），CSS 按档取色
-export function heatLevel(turns?: number): number {
+// Positive-day quartiles keep typical activity visible without letting a single busy day flatten the scale.
+export function heatThresholds(turns: number[]): number[] {
+  const active = turns.filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b)
+  if (!active.length) return [9, 29, 79]
+  return [0.25, 0.5, 0.75].map((q) => active[Math.ceil(active.length * q) - 1])
+}
+
+export function heatLevel(turns?: number, thresholds: number[] = [9, 29, 79]): number {
   const n = Number(turns) || 0
   if (n <= 0) return 0
-  if (n < 10) return 1
-  if (n < 30) return 2
-  if (n < 80) return 3
+  for (let i = 0; i < thresholds.length; i++) {
+    if (n <= thresholds[i]) return i + 1
+  }
   return 4
 }
 
@@ -185,16 +203,17 @@ export function lanlanPhaseLabel(t: TFunc, phase?: string): string {
 
 // ---- 面板外观（1.2.0）：参数归一 / 背景层样式 / 渲染变量 / 图片压缩 ----
 
-// 默认值复刻 1.1.x 观感（cover/center/glass16/dim0.3/无滤镜/底色与文字满格）；
+// 壁纸默认保持清晰，以遮罩保可读；已保存参数不被新默认覆盖。
 // 与后端 core/appearance.py 的 clamp_appearance 保持同一套域值，两边各归一一次
 export const APPEARANCE_DEFAULTS: AppearanceDefaults = {
   bg_id: "", fill: "cover", position: "center",
-  blur: 0, dim: 0.3, brightness: 100, saturate: 100, contrast: 100,
-  glass: 16, card_alpha: 100, text_weight: 100,
+  blur: 0, dim: 0.4, brightness: 100, saturate: 100, contrast: 100,
+  glass: 0, card_alpha: 0, text_weight: 100,
+  motion: true,
 }
 
 // 类型别名绕开校验器：export const 注解里不能带泛型尖括号的逗号
-export type AppearanceDefaults = Record<string, string | number>
+export type AppearanceDefaults = Record<string, string | number | boolean>
 
 export const APPEARANCE_FILLS = ["cover", "contain", "repeat", "stretch"]
 export const APPEARANCE_POSITIONS = [
@@ -222,6 +241,7 @@ export function normAppearance(raw?: AppearanceDefaults | null): Appearance {
   out.fill = APPEARANCE_FILLS.indexOf(fill) >= 0 ? fill : "cover"
   const pos = String(src.position || "").trim().toLowerCase().replace(/\s+/g, " ")
   out.position = APPEARANCE_POSITIONS.indexOf(pos) >= 0 ? pos : "center"
+  out.motion = typeof src.motion === "boolean" ? src.motion : true
   const keys = Object.keys(APPEARANCE_NUMERIC)
   for (let i = 0; i < keys.length; i += 1) {
     const name = keys[i]
@@ -244,8 +264,8 @@ export function appearanceEquals(a: Appearance, b: Appearance): boolean {
   return true
 }
 
-// 背景层内联样式：填充/位置/滤镜全部按参数即时算（实时预览就靠它）。
-// 有模糊时把层向外扩 blur+6px，否则 filter 会把图像边缘拉出透明露底
+// 仅给壁纸图层使用；遮罩是未过滤的兄弟层，亮度/模糊不再改变遮罩。
+// 有模糊时外扩 blur+16px，避免滤镜边缘露出底色。
 export function bgLayerStyle(ap: Appearance, dataUrl: string): Record<string, string> {
   const size = ap.fill === "contain" ? "contain" : ap.fill === "repeat" ? "auto" : ap.fill === "stretch" ? "100% 100%" : "cover"
   const filters: string[] = []
@@ -260,26 +280,28 @@ export function bgLayerStyle(ap: Appearance, dataUrl: string): Record<string, st
     backgroundPosition: ap.position,
     filter: filters.length ? filters.join(" ") : "none",
     WebkitFilter: filters.length ? filters.join(" ") : "none",
-    inset: ap.blur > 0 ? `${-Math.round(ap.blur) - 6}px` : "0px",
+    inset: ap.blur > 0 ? `${-Math.round(ap.blur) - 16}px` : "0px",
   }
 }
 
 // 写到根包装 div 上的 CSS 自定义属性（display:contents 不改布局），
-// 供 styles.ts 里 var() 消费；glass 恒写，其余仅偏离默认时写
+// 参数为 0 时显式关闭滤镜；文字只在不透明颜色间微调，不降低整段内容透明度。
 export type CssVarMap = Record<string, string>
 
 export function appearanceVars(ap: Appearance): CssVarMap {
-  const vars: CssVarMap = { "--tm-glass": `${ap.glass}px` }
-  vars["--tm-card-k"] = String(Math.round(ap.card_alpha) / 100)
-  if (ap.text_weight < 100) {
-    const w = ap.text_weight
-    const conc = Math.round(55 + (w - 40) * 0.75)
-    vars["--tm-text-color"] = `color-mix(in srgb, var(--text) ${conc}%, transparent)`
-    if (w < 95) {
-      const radius = Math.round((100 - w) / 10) + 2
-      const alpha = (((100 - w) / 60) * 0.5 + 0.15).toFixed(2)
-      vars["--tm-text-shadow"] = `0 1px ${radius}px rgba(2, 6, 23, ${alpha})`
-    }
+  const normalized = normAppearance(ap)
+  const glass = normalized.glass
+  const concentration = Math.round(88 + (normalized.text_weight - 40) / 5)
+  const shadowAlpha = (0.24 + (100 - normalized.text_weight) / 600).toFixed(2)
+  const vars: CssVarMap = {
+    "--tm-glass": `${glass}px`,
+    "--tm-glass-filter": glass > 0 ? `blur(${glass}px) saturate(1.08)` : "none",
+    "--tm-sidebar-glass-filter": glass > 0 ? `blur(${glass}px) saturate(1.08)` : "none",
+    "--tm-card-k": String(Math.round(normalized.card_alpha) / 100),
+    "--tm-text-color": concentration < 100
+      ? `color-mix(in srgb, var(--text) ${concentration}%, var(--muted))`
+      : "var(--text)",
+    "--tm-text-shadow": `0 1px 3px rgba(0, 0, 0, ${shadowAlpha})`,
   }
   return vars
 }
@@ -311,14 +333,51 @@ function drawScaled(img: any, edge: number, mime: string, quality: number): stri
 
 // 压缩管线：auto=限长边 2560 转 WebP（失败降 JPEG，仍不划算则用原图）+ 256px 缩略图；
 // raw=原样入册（仅补缩略图）；thumb=只生成缩略图（旧迁移图回填用）。
-// GIF/SVG 不转码（动图/矢量语义）：auto 对它们等同 raw；SVG 画进 canvas 会污染
+// Animation containers retain their bytes; only their thumbnail uses a frame.
+function preservesAnimation(dataUrl: string, mime: string): boolean {
+  if (mime === "image/gif" || mime === "image/svg+xml") return true
+  if (mime !== "image/webp" && mime !== "image/png") return false
+  try {
+    const encoded = dataUrl.slice(dataUrl.indexOf(",") + 1)
+    // Bound inspection to the image import cap. Walk container chunk headers,
+    // rather than matching marker text that may occur inside compressed pixels.
+    if (encoded.length > 6000000) return true
+    const bytes = atob(encoded)
+    const u32 = (offset: number, little: boolean) => little
+      ? bytes.charCodeAt(offset) + bytes.charCodeAt(offset + 1) * 256 + bytes.charCodeAt(offset + 2) * 65536 + bytes.charCodeAt(offset + 3) * 16777216
+      : bytes.charCodeAt(offset) * 16777216 + bytes.charCodeAt(offset + 1) * 65536 + bytes.charCodeAt(offset + 2) * 256 + bytes.charCodeAt(offset + 3)
+    if (mime === "image/webp") {
+      if (bytes.slice(0, 4) !== "RIFF" || bytes.slice(8, 12) !== "WEBP") return true
+      for (let offset = 12; offset + 8 <= bytes.length;) {
+        const kind = bytes.slice(offset, offset + 4)
+        const size = u32(offset + 4, true)
+        if (offset + 8 + size > bytes.length) return true
+        if (kind === "ANIM" || kind === "ANMF" || (kind === "VP8X" && size >= 1 && (bytes.charCodeAt(offset + 8) & 2) !== 0)) return true
+        offset += 8 + size + size % 2
+      }
+    } else {
+      if (bytes.slice(0, 8) !== "\x89PNG\r\n\x1a\n") return true
+      for (let offset = 8; offset + 12 <= bytes.length;) {
+        const size = u32(offset, false)
+        if (offset + 12 + size > bytes.length) return true
+        const kind = bytes.slice(offset + 4, offset + 8)
+        if (kind === "acTL") return true
+        if (kind === "IDAT" || kind === "IEND") return false
+        offset += 12 + size
+      }
+    }
+    return false
+  } catch { return true }
+}
+
+// GIF/SVG and detected WebP/APNG animations are not transcoded. SVG may taint
 // toDataURL（SecurityError），缩略图尽力而为、失败留空由面板以占位样式呈现。
 export function compressImageDataUrl(
   dataUrl: string,
   mime: string,
   mode: string,
 ): Promise<{ dataUrl: string; thumb: string; skipped: boolean }> {
-  const animated = mime === "image/gif" || mime === "image/svg+xml"
+  const animated = preservesAnimation(dataUrl, mime)
   return loadImageElement(dataUrl).then((img) => {
     let out = dataUrl
     let skipped = false
@@ -360,17 +419,47 @@ export function settingsToForm(settings: Settings): FormValues {
     mood_enabled: settings.mood_enabled !== false,
     default_action_minutes: Number(settings.default_action_minutes ?? 20),
     emotion_sense_enabled: settings.emotion_sense_enabled !== false,
+    tone_min_interval_sec: Number(settings.tone_min_interval_sec ?? 20),
     tone_check_rate: Number(settings.tone_check_rate ?? 1),
     tone_phase_sensitivity_enabled: settings.tone_phase_sensitivity_enabled !== false,
     tone_phase_sensitivity: Number(settings.tone_phase_sensitivity ?? 0.15),
     tone_slot: String(settings.tone_slot || ""),
     fragments_enabled: settings.fragments_enabled !== false,
-    fragments_slot: String(settings.fragments_slot || "summary"),
+    fragments_slot: String(settings.fragments_slot || "agent"),
+    fragments_mode: String(settings.fragments_mode || "host"),
     review_enabled: settings.review_enabled !== false,
-    review_slot: String(settings.review_slot || "summary"),
+    review_slot: String(settings.review_slot || "agent"),
+    review_mode: String(settings.review_mode || "host"),
     review_turns_threshold: Number(settings.review_turns_threshold ?? 50),
     review_days_threshold: Number(settings.review_days_threshold ?? 7),
+    // 兜底值镜像 [agent_tier].daily_budget：只在快照未到的第一帧用得上，真值永远由
+    // 后端 settings 快照覆盖。这类"前端另抄一份默认"的漂移由
+    // test_ui_form_fallbacks_match_shipped_defaults 钉死
+    agent_daily_budget: Number(settings.agent_daily_budget ?? 20),
     anniversary_inject: (settings as Record<string, any>).anniversary_inject !== false,
     debug_mode: settings.debug_mode === true,
   }
+}
+
+export function diaryWriteError(result: any, t: any): string {
+  const reason = result && result.reason
+  if (reason === "persist_failed") {
+    return t("panel.review.persistFailed", { defaultValue: "内容已生成，但保存失败。素材已保留，可稍后重试。" })
+  }
+  if (reason === "disabled") return t("panel.writing.disabled", { defaultValue: "功能未开启，请先开启当前角色的模拟和对应日记功能。" })
+  if (reason === "budget_exhausted" || (reason === "slot_unresolved" && result.dormant_reason === "budget")) {
+    return t("panel.writing.budget", { defaultValue: "今日模型调用预算已用完，素材已保留。" })
+  }
+  if (reason === "channel_rejected" || (reason === "slot_unresolved" && result.dormant_reason === "rejected")) {
+    return t("panel.channel.rejected", { defaultValue: "请求被拒绝 · 通道已暂停" })
+  }
+  if (reason === "slot_unresolved") {
+    return result.dormant_reason === "free_route"
+      ? t("onboarding.channels.freeRoute", { defaultValue: "免费路由不支持直连" })
+      : t("onboarding.channels.noModel", { defaultValue: "未配置模型" })
+  }
+  if (reason === "request_timeout") return t("panel.writing.requestTimeout", { defaultValue: "模型生成超时；素材已保留，可稍后重试。" })
+  if (reason === "request_failed") return t("panel.writing.requestFailed", { defaultValue: "模型请求失败或超时；素材已保留，请检查模型通道后再试。" })
+  if (reason === "invalid_reply") return t("panel.writing.invalidReply", { defaultValue: "模型未返回有效日记正文；素材已保留，可稍后重试。" })
+  return t("panel.review.writeFailed", { defaultValue: "生成失败，请稍后重试" })
 }

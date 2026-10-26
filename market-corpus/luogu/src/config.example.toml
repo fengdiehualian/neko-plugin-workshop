@@ -10,6 +10,11 @@ cookie_ttl_seconds = 240
 default_user = ""
 fetch_max_pages = 8   # 报告/每日题单最多抓取多少页提交记录（洛谷每页固定 20 条）；越大越全但越慢
 
+# --- 逐题元数据回填（提交列表不含标签） ---
+backfill_enabled = true
+backfill_max_per_run = 12       # 每次最多回填多少题；命中缓存则跳过
+backfill_backoff_seconds = 300  # 单题抓取失败后的重试间隔
+
 # --- 每日题单 / 成长策略 ---
 daily_push_enabled = false
 daily_push_time = "08:00"
@@ -18,6 +23,15 @@ daily_problem_count = 3
 daily_difficulty_min = 2
 daily_difficulty_max = 5
 weak_attempt_threshold = 3
+ability_window_days = 60        # 能力档位估算 / 相对弱项的统计窗口天数
+trend_weeks = 12                # 成长报告里的周趋势周数
+
+# --- 每日题单冷却 / 复习库 ---
+daily_cooldown_days = 14        # 最严冷却天数；阶梯按折半放宽 14→7→3→1→0，0 表示不冷却
+daily_use_ability_band = true   # 难度区间优先取能力档位（而非固定 daily_difficulty_min/max）
+daily_band_below = 1            # 能力档位向下放宽几档
+daily_band_above = 2            # 能力档位向上放宽几档（练习向上够，所以更大）
+                                # 若窗口把候选池饿死，会逐档放宽到 1..8，并把实际窗口回传
 
 # --- 跨插件推送（运行时逐个 call_entry，留空跳过） ---
 # [[luogu.push_entries]]

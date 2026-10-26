@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from copy import deepcopy
 from typing import Any
 
+from . import settings_schema
 from .group_permission import GroupPermissionManager
 from .permission import PermissionManager
 
@@ -596,7 +597,20 @@ class QQSettingsService:
     async def load_business_config(self) -> dict[str, Any]:
         self.plugin._qq_settings = await self.plugin.config_store.load()
         self.plugin.backlog_store = self.plugin._create_backlog_store_from_settings(self.plugin._qq_settings)
-        self._enforce_attention_for_dynamic_mode()
+        if self.plugin.config_store.migration_applied:
+            # 加载期迁移只改内存视图；不落盘的话配置文件会长期留着旧键
+            # （真机出现过：插件已按新键跑，磁盘里还留着 6 个已删功能的旧键）。
+            #
+            # ⚠️ **必须 preserve_published_permissions=True**：本函数跑在
+            # ``rebuild_permission_managers`` 之前，权限管理器此刻还是空的，
+            # 普通 persist 会用 ``list_users()/list_groups()``（空）覆盖磁盘上的
+            # 信任名单——真机事故：管理员与两个群被一次启动清空。
+            # 该参数会把「加载进来的原值」保留在 payload 与内存快照里。
+            try:
+                await self._persist_business_config_locked(preserve_published_permissions=True)
+                self.plugin._emit_log("INFO", "配置迁移已落盘：旧键已清理（注意力两代命名 / 已删功能）")
+            except Exception as exc:
+                self.plugin._emit_log("WARN", f"配置迁移落盘失败（内存视图仍正确）: {exc}")
         return dict(self.plugin._qq_settings)
 
     async def ensure_business_config_initialized(self) -> dict[str, Any]:
@@ -678,7 +692,6 @@ class QQSettingsService:
 
     def apply_runtime_settings(self, settings: dict[str, Any]) -> None:
         self.plugin._normal_relay_probability = float(settings.get("normal_relay_probability", 0.1) or 0.1)
-        self.plugin._truth_reply_probability = float(settings.get("open_reply_probability", settings.get("truth_reply_probability", 0.1)) or 0.1)
         self.plugin._max_concurrent_messages = max(1, int(settings.get("max_concurrent_messages", 3) or 3))
         self.plugin._message_concurrency = __import__("asyncio").Semaphore(self.plugin._max_concurrent_messages)
         self.plugin._ai_connect_timeout_seconds = max(1.0, float(settings.get("ai_connect_timeout_seconds", 10.0) or 10.0))
@@ -687,14 +700,11 @@ class QQSettingsService:
         self.plugin._backlog_summary_threshold = max(1, int(settings.get("backlog_summary_threshold", 10) or 10))
         self.plugin._backlog_notify_cooldown_seconds = max(60, int(settings.get("backlog_notify_cooldown_seconds", 900) or 900))
         self.plugin._backlog_issue_notify_threshold = max(1, int(settings.get("backlog_issue_notify_threshold", 1) or 1))
-        # 猫娘动态注意力策略配置
-        self.plugin._strategy_mode = self.plugin.config_store._normalize_strategy_mode(settings.get("strategy_mode"))
-        self._enforce_attention_for_dynamic_mode()
         # 前端日志：显示当前连接配置（token 脱敏），方便用户排查浏览器自动回填等问题
         url = str(settings.get("onebot_url") or "").strip()
         masked = self.plugin._mask_token(str(settings.get("token") or ""))
         mode = str(settings.get("qq_connection_mode") or "napcat").strip()
-        self.plugin._emit_log("INFO", f"连接模式: {mode} | 监听地址: {url or '(未配置)'} | Token: {masked}{' (空)' if not settings.get('token') else ''} | 策略: {self.plugin._strategy_mode}")
+        self.plugin._emit_log("INFO", f"连接模式: {mode} | 监听地址: {url or '(未配置)'} | Token: {masked}{' (空)' if not settings.get('token') else ''}")
 
     @staticmethod
     def _default_onebot_url(mode: str) -> str:
@@ -706,14 +716,6 @@ class QQSettingsService:
         if str(mode or "").strip() == "napcat_forward":
             return "ws://127.0.0.1:3001"
         return "ws://0.0.0.0:6199"
-
-    def _enforce_attention_for_dynamic_mode(self) -> None:
-        """neko_dynamic 模式下强制启用多群注意力，确保磁盘配置与运行时一致。"""
-        strategy_mode = self.plugin.config_store._normalize_strategy_mode(
-            self.plugin._qq_settings.get("strategy_mode")
-        )
-        if strategy_mode == "neko_dynamic":
-            self.plugin._qq_settings["enable_group_attention"] = True
 
     def rebuild_permission_managers(self, config: dict[str, Any]) -> None:
         self.plugin.permission_mgr = PermissionManager(
@@ -925,7 +927,6 @@ class QQSettingsService:
         guide_step_config_done = kwargs.get("guide_step_config_done")
         guide_step_runtime_done = kwargs.get("guide_step_runtime_done")
         normal_relay_probability = kwargs.get("normal_relay_probability")
-        truth_reply_probability = kwargs.get("truth_reply_probability")
         backlog_labels = kwargs.get("backlog_labels")
 
         if onebot_url is not None:
@@ -1007,65 +1008,58 @@ class QQSettingsService:
                 raise ValueError("normal_relay_probability 必须在 0 到 1 之间")
             self.plugin._qq_settings["normal_relay_probability"] = value
             self.plugin._normal_relay_probability = value
-        if truth_reply_probability is not None:
-            value = float(truth_reply_probability)
-            if value < 0.0 or value > 1.0:
-                raise ValueError("truth_reply_probability 必须在 0 到 1 之间")
-            self.plugin._qq_settings["open_reply_probability"] = value
-            self.plugin._qq_settings["truth_reply_probability"] = value
-            self.plugin._truth_reply_probability = value
         if backlog_labels is not None:
             self.plugin._qq_settings["backlog_labels"] = self.plugin.config_store.normalize_backlog_labels(backlog_labels)
-        group_attention_max_score = kwargs.get("group_attention_max_score")
-        if group_attention_max_score is not None:
+        attention_max_score = kwargs.get("attention_max_score")
+        if attention_max_score is not None:
             # 上限与前端 max=10、config 默认 10.0 对齐
-            self.plugin._qq_settings["group_attention_max_score"] = self._clamp_attention_float(group_attention_max_score, "group_attention_max_score", floor=1.0, ceiling=10.0)
-        group_attention_focus_threshold = kwargs.get("group_attention_focus_threshold")
-        if group_attention_focus_threshold is not None:
+            self.plugin._qq_settings["attention_max_score"] = self._clamp_attention_float(attention_max_score, "attention_max_score", floor=1.0, ceiling=10.0)
+        attention_focus_threshold = kwargs.get("attention_focus_threshold")
+        if attention_focus_threshold is not None:
             focus_value = self._clamp_attention_float(
-                group_attention_focus_threshold,
-                "group_attention_focus_threshold",
+                attention_focus_threshold,
+                "attention_focus_threshold",
                 floor=0.1,
             )
-            self.plugin._qq_settings["group_attention_focus_threshold"] = focus_value
+            self.plugin._qq_settings["attention_focus_threshold"] = focus_value
             # send ≤ focus 是设计不变量（发送门控是低于焦点线的「保持线」）。
             # 只下调焦点线时，旧发送线若比新焦点线高，焦点群在焦点线夺冠后仍会
             # 被门控第 5 步（focus_low_attention）拒之门外——一并收紧。
             send_value = self.plugin._qq_settings.get(
-                "group_attention_focus_send_threshold",
+                "attention_focus_hold_threshold",
             )
             if send_value is not None and float(send_value) > focus_value:
                 self.plugin._qq_settings[
-                    "group_attention_focus_send_threshold"
+                    "attention_focus_hold_threshold"
                 ] = focus_value
-        group_attention_focus_send_threshold = kwargs.get("group_attention_focus_send_threshold")
-        if group_attention_focus_send_threshold is not None:
+        attention_focus_hold_threshold = kwargs.get("attention_focus_hold_threshold")
+        if attention_focus_hold_threshold is not None:
             # 发送门控线不得高于焦点线：高于焦点线时，群组在焦点线赢得焦点，但
             # 之后所有焦点消息都会被门控第 5 步拒绝，直到得分超过更高的发送线
             # ——焦点线形同虚设。钳到焦点线（同批保存先落 focus 再落 send，
             # 这里读到的就是新焦点线）。
             focus_ceiling = float(
                 self.plugin._qq_settings.get(
-                    "group_attention_focus_threshold", 4.0,
+                    "attention_focus_threshold", 4.0,
                 )
             )
-            self.plugin._qq_settings["group_attention_focus_send_threshold"] = (
+            self.plugin._qq_settings["attention_focus_hold_threshold"] = (
                 self._clamp_attention_float(
-                    group_attention_focus_send_threshold,
-                    "group_attention_focus_send_threshold",
+                    attention_focus_hold_threshold,
+                    "attention_focus_hold_threshold",
                     floor=0.0,
                     ceiling=focus_ceiling,
                 )
             )
-        group_attention_min_threshold = kwargs.get("group_attention_min_threshold")
-        if group_attention_min_threshold is not None:
-            self.plugin._qq_settings["group_attention_min_threshold"] = self._clamp_attention_float(group_attention_min_threshold, "group_attention_min_threshold", floor=0.0)
-        group_attention_message_gain = kwargs.get("group_attention_message_gain")
-        if group_attention_message_gain is not None:
-            self.plugin._qq_settings["group_attention_message_gain"] = self._clamp_attention_float(group_attention_message_gain, "group_attention_message_gain", floor=0.0)
+        attention_min_threshold = kwargs.get("attention_min_threshold")
+        if attention_min_threshold is not None:
+            self.plugin._qq_settings["attention_min_threshold"] = self._clamp_attention_float(attention_min_threshold, "attention_min_threshold", floor=0.0)
+        attention_batch_message_gain = kwargs.get("attention_batch_message_gain")
+        if attention_batch_message_gain is not None:
+            self.plugin._qq_settings["attention_batch_message_gain"] = self._clamp_attention_float(attention_batch_message_gain, "attention_batch_message_gain", floor=0.0)
         attention_base_rise_rate = kwargs.get("attention_base_rise_rate")
         if attention_base_rise_rate is not None:
-            # floor=0：0 表示禁用自然上升（rise 相位不随时间增长）
+            # floor=0：0 表示禁用自然上升（热聊中也不随时间增长）
             self.plugin._qq_settings["attention_base_rise_rate"] = self._clamp_attention_float(attention_base_rise_rate, "attention_base_rise_rate", floor=0.0)
         attention_message_boost = kwargs.get("attention_message_boost")
         if attention_message_boost is not None:
@@ -1073,30 +1067,66 @@ class QQSettingsService:
         attention_keyword_boost_ratio = kwargs.get("attention_keyword_boost_ratio")
         if attention_keyword_boost_ratio is not None:
             self.plugin._qq_settings["attention_keyword_boost_ratio"] = self._clamp_attention_float(attention_keyword_boost_ratio, "attention_keyword_boost_ratio", floor=0.0)
-        attention_honeymoon_seconds = kwargs.get("attention_honeymoon_seconds")
-        if attention_honeymoon_seconds is not None:
-            self.plugin._qq_settings["attention_honeymoon_seconds"] = max(0, int(attention_honeymoon_seconds))
-        attention_fall_seconds = kwargs.get("attention_fall_seconds")
-        if attention_fall_seconds is not None:
-            self.plugin._qq_settings["attention_fall_seconds"] = max(0, int(attention_fall_seconds))
+        # 热度档的判据：本群静默多久算「凉下来了」（0=永不算凉）
+        attention_heat_warm_gap_seconds = kwargs.get("attention_heat_warm_gap_seconds")
+        if attention_heat_warm_gap_seconds is not None:
+            self.plugin._qq_settings["attention_heat_warm_gap_seconds"] = max(0, int(attention_heat_warm_gap_seconds))
         attention_fall_rate = kwargs.get("attention_fall_rate")
         if attention_fall_rate is not None:
             self.plugin._qq_settings["attention_fall_rate"] = self._clamp_attention_float(attention_fall_rate, "attention_fall_rate", floor=0.0)
         attention_consume_ratio = kwargs.get("attention_consume_ratio")
         if attention_consume_ratio is not None:
             self.plugin._qq_settings["attention_consume_ratio"] = self._clamp_attention_float(attention_consume_ratio, "attention_consume_ratio", floor=0.0, ceiling=1.0)
-        icebreaker_cold_threshold = kwargs.get("icebreaker_cold_threshold")
-        if icebreaker_cold_threshold is not None:
-            self.plugin._qq_settings["icebreaker_cold_threshold"] = max(0, int(icebreaker_cold_threshold))
+        attention_emotion_multipliers = kwargs.get("attention_emotion_multipliers")
+        if attention_emotion_multipliers is not None:
+            # 走 normalizer：非法整份回退默认。这张表参与注意力涨跌计算，
+            # 半份坏数据比没有数据更难查（见 config_store.normalize_emotion_multipliers）。
+            self.plugin._qq_settings["attention_emotion_multipliers"] = (
+                self.plugin.config_store.normalize_emotion_multipliers(attention_emotion_multipliers)
+            )
+        attention_lock_seconds = kwargs.get("attention_lock_seconds")
+        if attention_lock_seconds is not None:
+            self.plugin._qq_settings["attention_lock_seconds"] = max(0, int(attention_lock_seconds))
+        # 主动破冰的四个键（icebreaker_*）随功能一起删除，见 docs/SESSION-HANDOFF.md §42。
+        # 休眠**没有删** —— 它的触发换成了「这个群静默够久」（§43）。
+        dormancy_enabled = kwargs.get("dormancy_enabled")
+        if dormancy_enabled is not None:
+            self.plugin._qq_settings["dormancy_enabled"] = bool(dormancy_enabled)
+        dormancy_idle_seconds = kwargs.get("dormancy_idle_seconds")
+        if dormancy_idle_seconds is not None:
+            self.plugin._qq_settings["dormancy_idle_seconds"] = max(0, int(dormancy_idle_seconds))
+        dormancy_wake_score = kwargs.get("dormancy_wake_score")
+        if dormancy_wake_score is not None:
+            self.plugin._qq_settings["dormancy_wake_score"] = self._clamp_attention_float(
+                dormancy_wake_score, "dormancy_wake_score", floor=0.0,
+            )
+        attention_maintenance_interval_seconds = kwargs.get("attention_maintenance_interval_seconds")
+        if attention_maintenance_interval_seconds is not None:
+            self.plugin._qq_settings["attention_maintenance_interval_seconds"] = max(
+                5.0, float(attention_maintenance_interval_seconds),
+            )
+        group_memory_digest_interval_seconds = kwargs.get("group_memory_digest_interval_seconds")
+        if group_memory_digest_interval_seconds is not None:
+            self.plugin._qq_settings["group_memory_digest_interval_seconds"] = max(
+                0, int(group_memory_digest_interval_seconds),
+            )
+        retroactive_review_min_unreviewed = kwargs.get("retroactive_review_min_unreviewed")
+        if retroactive_review_min_unreviewed is not None:
+            self.plugin._qq_settings["retroactive_review_min_unreviewed"] = max(
+                0, int(retroactive_review_min_unreviewed),
+            )
+        retroactive_review_cooldown_seconds = kwargs.get("retroactive_review_cooldown_seconds")
+        if retroactive_review_cooldown_seconds is not None:
+            self.plugin._qq_settings["retroactive_review_cooldown_seconds"] = max(
+                0, int(retroactive_review_cooldown_seconds),
+            )
+        # 破冰后按住焦点的秒数（0=不按）。
         retroactive_review_max_messages = kwargs.get("retroactive_review_max_messages")
         if retroactive_review_max_messages is not None:
             self.plugin._qq_settings["retroactive_review_max_messages"] = max(1, int(retroactive_review_max_messages))
         retroactive_review_max_reply = kwargs.get("retroactive_review_max_reply")
         if retroactive_review_max_reply is not None:
             self.plugin._qq_settings["retroactive_review_max_reply"] = max(1, int(retroactive_review_max_reply))
-        enable_group_attention = kwargs.get("enable_group_attention")
-        if enable_group_attention is not None:
-            self.plugin._qq_settings["enable_group_attention"] = bool(enable_group_attention)
         locale = kwargs.get("locale")
         if locale is not None:
             self.plugin._qq_settings["locale"] = str(locale or "").strip()
@@ -1231,14 +1261,20 @@ class QQSettingsService:
                 )
             )
         # 猫娘动态策略配置
-        strategy_mode = kwargs.get("strategy_mode")
-        if strategy_mode is not None:
-            self.plugin._qq_settings["strategy_mode"] = self.plugin.config_store._normalize_strategy_mode(strategy_mode)
-            self.plugin._strategy_mode = self.plugin._qq_settings["strategy_mode"]
-            self.plugin._emit_log("INFO", f"策略模式已切换: {self.plugin._strategy_mode}")
-        self._enforce_attention_for_dynamic_mode()
+        # （`strategy_mode` 的处理块已随「回复策略」一起删除：它只有一个取值，
+        #  不再是一个可切换的东西。见 docs/SESSION-HANDOFF.md §24。）
         self.plugin._qq_settings.pop("guide_step_settings_done", None)
         self.plugin._ensure_qq_client_initialized()
+        # 通用路径：表里**没有** handler 的键按 kind 归一（含钳制）写回。
+        #
+        # **必须在落盘之前**：`_persist_with_consent_rollback` 会把当时的
+        # `_qq_settings` 序列化写盘，之后再改内存 dict 就只改了内存 —— 键看起来
+        # 存住了（仪表盘回显内存值），重启却回退。这正是本模块历史上反复出现的
+        # "界面说已保存、实际没存下来"，只是这次藏在通用路径的调用位置上。
+        #
+        # 带 handler 的键走各自的具名块（联动/抛错/延迟发布），这里跳过；两边钳制
+        # 参数逐条一致，所以对既有键是幂等的。
+        self._apply_plain_settings(kwargs)
         # 落盘成功之前，opt-in 对处理链不可见（上面已把它们扣下）。
         success = await self._persist_with_consent_rollback(
             deferred_opt_ins=deferred_opt_ins,
@@ -1289,3 +1325,34 @@ class QQSettingsService:
             "persisted": success,
             "reconnect_required": bool(self.plugin._running),
         }
+
+    def _apply_plain_settings(self, kwargs: dict[str, Any]) -> None:
+        """写回 ``settings_schema`` 里没标 handler 的键：按 kind 归一 + 钳制。
+
+        这些键没有跨键联动，所以一条公式能覆盖全部。钳制口径与原先各处的具名块相同
+        （int 用 ``max(floor, ...)``，float 走 :meth:`_clamp_attention_float`，
+        str 去空白），因此对既有键是幂等的。``saveable=False`` 的键不接受 UI 写入。
+        """
+        for spec in settings_schema.SETTINGS:
+            if spec.handler or not spec.saveable:
+                continue
+            raw = kwargs.get(spec.key)
+            if raw is None:
+                continue
+            if spec.kind == "bool":
+                value: Any = bool(raw)
+            elif spec.kind == "int":
+                value = int(raw)
+                if spec.floor is not None:
+                    value = max(int(spec.floor), value)
+                if spec.ceiling is not None:
+                    value = min(int(spec.ceiling), value)
+            elif spec.kind == "float":
+                value = self._clamp_attention_float(
+                    raw, spec.key, floor=spec.floor, ceiling=spec.ceiling,
+                )
+            elif spec.kind == "str":
+                value = str(raw or "").strip()
+            else:
+                value = raw
+            self.plugin._qq_settings[spec.key] = value

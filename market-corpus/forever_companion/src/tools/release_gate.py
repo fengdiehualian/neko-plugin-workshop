@@ -86,7 +86,12 @@ def gate_pytest(host_root: Path, probe: Path) -> tuple[bool, str]:
 
 
 def gate_ruff(host_root: Path, probe: Path) -> tuple[bool, str]:
-    ok, out = _run([*_uv(), "ruff", "check", "."], PLUGIN_ROOT)
+    # CI checks from outside the plugin; cwd changes isort's first-party inference.
+    ok, out = _run([
+        "uvx", "ruff==0.12.4", "check", "--ignore-noqa", "--isolated",
+        "--target-version", "py311", "--line-length", "120",
+        "--select", "E4,E7,E9,F,I", "--exclude", "vendor", str(PLUGIN_ROOT),
+    ], PLUGIN_ROOT.parent)
     return ok, _tail(out)
 
 

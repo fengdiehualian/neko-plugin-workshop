@@ -109,6 +109,11 @@ class ShardsMixin:
         cycle_res = await self._store_read(_cycle_key(lanlan))
         if isinstance(cycle_res, Ok) and isinstance(cycle_res.value, dict):
             shard.cycle = dict(cycle_res.value)
+            # 邀请节流水位（1.3.2 起随 cycle 落盘）：重启后仍认 24h 窗口与手动档 10 分钟冷却
+            try:
+                shard.last_journal_invite_ts = float(shard.cycle.get("last_journal_invite_ts") or 0.0)
+            except (TypeError, ValueError):
+                shard.last_journal_invite_ts = 0.0
         mood_res = await self._store_read(_mood_key(lanlan))
         if isinstance(mood_res, Ok):
             shard.mood = _MoodState.from_mapping(mood_res.value)
@@ -339,6 +344,7 @@ class ShardsMixin:
         fragments = _cfg_section(cfg.get("fragments"))
         journal = _cfg_section(cfg.get("journal"))
         review = _cfg_section(cfg.get("review"))
+        agent_tier = _cfg_section(cfg.get("agent_tier"))
         emotion_sense = _cfg_section(cfg.get("emotion_sense"))
         stats_cfg = _cfg_section(cfg.get("stats"))
         birthday_cfg = _cfg_section(cfg.get("birthday"))
@@ -350,6 +356,7 @@ class ShardsMixin:
         fragments.update(_cfg_section(self._settings_override.get("fragments")))
         journal.update(_cfg_section(self._settings_override.get("journal")))
         review.update(_cfg_section(self._settings_override.get("review")))
+        agent_tier.update(_cfg_section(self._settings_override.get("agent_tier")))
         emotion_sense.update(_cfg_section(self._settings_override.get("emotion_sense")))
         stats_cfg.update(_cfg_section(self._settings_override.get("stats")))
         birthday_cfg.update(_cfg_section(self._settings_override.get("birthday")))
@@ -364,6 +371,7 @@ class ShardsMixin:
         self._fragments_cfg = fragments
         self._journal_cfg = journal
         self._review_cfg = review
+        self._agent_tier_cfg = agent_tier
         self._emotion_sense_cfg = emotion_sense
         self._stats_cfg = stats_cfg
         self._birthday_cfg = birthday_cfg

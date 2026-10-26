@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from . import addressing
 
 
 class QQPromptBuilder:
@@ -90,6 +93,7 @@ class QQPromptBuilder:
         quoted_message_id: str = "",
         mentions_other_user: bool = False,
         mentions_all: bool = False,
+        addressee: "addressing.AddresseeVerdict | None" = None,
     ) -> str:
         if is_group and not group_facing:
             return self.plugin._build_group_turn_message(
@@ -103,5 +107,22 @@ class QQPromptBuilder:
                 quoted_message_id=quoted_message_id,
                 mentions_other_user=mentions_other_user,
                 mentions_all=mentions_all,
+                first_reply_after_own_speech=self._is_first_reply_after_her_own_speech(group_id),
+                addressee=addressee,
             )
         return message
+
+    def _is_first_reply_after_her_own_speech(self, group_id: str | None) -> bool:
+        """她刚说完话、而这一条是之后的第一条发言（→ 标注成"很可能在接你的话"）。
+
+        判据在 `QQAttentionService.is_first_reply_after_own_speech`（复用接话反馈闭环
+        的 `msgs_after_reply`，不另存状态）。取不到注意力服务时返回 False ——
+        退回原来那条"不是冲你来的"标注，也就是**改动前的行为**。
+        """
+        attention = getattr(self.plugin, "attention_service", None)
+        if attention is None or not group_id:
+            return False
+        try:
+            return bool(attention.is_first_reply_after_own_speech(str(group_id)))
+        except Exception:      # noqa: BLE001 —— 标注降级，不该影响整轮生成
+            return False

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 
 from forever_companion.core import stats as st
 
@@ -216,6 +217,51 @@ def test_month_view_and_voice() -> None:
     assert month["sealed"] is False
     # 本月声音 = 当月最长手记
     assert month["voice"]["entry"] == "今天他陪了我很久。"
+
+
+def test_month_excerpt_hides_demo_prefix_without_rewriting_original_records(plugin_factory_full) -> None:
+    entry = "【调试示例 3】一起安静地待了一会儿。没有很多话，也觉得很踏实。"
+    diary = [{"ts": "2026-10-18T11:00:00Z", "source": "self", "demo": True, "entry": entry}]
+    plugin = plugin_factory_full(current_lanlan="Alice", store_initial={
+        "lanlan_index": ["Alice"], "diary@Alice": copy.deepcopy(diary),
+    })
+    before = copy.deepcopy(plugin.store.data)
+    result = run(plugin.get_stats(month="2026-10")).value
+    assert result["month"]["voice"]["entry"] == entry.split("】", 1)[1]
+    assert plugin.store.data == before
+    assert plugin._get_shard("Alice").diary == diary
+
+
+def test_legacy_sealed_month_matches_demo_diary_without_modifying_snapshot() -> None:
+    entry = "【调试示例 3】旧示例手记。"
+    diary = [{"ts": "2026-09-18T11:00:00Z", "source": "self", "demo": True, "entry": entry}]
+    stats = st.record_turn(st.new_stats(), "2026-09-18")
+    stats = st.seal_month(stats, "2026-09", diary=diary)
+    stats["months"]["2026-09"]["voice"].pop("demo")
+    before = copy.deepcopy(stats)
+    view = st.month_view(stats, "2026-09", diary=diary)
+    assert view["voice"]["entry"] == "旧示例手记。"
+    assert view["sealed"] and view["turns"] == 1
+    assert stats == before
+
+
+def test_new_sealed_month_retains_demo_identity_after_source_diary_removed() -> None:
+    diary = [{"ts": "2026-09-18T11:00:00Z", "source": "self", "demo": True, "entry": "【调试示例 3】手记。"}]
+    stats = st.seal_month(st.record_turn(st.new_stats(), "2026-09-18"), "2026-09", diary=diary)
+    before = copy.deepcopy(stats)
+    assert st.month_view(stats, "2026-09", diary=[])["voice"]["entry"] == "手记。"
+    assert stats == before
+
+
+def test_month_excerpt_preserves_same_prefix_in_real_diary() -> None:
+    entry = "【调试示例 3】这是真实手记中的原文。"
+    diary = [{"ts": "2026-09-18T11:00:00Z", "source": "self", "entry": entry}]
+    stats = st.record_turn(st.new_stats(), "2026-09-18")
+    assert st.month_view(stats, "2026-09", diary=diary)["voice"]["entry"] == entry
+    stats = st.seal_month(stats, "2026-09", diary=diary)
+    # 相同日期但不同正文的示例不能让真实摘选被误判。
+    demo = [{**diary[0], "demo": True, "entry": "【调试示例 3】不同的手记。"}]
+    assert st.month_view(stats, "2026-09", diary=demo)["voice"]["entry"] == entry
 
 
 def test_seal_month_freezes_and_dedupes() -> None:

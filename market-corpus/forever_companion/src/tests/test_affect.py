@@ -4,8 +4,8 @@
 arousal 静息基线 homeostasis（高于基线回落/低于基线回升，[mood].arousal_baseline
 默认 0.35；baseline=0 回到旧语义；配置越界 clamp）、动作→冲量表覆盖全部 8 个动作
 且先衰减再叠加、rising_tide 缓解冲量（负 valence 减半、arousal ×0.6、正 valence
-不动）、语气信号单轮限幅（confidence 加权，v ≤0.10 / a ≤0.12，neutral 的 valence
-向 0、arousal 向基线微拉不越过）、域 clamp、from_mapping 旧数据零迁移兼容、
+不动）、可靠语气信号单轮限幅（confidence 加权，v ≤0.10 / a ≤0.12，neutral 保留
+valence、arousal 温和回归基线不越过）、域 clamp、from_mapping 旧数据零迁移兼容、
 dashboard payload 含 affect（两位小数）、语气感知两种模式（筛选/校正）都喂
 连续心情并随 mood@<角色> 落盘。
 
@@ -118,8 +118,8 @@ def test_arousal_decays_toward_baseline_both_directions(plugin_factory_full, tm)
     assert tm._current_affect(fresh, now=1000.0 + 1800)[1] == pytest.approx(0.8 * math.exp(-1))
 
 
-def test_baseline_zero_keeps_legacy_semantics(plugin_factory_full, tm) -> None:
-    """[mood].arousal_baseline = 0：完全回到旧语义（向 0 衰减、初始态 (0,0)、neutral 向 0 拉）。"""
+def test_baseline_zero_still_decays_toward_zero(plugin_factory_full, tm) -> None:
+    """[mood].arousal_baseline = 0：初始态和衰减目标仍是 0，中性回归使用温和步长。"""
     p = plugin_factory_full(http=_HostHttp(), mood_extra={"arousal_baseline": 0})
     shard = p._get_shard("YUI")
     assert p._current_affect(shard, now=1000.0) == (0.0, 0.0)
@@ -128,7 +128,7 @@ def test_baseline_zero_keeps_legacy_semantics(plugin_factory_full, tm) -> None:
     _, a = p._current_affect(shard, now=1000.0 + 1800)
     assert a == pytest.approx(0.5 * math.exp(-1))
     p._feed_tone_affect(shard, "neutral", 1.0, now=1000.0)
-    assert shard.mood.arousal == pytest.approx(0.5 - 0.12)
+    assert shard.mood.arousal == pytest.approx(0.5 - 0.03)
 
 
 def test_baseline_clamped_to_domain(plugin_factory_full) -> None:
@@ -251,35 +251,65 @@ def test_tone_feed_single_turn_capped(plugin_factory_full, tm) -> None:
     p._feed_tone_affect(shard, "surprised", 1.0, now=1000.0)
     assert shard.mood.valence == pytest.approx(0.04)
     assert shard.mood.arousal == pytest.approx(0.35 + 0.12 + 0.09 + 0.12)
-    # confidence 线性加权：0.5 → 半步
-    p._feed_tone_affect(shard, "sad", 0.5, now=1000.0)
-    assert shard.mood.valence == pytest.approx(0.04 - 0.05)
-    assert shard.mood.arousal == pytest.approx(0.35 + 0.12 + 0.09 + 0.12 - 0.045)
+    # 可靠 confidence 线性加权：0.8 → 八成步长
+    p._feed_tone_affect(shard, "sad", 0.8, now=1000.0)
+    assert shard.mood.valence == pytest.approx(0.04 - 0.08)
+    assert shard.mood.arousal == pytest.approx(0.35 + 0.12 + 0.09 + 0.12 - 0.072)
     # 未知 label 不动心情
     before = (shard.mood.valence, shard.mood.arousal)
     p._feed_tone_affect(shard, "unknown_label", 1.0, now=1000.0)
     assert (shard.mood.valence, shard.mood.arousal) == before
 
 
-def test_tone_feed_neutral_pulls_toward_targets(plugin_factory_full, tm) -> None:
-    """neutral 微拉：valence 向 0、arousal 向静息基线（双向），最多一格且不越过目标。"""
+def test_neutral_preserves_valence_and_softens_arousal(plugin_factory_full, tm) -> None:
+    """中性语气不抹掉已有开心，活跃度每次最多回归四分之一格且不越过基线。"""
     p = plugin_factory_full(http=_HostHttp())
     shard = p._get_shard("YUI")
     shard.mood.valence = 0.05
     shard.mood.arousal = 0.5
     shard.mood.affect_updated_at = 1000.0
     p._feed_tone_affect(shard, "neutral", 1.0, now=1000.0)
-    # |v| < 一格：拉回 0 而不越过；arousal 高于基线：向基线减一格
-    assert shard.mood.valence == pytest.approx(0.0)
-    assert shard.mood.arousal == pytest.approx(0.38)
+    assert shard.mood.valence == pytest.approx(0.05)
+    assert shard.mood.arousal == pytest.approx(0.47)
     p._feed_tone_affect(shard, "neutral", 1.0, now=1000.0)
-    assert shard.mood.valence == pytest.approx(-0.0)  # 已在 0 不再动
-    # 距基线不足一格（0.38 - 0.35 = 0.03）：拉到基线为止，不越过
+    assert shard.mood.valence == pytest.approx(0.05)
+    assert shard.mood.arousal == pytest.approx(0.44)
+    shard.mood.arousal = 0.36
+    p._feed_tone_affect(shard, "neutral", 1.0, now=1000.0)
     assert shard.mood.arousal == pytest.approx(0.35)
-    # 低于基线时向上拉（双向 homeostasis），同样不越过
+    # 低于基线时同样温和回升，剩余差距小于步长时不越过
     shard.mood.arousal = 0.30
     p._feed_tone_affect(shard, "neutral", 1.0, now=1000.0)
+    assert shard.mood.arousal == pytest.approx(0.33)
+    p._feed_tone_affect(shard, "neutral", 1.0, now=1000.0)
     assert shard.mood.arousal == pytest.approx(0.35)
+
+
+def test_neutral_still_allows_natural_decay(plugin_factory_full) -> None:
+    p = plugin_factory_full(http=_HostHttp())
+    shard = p._get_shard("YUI")
+    p._apply_affect_impulse(shard, 0.6, 0.2, now=1000.0)
+    p._feed_tone_affect(shard, "neutral", 1.0, now=2800.0)
+    assert shard.mood.valence == pytest.approx(0.6 * math.exp(-0.125))
+
+
+@pytest.mark.parametrize("confidence", [0.0, 0.3, 0.59, -1, 1.1, float("nan"), float("inf")])
+def test_unreliable_tone_keeps_affect_and_statistics(plugin_factory_full, confidence) -> None:
+    p = plugin_factory_full(http=_HostHttp())
+    shard = p._get_shard("YUI")
+    p._apply_affect_impulse(shard, 0.5, 0.2, now=1000.0)
+    before = shard.mood.to_mapping(), dict(shard.stats), dict(shard.review_stats)
+    p._feed_tone_affect(shard, "sad", confidence, now=1010.0)
+    assert (shard.mood.to_mapping(), shard.stats, shard.review_stats) == before
+
+
+def test_user_neutral_does_not_relax_role_affect(plugin_factory_full) -> None:
+    p = plugin_factory_full(http=_HostHttp())
+    shard = p._get_shard("YUI")
+    p._apply_affect_impulse(shard, 0.8, 0.5, now=1000.0)
+    before = shard.mood.to_mapping()
+    p._feed_tone_affect(shard, "neutral", 1.0, now=1010.0, weight=0.25)
+    assert shard.mood.to_mapping() == before
 
 
 # ---------- 域 clamp ----------
@@ -530,3 +560,23 @@ def test_user_tone_disabled_by_zero_weight(plugin_factory_full, tm, monkeypatch)
     run(p._maybe_tone_sense("YUI", shard))
     assert len(http.analysis_calls) == 1  # 只有她
     assert shard.mood.valence == pytest.approx(-0.10)
+
+
+@pytest.mark.parametrize(
+    "start, her, user, expected",
+    [(1.0, "happy", "sad", 1.0), (-1.0, "sad", "happy", -1.0)],
+)
+def test_role_tone_controls_direction_at_saturation(
+    plugin_factory_full, tm, monkeypatch, start, her, user, expected
+) -> None:
+    http = _DualHttp(user_emotion=(user, 1.0), her_emotion=(her, 1.0))
+    http.set_turns([("你好", "你好呀")])
+    p = plugin_factory_full(http=http)
+    shard = p._get_shard("YUI")
+    monkeypatch.setattr(tm.time, "time", lambda: 5000.0)
+    p._apply_affect_impulse(shard, start, 0.0, now=5000.0)
+    run(p._maybe_tone_sense("YUI", shard))
+    http.add_turn("用户的不同心情", "角色自己的心情")
+    run(p._maybe_tone_sense("YUI", shard))
+    assert shard.mood.valence == pytest.approx(expected)
+    assert p.store.data["mood@YUI"]["valence"] == pytest.approx(expected)

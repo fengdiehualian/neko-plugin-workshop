@@ -25,9 +25,7 @@ from .state import (
 JsonObject = dict[str, Any]
 
 # ---- 外观参数：范围 / 枚举 / 默认 ----
-# 默认值刻意复刻 1.1.x 的观感：不带图库参数时面板与旧版完全一致
-# （fill=cover / position=center 即旧 CSS；glass=16px 即 .tm-has-bg 硬编码值；
-#  card_alpha / text_weight = 100 表示不改动宿主原色；dim 默认沿用 0.3）
+# 壁纸默认保持清晰，以遮罩保可读；已保存参数不被新默认覆盖。
 APPEARANCE_FILLS = ("cover", "contain", "repeat", "stretch")
 APPEARANCE_POSITIONS = (
     "left top", "center top", "right top",
@@ -43,15 +41,15 @@ _APPEARANCE_RANGES: dict[str, tuple[float, float, float]] = {
     "brightness": (30.0, 150.0, 100.0),
     "saturate": (0.0, 200.0, 100.0),
     "contrast": (50.0, 200.0, 100.0),
-    "glass": (0.0, 40.0, 16.0),
-    "card_alpha": (0.0, 100.0, 100.0),
+    "glass": (0.0, 40.0, 0.0),
+    "card_alpha": (0.0, 100.0, 0.0),
     "text_weight": (40.0, 100.0, 100.0),
 }
 
 
 def appearance_defaults() -> JsonObject:
     """默认外观参数（bg_id="" 即不用任何图库图）。"""
-    out: JsonObject = {"bg_id": "", "fill": "cover", "position": "center"}
+    out: JsonObject = {"bg_id": "", "fill": "cover", "position": "center", "motion": True}
     for name, (_lo, _hi, default) in _APPEARANCE_RANGES.items():
         out[name] = default
     return out
@@ -67,6 +65,7 @@ def clamp_appearance(raw: Any) -> JsonObject:
     out["fill"] = fill if fill in APPEARANCE_FILLS else "cover"
     pos = " ".join(str(src.get("position") or "").strip().lower().split())
     out["position"] = pos if pos in APPEARANCE_POSITIONS else "center"
+    out["motion"] = src.get("motion") if type(src.get("motion")) is bool else True
     for name, (lo, hi, default) in _APPEARANCE_RANGES.items():
         try:
             value = float(src.get(name))
@@ -138,14 +137,17 @@ def gallery_normalize_index(raw: Any) -> JsonObject:
             size = int(item.get("size") or 0)
         except (TypeError, ValueError):
             size = 0
-        items.append({
+        normalized = {
             "id": gid,
             "name": str(item.get("name") or "")[:80],
             "mime": str(item.get("mime") or "")[:40],
             "size": max(0, size),
             "added_at": str(item.get("added_at") or "")[:32],
             "thumb": thumb,
-        })
+        }
+        if item.get("kind") == "video":
+            normalized["kind"] = "video"
+        items.append(normalized)
     try:
         nxt = int(raw.get("next") or 1)
     except (TypeError, ValueError):

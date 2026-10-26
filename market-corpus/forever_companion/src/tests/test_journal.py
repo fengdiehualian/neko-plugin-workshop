@@ -334,17 +334,14 @@ def test_invite_gated_by_switches(plugin_factory) -> None:
     assert run(p._maybe_journal_invite("default", shard, force=True)) == (False, "")
 
 
-def test_invite_journal_entry_reports_mode(plugin_factory) -> None:
-    """面板入口四态码：respond 当面递到 / read 冷却内悄悄提醒（i18n 契约第九轮：
-    后端只回 invited/mode 码，文案由 panel.journal.invitedRespond/invitedQuiet 翻译）。"""
+def test_manual_journal_rejects_missing_material_without_an_invitation(plugin_factory) -> None:
     p = plugin_factory()
     run(p._ensure_shard("default"))
     res = run(p.invite_journal())
     v = res.value
-    assert v["invited"] is True and v["mode"] == "respond"
+    assert v["accepted"] is False and v["reason"] == "not_enough_material"
     assert "note" not in v, "面板可见文案不再由后端发人话句（tests/test_i18n_contract.py 钉死）"
-    res2 = run(p.invite_journal())
-    assert res2.value["invited"] is True and res2.value["mode"] == "read"
+    assert not p._pushed
 
 
 # ---------- 1.2.4 审查修复：递邀的提交结果必须看 ----------
@@ -359,11 +356,6 @@ def test_forced_invite_reports_transport_failure(plugin_factory) -> None:
     assert run(p._maybe_journal_invite("default", shard, force=True)) == (False, "failed")
     assert shard.last_journal_invite_ts == 0.0, "手动档失败要回滚水位，用户可以立刻重按"
     assert p._journal_invite_pending(shard) is False
-
-    v = run(p.invite_journal()).value
-    assert v["invited"] is False and v["mode"] == "failed"
-    assert "note" not in v, "失败语义由 mode=failed 码承载（面板 inviteFailed 支），不再发裸串"
-
 
 def test_periodic_invite_failure_keeps_watermark(plugin_factory) -> None:
     """tick 周期档传输拒收：如实报 failed，但水位不回滚——通道一直坏时
@@ -399,3 +391,40 @@ def test_debug_journal_force_ignores_cadence(plugin_factory) -> None:
     assert v["due"] is False, "前置条件：按节奏她还不该被邀请"
     assert v["invited"] is True, "force 档要跳过 7 天节奏，立即递一次"
     assert v["deliver"] == "respond"
+# ---------- 1.3.2：邀请节流水位落盘（修"每次重启重递一条首邀"） ----------
+
+
+def test_invite_watermark_lands_on_store(plugin_factory_full) -> None:
+    """递出成功必须把水位写进 cycle@<角色>：只存内存 = 重启即失效。"""
+    p = plugin_factory_full()
+    shard = run(p._ensure_shard("default"))
+    assert run(p._maybe_journal_invite("default", shard)) == (True, "read")
+    stored = p.store.data["cycle@default"]["last_journal_invite_ts"]
+    assert stored == shard.last_journal_invite_ts and stored > 0
+
+
+def test_restart_does_not_reinvite_within_throttle(plugin_factory_full) -> None:
+    """实机 bug 的形状：插件子进程随切角色卡/覆盖导入重启，恒 due 的角色
+    （她一页日记都没写过）每次启动都重递一条首邀。水位落盘后重启必须认窗口。"""
+    p = plugin_factory_full()
+    shard = run(p._ensure_shard("default"))
+    assert run(p._maybe_journal_invite("default", shard))[0] is True
+
+    p2 = plugin_factory_full(store_initial=p.store.data)  # 同盘重建 = 重启
+    shard2 = run(p2._ensure_shard("default"))
+    assert shard2.last_journal_invite_ts > 0, "水位没在重启后回灌"
+    assert run(p2._maybe_journal_invite("default", shard2)) == (False, ""), "重启后 24h 内又递了一条"
+    # 挂起提示同批受益：原来"挂到她写出新页为止"一重启就断
+    assert p2._journal_invite_pending(shard2) is True
+    # 越过窗口后照常再递（不是把功能关掉）
+    shard2.last_journal_invite_ts -= 25 * 3600
+    assert run(p2._maybe_journal_invite("default", shard2))[0] is True
+
+
+def test_failed_invite_does_not_consume_window(plugin_factory_full) -> None:
+    """通道拒收那次不该占住 24h 窗口（1.2.4 内存回滚语义在盘上同样成立）。"""
+    p = plugin_factory_full()
+    shard = run(p._ensure_shard("default"))
+    p.push_message = lambda **kwargs: {"submitted": False, "reason": "backpressure"}
+    assert run(p._maybe_journal_invite("default", shard)) == (False, "failed")
+    assert "last_journal_invite_ts" not in (p.store.data.get("cycle@default") or {})

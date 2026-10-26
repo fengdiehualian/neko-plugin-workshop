@@ -57,8 +57,8 @@ class _HostContext:
                 "overlay_auto_start": False,
             }
         }
-        self._profiles: dict[str, dict[str, Any]] = {}
-        self._active_profile: str | None = None
+        self._profiles: dict[str, dict[str, Any]] = {"smoke": {}}
+        self._active_profile: str | None = "smoke"
 
     async def get_own_config(self, timeout: float = 5.0) -> dict[str, Any]:
         del timeout
@@ -114,6 +114,20 @@ class _HostContext:
             "config": effective["config"],
         }
 
+    async def upsert_own_profile_config(
+        self,
+        profile_name: str,
+        config: dict[str, Any],
+        *,
+        make_active: bool = False,
+        timeout: float = 10.0,
+    ) -> dict[str, Any]:
+        del timeout
+        self._profiles[profile_name] = dict(config)
+        if make_active:
+            self._active_profile = profile_name
+        return {"data": {"config": dict(self._profiles[profile_name])}}
+
     def push_message(self, **_kwargs: Any) -> None:
         # N.E.K.O v0.8.3 accepted pushes successfully but returned no receipt.
         return None
@@ -121,8 +135,39 @@ class _HostContext:
     def update_status(self, _status: dict[str, object]) -> None:
         return None
 
+    async def finish(
+        self,
+        *,
+        data: object = None,
+        delivery: str | bool | None = None,
+        reply: bool | None = None,
+        message: str = "",
+        trace_id: str | None = None,
+        meta: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        del reply
+        normalized_meta = dict(meta or {})
+        agent_meta = dict(normalized_meta.get("agent") or {})
+        agent_meta["delivery"] = delivery if isinstance(delivery, str) else "proactive"
+        agent_meta["reply"] = agent_meta["delivery"] != "silent"
+        agent_meta.setdefault("include", True)
+        normalized_meta["agent"] = agent_meta
+        return {
+            "success": True,
+            "code": 0,
+            "data": data,
+            "message": message,
+            "error": None,
+            "trace_id": trace_id,
+            "meta": normalized_meta,
+        }
 
-def _install_stable_sdk(sdk_root: Path) -> tuple[type[Any], Any]:
+
+def _install_stable_sdk(
+    sdk_root: Path,
+    *,
+    allow_main_sdk: bool = False,
+) -> tuple[type[Any], Any]:
     plugin_path = sdk_root / "plugin"
     if not (plugin_path / "sdk" / "plugin" / "base.py").is_file():
         raise RuntimeError(f"N.E.K.O Plugin SDK not found under {sdk_root}")
@@ -142,7 +187,10 @@ def _install_stable_sdk(sdk_root: Path) -> tuple[type[Any], Any]:
 
     from plugin.sdk.plugin import NekoPluginBase, unwrap_or
 
-    if hasattr(NekoPluginBase, "plugin_dir") or hasattr(NekoPluginBase, "cache_path"):
+    if not allow_main_sdk and (
+        hasattr(NekoPluginBase, "plugin_dir")
+        or hasattr(NekoPluginBase, "cache_path")
+    ):
         raise RuntimeError("smoke test requires the stable SDK surface without main-only path APIs")
     if not hasattr(NekoPluginBase, "config_dir") or not hasattr(NekoPluginBase, "data_path"):
         raise RuntimeError("stable SDK path APIs are unavailable")
@@ -167,9 +215,62 @@ def _load_plugin(plugin_root: Path) -> types.ModuleType:
     return module
 
 
-async def _exercise_lifecycle(plugin: Any, unwrap_or: Any) -> None:
+async def _exercise_lifecycle(plugin: Any, unwrap_or: Any, host_ctx: _HostContext) -> None:
     shutdown: dict[str, Any] = {}
     try:
+        tools = {item["name"] for item in plugin.list_llm_tools()}
+        expected_tools = {
+            "hearthstone_current_turn",
+            "hearthstone_live_state",
+        }
+        if tools != expected_tools:
+            raise RuntimeError(f"stable SDK did not auto-register LLM tools: {tools!r}")
+        entries = {item["id"]: item for item in plugin.list_entries()}
+        health_timer = entries.get("llm_tool_registration_health")
+        if (
+            not health_timer
+            or health_timer.get("kind") != "timer"
+            or health_timer.get("auto_start") is not True
+        ):
+            raise RuntimeError(
+                f"stable SDK did not expose the LLM tool health timer: {health_timer!r}"
+            )
+        entry_id = "query_hearthstone_live_state"
+        item = entries.get(entry_id)
+        if not item or item.get("dynamic") is True:
+            raise RuntimeError(f"stable SDK did not expose static Agent entry: {entry_id}")
+        if item.get("kind") != "service" or item.get("llm_result_fields") != ["reply"]:
+            raise RuntimeError(f"unexpected static Agent entry metadata: {item!r}")
+        settings_entry = entries.get("save_settings")
+        settings_schema = (settings_entry or {}).get("input_schema") or {}
+        settings_properties = settings_schema.get("properties") or {}
+        if (
+            "llm_do_not_disturb" not in settings_properties
+            or "llm_data_consent" not in settings_properties
+            or "llm_commentary_enabled" in settings_properties
+            or "llm_lifecycle_enabled" in settings_properties
+        ):
+            raise RuntimeError(
+                f"stable SDK exposed an unexpected settings action schema: {settings_schema!r}"
+            )
+
+        entry_updates: dict[str, dict[str, Any]] = {}
+        while True:
+            try:
+                message = host_ctx.message_queue.get_nowait()
+            except queue.Empty:
+                break
+            if message.get("type") == "ENTRY_UPDATE" and message.get("action") == "register":
+                entry_updates[str(message.get("entry_id") or "")] = message
+        unexpected_query_updates = {
+            entry_id
+            for entry_id in ("query_hearthstone_live_state",)
+            if entry_id in entry_updates
+        }
+        if unexpected_query_updates:
+            raise RuntimeError(
+                f"static Agent entries unexpectedly emitted ENTRY_UPDATE: {unexpected_query_updates!r}"
+            )
         startup = unwrap_or(await plugin.startup(), {})
         if startup.get("status") != "ready":
             raise RuntimeError(f"unexpected startup result: {startup!r}")
@@ -177,10 +278,33 @@ async def _exercise_lifecycle(plugin: Any, unwrap_or: Any) -> None:
             raise RuntimeError("stable SDK smoke unexpectedly started the log monitor")
         if startup.get("card_catalog_started") is not False:
             raise RuntimeError("stable SDK smoke unexpectedly started the network catalog")
+        for result in (
+            await plugin.query_hearthstone_live_state(
+                _ctx={
+                    "latest_user_request": "现在炉石对局是什么状态？",
+                    "lanlan_name": "stable-sdk-smoke-role",
+                }
+            ),
+        ):
+            agent_meta = result.get("meta", {}).get("agent", {})
+            if agent_meta.get("result_kind") != "event":
+                raise RuntimeError(f"Agent query lost event result semantics: {result!r}")
+            if agent_meta.get("expires_in_s") != 8.0:
+                raise RuntimeError(f"Agent query lost realtime expiry: {result!r}")
+            if agent_meta.get("delivery") != "proactive":
+                raise RuntimeError(f"Agent query result did not reach the active role: {result!r}")
+            reply = str(result.get("data", {}).get("reply") or "")
+            if (
+                "available=0" not in reply
+                or "reason=no_live_game_state" not in reply
+                or len(reply.encode("utf-8")) > 4096
+            ):
+                raise RuntimeError("Agent query lost bounded unavailable-state result")
         saved = unwrap_or(
             await plugin.save_settings(
                 llm_data_consent=True,
-                llm_commentary_enabled=True,
+                llm_do_not_disturb=False,
+                target_lanlan="stable-sdk-smoke-role",
             ),
             {},
         )
@@ -188,6 +312,11 @@ async def _exercise_lifecycle(plugin: Any, unwrap_or: Any) -> None:
             raise RuntimeError(f"unexpected settings save result: {saved!r}")
         if plugin.cfg.llm_data_consent is not True:
             raise RuntimeError("stable SDK smoke did not persist LLM data consent")
+        active_settings = host_ctx._profiles["smoke"].get("hearthstone_companion", {})
+        if active_settings.get("llm_do_not_disturb") is not False:
+            raise RuntimeError("settings save did not update the active config profile")
+        if "llm_do_not_disturb" in host_ctx._base_config["hearthstone_companion"]:
+            raise RuntimeError("active-profile settings leaked into persistent runtime config")
         path_saved = unwrap_or(
             await plugin.save_settings(log_path=r"  C:\Games\Hearthstone\Logs  "),
             {},
@@ -196,7 +325,7 @@ async def _exercise_lifecycle(plugin: Any, unwrap_or: Any) -> None:
             raise RuntimeError(f"partial log-path save reset companion settings: {path_saved!r}")
         if plugin.cfg.log_path != r"C:\Games\Hearthstone\Logs":
             raise RuntimeError(f"log path was not normalized and applied: {plugin.cfg.log_path!r}")
-        if not plugin.cfg.llm_data_consent or not plugin.cfg.llm_commentary_enabled:
+        if not plugin.cfg.llm_data_consent or plugin.cfg.llm_do_not_disturb:
             raise RuntimeError("partial log-path save did not preserve LLM settings")
         if plugin._monitor._tailer.locator.configured_path != plugin.cfg.log_path:
             raise RuntimeError("partial log-path save did not rebuild the monitor reader")
@@ -216,6 +345,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sdk-root", type=Path, required=True)
     parser.add_argument("--plugin-root", type=Path, required=True)
+    parser.add_argument("--allow-main-sdk", action="store_true")
     args = parser.parse_args()
     sdk_root = args.sdk_root.resolve()
     plugin_root = args.plugin_root.resolve()
@@ -224,9 +354,13 @@ def main() -> int:
         previous_storage_root = os.environ.get("NEKO_STORAGE_SELECTED_ROOT")
         os.environ["NEKO_STORAGE_SELECTED_ROOT"] = temp_dir
         try:
-            stable_base, unwrap_or = _install_stable_sdk(sdk_root)
+            stable_base, unwrap_or = _install_stable_sdk(
+                sdk_root,
+                allow_main_sdk=args.allow_main_sdk,
+            )
             entry = _load_plugin(plugin_root)
-            plugin = entry.HearthstoneCompanionPlugin(_HostContext(plugin_root, _Logger()))
+            host_ctx = _HostContext(plugin_root, _Logger())
+            plugin = entry.HearthstoneCompanionPlugin(host_ctx)
             if not isinstance(plugin, stable_base):
                 raise RuntimeError("plugin did not inherit the stable SDK base class")
             if plugin._overlay.plugin_dir != plugin.config_dir:
@@ -236,14 +370,15 @@ def main() -> int:
             )
             if plugin._catalog.cache_file != expected_catalog:
                 raise RuntimeError("catalog path does not use stable data_path")
-            asyncio.run(_exercise_lifecycle(plugin, unwrap_or))
+            asyncio.run(_exercise_lifecycle(plugin, unwrap_or, host_ctx))
         finally:
             if previous_storage_root is None:
                 os.environ.pop("NEKO_STORAGE_SELECTED_ROOT", None)
             else:
                 os.environ["NEKO_STORAGE_SELECTED_ROOT"] = previous_storage_root
 
-    print("N.E.K.O v0.8.3 SDK constructor, settings, and lifecycle smoke passed")
+    sdk_label = "main SDK" if args.allow_main_sdk else "v0.8.3 stable SDK"
+    print(f"N.E.K.O {sdk_label} constructor, settings, and lifecycle smoke passed")
     return 0
 
 

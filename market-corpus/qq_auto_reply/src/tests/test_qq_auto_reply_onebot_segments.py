@@ -19,11 +19,9 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-import pytest
+from plugin.plugins.qq_auto_reply.connector_seam import OneBotClient
 from plugin.plugins.qq_auto_reply.enrichment import _FILE_TEXT_MAX_BYTES, QQMessageEnricher
 from plugin.plugins.qq_auto_reply.message_chain import At, File, Text
-
-OneBotClient = pytest.importorskip("utils.connection.onebot.onebot_client").OneBotClient
 
 
 class _FakeResp:

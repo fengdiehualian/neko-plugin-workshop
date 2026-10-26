@@ -3,17 +3,11 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 from typing import Any, Optional
 
 from .event_catalog import BROADCAST_FREQUENCY_MULTIPLIERS, spec
 from .safety_guard import SafetyGuard
 from .scenario import ScenarioMachine
-
-
-@dataclass(frozen=True)
-class ArbiterCheckpoint:
-    last_fired: dict[str, tuple[float, bool]]
 
 
 class Arbiter:
@@ -34,12 +28,6 @@ class Arbiter:
         self._last_fired.clear()
         self._window_best = None
 
-    def checkpoint(self) -> ArbiterCheckpoint:
-        return ArbiterCheckpoint(last_fired=dict(self._last_fired))
-
-    def restore(self, cp: ArbiterCheckpoint) -> None:
-        self._last_fired = dict(cp.last_fired)
-
     def on_player_speak(self, silence_s: float = 60.0) -> None:
         self._player_silence_until = time.time() + silence_s
 
@@ -49,7 +37,10 @@ class Arbiter:
     def decide(self, event_name: str, snap, now: float | None = None) -> tuple[bool, str]:
         """判定是否输出；返回 (是否, 理由)。"""
         now = now or time.time()
-        self._decision_log = []
+        # 决策日志改成滚动历史：原来每轮清空，面板永远只看到最后一次判定，
+        # "分段播报为什么没响"这类问题完全查不到
+        if len(self._decision_log) > 60:
+            del self._decision_log[:-40]
         if self.safety.stopped:
             self._log(event_name, "suppressed", self.safety.status())
             return False, self.safety.status()

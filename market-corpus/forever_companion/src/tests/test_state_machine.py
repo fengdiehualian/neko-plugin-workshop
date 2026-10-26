@@ -114,7 +114,7 @@ def test_seek_harbor_fallback_disabled_by_zero(monkeypatch, tm, plugin_factory) 
 # ---------- supervise：到期恢复与幂等 ----------
 
 
-def test_supervise_clears_expired_action_and_speaks(monkeypatch, tm, plugin_factory) -> None:
+def test_supervise_clears_expired_record_without_starting_a_turn(monkeypatch, tm, plugin_factory) -> None:
     p = plugin_factory()
     now = [1000.0]
     _patch_clock(monkeypatch, tm, now)
@@ -124,12 +124,13 @@ def test_supervise_clears_expired_action_and_speaks(monkeypatch, tm, plugin_fact
     now[0] = 1000.0 + 21 * 60  # 到期
     run(p._supervise_once())
     assert p._mood_state.action == ""
-    recovery = [m for m in p._pushed if m.get("ai_behavior") == "respond"]
-    assert recovery, "到期后应推送恢复开口消息"
+    recovery = [m for m in p._pushed if m.get("metadata", {}).get("message_type") == "forever_companion.mood_recovered"]
+    assert len(recovery) == 1
+    assert recovery[0]["ai_behavior"] == "read"
 
     # 幂等：再跑一趟不产生第二条恢复消息
     run(p._supervise_once())
-    recovery2 = [m for m in p._pushed if m.get("ai_behavior") == "respond"]
+    recovery2 = [m for m in p._pushed if m.get("metadata", {}).get("message_type") == "forever_companion.mood_recovered"]
     assert len(recovery2) == len(recovery)
 
 
@@ -256,13 +257,14 @@ def test_activity_context_disabled_by_config(monkeypatch, plugin_factory) -> Non
     assert run(p._build_activity_context_line(p._current_phase_state())) == ""
 
 
-def test_mood_context_line_aligns_outward_emotion(plugin_factory) -> None:
+def test_mood_context_line_preserves_character_decision(plugin_factory) -> None:
     p = plugin_factory()
     p._mood_state.action = "ebb_tide"
     p._mood_state.started_at = 1.0
     p._mood_state.expires_at = 10.0**12
     line = p._build_mood_context_line()
-    assert "主导情绪清晰可辨" in line
+    assert "不覆盖你的性格和当前对话" in line
+    assert "无需先调用工具才允许改变语气" in line
     assert "冷战沉默" in line
 
 
@@ -517,7 +519,7 @@ def test_debug_set_mood_accelerates_fallback(plugin_factory) -> None:
     assert run(p._fallback_open_action_if_due()) == "seek_harbor"
 
 
-def test_debug_expire_mood_triggers_recovery(plugin_factory) -> None:
+def test_debug_expire_mood_syncs_record_without_starting_reply(plugin_factory) -> None:
     p = plugin_factory()
     p._proactive_http = _HttpRecorder(master_value=False)
     run(p._debug_set_mood(action="ebb_tide", duration_minutes=30))
@@ -525,7 +527,9 @@ def test_debug_expire_mood_triggers_recovery(plugin_factory) -> None:
     assert res.value["forced"] is True
     run(p._supervise_once())
     assert p._mood_state.action == ""
-    assert any(m.get("ai_behavior") == "respond" for m in p._pushed)
+    notices = [m for m in p._pushed if m.get("metadata", {}).get("message_type") == "forever_companion.mood_recovered"]
+    assert len(notices) == 1
+    assert notices[0]["ai_behavior"] == "read"
 
 
 def test_debug_simulate_user_message_advances_counter(plugin_factory) -> None:

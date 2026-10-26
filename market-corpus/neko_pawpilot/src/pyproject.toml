@@ -1,6 +1,6 @@
 [project]
 name = "neko_pawpilot"
-version = "0.0.1"
+version = "0.0.2"
 description = "ETS2 catgirl copilot companion."
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -13,9 +13,6 @@ exclude_dirs = [
     ".pytest_cache",
     ".ruff_cache",
     "tests",
-    "adapters/map_extractor/bin",
-    "adapters/map_extractor/obj",
-    "adapters/map_extractor/publish",
 ]
 exclude_files = [
     ".gitignore",

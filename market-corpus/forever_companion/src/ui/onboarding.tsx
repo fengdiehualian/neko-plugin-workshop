@@ -40,7 +40,7 @@ export function OnboardingWizard(props: {
     <Modal
       open={open}
       size="md"
-      title={t("onboarding.wizard.title", { defaultValue: "欢迎认识·永远的陪伴" })}
+      title={t("onboarding.wizard.title", { defaultValue: "欢迎使用永远的陪伴" })}
       onClose={() => onFinish("skip")}
       footer={(
         <div className="tm-ob-foot">
@@ -60,7 +60,7 @@ export function OnboardingWizard(props: {
               </Button>
             ) : (
               <Button tone="primary" onClick={() => { onFinish("done") }}>
-                {t("onboarding.wizard.finish", { defaultValue: "开始陪伴" })}
+                {t("onboarding.wizard.finish", { defaultValue: "完成" })}
               </Button>
             )}
           </div>
@@ -96,28 +96,28 @@ function WelStep(props: { t: TFunc }) {
   return (
     <div className="tm-ob-step">
       <p className="tm-ob-lead">
-        {t("onboarding.wel.lead", { defaultValue: "这个插件让她拥有连续的生命状态——不只会应答，还有身体节律、自己的情绪、自己的记录。" })}
+        {t("onboarding.wel.lead", { defaultValue: "欢迎使用永远的陪伴。这里可以查看角色状态、保存日记，回顾你们的日常互动。" })}
       </p>
       <div className="tm-ob-feats">
         <div className="tm-ob-feat">
           <span className="tm-ob-feat-name">{t("onboarding.wel.f1", { defaultValue: "情绪系统" })}</span>
-          <span className="tm-ob-feat-sub">{t("onboarding.wel.f1d", { defaultValue: "会被你的话气到、会委屈、会突然想黏人——十二个情绪工具摆在她手边，用不用由她决定" })}</span>
+          <span className="tm-ob-feat-sub">{t("onboarding.wel.f1d", { defaultValue: "角色可通过情绪工具表达心情，面板会记录状态变化。" })}</span>
         </div>
         <div className="tm-ob-feat">
-          <span className="tm-ob-feat-name">{t("onboarding.wel.f2", { defaultValue: "身体节律" })}</span>
-          <span className="tm-ob-feat-sub">{t("onboarding.wel.f2d", { defaultValue: "精力像潮水有涨有落，感受悄悄融入语气——你看不见机制，只看得见她的状态" })}</span>
+          <span className="tm-ob-feat-name">{t("onboarding.wel.f2", { defaultValue: "日常状态" })}</span>
+          <span className="tm-ob-feat-sub">{t("onboarding.wel.f2d", { defaultValue: "按周期提供状态参考，让聊天语气有所变化。" })}</span>
         </div>
         <div className="tm-ob-feat">
           <span className="tm-ob-feat-name">{t("onboarding.wel.f3", { defaultValue: "三本日记" })}</span>
-          <span className="tm-ob-feat-sub">{t("onboarding.wel.f3d", { defaultValue: "她随手写的心情、隔阵子回头写的成篇日记、以及一本只给你看的关于你的记录" })}</span>
+          <span className="tm-ob-feat-sub">{t("onboarding.wel.f3d", { defaultValue: "保存角色手记、个人日记，以及后台整理的相处记录。" })}</span>
         </div>
         <div className="tm-ob-feat">
-          <span className="tm-ob-feat-name">{t("onboarding.wel.f4", { defaultValue: "看得见的相处" })}</span>
-          <span className="tm-ob-feat-sub">{t("onboarding.wel.f4d", { defaultValue: "里程碑、热力图、月报——陪伴不再是感觉，而是看得见的痕迹" })}</span>
+          <span className="tm-ob-feat-name">{t("onboarding.wel.f4", { defaultValue: "相处统计" })}</span>
+          <span className="tm-ob-feat-sub">{t("onboarding.wel.f4d", { defaultValue: "通过里程碑、热力图和月报，回顾日常互动。" })}</span>
         </div>
       </div>
       <p className="tm-ob-note">
-        {t("onboarding.wel.note", { defaultValue: "插件不替她做任何决定：只把她的状态递到她面前。所有功能都是可选的，接下来几页帮你确认环境、记下两件小事。" })}
+        {t("onboarding.wel.note", { defaultValue: "接下来会查看模拟开关、模型通道、生日和外观设置。各项功能都可以按需开启，实际回复由角色使用的模型决定。" })}
       </p>
     </div>
   )
@@ -128,26 +128,26 @@ function EnableStep(props: { t: TFunc; enabled: boolean; canToggle: boolean; onE
   return (
     <div className="tm-ob-step">
       <p className="tm-ob-lead">
-        {t("onboarding.enable.lead", { defaultValue: "她的身体节律模拟默认是关的——装完插件，由你亲手开启这盏灯。" })}
+        {t("onboarding.enable.lead", { defaultValue: "模拟功能默认关闭。开启后，插件会按你的设置提供状态提示、情绪和记录功能。" })}
       </p>
       {enabled ? (
         <div className="tm-ob-state tm-ob-state-ok">
           <span className="tm-ob-check">✓</span>
-          {t("onboarding.enable.on", { defaultValue: "已开启：她此刻正在自己的节律里" })}
+          {t("onboarding.enable.on", { defaultValue: "模拟已开启" })}
         </div>
       ) : (
         <div className="tm-ob-state">
-          <span className="tm-ob-state-text">{t("onboarding.enable.off", { defaultValue: "还没开启" })}</span>
+          <span className="tm-ob-state-text">{t("onboarding.enable.off", { defaultValue: "模拟未开启" })}</span>
           <Button tone="primary" disabled={!canToggle} onClick={onEnable}>
             {t("onboarding.enable.btn", { defaultValue: "现在开启" })}
           </Button>
         </div>
       )}
       <p className="tm-ob-note">
-        {t("onboarding.enable.anchor", { defaultValue: "周期起点已经为她随机落好——她早就有自己的节律，只是从今天开始被你观测。想改起点或周期长度，随时去「周期」页。" })}
+        {t("onboarding.enable.anchor", { defaultValue: "插件已随机设置周期起点。起点和周期长度可在「周期」页调整。" })}
       </p>
       <p className="tm-ob-note">
-        {t("onboarding.enable.where", { defaultValue: "这个开关以后就在面板顶部的状态条上，一眼可见。" })}
+        {t("onboarding.enable.where", { defaultValue: "之后可在面板顶部随时开启或关闭模拟。" })}
       </p>
     </div>
   )
@@ -161,27 +161,27 @@ function ChannelStep(props: { t: TFunc; channelStatus?: ChannelStatus }) {
   return (
     <div className="tm-ob-step">
       <p className="tm-ob-lead">
-        {t("onboarding.channels.lead", { defaultValue: "三件安静工作的能力各自有一条模型通道。这里只体检、不设置——缺了也不影响你开始陪伴，插件绝不会拿坏消息烦她。" })}
+        {t("onboarding.channels.lead", { defaultValue: "以下功能需要模型支持。这里先查看通道状态；暂不可用的功能不会影响正常聊天。" })}
       </p>
       <div className="tm-ob-chans">
         <ChanRow
           t={t}
-          name={t("onboarding.channels.tone", { defaultValue: "语气感知 · 听懂你话里的情绪" })}
+          name={t("onboarding.channels.tone", { defaultValue: "语气感知 · 分析互动语气" })}
           ch={tone}
         />
         <ChanRow
           t={t}
-          name={t("onboarding.channels.fragments", { defaultValue: "时光碎片 · 记下值得记一辈子的话" })}
+          name={t("onboarding.channels.fragments", { defaultValue: "对话片段 · 保存重要表达" })}
           ch={fragments}
         />
         <ChanRow
           t={t}
-          name={t("onboarding.channels.review", { defaultValue: "我的日记 · 每隔一段写一篇关于你们的记录" })}
+          name={t("onboarding.channels.review", { defaultValue: "我的日记 · 整理相处记录" })}
           ch={review}
         />
       </div>
       <p className="tm-ob-note">
-        {t("onboarding.channels.note", { defaultValue: "显示「休眠」的通道等配好模型会自动醒来；到「情绪」页的模型通道卡可以看每条通道的状态灯。" })}
+        {t("onboarding.channels.note", { defaultValue: "可在「情绪」页的模型通道设置中查看详情。配置可用的模型后，相关功能会恢复。" })}
       </p>
     </div>
   )
@@ -205,9 +205,11 @@ function ChanRow(props: { t: TFunc; name: string; ch: { enabled?: boolean; dorma
 
 function channelStatusLabel(t: TFunc, ch: { enabled?: boolean; dormant_reason?: string }): string {
   if (!ch.enabled) return t("onboarding.channels.disabled", { defaultValue: "未开启" })
-  if (ch.dormant_reason === "no_model") return t("onboarding.channels.noModel", { defaultValue: "休眠 · 槽位没配模型" })
-  if (ch.dormant_reason === "free_route") return t("onboarding.channels.freeRoute", { defaultValue: "休眠 · 宿主免费端点限制" })
-  return t("onboarding.channels.dormant", { defaultValue: "休眠中" })
+  if (ch.dormant_reason === "no_model") return t("onboarding.channels.noModel", { defaultValue: "未配置模型" })
+  if (ch.dormant_reason === "free_route") return t("onboarding.channels.freeRoute", { defaultValue: "免费路由不支持直连" })
+  // 熔断态复用模型通道卡那条文案：两处说的是同一件事，两份文案必然漂移出两个答案
+  if (ch.dormant_reason === "rejected") return t("panel.channel.rejected", { defaultValue: "请求被拒绝 · 通道已暂停" })
+  return t("onboarding.channels.dormant", { defaultValue: "暂不可用" })
 }
 
 function BirthdayStep(props: {
@@ -221,16 +223,16 @@ function BirthdayStep(props: {
   return (
     <div className="tm-ob-step">
       <p className="tm-ob-lead">
-        {t("onboarding.bday.lead", { defaultValue: "她记得主人的生日：当天你开口聊的第一句话时，她会收到「今天是主人的生日」的轻语——说不说、怎么祝福，全由她自己决定。现在就把日子记下吧。" })}
+        {t("onboarding.bday.lead", { defaultValue: "可以记下你的生日。生日当天首次聊天时，插件会提醒角色；是否送上祝福，由角色决定。" })}
       </p>
       <BirthdaySettingsCard t={t} birthday={birthday} canSave={canSave} onSave={onSave} />
       <p className="tm-ob-note">
-        {t("onboarding.bday.privacy", { defaultValue: "年份只用来校验日期合法性，插件从不告诉她岁数。" })}
+        {t("onboarding.bday.privacy", { defaultValue: "年份仅用于校验日期，不计算年龄，也不会向角色提供年龄。" })}
       </p>
       <p className="tm-ob-note">
         {set
-          ? t("onboarding.bday.done", { defaultValue: "已记下。以后想改，还是在「时光」页底部的这张卡。" })
-          : t("onboarding.bday.later", { defaultValue: "现在不想填也完全可以：没填日期前这个功能安静休眠，「时光」页底部随时能补。" })}
+          ? t("onboarding.bday.done", { defaultValue: "生日已保存。之后可在「时光」页修改或清除。" })
+          : t("onboarding.bday.later", { defaultValue: "生日可稍后填写。未设置日期时，不会发送生日提醒。" })}
       </p>
     </div>
   )
@@ -241,17 +243,17 @@ function RoomStep(props: { t: TFunc; onGoto: () => void }) {
   return (
     <div className="tm-ob-step">
       <p className="tm-ob-lead">
-        {t("onboarding.room.lead", { defaultValue: "这个面板是她和你共处的房间——顺手给房间挑一张壁纸吧。" })}
+        {t("onboarding.room.lead", { defaultValue: "你可以为面板选择壁纸，也可以保持默认浅蓝主题。" })}
       </p>
       <p className="tm-ob-note">
-        {t("onboarding.room.what", { defaultValue: "「设置」页的「面板外观」卡：从图库挑一张当壁纸，或导入新图进图库；填充方式、背景明暗、字体浓度都在那张卡上实时预览。" })}
+        {t("onboarding.room.what", { defaultValue: "在「设置」页的面板外观中，可导入图片、选择壁纸，并预览背景和文字效果。保存后生效。" })}
       </p>
       <p className="tm-ob-note">
-        {t("onboarding.room.privacy", { defaultValue: "图库图片只存进插件的本地数据，不会上传到任何地方。" })}
+        {t("onboarding.room.privacy", { defaultValue: "图库图片保存在插件本地，不会由插件发送给模型服务。" })}
       </p>
       <div className="tm-ob-state">
-        <span className="tm-ob-state-text">{t("onboarding.room.hint", { defaultValue: "现在就去看看，或者以后再说——外观永远等得起。" })}</span>
-        <Button onClick={onGoto}>{t("onboarding.room.btn", { defaultValue: "去设置页看看" })}</Button>
+        <span className="tm-ob-state-text">{t("onboarding.room.hint", { defaultValue: "外观设置是可选项，也可以稍后调整。" })}</span>
+        <Button onClick={onGoto}>{t("onboarding.room.btn", { defaultValue: "打开外观设置" })}</Button>
       </div>
     </div>
   )
@@ -262,15 +264,15 @@ function DoneStep(props: { t: TFunc }) {
   return (
     <div className="tm-ob-step">
       <p className="tm-ob-lead">
-        {t("onboarding.done.lead", { defaultValue: "都准备好了。从下一条消息开始，她带着自己的节律与情绪来见你。" })}
+        {t("onboarding.done.lead", { defaultValue: "初始设置完成。你可以开始聊天，也可以随时调整各项功能。" })}
       </p>
       <div className="tm-ob-tips">
-        <div className="tm-ob-tip">{t("onboarding.done.t1", { defaultValue: "总览页顶部有一张「准备清单」，还差什么会一直提醒你去点亮" })}</div>
-        <div className="tm-ob-tip">{t("onboarding.done.t2", { defaultValue: "想更细腻地调她？「周期 / 情绪 / 日记 / 时光 / 设置」五个页签各管一摊" })}</div>
-        <div className="tm-ob-tip">{t("onboarding.done.t3", { defaultValue: "不想被打扰的日子：把顶部状态条的开关关掉就好，她的记忆与记录都不会丢" })}</div>
+        <div className="tm-ob-tip">{t("onboarding.done.t1", { defaultValue: "「总览」页的准备清单可以查看配置进度。" })}</div>
+        <div className="tm-ob-tip">{t("onboarding.done.t2", { defaultValue: "在「功能」页查看各项功能，其他页面可调整参数、翻阅日记和查看统计。" })}</div>
+        <div className="tm-ob-tip">{t("onboarding.done.t3", { defaultValue: "关闭面板顶部的模拟开关会暂停插件功能，已有记录会保留。" })}</div>
       </div>
       <p className="tm-ob-note">
-        {t("onboarding.done.note", { defaultValue: "这个向导只出现过这一次；以后想再看，到「设置」页底部可以重新打开。" })}
+        {t("onboarding.done.note", { defaultValue: "之后可在「设置」页重新打开引导。" })}
       </p>
     </div>
   )

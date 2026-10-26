@@ -27,6 +27,11 @@ class DriverProfile:
         p["crashes"] = int(p.get("crashes", 0)) + int(stats.get("crashes", 0))
         p["revenue"] = float(p.get("revenue", 0)) + float(stats.get("revenue", 0))
         p["night_drives"] = int(p.get("night_drives", 0)) + int(stats.get("night", 0))
+        # 油耗画像：用于"这趟比平时费不费油"的真实对比（遥测给的是 L/100km）
+        fuel_avg = float(stats.get("fuel_avg", 0) or 0)
+        if 0 < fuel_avg < 200:            # 明显异常值不计入
+            p["fuel_sum"] = float(p.get("fuel_sum", 0)) + fuel_avg
+            p["fuel_n"] = int(p.get("fuel_n", 0)) + 1
         # 更新单程记录
         km = float(stats.get("distance_km", 0))
         new_record = km > float(p.get("longest_trip", 0))
@@ -45,15 +50,38 @@ class DriverProfile:
         }
 
     def record_celebration(self, result: dict) -> Optional[str]:
-        """新纪录/连续无事故庆祝话术。"""
+        """新纪录/连续无事故 → **事实行**（措辞交宿主 LLM，不写死台词）。"""
         if result.get("new_record"):
-            return f"新纪录！单程 {result.get('record_km', 0):.0f} km 喵！你是公路之王！👑"
+            return (f"[纪录] 单程新纪录：{result.get('record_km', 0):.0f} km，"
+                    f"是他跑过最长的一趟")
         streak = result.get("safe_streak", 0)
         if streak >= 10:
-            return f"连续 {streak} 单无事故！安全驾驶标兵！🛡️"
+            return f"[纪录] 连续 {streak} 单零事故，可以夸一句"
         if streak == 5:
-            return f"连续 {streak} 单无事故了喵，继续保持！"
+            return f"[纪录] 连续 {streak} 单零事故"
         return None
+
+    def avg_fuel(self) -> float:
+        """历史平均油耗（L/100km）；没有数据返回 0。"""
+        n = int(self._profile.get("fuel_n", 0) or 0)
+        if n <= 0:
+            return 0.0
+        return float(self._profile.get("fuel_sum", 0) or 0) / n
+
+    def fuel_verdict(self, fuel_avg: float) -> str:
+        """这趟油耗与历史均值的对比（真实数据，单位为遥测里的 L/100km）。"""
+        base = self.avg_fuel()
+        cur = float(fuel_avg or 0)
+        if base <= 0 or cur <= 0:
+            return ""
+        diff = cur - base
+        if diff <= -1.0:
+            return (f"这趟平均油耗 {cur:.1f} L/100km，比平时（{base:.1f}）省了 "
+                    f"{abs(diff):.1f}，开得挺顺")
+        if diff >= 1.0:
+            return (f"这趟平均油耗 {cur:.1f} L/100km，比平时（{base:.1f}）高了 "
+                    f"{diff:.1f}，急加速和急刹会明显吃油")
+        return f"这趟平均油耗 {cur:.1f} L/100km，和平时（{base:.1f}）差不多"
 
     def label(self) -> str:
         """画像标签。"""

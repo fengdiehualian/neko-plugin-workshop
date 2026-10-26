@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="page.title">B站集成</title>
-    <link rel="stylesheet" href="./style.css?v=1.2.4">
+    <link rel="stylesheet" href="./style.css?v=1.3.0">
 </head>
 <body>
     <main class="app-container">
@@ -133,6 +133,33 @@
         <section class="card">
             <div class="section-head">
                 <div>
+                    <p class="section-kicker" data-i18n="ui.dynamic.section">PUBLISH</p>
+                    <h2 data-i18n="entries.publish_dynamic.name">发布 B站动态</h2>
+                </div>
+            </div>
+            <p class="hint" data-i18n="ui.dynamic.hint">使用已保存的登录账号公开发布，无需开启监听。文字最多 2000 字，图片最多 9 张、每张 10 MiB。</p>
+            <form id="dynamic-form">
+                <label class="field">
+                    <span data-i18n="ui.dynamic.text">动态内容</span>
+                    <textarea id="dynamic-text" rows="5" maxlength="2000"></textarea>
+                </label>
+                <label class="field">
+                    <span data-i18n="ui.dynamic.files">选择图片（可选）</span>
+                    <input id="dynamic-files" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple>
+                </label>
+                <label class="field">
+                    <span data-i18n="ui.dynamic.urls">图片 URL（可选，每行一个）</span>
+                    <textarea id="dynamic-urls" rows="3"></textarea>
+                </label>
+                <p id="dynamic-result" class="hint" role="status" aria-live="polite" hidden></p>
+                <div class="actions">
+                    <button id="btn-publish-dynamic" class="button primary" type="submit" data-i18n="actions.publish_dynamic.label">发布动态</button>
+                </div>
+            </form>
+        </section>
+        <section class="card">
+            <div class="section-head">
+                <div>
                     <p class="section-kicker" data-i18n="ui.section.access">ACCESS</p>
                     <h2 data-i18n="panel.users.title">信任用户管理</h2>
                 </div>
@@ -154,7 +181,7 @@
     </main>
 
     <div id="toast" class="toast" role="status"></div>
-    <script src="./i18n.js?v=1.2.4"></script>
-    <script src="./script.js?v=1.2.4"></script>
+    <script src="./i18n.js?v=1.3.0"></script>
+    <script src="./script.js?v=1.3.0"></script>
 </body>
 </html>

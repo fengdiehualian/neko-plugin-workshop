@@ -137,7 +137,10 @@ def test_write_review_persist_failure_rolls_back_and_retries(tm, boot_factory, m
     monkeypatch.setattr(
         p, "_resolve_tone_slot", lambda cfg, slot: {"base_url": "http://x", "api_key": "k", "model": "m"},
     )
-    monkeypatch.setattr(p, "_post_chat_completion", lambda *a, **k: "他最近对她很温柔，几乎每天都来聊天。")
+    monkeypatch.setattr(
+        p, "_post_chat_completion",
+        lambda *a, **k: '{"title":"每天都在的陪伴","text":"他最近对她很温柔，几乎每天都来聊天。"}',
+    )
 
     written, reason = run(p._maybe_write_review("default", shard))
 
@@ -154,6 +157,7 @@ def test_write_review_persist_failure_rolls_back_and_retries(tm, boot_factory, m
     assert (written2, reason2) == (True, "written")
     assert len(shard.review) == 2
     assert store.data["review@default"]["entries"][1]["text"].startswith("他最近对她很温柔")
+    assert store.data["review@default"]["entries"][1]["title"] == "每天都在的陪伴"
     assert store.data["stats@default"]["milestones"]["first_review"]
 
 

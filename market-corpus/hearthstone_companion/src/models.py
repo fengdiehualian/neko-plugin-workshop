@@ -24,10 +24,36 @@ class Entity:
     hidden: bool = False
     visibility_revoked: bool = False
     realtime_fields: set[str] = field(default_factory=set)
+    battlegrounds_realtime_boolean_baseline_complete: bool = False
+    battlegrounds_game_state_boolean_baseline_complete: bool = False
+    realtime_keyword_baseline_complete: bool = False
+    game_state_keyword_baseline_complete: bool = False
+    last_seen_at: float = 0.0
+    last_revision: int = 0
+    last_battlegrounds_round: int = 0
+    last_battlegrounds_phase: str = ""
+    tag_revisions: dict[str, int] = field(default_factory=dict)
+    tag_observed_at: dict[str, float] = field(default_factory=dict)
+    tag_battlegrounds_rounds: dict[str, int] = field(default_factory=dict)
+    tag_battlegrounds_phases: dict[str, str] = field(default_factory=dict)
 
     def tag_int(self, name: str, default: int = 0) -> int:
         value = _as_int(self.tags.get(name.upper()))
         return default if value is None else value
+
+    @property
+    def battlegrounds_boolean_baseline_complete(self) -> bool:
+        return bool(
+            self.battlegrounds_realtime_boolean_baseline_complete
+            or self.battlegrounds_game_state_boolean_baseline_complete
+        )
+
+    @property
+    def keyword_baseline_complete(self) -> bool:
+        return bool(
+            self.realtime_keyword_baseline_complete
+            or self.game_state_keyword_baseline_complete
+        )
 
     @property
     def health(self) -> int | None:
@@ -118,6 +144,7 @@ class ConstructedCardSnapshot:
     durability: int | None = None
     exhausted: bool | None = None
     keywords: tuple[str, ...] = ()
+    keywords_complete: bool = False
     states: tuple[str, ...] = ()
 
     def to_public_dict(self) -> dict[str, Any]:
@@ -133,6 +160,7 @@ class ConstructedCardSnapshot:
             "durability": self.durability,
             "exhausted": self.exhausted,
             "keywords": list(self.keywords),
+            "keywords_complete": self.keywords_complete,
             "states": list(self.states),
         }
 
@@ -177,6 +205,7 @@ class ConstructedSideSnapshot:
     cards_played_this_turn: int = 0
     secret_count: int = 0
     board: tuple[ConstructedCardSnapshot, ...] = ()
+    board_identities_complete: bool = False
     weapon: ConstructedCardSnapshot | None = None
     hero_power: ConstructedCardSnapshot | None = None
     locations: tuple[ConstructedCardSnapshot, ...] = ()
@@ -206,6 +235,7 @@ class ConstructedSideSnapshot:
                 "attack": sum(card.attack or 0 for card in self.board),
                 "health": sum(card.health or 0 for card in self.board),
                 "minions": [card.to_public_dict() for card in self.board],
+                "identities_complete": self.board_identities_complete,
             },
             "weapon": self.weapon.to_public_dict() if self.weapon else None,
             "hero_power": self.hero_power.to_public_dict() if self.hero_power else None,
@@ -260,19 +290,29 @@ class ChoiceSnapshot:
 class BattlegroundsCardSnapshot:
     card_id: str = ""
     name: str = ""
+    card_type: str | None = None
     attack: int = 0
     health: int | None = None
     tier: int = 0
-    frozen: bool = False
+    frozen: bool | None = None
+    position: int = 0
+    premium: bool | None = None
+    current_cost: int | None = None
+    keywords: dict[str, bool | None] = field(default_factory=dict)
 
     def to_public_dict(self) -> dict[str, Any]:
         return {
             "card_id": self.card_id,
             "name": self.name,
+            "card_type": self.card_type,
             "attack": self.attack,
             "health": self.health,
             "tier": self.tier,
             "frozen": self.frozen,
+            "position": self.position,
+            "premium": self.premium,
+            "current_cost": self.current_cost,
+            "keywords": dict(self.keywords),
         }
 
 
@@ -289,6 +329,82 @@ class BattlegroundsHeroChoiceSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class BattlegroundsChoiceSnapshot:
+    choice_type: str = "unknown"
+    count_min: int = 0
+    count_max: int = 0
+    source: BattlegroundsCardSnapshot | None = None
+    options: tuple[BattlegroundsCardSnapshot, ...] = ()
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "choice_type": self.choice_type,
+            "count_min": self.count_min,
+            "count_max": self.count_max,
+            "source": self.source.to_public_dict() if self.source else None,
+            "options": [card.to_public_dict() for card in self.options],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class BattlegroundsAreaSnapshot:
+    complete: bool = False
+    revision: int = 0
+    observed_at: float | None = None
+    round: int = 0
+    phase: str = "unknown"
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "complete": self.complete,
+            "revision": self.revision,
+            "observed_at": self.observed_at,
+            "round": self.round,
+            "phase": self.phase,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class BattlegroundsEconomySnapshot:
+    upgrade_cost: int | None = None
+    refresh_cost: int | None = None
+    revision: int = 0
+    observed_at: float | None = None
+    gold_observation: BattlegroundsAreaSnapshot = field(
+        default_factory=BattlegroundsAreaSnapshot
+    )
+    upgrade_observation: BattlegroundsAreaSnapshot = field(
+        default_factory=BattlegroundsAreaSnapshot
+    )
+    refresh_observation: BattlegroundsAreaSnapshot = field(
+        default_factory=BattlegroundsAreaSnapshot
+    )
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "upgrade_cost": self.upgrade_cost,
+            "refresh_cost": self.refresh_cost,
+            "revision": self.revision,
+            "observed_at": self.observed_at,
+            "gold_observation": (
+                self.gold_observation.to_public_dict()
+                if self.gold_observation.revision > 0
+                else None
+            ),
+            "upgrade_observation": (
+                self.upgrade_observation.to_public_dict()
+                if self.upgrade_observation.revision > 0
+                else None
+            ),
+            "refresh_observation": (
+                self.refresh_observation.to_public_dict()
+                if self.refresh_observation.revision > 0
+                else None
+            ),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class BattlegroundsPlayerSnapshot:
     player_id: int
     is_local: bool = False
@@ -301,6 +417,8 @@ class BattlegroundsPlayerSnapshot:
     placement: int = 0
     eliminated: bool = False
     next_opponent: bool = False
+    current_opponent: bool = False
+    last_opponent: bool = False
     is_teammate: bool = False
     last_seen_round: int = 0
     board_count: int = 0
@@ -327,6 +445,8 @@ class BattlegroundsPlayerSnapshot:
             "placement": self.placement,
             "eliminated": self.eliminated,
             "next_opponent": self.next_opponent,
+            "current_opponent": self.current_opponent,
+            "last_opponent": self.last_opponent,
             "is_teammate": self.is_teammate,
             "last_seen_round": self.last_seen_round,
             "board": {
@@ -335,7 +455,8 @@ class BattlegroundsPlayerSnapshot:
                 "health": self.board_health,
                 "cards": list(self.board_cards),
                 "minions": [card.to_public_dict() for card in self.board_minions],
-                "is_last_observed": not self.is_local and self.last_seen_round > 0,
+                "observed_in_combat": not self.is_local and self.last_seen_round > 0,
+                "observed_round": self.last_seen_round if not self.is_local else 0,
             },
         }
 
@@ -348,17 +469,81 @@ class BattlegroundsSnapshot:
     gold: int | None = None
     max_gold: int | None = None
     tavern_tier: int = 0
-    frozen: bool = False
+    frozen: bool | None = None
     next_opponent_player_id: int = 0
+    current_opponent_player_id: int = 0
+    last_opponent_player_id: int = 0
+    last_opponent_round: int = 0
     placement: int = 0
+    refresh_cost: int | None = None
+    upgrade_cost: int | None = None
     hero_choices: tuple[BattlegroundsHeroChoiceSnapshot, ...] = ()
     shop: tuple[BattlegroundsCardSnapshot, ...] = ()
     hand: tuple[BattlegroundsCardSnapshot, ...] = ()
     warband: tuple[BattlegroundsCardSnapshot, ...] = ()
     lobby: tuple[BattlegroundsPlayerSnapshot, ...] = ()
+    current_choice: BattlegroundsChoiceSnapshot | None = None
+    economy: BattlegroundsEconomySnapshot = field(
+        default_factory=BattlegroundsEconomySnapshot
+    )
+    areas: dict[str, BattlegroundsAreaSnapshot] = field(default_factory=dict)
     mechanics: dict[str, Any] = field(default_factory=dict)
 
+    def _opponent_context(
+        self,
+        player_id: int,
+        relationship: str,
+        *,
+        combat_round: int = 0,
+    ) -> dict[str, Any] | None:
+        if player_id <= 0:
+            return None
+        player = next(
+            (
+                candidate
+                for candidate in self.lobby
+                if candidate.player_id == player_id and not candidate.is_local
+            ),
+            None,
+        )
+        if player is None:
+            return None
+        payload = player.to_public_dict()
+        return {
+            "relationship": relationship,
+            "player_id": player.player_id,
+            "hero": {
+                "card_id": player.hero_card_id,
+                "name": player.hero_name,
+            },
+            "health": player.health,
+            "armor": player.armor,
+            "effective_health": player.effective_health,
+            "tavern_tier": player.tavern_tier,
+            "placement": player.placement,
+            "eliminated": player.eliminated,
+            "is_teammate": player.is_teammate,
+            "combat_round": combat_round,
+            "board": payload["board"],
+        }
+
     def to_public_dict(self) -> dict[str, Any]:
+        opponent_context = {
+            "current": self._opponent_context(
+                self.current_opponent_player_id,
+                "current",
+                combat_round=self.round if self.current_opponent_player_id else 0,
+            ),
+            "next": self._opponent_context(
+                self.next_opponent_player_id,
+                "next",
+            ),
+            "last": self._opponent_context(
+                self.last_opponent_player_id,
+                "last",
+                combat_round=self.last_opponent_round,
+            ),
+        }
         return {
             "variant": self.variant,
             "round": self.round,
@@ -368,12 +553,25 @@ class BattlegroundsSnapshot:
             "tavern_tier": self.tavern_tier,
             "frozen": self.frozen,
             "next_opponent_player_id": self.next_opponent_player_id,
+            "current_opponent_player_id": self.current_opponent_player_id,
+            "last_opponent_player_id": self.last_opponent_player_id,
+            "last_opponent_round": self.last_opponent_round,
+            "opponents": opponent_context,
             "placement": self.placement,
+            "refresh_cost": self.refresh_cost,
+            "upgrade_cost": self.upgrade_cost,
             "hero_choices": [choice.to_public_dict() for choice in self.hero_choices],
             "shop": [card.to_public_dict() for card in self.shop],
             "hand": [card.to_public_dict() for card in self.hand],
             "warband": [card.to_public_dict() for card in self.warband],
             "lobby": [player.to_public_dict() for player in self.lobby],
+            "current_choice": (
+                self.current_choice.to_public_dict() if self.current_choice else None
+            ),
+            "economy": self.economy.to_public_dict(),
+            "areas": {
+                key: area.to_public_dict() for key, area in sorted(self.areas.items())
+            },
             "mechanics": dict(self.mechanics),
             "source": "power_log",
         }
@@ -423,9 +621,11 @@ class RuntimeStatus:
     llm_submissions: int = 0
     source_modified_at: float = 0.0
     last_line_at: float = 0.0
+    last_state_at: float = 0.0
     last_event_at: float = 0.0
     last_event_kind: str = ""
     last_error_code: str = ""
+    snapshot_revision: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -437,7 +637,9 @@ class RuntimeStatus:
             "llm_submissions": self.llm_submissions,
             "source_modified_at": self.source_modified_at,
             "last_line_at": self.last_line_at,
+            "last_state_at": self.last_state_at,
             "last_event_at": self.last_event_at,
             "last_event_kind": self.last_event_kind,
             "last_error_code": self.last_error_code,
+            "snapshot_revision": self.snapshot_revision,
         }

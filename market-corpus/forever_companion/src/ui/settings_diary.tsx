@@ -12,7 +12,7 @@ export function DiarySettingsCard(props: {
   const { t, form, updateForm } = props
 
   return (
-    <Card title={t("panel.settings.diary", { defaultValue: "日记功能" })}>
+    <Card title={t("panel.settings.diary", { defaultValue: "时光日记（对话片段）" })}>
       <div className="tm-derived">
         {t("panel.settings.sectionGlobalHint", { defaultValue: "以下设置对所有角色生效" })}
       </div>
@@ -20,12 +20,12 @@ export function DiarySettingsCard(props: {
       {/* 时光日记 · 自动碎片 */}
       <TmSwitch
         checked={form.fragments_enabled}
-        label={t("panel.settings.fragmentsEnabled", { defaultValue: "自动记下他说过的重要的话（喜好/厌恶/有分量的话/过激言行）" })}
+        label={t("panel.settings.fragmentsEnabled", { defaultValue: "自动保存喜好和重要表达" })}
         onChange={(value: boolean) => updateForm({ fragments_enabled: value })}
       />
       {form.fragments_enabled ? (
         <div className="tm-derived">
-          {t("panel.settings.fragmentsHint", { defaultValue: "碎片只存进她的日记本，由她自主翻看使用，不会主动改变她的行为；聊天中判定不明确的内容不会记录" })}
+          {t("panel.settings.fragmentsHint", { defaultValue: "用户消息会交给配置的模型分析，片段保存在本地，供角色检索。模型可能遗漏或误判，可在时光日记中查看和删除。" })}
         </div>
       ) : null}
 
@@ -37,33 +37,33 @@ export function DiarySettingsCard(props: {
           onChange={(value: boolean) => updateForm({ anniversary_inject: value })}
         />
         <div className="tm-derived">
-          {t("settings.anniversary.desc", { defaultValue: "满 30/100/… 天的纪念日当天，她会知道你们相伴了多少天（说不说由她决定）。" })}
+          {t("settings.anniversary.desc", { defaultValue: "到达 30、60 等相伴纪念节点时提醒角色，是否在聊天中提起由角色决定。" })}
         </div>
       </div>
 
       <div className="tm-review-settings">
-        <div className="tm-subcard-title">{t("panel.settings.review", { defaultValue: "我的日记（互动评价）" })}</div>
+        <div className="tm-subcard-title">{t("panel.settings.review", { defaultValue: "我的日记（相处记录）" })}</div>
         <TmSwitch
           checked={form.review_enabled}
-          label={t("panel.settings.reviewEnabled", { defaultValue: "定期把这段时间他对她的互动方式写成一篇客观评价" })}
+          label={t("panel.settings.reviewEnabled", { defaultValue: "定期生成近期相处记录" })}
           onChange={(value: boolean) => updateForm({ review_enabled: value })}
         />
         {form.review_enabled ? (
           <>
             <div className="tm-derived">
-              {t("panel.settings.reviewHint", { defaultValue: "评价只给你看：不进她的对话上下文、不进宿主记忆、她没有任何工具能读到。如实记录，负面言行不会粉饰" })}
+              {t("panel.settings.reviewHint", { defaultValue: "互动素材会交给配置的模型整理，结果可能有偏差，仅供回顾。记录不自动加入角色对话或宿主记忆，也不提供角色读取工具。" })}
             </div>
             <Field
               className="tm-reserve-help"
-              label={t("panel.settings.review_turns", { defaultValue: "成文门槛：攒满轮数" })}
-              help={t("panel.settings.review_turns_help", { defaultValue: "攒满这么多轮互动就写一篇（与天数门槛先到先写）" })}
+              label={t("panel.settings.review_turns", { defaultValue: "生成条件：互动轮数" })}
+              help={t("panel.settings.review_turns_help", { defaultValue: "达到互动轮数或天数条件之一即可生成" })}
             >
               <NumberInput value={form.review_turns_threshold} min={10} max={500} step={1} onChange={(v: number | string) => updateForm({ review_turns_threshold: typeof v === "number" ? v : 50 })} />
             </Field>
             <Field
               className="tm-reserve-help"
-              label={t("panel.settings.review_days", { defaultValue: "成文门槛：距统计起点天数" })}
-              help={t("panel.settings.review_days_help", { defaultValue: "满这么多天且期间有聊天就写一篇（挂机没聊天不写空篇）" })}
+              label={t("panel.settings.review_days", { defaultValue: "生成条件：累计天数" })}
+              help={t("panel.settings.review_days_help", { defaultValue: "达到设定天数且期间有聊天时生成；无互动时不生成" })}
             >
               <NumberInput value={form.review_days_threshold} min={1} max={90} step={1} onChange={(v: number | string) => updateForm({ review_days_threshold: typeof v === "number" ? v : 7 })} />
             </Field>

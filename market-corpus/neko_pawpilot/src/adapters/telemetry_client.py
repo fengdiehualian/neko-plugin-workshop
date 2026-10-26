@@ -13,8 +13,8 @@ from ctypes import (
     c_uint,
     c_ulonglong,
 )
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Dict, Optional
 
 MMF_NAMES = ["Local\\SCSTelemetry", "SCSTelemetry"]
 MMF_SIZE = 32 * 1024
@@ -375,6 +375,31 @@ class TruckSnapshot:
     route_time_min: float = 0.0
     speed_limit_mps: float = 0.0
     job_cargo_damage: float = 0.0
+    accel_x: float = 0.0
+    accel_y: float = 0.0
+    accel_z: float = 0.0
+    # ── 解析器里早已定义、但历史版本没有上报的可用字段（2026-10 实测全部为真值）──
+    gear: int = 0
+    gear_dashboard: int = 0
+    retarder_brake: int = 0
+    lights_parking: bool = False
+    lights_low_beam: bool = False
+    lights_beacon: bool = False
+    lights_brake: bool = False
+    lights_reverse: bool = False
+    lights_hazard: bool = False
+    blinker_left: bool = False
+    blinker_right: bool = False
+    air_pressure: float = 0.0          # kPa
+    brake_temperature: float = 0.0     # °C
+    oil_temperature: float = 0.0       # °C
+    water_temperature: float = 0.0     # °C
+    battery_voltage: float = 0.0       # V
+    cruise_speed_mps: float = 0.0
+    wheels_on_ground: int = 0
+    warnings: Dict[str, bool] = field(default_factory=dict)
+    map_scale: float = 0.0             # 3=城市(1:3) / 19=野外(1:19)
+    heading_y: float = 0.0             # 车头朝向（rotationY，弧度；轴向待实测标定）
     is_cargo_loaded: bool = False
     park_brake: bool = False
     engine_enabled: bool = False
@@ -402,7 +427,15 @@ class TruckSnapshot:
     ev_tollgate: bool = False
     ev_refuel: bool = False
     ev_refuel_payed: bool = False
+    ev_ferry: bool = False
+    ev_train: bool = False
+    ferry_source: str = ""
+    ferry_target: str = ""
+    train_source: str = ""
+    train_target: str = ""
     trailer_attached: bool = False
+    trailer_count: int = 0            # 真正挂上的挂车节数（ETS2 最多 3 节）
+    trailer_licenses: str = ""        # 各节车牌，逗号分隔
     trailer_cargo_damage: float = 0.0
     trailer_license: str = ""
     world_x: float = 0.0
@@ -418,8 +451,36 @@ class TruckSnapshot:
         return self.speed_limit_mps * 3.6
 
     @property
+    def in_session(self) -> bool:
+        """是否处于"真的在开车"的状态。
+
+        **主菜单里 SDK 也是 active**，但速度 / 任务 / 油量全是 0——旧版把这些 0
+        当成真实数据，于是主人第一次进游戏还没出车库，猫娘就喊"没油了"、
+        面板显示 0% 该加油了、屏幕识屏还在报"前方有事故"。
+
+        判据（任一成立即算在驾驶中，且都不依赖"有没有接单"，自由驾驶也算）：
+          - 有任务
+          - 车在动
+          - 发动机着着且油箱有油（路边停车/等灯时也成立）
+        """
+        if not self.sdk_active:
+            return False
+        if self.on_job or self.speed_kmh > 1.0:
+            return True
+        return bool(self.engine_enabled and (self.fuel > 1.0 or self.fuel_percent > 1.0))
+
+    @property
     def is_speeding(self) -> bool:
-        return self.speed_limit_mps > 1.0 and self.speed_mps > self.speed_limit_mps + 0.5
+        """超速判定：留出容差，别为"超 2 km/h"念叨。
+
+        旧版只要超 0.5 m/s（1.8 km/h）就算超速——实测玩家被念「都超 3 了」，
+        而欧卡自己的罚单阈值是超 5~10%，限速牌与遥测本身也有 ±3 km/h 误差。
+        现在要求同时满足：超过限速的 10%，且至少超 5 km/h。
+        """
+        if self.speed_limit_mps <= 1.0:
+            return False
+        over = self.speed_mps - self.speed_limit_mps
+        return over > max(1.4, self.speed_limit_mps * 0.10)
 
     @property
     def fuel_percent(self) -> float:
@@ -433,12 +494,57 @@ class TruckSnapshot:
                    self.wear_cabin, self.wear_chassis, self.wear_wheels)
 
     @property
+    def accel_g(self) -> float:
+        """三轴加速度合成（g）——碰撞的物理信号，比"损伤突增"更灵敏。
+
+        SCS SDK 的 truck_fv.acceleration* 单位是 m/s²，除以 9.80665 换 g。
+        """
+        mag = (self.accel_x ** 2 + self.accel_y ** 2 + self.accel_z ** 2) ** 0.5
+        return mag / 9.80665
+
+    @property
+    def cargo_damage(self) -> float:
+        """货物实时损伤（0=完好，1=全损）——取 job 与挂车两路的较大值。
+
+        ETS2 的货箱挂在挂车上：SCS SDK 的 job_f.cargoDamage 在部分版本只在
+        "交付结算" 时才写入，途中真实的货损写在 trailer.com_f.cargoDamage。
+        历史上事件层只读 job_cargo_damage → 途中撞坏货也一直是 0，货损永不
+        播报（"货损没反应"）。两路取大值后，任一通道给出损伤都能感知到。
+        """
+        return max(self.job_cargo_damage, self.trailer_cargo_damage)
+
+    @property
     def damage_parts(self) -> dict:
         return {
             "engine": self.wear_engine, "transmission": self.wear_transmission,
             "cabin": self.wear_cabin, "chassis": self.wear_chassis,
             "wheels": self.wear_wheels,
         }
+
+    @property
+    def is_city(self) -> bool:
+        """是否在城市（地图比例尺 1:3 ≈ 3）；野外开阔路是 1:19 ≈ 19。
+
+        实测值：城区 3.0。比"按限速猜市区"可靠（无标线路段限速常为 0）。
+        """
+        return 0.0 < self.map_scale < 10.0
+
+    @property
+    def is_open_road(self) -> bool:
+        return self.map_scale >= 10.0
+
+    @property
+    def blinker_on(self) -> bool:
+        return self.blinker_left or self.blinker_right
+
+    @property
+    def headlights_on(self) -> bool:
+        return self.lights_low_beam
+
+    @property
+    def active_warnings(self) -> list:
+        """当前亮着的故障警告灯（发动机熄火时 oil/battery 常亮，调用方需自行过滤）。"""
+        return [k for k, v in (self.warnings or {}).items() if v]
 
     @property
     def power_type(self) -> str:
@@ -479,6 +585,8 @@ class TruckSnapshot:
         d["is_speeding"] = self.is_speeding
         d["fuel_percent"] = self.fuel_percent
         d["max_damage"] = self.max_damage
+        d["cargo_damage"] = self.cargo_damage
+        d["accel_g"] = round(self.accel_g, 2)
         d["damage_parts"] = self.damage_parts
         d["power_type"] = self.power_type
         d["route_remaining_km"] = self.route_remaining_km
@@ -585,6 +693,43 @@ class TelemetryReader:
         s.route_time_min = tf.routeTime
         s.speed_limit_mps = tf.speedLimit
         s.job_cargo_damage = m.job_f.cargoDamage
+        tv = m.truck_fv
+        s.accel_x = tv.accelerationX
+        s.accel_y = tv.accelerationY
+        s.accel_z = tv.accelerationZ
+        # 档位 / 缓速器
+        s.gear = m.truck_i.gear
+        s.gear_dashboard = m.truck_i.gearDashboard
+        s.retarder_brake = m.truck_ui.retarderBrake
+        # 灯光 / 转向灯
+        tb_ = m.truck_b
+        s.lights_parking = bool(tb_.lightsParking)
+        s.lights_low_beam = bool(tb_.lightsBeamLow)
+        s.lights_beacon = bool(tb_.lightsBeacon)
+        s.lights_brake = bool(tb_.lightsBrake)
+        s.lights_reverse = bool(tb_.lightsReverse)
+        s.lights_hazard = bool(tb_.lightsHazard)
+        s.blinker_left = bool(tb_.blinkerLeftOn)
+        s.blinker_right = bool(tb_.blinkerRightOn)
+        # 机务数值
+        s.air_pressure = m.truck_f.airPressure
+        s.brake_temperature = m.truck_f.brakeTemperature
+        s.oil_temperature = m.truck_f.oilTemperature
+        s.water_temperature = m.truck_f.waterTemperature
+        s.battery_voltage = m.truck_f.batteryVoltage
+        s.cruise_speed_mps = tf.cruiseControlSpeed
+        s.wheels_on_ground = sum(1 for v in tb_.truck_wheelOnGround if v)
+        s.warnings = {
+            "air_pressure": bool(tb_.airPressureWarning),
+            "air_emergency": bool(tb_.airPressureEmergency),
+            "fuel": bool(tb_.fuelWarning),
+            "adblue": bool(tb_.adblueWarning),
+            "oil_pressure": bool(tb_.oilPressureWarning),
+            "water_temp": bool(tb_.waterTemperatureWarning),
+            "battery": bool(tb_.batteryVoltageWarning),
+        }
+        s.map_scale = float(m.common_f.scale)
+        s.heading_y = float(m.truck_dp.rotationY)
         cb = m.config_b
         s.is_cargo_loaded = bool(cb.isCargoLoaded)
         tb = m.truck_b
@@ -621,8 +766,37 @@ class TelemetryReader:
         s.ev_tollgate = bool(sp.tollgate)
         s.ev_refuel = bool(sp.refuel)
         s.ev_refuel_payed = bool(sp.refuelPayed)
+        # 渡轮/火车：过境事件 + 真实站点名（唯一能拿到的"地名"来源之一）
+        s.ev_ferry = bool(sp.ferry)
+        s.ev_train = bool(sp.train)
+        gs = m.gameplay_s
+        s.ferry_source = _cstr(gs.ferrySourceName)
+        s.ferry_target = _cstr(gs.ferryTargetName)
+        s.train_source = _cstr(gs.trainSourceName)
+        s.train_target = _cstr(gs.trainTargetName)
+        # 挂车：SDK 给的是 10 槽数组，ETS2 实际最多 3 节（北欧多节挂车）。
+        # 旧版只读第 0 节 → 双挂/三挂车在插件眼里和单挂一样。这里统计真正
+        # attached 的槽位数，并取货损最大的那节（货损可能挂在不同节上）。
+        s.trailer_count = 0
+        s.trailer_licenses = ""
+        plates, worst_damage = [], 0.0
+        for slot in m.trailer.trailer:
+            try:
+                if not bool(slot.com_b.attached):
+                    continue
+            except Exception:               # noqa: BLE001
+                continue
+            s.trailer_count += 1
+            plate = _cstr(slot.con_s.licensePlate)
+            if plate:
+                plates.append(plate)
+            try:
+                worst_damage = max(worst_damage, float(slot.com_f.cargoDamage or 0.0))
+            except Exception:               # noqa: BLE001
+                pass
         tr = m.trailer.trailer[0]
         s.trailer_attached = bool(tr.com_b.attached)
-        s.trailer_cargo_damage = tr.com_f.cargoDamage
-        s.trailer_license = _cstr(tr.con_s.licensePlate)
+        s.trailer_cargo_damage = max(float(tr.com_f.cargoDamage or 0.0), worst_damage)
+        s.trailer_license = _cstr(tr.con_s.licensePlate) or (plates[0] if plates else "")
+        s.trailer_licenses = ",".join(plates)
         return s

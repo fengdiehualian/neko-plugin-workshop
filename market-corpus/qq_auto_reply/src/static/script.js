@@ -248,8 +248,8 @@ const pluginId = 'qq_auto_reply';
             document.getElementById('entity-nickname-group').style.display = isUser ? 'block' : 'none';
             const levelSelect = document.getElementById('entity-level');
             const options = isUser
-                ? [['admin', 'admin'], ['trusted', 'trusted'], ['normal', 'normal']]
-                : [['trusted', 'trusted'], ['open', 'open'], ['normal', 'normal']];
+                ? [['admin', 'admin'], ['trusted', 'trusted'], ['normal', 'normal'], ['blacklist', 'blacklist']]
+                : [['trusted', 'trusted'], ['normal', 'normal']];
             levelSelect.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
             levelSelect.value = String(item?.level || options[0][0]);
             // 概率字段已移除（旧版固定猫娘动态，概率不参与门控）；只保留昵称随级别显隐

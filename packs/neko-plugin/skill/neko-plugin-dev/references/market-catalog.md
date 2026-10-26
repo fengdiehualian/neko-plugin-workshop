@@ -427,6 +427,10 @@ async def do(self, target: str, **_):
 13. 用户可见文案走 i18n(至少中文);`config.example.toml` 覆盖所有可配置项
 14. `python -m plugin.neko_plugin_cli check <id>` 通过,无 error
 15. `build` 产物只含必要文件,单文件不超过 5MB
+16. 发布前置文件齐全:`.github/workflows/verify.yml`、`.github/workflows/release.yml`、`ruff.toml`(缺了 `neko-plugin publish` 直接停止);仓库名必须是 `n.e.k.o_plugin_<id>`
+17. 插件目录自身是 git 仓库(`.git/`),版本号每发一版都要换成没用过的新号
+
+**自检工具**:`python tools/plugin_conformance.py <插件目录>`(工坊仓库内)。17 条规则一次过一遍,error 清零再交付;加 `--json` 可给自动化用。
 
 ---
 

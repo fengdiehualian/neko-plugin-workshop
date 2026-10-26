@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
+# 连接器经 connector_seam 解析（宿主优先、回退插件内置副本），因此本文件在两种宿主上
+# 都能真跑，不再需要 importorskip 静默跳过。
+from plugin.plugins.qq_auto_reply import connector_seam as _qq_conn
 
-_qq_conn = pytest.importorskip("utils.connection.onebot")
 OneBotClient = _qq_conn.OneBotClient
 QQOpenPlatformConnection = _qq_conn.QQOpenPlatformConnection
+create_onebot_connection = _qq_conn.create_onebot_connection
 
 
 def _make_onebot_client() -> OneBotClient:
@@ -78,8 +80,6 @@ async def test_open_platform_connector_has_same_hook():
 def test_sink_attached_before_connect_via_factory():
     # The factory builds the concrete connection; a plugin sets the sink on it
     # after creation. Sanity: the returned object exposes set_inbound_sink.
-    from utils.connection.onebot import create_onebot_connection
-
     conn = create_onebot_connection({"qq_connection_mode": "napcat"})
     assert hasattr(conn, "set_inbound_sink")
     assert conn.inbound_sink is None

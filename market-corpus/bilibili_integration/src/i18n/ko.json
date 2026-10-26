@@ -203,5 +203,22 @@
   "ui.error.clear_failed": "지우기에 실패했습니다",
   "ui.error.invalid_uid": "숫자로 된 Bilibili UID를 입력하세요",
   "ui.error.add_failed": "추가에 실패했습니다",
-  "ui.error.remove_failed": "제거에 실패했습니다"
+  "ui.error.remove_failed": "제거에 실패했습니다",
+  "actions.publish_dynamic.label": "동적 게시",
+  "entries.publish_dynamic.name": "Bilibili 동적 게시",
+  "entries.publish_dynamic.description": "로그인한 계정으로 텍스트 또는 이미지 동적을 공개 게시합니다. 이미지는 최대 9장입니다",
+  "ui.dynamic.section": "게시",
+  "ui.dynamic.hint": "저장된 계정으로 공개 게시합니다. 수신을 시작할 필요가 없습니다. 텍스트는 최대 2000자, 이미지는 최대 9장이며 장당 10 MiB 이하입니다.",
+  "ui.dynamic.text": "게시 내용",
+  "ui.dynamic.files": "이미지 선택(선택 사항)",
+  "ui.dynamic.urls": "이미지 URL(선택 사항, 한 줄에 하나)",
+  "ui.dynamic.view": "게시된 동적 보기",
+  "ui.dynamic.success": "동적을 게시했습니다",
+  "ui.dynamic.invalid_input": "최대 2000자의 텍스트 또는 최대 9장의 이미지를 입력하세요. 이미지 URL은 HTTP(S)를 사용해야 합니다.",
+  "ui.dynamic.invalid_image": "올바른 PNG, JPEG, GIF 또는 WebP 이미지를 사용하세요.",
+  "ui.dynamic.image_too_large": "이미지는 비어 있지 않아야 하며 장당 10 MiB 이하여야 합니다.",
+  "ui.dynamic.not_configured": "먼저 Bilibili 로그인 정보를 저장하세요.",
+  "ui.dynamic.failed": "게시하지 못했습니다. 로그인 상태와 이미지 출처를 확인하세요.",
+  "ui.dynamic.uncertain": "게시 결과를 확인할 수 없습니다. 중복 게시를 피하려면 다시 게시하기 전에 Bilibili 동적 페이지를 확인하세요.",
+  "tools.publish_dynamic.description": "설정된 계정으로 Bilibili 동적을 공개 게시합니다. text는 일반 텍스트(최대 2000자)이며 images는 선택 사항으로 HTTP(S) URL 또는 Base64 이미지 데이터 URL을 최대 9개 지정할 수 있습니다. PNG, JPEG, GIF, WebP를 지원하며 장당 10 MiB 이하입니다. 텍스트나 이미지 중 하나 이상이 필요합니다. dynamic_id와 url을 반환합니다. 수신 시작은 필요하지 않습니다. 게시 결과가 불확실하면 자동으로 재시도하지 말고 먼저 Bilibili 동적 페이지를 확인하세요."
 }

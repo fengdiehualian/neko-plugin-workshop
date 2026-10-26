@@ -240,10 +240,35 @@ class QQSessionBootstrapService:
                 # 会摘掉 tools 逼出最终文本，召回结果不会白拿。
                 max_tool_iterations=1,
             )
+            # 接续摘要：上一次会话被回收时留下的"刚才聊到哪儿"，拼进这次会话的
+            # 启动上下文（用完即弃，见 session_handoff_service）。放在这里而不是
+            # 指令组装里，因为"新会话"只有这一个入口 —— 每个生成轮都会重建
+            # instructions（兜底路径也用），在那里注入会让同一段摘要在多轮里反复出现。
+            handoff = getattr(self.plugin, "session_handoff_service", None)
+            instructions = context.system_prompt
+            handoff_section = ""
+            if handoff is not None:
+                try:
+                    handoff_section = handoff.render_section(
+                        session_key, her_name=getattr(context, "her_name", None),
+                    )
+                except Exception as _handoff_err:  # noqa: BLE001
+                    self.plugin.logger.warning(f"[Handoff] 生成接续摘要段失败: {_handoff_err}")
+                    handoff_section = ""
+                if handoff_section:
+                    instructions = f"{instructions}\n\n{handoff_section}"
             await asyncio.wait_for(
-                user_session.connect(instructions=context.system_prompt),
+                user_session.connect(instructions=instructions),
                 timeout=self.plugin._ai_connect_timeout_seconds,
             )
+            if handoff is not None and handoff_section:
+                # 连上了**并且真的注入了**才消费：连不上会把整轮丢掉重试；而
+                # 没注入（换了角色 / 过期）时更要留着 —— 换回来它还是那个角色
+                # 自己的上下文。
+                try:
+                    handoff.consume(session_key)
+                except Exception as _consume_err:  # noqa: BLE001
+                    self.plugin.logger.warning(f"[Handoff] 消费接续摘要失败: {_consume_err}")
 
             created = {
                 "session": user_session,

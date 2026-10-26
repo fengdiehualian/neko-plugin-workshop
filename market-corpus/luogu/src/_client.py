@@ -1,15 +1,23 @@
 """Luogu HTTP client with JS-shell (C3VK) warm-up.
 
-Luogu guards its pages with a small JS validator: a bare ``GET /`` returns a
-``<script>`` shell that sets ``C3VK=<hex>`` (``window[document].cookie=...``).
-A request that carries ``C3VK`` then gets the real page plus an ``__client_id``
-cookie. This client reproduces that handshake and keeps a shared ``httpx`` pool
-across event-loop boundaries (mirrors ``web_search``'s ``_get_client``).
+Luogu guards its pages with a short-lived anti-bot token. Two ways to obtain it
+were measured against the live site (2026-09), and both are handled here:
+
+* ``GET /`` answers 200 with a 345-byte ``<script>`` shell that assigns
+  ``window[...].cookie = "C3VK=<hex>; path=/; max-age=300;"`` — ``warmup()``
+  reads that value out of the body and seeds it.
+* A content request sent *without* C3VK answers 302 back to itself plus
+  ``Set-Cookie: C3VK=<hex>; Max-Age=300``; because the pool follows redirects,
+  that hop is transparent and the retry returns the real page.
+
+The token is seeded on the exact host rather than on ``.luogu.com.cn``: the
+server's own ``Set-Cookie`` is host-only, so seeding on the parent domain left
+two C3VK cookies in the jar and httpx sent ``C3VK=a; C3VK=b``.
 
 Cookies are accumulated in a plain ``dict`` and re-injected whenever the pool is
 rebuilt, so session state survives the host's separate ``asyncio.run`` calls for
-startup / command-loop / shutdown. Login cookies are supplied at construction;
-the anonymous ``C3VK`` is always obtained live (it expires in ~5 minutes).
+startup / command-loop / shutdown. The transient C3VK is deliberately excluded
+from that dict — the live jar owns it, and every warm-up fetches a fresh value.
 """
 
 from __future__ import annotations
@@ -28,6 +36,11 @@ _UA = (
 )
 _C3VK_RE = re.compile(r"C3VK=([0-9a-f]+)")
 _CHALLENGE_RE = re.compile(r'window\[[^\]]*\]\.cookie="C3VK=')
+# The anti-bot token's cookie name, kept on the exact host and never copied into
+# the durable cookie dict (see _seed_c3vk / _absorb_cookies).
+_C3VK_COOKIE = "C3VK"
+# Host that owns the session; also the domain the server scopes C3VK to.
+_LUOGU_HOST = "www.luogu.com.cn"
 
 
 class LuoguBlockedError(RuntimeError):
@@ -68,9 +81,18 @@ def _absorb_cookies(target: dict[str, str], jar: httpx.Cookies, *, protected: se
     Luogu's anonymous C3VK shell round-trip issues ``_uid=0`` and a new
     ``__client_id``; those must not clobber the login cookies supplied at
     construction (the login session is what authenticates /record/list).
+
+    C3VK is skipped outright: it lives in the jar on the exact host, expires in
+    ~5 minutes, and is re-obtained by every warm-up — copying it here would make
+    a rebuilt pool re-seed a stale value.
     """
     for cookie in jar.jar:
-        if cookie.name and cookie.value and cookie.name not in protected:
+        if (
+            cookie.name
+            and cookie.value
+            and cookie.name not in protected
+            and cookie.name != _C3VK_COOKIE
+        ):
             target[cookie.name] = cookie.value
 
 
@@ -130,8 +152,7 @@ class LuoguClient:
         self._restore_login_cookies(client)
         c3vk = _extract_c3vk(resp.text)
         if c3vk:
-            client.cookies.set("C3VK", c3vk, domain=".luogu.com.cn", path="/")
-            self._cookies["C3VK"] = c3vk
+            self._seed_c3vk(client, c3vk)
             try:
                 redo = await client.get(_LUOGU_HOME, headers=_headers(referer=True))
                 self._restore_login_cookies(client)
@@ -142,6 +163,17 @@ class LuoguClient:
         self._c3vk = c3vk
         self._warmed_at = time.monotonic()
         return c3vk
+
+    def _seed_c3vk(self, client: httpx.AsyncClient, value: str) -> None:
+        """Install ``value`` as the session's single C3VK cookie.
+
+        Scoped to the exact host on purpose: the server's own C3VK ``Set-Cookie``
+        is host-only, so seeding on ``.luogu.com.cn`` (where the login cookies
+        live) left two entries in the jar and httpx sent ``C3VK=a; C3VK=b`` on
+        every request. With the same host/path/name, the server's next rotation
+        simply replaces ours instead of piling up beside it.
+        """
+        client.cookies.set(_C3VK_COOKIE, value, domain=_LUOGU_HOST, path="/")
 
     async def _throttle(self) -> None:
         now = time.monotonic()

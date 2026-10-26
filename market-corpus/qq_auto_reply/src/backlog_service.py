@@ -152,8 +152,13 @@ class QQBacklogService:
         detail["labels"] = self._label_payload()
         return detail
 
-    async def mark_group_reviewed_payload(self, group_id: str) -> dict[str, Any]:
-        state = await self.plugin.backlog_store.mark_group_reviewed(group_id)
+    async def mark_group_reviewed_payload(self, group_id: str, *, message_ids: set[str] | None = None) -> dict[str, Any]:
+        """标记已审并返回群摘要。
+
+        ``message_ids`` 为 None 时保留"整群全标"（手动入口与 relay 用）；
+        回溯补回传入本次消费掉的那批 ID，避免把超窗旧消息一起标掉。
+        """
+        state = await self.plugin.backlog_store.mark_group_reviewed(group_id, message_ids=message_ids)
         configured_groups = self.plugin.group_permission_mgr.list_groups() if self.plugin.group_permission_mgr else []
         summaries = QQSummaryBuilder.build_all_group_summaries(state, configured_groups=configured_groups)
         return {

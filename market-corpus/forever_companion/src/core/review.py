@@ -33,9 +33,11 @@ prompt 的素材块组装、模型回复的解析截断、篇目的追加与淘�
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from typing import Any
 
+from .journal import normalize_journal_title
 from .state import (
     _MOOD_ACTION_DEFAULT_LABELS,
     _REVIEW_AFFECT_SAMPLES_MAX,
@@ -237,8 +239,48 @@ def build_review_prompt(
     return f"{_REVIEW_COMPOSE_PROMPT}{material}"
 
 
+def parse_review_document(raw: str) -> JsonObject:
+    """解析同一次成文返回的标题与正文；旧模型的纯正文回复仍可保存。"""
+    text = str(raw or "").strip()
+    fenced = text.startswith("```")
+    if fenced:
+        lines = text.splitlines()
+        if len(lines) < 3 or lines[0].strip().lower() not in ("```", "```json") or lines[-1].strip() != "```":
+            return {}
+        text = "\n".join(lines[1:-1]).strip()
+    if not text or text.startswith("["):
+        return {}
+    start = text.find("{")
+    if start >= 0:
+        try:
+            document, _ = json.JSONDecoder().raw_decode(text[start:])
+        except (ValueError, RecursionError):
+            if fenced or text.startswith("{") or '"title"' in text[start:] or '"text"' in text[start:]:
+                return {}
+        else:
+            if isinstance(document, dict) and ("title" in document or "text" in document):
+                body = document.get("text")
+                if not isinstance(body, str) or not body.strip():
+                    return {}
+                return {
+                    "title": normalize_journal_title(document.get("title")),
+                    "text": body.strip()[:_REVIEW_ENTRY_MAX_CHARS],
+                }
+            if fenced or text.startswith("{"):
+                return {}
+    if fenced:
+        return {}
+    body = _parse_review_plain_text(text)
+    return {"title": "", "text": body} if body else {}
+
+
 def parse_review_response(raw: str) -> str:
-    """模型回复 → 评价正文：剥掉可能的首尾引号与解释文本，截断到记录上限。
+    """兼容原正文解析入口；标题由成文链路使用 parse_review_document 读取。"""
+    return str(parse_review_document(raw).get("text") or "")
+
+
+def _parse_review_plain_text(raw: str) -> str:
+    """旧纯正文回复：剥掉可能的首尾引号与解释文本，截断到记录上限。
 
     评价是自由正文（不是 JSON），容错从宽：剥包裹引号、去首尾空白、砍掉
     可能的"以下是…"前缀行；空回复返回空串（调用方按失败处理）。
@@ -321,7 +363,7 @@ def fabricate_demo_reviews(count: int = 4, *, now: datetime | None = None) -> li
     return pages
 
 
-def review_record(ts_iso: str, stats: JsonObject, text: str) -> JsonObject:
+def review_record(ts_iso: str, stats: JsonObject, text: str, *, title: str = "") -> JsonObject:
     """成文结果 → 我的日记篇目（含期间概要与素材快照，供卷宗页展示）。
 
     1.3.0 补上「本卷依据」：成文时素材（语气分布/心情均值/原话摘录）随正文
@@ -350,7 +392,7 @@ def review_record(ts_iso: str, stats: JsonObject, text: str) -> JsonObject:
         quote = str(item.get("quote") or "").strip()[:40]
         if quote:
             quotes.append({"kind": str(item.get("kind") or ""), "quote": quote})
-    return {
+    record = {
         "ts": ts_iso,
         "turns": int(stats.get("turns") or 0),
         # 期间概要：目录行显示"X 轮 · 起 ~ 止"用
@@ -364,6 +406,10 @@ def review_record(ts_iso: str, stats: JsonObject, text: str) -> JsonObject:
         "quotes": quotes,
         "text": str(text or "")[:_REVIEW_ENTRY_MAX_CHARS],
     }
+    heading = normalize_journal_title(title)
+    if heading:
+        record["title"] = heading
+    return record
 
 
 def append_review(

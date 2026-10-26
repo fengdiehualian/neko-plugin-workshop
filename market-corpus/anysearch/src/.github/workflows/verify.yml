@@ -1,0 +1,14 @@
+name: Plugin Market Verify
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    uses: Project-N-E-K-O/N.E.K.O/.github/workflows/plugin-market-verify.yml@main
+    with:
+      plugin-id: anysearch
+      neko-ref: main
+      neko-repository: Project-N-E-K-O/N.E.K.O

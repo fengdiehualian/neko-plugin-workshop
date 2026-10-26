@@ -1,0 +1,24 @@
+# Custom caller: the local reusable workflow materializes pinned BrowserSkill
+# release assets before invoking the standard N.E.K.O Market release checker.
+name: Release N.E.K.O Plugin
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/_market-build.yml
+    with:
+      plugin-id: browser_skill
+      neko-repository: Project-N-E-K-O/N.E.K.O
+      neko-ref: main
+      publish: true
+    secrets: inherit

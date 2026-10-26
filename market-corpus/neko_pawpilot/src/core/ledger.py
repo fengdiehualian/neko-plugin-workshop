@@ -51,14 +51,14 @@ class Ledger:
         return self.memory.query("ledger", f"month_{month}") or {}
 
     def render_summary(self) -> str:
-        """猫娘话术：本月账本。"""
+        """本月账本的**数据行**（供宿主/问答使用，不写死台词）。"""
         m = self.month_summary()
         if not m:
-            return "这个月还没跑单喵，先接一单吧~"
-        return (f"这个月跑了 {m.get('trips', 0)} 单喵：赚 {m.get('revenue', 0):.0f} €，"
+            return "本月还没有跑单记录"
+        return (f"本月跑了 {m.get('trips', 0)} 单：收入 {m.get('revenue', 0):.0f} €，"
                 f"油费 {m.get('fuel_cost', 0):.0f}，过路费 {m.get('tolls', 0):.0f}，"
                 f"罚款 {m.get('fines', 0):.0f}，修车 {m.get('repair', 0):.0f}，"
-                f"净赚 {m.get('net', 0):.0f} €~")
+                f"净赚 {m.get('net', 0):.0f} €")
 
 
 def _month_key() -> str:

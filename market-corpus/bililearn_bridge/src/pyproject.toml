@@ -1,11 +1,16 @@
 [project]
 name = "n.e.k.o_plugin_bililearn_bridge"
-version = "1.0.0"
-description = "让 N.E.K.O 猫娘桥接独立的 BiliLearn（B站 AI 学习机器人）程序"
+version = "2.0.2"
+description = "让 N.E.K.O 猫娘完整操控独立的 BiliLearn（B站 AI 学习机器人）程序"
 requires-python = ">=3.11"
-# 本插件仅使用 Python 标准库（subprocess / urllib / webbrowser / asyncio），
+# 本插件仅使用 Python 标准库（subprocess / urllib / http.cookiejar / webbrowser / asyncio），
 # 不依赖任何第三方包，因此 dependencies 为空，也不需要 vendor/ 目录。
 dependencies = []
 
 [project.readme]
 file = "README.md"
+
+# assets/ 里随包附带 BiliLearn 安装包（约 100MB），刻意不做排除：
+# 市场包也带它，装完插件即可离线开箱即用，无需联网下载。
+# 已核对 N.E.K.O 打包门禁：单成员上限 256MiB、总上限 1GiB、压缩比 200:1，
+# 102MB 的 zip 均在限额内（见 neko/plugin/neko_plugin_cli/core/archive_utils.py）。

@@ -203,5 +203,22 @@
   "ui.error.clear_failed": "清除失败",
   "ui.error.invalid_uid": "请输入纯数字 B站 UID",
   "ui.error.add_failed": "添加失败",
-  "ui.error.remove_failed": "移除失败"
+  "ui.error.remove_failed": "移除失败",
+  "actions.publish_dynamic.label": "发布动态",
+  "entries.publish_dynamic.name": "发布 B站动态",
+  "entries.publish_dynamic.description": "使用当前登录账号发布公开的文字或图文动态，最多 9 张图片",
+  "ui.dynamic.section": "发布",
+  "ui.dynamic.hint": "使用已保存的登录账号公开发布，无需开启监听。文字最多 2000 字，图片最多 9 张、每张 10 MiB。",
+  "ui.dynamic.text": "动态内容",
+  "ui.dynamic.files": "选择图片（可选）",
+  "ui.dynamic.urls": "图片 URL（可选，每行一个）",
+  "ui.dynamic.view": "查看已发布的动态",
+  "ui.dynamic.success": "动态已发布",
+  "ui.dynamic.invalid_input": "请输入最多 2000 字的内容，或添加最多 9 张图片；图片链接必须使用 HTTP(S)。",
+  "ui.dynamic.invalid_image": "请使用有效的 PNG、JPEG、GIF 或 WebP 图片。",
+  "ui.dynamic.image_too_large": "图片不能为空，每张最多 10 MiB。",
+  "ui.dynamic.not_configured": "请先保存 B站登录凭据。",
+  "ui.dynamic.failed": "动态发布失败，请检查登录状态与图片来源。",
+  "ui.dynamic.uncertain": "暂时无法确认发布结果，请先查看 B站动态页，确认后再发布，避免重复。",
+  "tools.publish_dynamic.description": "使用已配置账号发布公开的 B站动态。text 为普通文本（最多 2000 字）；images 为可选图片列表，最多 9 个 HTTP(S) URL 或 Base64 图片数据 URL，支持 PNG、JPEG、GIF、WebP，每张最多 10 MiB。文字或图片至少提供一项。返回 dynamic_id 和 url。无需开启监听。发布结果不确定时，不要自动重试，应先检查 B站动态页。"
 }

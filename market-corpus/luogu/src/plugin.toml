@@ -5,7 +5,7 @@ name = "洛谷"
 description = "面向算法竞赛刷题的个性化成长助手：基于洛谷登录用户的提交记录做成长分析（AC/通过率、薄弱与未涉及的算法标签），每天生成针对性题单，并给出点到为止的解题思路提示（不含代码），兼具查题/详情/比赛/用户公开资料等基础查询。成为OIer吧！"
 short_description = "个性化刷题成长：提交分析、成长报告、每日题单、思路提示。"
 keywords = ["洛谷", "luogu", "OJ", "刷题", "题单", "算法竞赛", "OI", "acm", "成长", "每日题单", "思路提示"]
-version = "0.1.0"
+version = "0.2.0"
 entry = "plugin.plugins.luogu:LuoguPlugin"
 
 [plugin.author]
@@ -33,6 +33,16 @@ mode = "static"
 context = "credentials"
 permissions = ["state:read", "config:read", "action:call"]
 
+# 第二个面板：刷题热力图。它的 context 只读缓存（UI context 提供者的预算约 5 秒），
+# 重算提交记录抓取放在 refresh_heatmap action 里。
+[[plugin.ui.panel]]
+id = "heatmap"
+title = "洛谷 · 刷题热力图"
+entry = "static/heatmap.html"
+mode = "static"
+context = "heatmap"
+permissions = ["state:read", "config:read", "action:call"]
+
 [plugin_runtime]
 enabled = true
 auto_start = true
@@ -48,6 +58,11 @@ retry_attempts = 2
 cookie_ttl_seconds = 240        # C3VK ~5 分钟过期，提前到 240s 预热
 default_user = ""               # 未指定 uid 时默认查询的用户（登录态下自动取登录者）
 
+# 洛谷提交列表带难度但**不含标签**，逐题回填难度/标签并缓存到插件 store
+backfill_enabled = true
+backfill_max_per_run = 12       # 每次最多回填多少题（客户端约 1 请求/秒）
+backfill_backoff_seconds = 300  # 单题抓取失败后的重试间隔
+
 # --- 每日题单 / 成长策略 ---
 daily_push_enabled = false
 daily_push_time = "08:00"
@@ -56,6 +71,14 @@ daily_problem_count = 3
 daily_difficulty_min = 2
 daily_difficulty_max = 5
 weak_attempt_threshold = 3      # 尝试 >= 此值仍未 AC 视为薄弱标签
+ability_window_days = 60        # 能力档位估算的统计窗口天数
+trend_weeks = 12                # 成长报告里的周趋势周数
+
+# --- 每日题单冷却 / 复习库 ---
+daily_cooldown_days = 14        # 最严冷却天数，阶梯按折半放宽：14→7→3→1→0
+daily_use_ability_band = true   # 难度区间优先取能力档位，而非固定 2..5
+daily_band_below = 1            # 能力档位向下放宽几档
+daily_band_above = 2            # 能力档位向上放宽几档（练习向上够，所以更大）
 
 # --- 要链接的推送插件（运行时逐个 call_entry，留空则跳过） ---
 # 示例：把今日题单主动发到 QQ 群。需先启用 qq_auto_reply 插件。

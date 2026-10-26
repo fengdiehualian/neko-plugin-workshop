@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.DS_Store
+data/
+config.json
+sync_to_neko.sh
+.pytest_cache/
+store.db

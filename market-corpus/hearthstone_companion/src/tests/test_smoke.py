@@ -25,15 +25,15 @@ def test_smoke_parse_fixture_into_public_snapshot() -> None:
     assert "111" not in repr(public)
 
 
-def test_smoke_default_config_is_privacy_preserving() -> None:
+def test_smoke_default_config_enables_questions_and_commentary() -> None:
     config = CompanionConfig()
 
     assert config.monitor_on_start is True
-    assert config.llm_commentary_enabled is False
-    assert config.llm_data_consent is False
+    assert config.llm_do_not_disturb is False
+    assert config.llm_data_consent is True
 
 
-def test_manifest_is_passive_so_admin_entries_do_not_enter_agent_routing() -> None:
+def test_manifest_keeps_live_query_entries_available_to_agent_routing() -> None:
     manifest = tomllib.loads((Path(__file__).parents[1] / "plugin.toml").read_text(encoding="utf-8"))
 
-    assert manifest["plugin"]["passive"] is True
+    assert manifest["plugin"]["passive"] is False

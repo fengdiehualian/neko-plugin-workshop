@@ -6,9 +6,10 @@ import {
 } from "@neko/plugin-ui"
 import { useConfirm, useEffect, useLocalState, useRef, useState, useToast } from "@neko/plugin-ui"
 import type { HostedAction, PluginSurfaceProps } from "@neko/plugin-ui"
-import type { Appearance, FormValues, GalleryItem, Settings, State } from "./types"
+import type { Appearance, FormValues, GalleryItem, MediaStorage, Settings, State } from "./types"
 import {
   DATE_RE,
+  appearanceEquals,
   appearanceVars,
   bgLayerStyle,
   compressImageDataUrl,
@@ -16,6 +17,9 @@ import {
   settingsToForm,
 } from "./utils"
 import { PANEL_STYLES } from "./styles"
+import { CAPDEMO_STYLES } from "./styles_capdemo"
+import { DEFAULT_THEME_COLORS, readWallpaperTheme, themeColorVars } from "./theme"
+import type { ThemeColors } from "./theme"
 import { StatusBar } from "./statusbar"
 import { OverviewPane } from "./overview"
 import { CalendarPane } from "./calendar"
@@ -27,13 +31,26 @@ import { ChannelSettingsCard } from "./settings_tone"
 import { DiarySettingsCard } from "./settings_diary"
 import { SaveBar } from "./savebar"
 import { ManagePane } from "./manage"
+import { BackupPanel } from "./backup"
 import { FeaturesPane } from "./features"
 import { OnboardingWizard } from "./onboarding"
 import { DiaryPane } from "./diary"
 import { MomentPane } from "./moment"
 import { AppearanceCard } from "./appearance"
+import {
+  BackgroundVideo,
+  cancelMediaTask,
+  downloadGalleryVideo,
+  readMediaStorage,
+  uploadVideoFile,
+  MEDIA_CLEANUP_TIMEOUT_MS,
+  MEDIA_REQUEST_TIMEOUT_MS,
+  VIDEO_MAX_BYTES,
+  VIDEO_HARD_MAX_BYTES,
+} from "./media"
+import type { GalleryMedia, MediaTask } from "./media"
 import type { DiaryItem, JournalPage, Heatmap, MonthReport, ReviewEntry, ReviewProgress } from "./types"
-import { unwrapCallResult, errorText } from "./utils"
+import { unwrapCallResult, errorText, diaryWriteError } from "./utils"
 
 export default function Panel(props: PluginSurfaceProps<State>) {
   const { actions, state, t } = props
@@ -66,17 +83,57 @@ export default function Panel(props: PluginSurfaceProps<State>) {
   // 首次向导（1.2.6）：本会话关闭闸门——服务端 wizard_pending 要等下一次 5s
   // 轮询才翻转，关闭后到翻转前的窗口全靠这个本地闸不重现
   const [wizardClosed, setWizardClosed] = useState(false)
+  const [backupRevision, setBackupRevision] = useState(0)
+  const [recordsRevision, setRecordsRevision] = useState(0)
+  const resetLock = useRef(false)
+  const [resetting, setResetting] = useState(false)
+  const statsGeneration = useRef(0)
   const [form, setForm] = useState<FormValues>(settingsToForm({}))
   // 面板外观（1.2.0）：图库索引/外观参数（saved=生效、draft=实时预览）按需拉取；
   // 图片本体逐条缓存（imgCache），绝不进 5s 轮询载荷
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([])
+  const [mediaStorage, setMediaStorage] = useState<MediaStorage | null>(null)
+  const galleryItemsRef = useRef(galleryItems)
+  galleryItemsRef.current = galleryItems
   const [savedAp, setSavedAp] = useState<Appearance>(normAppearance(null))
   const [draftAp, setDraftAp] = useState<Appearance>(normAppearance(null))
   const [imgCache, setImgCache] = useState<Record<string, string>>({})
-  const imgInflight = useRef<Record<string, boolean>>({})
+  const [readyBg, setReadyBg] = useState<{ id: string; dataUrl: string; theme: ThemeColors | null; media?: GalleryMedia }>({ id: "", dataUrl: "", theme: null })
+  const readyBgRef = useRef(readyBg)
+  const previousReadyBg = useRef<typeof readyBg | null>(null)
+  readyBgRef.current = readyBg
+  const videoCache = useRef<Record<string, GalleryMedia>>({})
+  const pendingUploadedVideo = useRef("")
+  const selectedBgId = useRef(draftAp.bg_id)
+  selectedBgId.current = draftAp.bg_id
+  const [reducedMotion, setReducedMotion] = useState(() => typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+  const playbackRequested = useRef(true)
+  playbackRequested.current = draftAp.motion && !reducedMotion
+  const [backgroundError, setBackgroundError] = useState("")
+  const [backgroundProgress, setBackgroundProgress] = useState<{ id: string; value: number; stage: string } | null>(null)
+  const [videoProgress, setVideoProgress] = useState<{ value: number; stage: string } | null>(null)
+  const uploadTask = useRef<MediaTask | null>(null)
+  const uploadFinished = useRef<Promise<void> | null>(null)
+  const mediaClearing = useRef(false)
+  const panelAlive = useRef(true)
+  const themeCache = useRef<Record<string, { dataUrl: string; theme: ThemeColors }>>({})
+  const imgInflight = useRef<Record<string, MediaTask>>({})
   const thumbTried = useRef<Record<string, boolean>>({})
-  const [apSaving, setApSaving] = useState(false)
+  const mediaGeneration = useRef(0)
+  const gallerySnapshotRevision = useRef(0)
+  const [mediaReset, setMediaReset] = useState(0)
   const [apBusy, setApBusy] = useState(false)
+  // 设置页那枚「保存设置」在飞标记：它一趟按两摊（设置 + 外观），连点会重复写盘
+  const [savingAll, setSavingAll] = useState(false)
+  const [journalSubmitting, setJournalSubmitting] = useState(false)
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [moodEnding, setMoodEnding] = useState(false)
+  const moodEndLock = useRef(false)
+  const currentMoodRef = useRef({ lanlan: state.lanlan, startedAt: mood.started_at })
+  currentMoodRef.current = { lanlan: state.lanlan, startedAt: mood.started_at }
+  const journalSubmitLock = useRef(false)
+  const reviewSubmitLock = useRef(false)
   // 时光页：相处统计的热力图/月报数据量大，进页时按需拉取（不随 5s 轮询）；
   // 切角色时清掉旧数据等下次进页重拉
   const [heatData, setHeatData] = useState<Heatmap | null>(null)
@@ -87,13 +144,41 @@ export default function Panel(props: PluginSurfaceProps<State>) {
   // 与总开关/其它页设置同帧一致；本页只留"操作在飞"禁用态防连点
   const [capsBusyId, setCapsBusyId] = useState("")
 
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const change = () => setReducedMotion(query.matches)
+    if (query.addEventListener) query.addEventListener("change", change)
+    else query.addListener(change)
+    return () => {
+      if (query.removeEventListener) query.removeEventListener("change", change)
+      else query.removeListener(change)
+    }
+  }, [])
+
   function updateForm(patch: Partial<FormValues>) {
     setForm((prev) => ({ ...prev, ...patch }))
   }
 
+  // 已落盘基线（1.3.3 修订轮）：保存时只提交与它不同的字段。旧做法是把整张表单回写
+  // `update_settings`，于是用户从没碰过的下拉也会进 Store 覆盖层——而覆盖层优先于
+  // plugin.toml（mixins/shards.py 的"面板保存过的全局字段优先于 toml 默认"），此后
+  // 插件再怎么改出厂默认都追不到这份存档上。2026-09-22 实机就卡在这：碎片出厂默认
+  // 从 host 改成 custom，老存档里躺着的那份 host 把它压了一整天。
+  const formBaseline = useRef<FormValues>(settingsToForm({}))
+
+  // 表单与服务端快照同步的唯一入口：回填表单的同时把基线挪到同一份值上，
+  // 两者任何时候都同源，"改没改过"才算得出真话
+  function syncForm(next: Settings) {
+    const values = settingsToForm(next)
+    formBaseline.current = values
+    setForm(values)
+  }
+
   useEffect(() => {
-    setForm(settingsToForm(settings))
+    syncForm(settings)
   }, [
+    backupRevision,
     settings.auto_derive,
     settings.cycle_length,
     settings.period_length,
@@ -106,91 +191,313 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     settings.mood_enabled,
     settings.default_action_minutes,
     settings.emotion_sense_enabled,
+    settings.tone_min_interval_sec,
     settings.tone_check_rate,
     settings.tone_phase_sensitivity_enabled,
     settings.tone_phase_sensitivity,
     settings.tone_slot,
     settings.fragments_enabled,
     settings.fragments_slot,
+    settings.fragments_mode,
     settings.review_enabled,
     settings.review_slot,
+    settings.review_mode,
     settings.review_turns_threshold,
     settings.review_days_threshold,
+    settings.agent_daily_budget,
     (settings as Record<string, any>).anniversary_inject,
   ])
 
   // 面板打开期间周期性同步 context：宿主切换角色后自动跟上，情绪状态/阶段等外部变化
   // （入口点触发、tick 到期、对话中的 LLM 工具调用）无需重进面板即可看到
   useEffect(() => {
-    const timer = setInterval(() => {
-      try {
-        props.api.refresh()
-      } catch {
-        // 轮询失败静默忽略，下个周期重试
-      }
-    }, 5000)
-    return () => clearInterval(timer)
+    let alive = true
+    let refreshing = false
+    const refresh = () => {
+      if (!alive || document.hidden || refreshing) return
+      refreshing = true
+      Promise.resolve().then(() => props.api.refresh()).catch(() => {}).finally(() => { refreshing = false })
+    }
+    const timer = setInterval(refresh, 5000)
+    document.addEventListener("visibilitychange", refresh)
+    return () => {
+      alive = false
+      clearInterval(timer)
+      document.removeEventListener("visibilitychange", refresh)
+    }
   }, [])
 
   // 外观（1.2.0）：面板打开时拉一次图库索引 + 已存参数（图片本体不进轮询）；
   // 旧版单图背景在后端入口内自动迁移进图库。拉取失败按默认外观处理，不弹错
   useEffect(() => {
     let alive = true
-    Promise.resolve(props.api.call("get_panel_gallery", {}))
+    panelAlive.current = true
+    const generation = mediaGeneration.current
+    const revision = gallerySnapshotRevision.current
+    const controller = new AbortController()
+    Promise.resolve(props.api.call("get_panel_gallery", {
+      include_background: true, prefer_direct: !reducedMotion,
+    }, {
+      timeoutMs: MEDIA_REQUEST_TIMEOUT_MS, signal: controller.signal,
+    }))
       .then((payload) => {
-        if (!alive) return
+        if (!alive || mediaGeneration.current !== generation || gallerySnapshotRevision.current !== revision) return
         const r = (unwrapCallResult(payload) || {}) as Record<string, any>
         const items = Array.isArray(r.items) ? (r.items as GalleryItem[]) : []
         const ap = normAppearance(r.appearance)
         setGalleryItems(items)
+        try {
+          setMediaStorage(readMediaStorage(r.media_storage))
+        } catch {
+          setMediaStorage(null)
+        }
         setSavedAp(ap)
         setDraftAp(ap)
+        playbackRequested.current = ap.motion && !reducedMotion
         if (ap.bg_id) {
-          loadImage(ap.bg_id)
+          loadImage(ap.bg_id, false, r.background?.id === ap.bg_id ? r.background.media : undefined)
         }
       })
       .catch(() => {
-        console.warn("[forever_companion] load panel gallery failed")
+        if (alive && mediaGeneration.current === generation && gallerySnapshotRevision.current === revision) console.warn("[forever_companion] load panel gallery failed")
       })
-    return () => { alive = false }
+    return () => {
+      alive = false
+      controller.abort()
+      panelAlive.current = false
+      if (uploadTask.current) cancelMediaTask(uploadTask.current)
+      mediaGeneration.current += 1
+      for (const id of Object.keys(imgInflight.current)) cancelMediaTask(imgInflight.current[id])
+      imgInflight.current = {}
+      for (const id of Object.keys(videoCache.current)) {
+        if (videoCache.current[id].url) URL.revokeObjectURL(videoCache.current[id].url)
+      }
+      videoCache.current = {}
+      pendingUploadedVideo.current = ""
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [backupRevision])
 
   // 图片本体按需拉取（带在途去重）：选中某张壁纸时若没缓存就拉
-  function loadImage(id: string) {
+  function loadImage(id: string, forceBlob = false, initialMedia?: Record<string, any>) {
     if (!id) return
-    if (imgCache[id] || imgInflight.current[id]) return
-    imgInflight.current[id] = true
-    Promise.resolve(props.api.call("get_gallery_image", { item_id: id }))
-      .then((payload) => {
+    if (imgInflight.current[id]) return
+    const cachedVideo = videoCache.current[id]
+    if (!forceBlob && imgCache[id] && (!cachedVideo || cachedVideo.url || !playbackRequested.current)) return
+    const request: MediaTask = { cancelled: false, controller: new AbortController() }
+    const generation = mediaGeneration.current
+    imgInflight.current[id] = request
+    setBackgroundError("")
+    setBackgroundProgress({ id, value: 0, stage: "preparing" })
+    Promise.resolve(initialMedia || props.api.call(
+      "get_gallery_image",
+      { item_id: id, prefer_direct: !forceBlob && playbackRequested.current && !!props.host?.origin },
+      { timeoutMs: MEDIA_REQUEST_TIMEOUT_MS, signal: request.controller?.signal },
+    ))
+      .then(async (payload) => {
+        if (imgInflight.current[id] !== request) return
+        if (mediaGeneration.current !== generation) return
         const r = (unwrapCallResult(payload) || {}) as Record<string, any>
+        if (r.kind === "video") {
+          if (typeof r.poster !== "string" || r.poster.length > 1000000
+            || !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(r.poster)) throw new Error("video_read_failed")
+          let media: GalleryMedia = { kind: "video", url: "", poster: String(r.poster || "") }
+          videoCache.current[id] = { ...media, loading: playbackRequested.current }
+          if (!readyBgRef.current.dataUrl || readyBgRef.current.id === id) {
+            setImgCache((prev) => ({ ...prev, [id]: media.poster }))
+          }
+          if (playbackRequested.current) {
+            try {
+              media = await downloadGalleryVideo(props.api.call, id, r, request, (value) => {
+                if (!request.cancelled && mediaGeneration.current === generation && imgInflight.current[id] === request) {
+                  setBackgroundProgress({ id, value, stage: "downloading" })
+                }
+              }, forceBlob ? undefined : props.host?.origin)
+            } catch (error) {
+              if (request.cancelled) return
+              if (readyBgRef.current.dataUrl && readyBgRef.current.id !== id) throw error
+              media.error = errorText(error, t)
+            }
+          }
+          if (request.cancelled || mediaGeneration.current !== generation || imgInflight.current[id] !== request) {
+            if (media.url) URL.revokeObjectURL(media.url)
+            return
+          }
+          const previous = videoCache.current[id]
+          if (previous?.url && previous.url !== media.url) URL.revokeObjectURL(previous.url)
+          videoCache.current[id] = media
+          if (media.url) setBackgroundProgress({ id, value: 100, stage: "preparing" })
+          else {
+            setBackgroundError(media.error || "")
+            setBackgroundProgress((current) => current?.id === id ? null : current)
+            setReadyBg((current) => current.id === id ? { ...current, media } : current)
+          }
+          setImgCache((prev) => ({ ...prev, [id]: media.url || media.poster }))
+          return
+        }
         if (r && typeof r.data_url === "string" && r.data_url) {
+          setBackgroundProgress((current) => current?.id === id ? null : current)
           setImgCache((prev) => ({ ...prev, [id]: r.data_url }))
         }
       })
-      .catch(() => { console.warn("[forever_companion] load gallery image failed") })
-      .finally(() => { imgInflight.current[id] = false })
+      .catch((err) => {
+        if (request.cancelled || mediaGeneration.current !== generation || imgInflight.current[id] !== request) return
+        const message = errorText(err, t)
+        const item = galleryItemsRef.current.find((entry) => entry.id === id)
+        const thumb = String(item?.thumb || "")
+        if (!readyBgRef.current.dataUrl && item?.kind === "video" && thumb.length <= 400000
+          && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(thumb)) {
+          videoCache.current[id] = { kind: "video", url: "", poster: thumb, error: message }
+          setImgCache((prev) => ({ ...prev, [id]: thumb }))
+        }
+        setBackgroundError(message)
+        setBackgroundProgress((current) => current?.id === id ? null : current)
+      })
+      .finally(() => {
+        if (imgInflight.current[id] === request) delete imgInflight.current[id]
+        if (request.cancelled) setBackgroundProgress((current) => current?.id === id ? null : current)
+      })
   }
 
   // draft 指向的图若未缓存则补拉（切换/新加入库时）
   useEffect(() => {
+    // Switching cancels the old download before the next chunk is requested.
+    if (readyBgRef.current.media?.loading && previousReadyBg.current && readyBgRef.current.id !== draftAp.bg_id) {
+      setReadyBg(previousReadyBg.current)
+      previousReadyBg.current = null
+    }
+    for (const id of Object.keys(imgInflight.current)) {
+      if (id !== draftAp.bg_id || (!playbackRequested.current && galleryItems.some((item) => item.id === id && item.kind === "video"))) {
+        cancelMediaTask(imgInflight.current[id])
+        delete imgInflight.current[id]
+      }
+    }
     loadImage(draftAp.bg_id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftAp.bg_id])
+  }, [draftAp.bg_id, draftAp.motion, reducedMotion])
+
+  // 新壁纸准备好才替换；切换期间保留旧图，取消/删除会使迟到的解码失效。
+  const requestedBgUrl = draftAp.bg_id ? (imgCache[draftAp.bg_id] || "") : ""
+  useEffect(() => {
+    if (!draftAp.bg_id) {
+      previousReadyBg.current = null
+      setReadyBg({ id: "", dataUrl: "", theme: null })
+      setBackgroundError("")
+      setBackgroundProgress(null)
+      return
+    }
+    if (!requestedBgUrl) return
+    let alive = true
+    const generation = mediaGeneration.current
+    const media = videoCache.current[draftAp.bg_id]
+    const themeSource = media ? media.poster : requestedBgUrl
+    const image = new Image()
+    const ready = () => {
+      if (!alive || mediaGeneration.current !== generation) return
+      const latestMedia = videoCache.current[draftAp.bg_id]
+      const currentMedia = latestMedia && latestMedia.url === media?.url ? latestMedia : media
+      const cached = themeCache.current[draftAp.bg_id]
+      const theme = cached?.dataUrl === themeSource ? cached.theme : readWallpaperTheme(image)
+      themeCache.current[draftAp.bg_id] = { dataUrl: themeSource, theme }
+      const previous = readyBgRef.current
+      if (currentMedia?.url && previous.dataUrl && previous.id !== draftAp.bg_id && !previous.media?.loading) {
+        previousReadyBg.current = previous
+      } else if (!currentMedia?.loading && !currentMedia?.url) previousReadyBg.current = null
+      // 壁纸和配色同帧切换，草稿还原和迟到解码共享同一个生命周期。
+      setReadyBg({ id: draftAp.bg_id, dataUrl: themeSource, theme,
+        media: currentMedia?.url ? { ...currentMedia, loading: true } : currentMedia })
+      setBackgroundError(currentMedia?.error || "")
+      if (currentMedia?.url) setBackgroundProgress({ id: draftAp.bg_id, value: 100, stage: "preparing" })
+      else if (!currentMedia?.loading) setBackgroundProgress((current) => current?.id === draftAp.bg_id ? null : current)
+    }
+    image.onload = () => {
+      const prepare = async () => {
+        if (image.decode) await image.decode()
+        if (!alive || mediaGeneration.current !== generation) return
+        ready()
+      }
+      prepare().catch((err) => {
+        if (!alive || mediaGeneration.current !== generation) return
+        setBackgroundError(errorText(media ? err : "wallpaper_image_decode_failed", t))
+        setBackgroundProgress((current) => current?.id === draftAp.bg_id ? null : current)
+        // A usable poster remains a truthful fallback if playback fails.
+        if (media && !readyBgRef.current.dataUrl) {
+          setReadyBg({ id: draftAp.bg_id, dataUrl: themeSource, theme: readWallpaperTheme(image), media: { ...media, url: "" } })
+        }
+      })
+    }
+    image.onerror = () => {
+      if (alive && mediaGeneration.current === generation) {
+        setBackgroundError(errorText("wallpaper_image_decode_failed", t))
+        setBackgroundProgress((current) => current?.id === draftAp.bg_id ? null : current)
+      }
+    }
+    if (themeCache.current[draftAp.bg_id]?.dataUrl === themeSource) ready()
+    else image.src = themeSource
+    return () => {
+      alive = false
+      image.onload = image.onerror = null
+    }
+  }, [draftAp.bg_id, requestedBgUrl])
+
+  function backgroundPlaybackError(id: string, media: GalleryMedia) {
+    if (!panelAlive.current || readyBgRef.current.id !== id || readyBgRef.current.media?.url !== media.url) return
+    if (media.direct && selectedBgId.current === id) {
+      // A cache eviction or an older host can fail after the initial probe.
+      // Recover once via the established Blob path for this displayed item.
+      setReadyBg((current) => current.id === id ? { ...current, media: { ...media, url: "", direct: false, loading: true } } : current)
+      loadImage(id, true)
+    } else {
+      const previous = previousReadyBg.current
+      previousReadyBg.current = null
+      if (previous && previous.id !== id && galleryItemsRef.current.some((item) => item.id === previous.id)) {
+        setReadyBg(previous)
+      } else if (media.loading) setReadyBg((current) => current.id === id ? { ...current, media: { ...media, url: "", loading: false } } : current)
+      setBackgroundProgress((current) => current?.id === id ? null : current)
+      setBackgroundError(errorText("wallpaper_video_play_failed", t))
+    }
+  }
+
+  function backgroundPlaybackReady(id: string, media: GalleryMedia) {
+    if (!panelAlive.current || mediaClearing.current || readyBgRef.current.id !== id || readyBgRef.current.media?.url !== media.url) return
+    previousReadyBg.current = null
+    setReadyBg((current) => current.id === id && current.media?.url === media.url
+      ? { ...current, media: { ...media, loading: false } } : current)
+    setBackgroundProgress((current) => current?.id === id ? null : current)
+  }
+
+  // Keep at most the displayed video and the pending selection in memory.
+  useEffect(() => {
+    for (const id of Object.keys(videoCache.current)) {
+      if (id === readyBg.id || id === draftAp.bg_id || id === previousReadyBg.current?.id || id === pendingUploadedVideo.current) continue
+      if (videoCache.current[id].url) URL.revokeObjectURL(videoCache.current[id].url)
+      delete videoCache.current[id]
+      setImgCache((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
+    }
+  }, [readyBg.id, readyBg.media?.loading, draftAp.bg_id])
 
   // 缺缩略图的在用图（如旧版迁移来的 legacy）：拿到本体后本地画一张回填
   useEffect(() => {
     const current = savedAp.bg_id
     const item = galleryItems.find((it) => (it.id || "") === current)
-    if (!current || !item || item.thumb || thumbTried.current[current]) return
+    if (!current || !item || item.kind === "video" || item.thumb || thumbTried.current[current]) return
     const dataUrl = imgCache[current]
     if (!dataUrl) return
     thumbTried.current[current] = true
+    const generation = mediaGeneration.current
     compressImageDataUrl(dataUrl, item.mime || "image/png", "raw")
       .then((res) => {
-        if (res.thumb) {
-          props.api.call("gallery_set_thumb", { item_id: current, thumb: res.thumb })
-            .then(() => { setGalleryItems((prev) => prev.map((it) => ((it.id || "") === current ? { ...it, thumb: res.thumb } : it))) })
+        if (res.thumb && panelAlive.current && mediaGeneration.current === generation) {
+          props.api.call(
+            "gallery_set_thumb",
+            { item_id: current, thumb: res.thumb },
+            { timeoutMs: MEDIA_REQUEST_TIMEOUT_MS },
+          )
+            .then(() => { if (panelAlive.current && mediaGeneration.current === generation) setGalleryItems((prev) => prev.map((it) => ((it.id || "") === current ? { ...it, thumb: res.thumb } : it))) })
             .catch(() => {})
         }
       })
@@ -198,39 +505,55 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [galleryItems, imgCache, savedAp.bg_id])
 
-  function onDraftChange(patch: Record<string, string | number>) {
+  function onDraftChange(patch: Record<string, string | number | boolean>) {
+    if (typeof patch.bg_id === "string" && pendingUploadedVideo.current) {
+      const pending = pendingUploadedVideo.current
+      pendingUploadedVideo.current = ""
+      if (patch.bg_id !== pending && pending !== readyBgRef.current.id && pending !== selectedBgId.current) {
+        if (videoCache.current[pending]?.url) URL.revokeObjectURL(videoCache.current[pending].url)
+        delete videoCache.current[pending]
+        delete themeCache.current[pending]
+        setImgCache((prev) => {
+          const next = { ...prev }
+          delete next[pending]
+          return next
+        })
+      }
+    }
     setDraftAp((prev) => normAppearance(Object.assign({}, prev, patch)))
   }
 
-  // 外观保存：整包 draft 参数发后端（悬空 bg_id 会被后端静默解除），回填归一结果
-  async function saveAppearance() {
+  // 外观落盘：整包 draft 参数发后端（悬空 bg_id 会被后端静默解除），回填归一结果。
+  // 只发不弹——成功与否由调用方（设置页的统一保存）汇成一条反馈
+  async function postAppearanceDraft() {
     const next = draftAp
-    setApSaving(true)
-    try {
-      const payload = unwrapCallResult(await props.api.call("set_panel_appearance", {
-        bg_id: next.bg_id, fill: next.fill, position: next.position,
-        blur: next.blur, dim: next.dim, brightness: next.brightness,
-        saturate: next.saturate, contrast: next.contrast, glass: next.glass,
-        card_alpha: next.card_alpha, text_weight: next.text_weight,
-      }))
-      const r = (payload || {}) as Record<string, any>
-      const ap = normAppearance(r.appearance || next)
-      setSavedAp(ap)
-      setDraftAp(ap)
-      toast.success(t("panel.appearance.applied", { defaultValue: "背景已更新" }))
-    } catch (err) {
-      toast.error(errorText(err, t))
-    } finally {
-      setApSaving(false)
-    }
+    const payload = unwrapCallResult(await props.api.call("set_panel_appearance", {
+      bg_id: next.bg_id, fill: next.fill, position: next.position,
+      blur: next.blur, dim: next.dim, brightness: next.brightness,
+      saturate: next.saturate, contrast: next.contrast, glass: next.glass,
+      card_alpha: next.card_alpha, text_weight: next.text_weight,
+      motion: next.motion,
+    }))
+    const r = (payload || {}) as Record<string, any>
+    const ap = normAppearance(r.appearance || next)
+    setSavedAp(ap)
+    setDraftAp(ap)
   }
 
   // 导入：面板侧已压好并生成缩略图；入册即时生效但不自动选为壁纸（选图走 draft+保存）
   async function addImage(dataUrl: string, thumb: string, name: string) {
+    if (apBusy || mediaClearing.current) return false
     setApBusy(true)
+    const generation = mediaGeneration.current
     try {
-      const payload = unwrapCallResult(await props.api.call("gallery_add", { data_url: dataUrl, thumb, name }))
+      const payload = unwrapCallResult(await props.api.call(
+        "gallery_add",
+        { data_url: dataUrl, thumb, name },
+        { timeoutMs: MEDIA_REQUEST_TIMEOUT_MS },
+      ))
       const r = (payload || {}) as Record<string, any>
+      if (!panelAlive.current || mediaGeneration.current !== generation) return false
+      gallerySnapshotRevision.current += 1
       const items = Array.isArray(r.items) ? (r.items as GalleryItem[]) : []
       setGalleryItems(items)
       const newId = String(r.id || "")
@@ -238,39 +561,234 @@ export default function Panel(props: PluginSurfaceProps<State>) {
         setImgCache((prev) => ({ ...prev, [newId]: dataUrl }))
       }
       toast.success(t("panel.appearance.added", { defaultValue: "已加入图库" }))
+      return true
     } catch (err) {
       toast.error(errorText(err, t))
+      return false
     } finally {
-      setApBusy(false)
+      if (!mediaClearing.current) setApBusy(false)
+    }
+  }
+
+  async function addVideo(file: File, name: string): Promise<boolean> {
+    if (apBusy || uploadTask.current || mediaClearing.current) return false
+    const task: MediaTask = { cancelled: false }
+    const generation = mediaGeneration.current
+    let finishUpload = () => {}
+    uploadFinished.current = new Promise<void>((resolve) => { finishUpload = resolve })
+    uploadTask.current = task
+    setApBusy(true)
+    try {
+      const result = await uploadVideoFile(props.api.call, file, name, task, (value, stage) => {
+        if (panelAlive.current && uploadTask.current === task) setVideoProgress({ value, stage })
+      }, mediaStorage?.single_limit_bytes || VIDEO_MAX_BYTES)
+      if (!panelAlive.current || mediaGeneration.current !== generation) return false
+      const newId = String(result.id || "")
+      if (!newId) throw new Error("video_save_failed")
+      const previousPending = pendingUploadedVideo.current
+      if (previousPending && previousPending !== readyBgRef.current.id && previousPending !== selectedBgId.current) {
+        if (videoCache.current[previousPending]?.url) URL.revokeObjectURL(videoCache.current[previousPending].url)
+        delete videoCache.current[previousPending]
+        delete themeCache.current[previousPending]
+      }
+      const localUrl = URL.createObjectURL(file)
+      videoCache.current[newId] = { kind: "video", url: localUrl, poster: result.localFrames.poster }
+      pendingUploadedVideo.current = newId
+      setImgCache((prev) => {
+        const next = { ...prev, [newId]: localUrl }
+        if (previousPending && previousPending !== readyBgRef.current.id && previousPending !== selectedBgId.current) delete next[previousPending]
+        return next
+      })
+      gallerySnapshotRevision.current += 1
+      setGalleryItems(Array.isArray(result.items) ? result.items as GalleryItem[] : [])
+      try { setMediaStorage(readMediaStorage(result.media_storage)) } catch {}
+      toast.success(t("panel.appearance.added", { defaultValue: "已加入图库" }))
+      return true
+    } catch (err) {
+      if (panelAlive.current && !task.cancelled) toast.error(errorText(err, t))
+      return false
+    } finally {
+      if (uploadTask.current === task) uploadTask.current = null
+      finishUpload()
+      uploadFinished.current = null
+      if (panelAlive.current) {
+        if (!mediaClearing.current) setApBusy(false)
+        setVideoProgress(null)
+      }
     }
   }
 
   // 删除图库图（danger 确认）：后端会顺带解除在用的 bg_id，回填 appearance
   async function removeImage(id: string) {
-    if (!id) return
+    if (!id || mediaClearing.current) return
     const ok = await confirmDialog({
-      title: t("actions.gallery_remove.label", { defaultValue: "从图库删除图片" }),
-      message: t("actions.gallery_remove.confirm", { defaultValue: "将从图库删除这张图片（若正在使用会一并停用背景），不可恢复，确认？" }),
+      title: t("actions.gallery_remove.label", { defaultValue: "从图库删除壁纸" }),
+      message: t("actions.gallery_remove.confirm", { defaultValue: "确定从图库删除这项壁纸吗？如果正在使用，也会取消壁纸。删除后无法恢复。" }),
       tone: "danger",
       ...confirmLabels,
     })
-    if (!ok) return
+    if (!ok || mediaClearing.current) return
     setApBusy(true)
+    gallerySnapshotRevision.current += 1
+    mediaGeneration.current += 1
+    for (const current of Object.keys(imgInflight.current)) cancelMediaTask(imgInflight.current[current])
+    imgInflight.current = {}
+    if (videoCache.current[id]?.url) URL.revokeObjectURL(videoCache.current[id].url)
+    delete videoCache.current[id]
+    if (pendingUploadedVideo.current === id) pendingUploadedVideo.current = ""
+    delete themeCache.current[id]
+    setImgCache((prev) => {
+      const cache = { ...prev }
+      delete cache[id]
+      return cache
+    })
     try {
-      const payload = unwrapCallResult(await props.api.call("gallery_remove", { item_id: id }))
+      const payload = unwrapCallResult(await props.api.call(
+        "gallery_remove",
+        { item_id: id },
+        { timeoutMs: MEDIA_CLEANUP_TIMEOUT_MS },
+      ))
       const r = (payload || {}) as Record<string, any>
       const items = Array.isArray(r.items) ? (r.items as GalleryItem[]) : []
       setGalleryItems(items)
       const ap = normAppearance(r.appearance)
       setSavedAp(ap)
       setDraftAp(ap)
-      const cache = { ...imgCache }
-      delete cache[id]
-      setImgCache(cache)
+      try { setMediaStorage(readMediaStorage(r.media_storage)) } catch {}
+      loadImage(ap.bg_id)
       toast.success(t("panel.diary.deleted", { defaultValue: "已删除" }))
     } catch (err) {
       toast.error(errorText(err, t))
+      try {
+        const ap = await refreshMediaSnapshot()
+        if (ap) loadImage(ap.bg_id)
+      } catch {}
     } finally {
+      if (!mediaClearing.current) setApBusy(false)
+    }
+  }
+
+  async function updateVideoPolicy(singleLimit: number, totalLimit: number): Promise<boolean> {
+    const single = Math.max(32, Math.min(512, Math.round(Number(singleLimit) || 0)))
+    const total = Math.max(64, Math.min(16384, Math.round(Number(totalLimit) || 0)))
+    try {
+      const payload = unwrapCallResult(await props.api.call(
+        "gallery_add",
+        { op: "video_policy", single_limit_mib: single, total_limit_mib: total },
+        { timeoutMs: MEDIA_REQUEST_TIMEOUT_MS },
+      ))
+      const next = readMediaStorage(payload?.media_storage)
+      if (!next) throw new Error("video_storage_invalid")
+      setMediaStorage(next)
+      toast.success(t("panel.appearance.policySaved", { defaultValue: "容量设置已更新" }))
+      return true
+    } catch (err) {
+      toast.error(errorText(err, t))
+      return false
+    }
+  }
+
+  async function refreshMediaSnapshot() {
+    const generation = mediaGeneration.current
+    const revision = gallerySnapshotRevision.current
+    const result = unwrapCallResult(await props.api.call(
+      "get_panel_gallery",
+      {},
+      { timeoutMs: MEDIA_REQUEST_TIMEOUT_MS },
+    ))
+    if (!panelAlive.current || mediaGeneration.current !== generation || gallerySnapshotRevision.current !== revision) return
+    const ap = normAppearance(result.appearance)
+    setGalleryItems(Array.isArray(result.items) ? result.items as GalleryItem[] : [])
+    setSavedAp(ap)
+    setDraftAp(ap)
+    setMediaStorage(readMediaStorage(result.media_storage))
+    return ap
+  }
+
+  function invalidateRecords() {
+    statsGeneration.current += 1
+    setStatsLoading(false)
+    setHeatData(null)
+    setMonthData(null)
+    setMonthList([])
+    setRecordsRevision((value) => value + 1)
+  }
+
+  async function onBackupRestored() {
+    invalidateRecords()
+    mediaGeneration.current += 1
+    gallerySnapshotRevision.current += 1
+    themeCache.current = {}
+    thumbTried.current = {}
+    previousReadyBg.current = null
+    setImgCache({})
+    setReadyBg({ id: "", dataUrl: "", theme: null })
+    setBackgroundError("")
+    setBackgroundProgress(null)
+    setMediaReset((value) => value + 1)
+    setBackupRevision((value) => value + 1)
+    toast.success(t("panel.backup.restored"))
+    try { await props.api.refresh() }
+    catch (err) { toast.error(errorText(err, t)) }
+  }
+
+  async function clearMedia(): Promise<boolean> {
+    if (mediaClearing.current) return false
+    const ok = await confirmDialog({
+      title: t("panel.appearance.clearMedia", { defaultValue: "清空壁纸与缓存" }),
+      message: t("panel.appearance.clearMediaConfirm", { defaultValue: "清空本插件的所有壁纸、封面、上传暂存和面板媒体缓存，无法恢复。日记、相处统计和其他设置不受影响。" }),
+      tone: "danger",
+      ...confirmLabels,
+    })
+    if (!ok || mediaClearing.current) return false
+    mediaClearing.current = true
+    try {
+      setApBusy(true)
+      gallerySnapshotRevision.current += 1
+      mediaGeneration.current += 1
+      setMediaReset((value) => value + 1)
+      if (uploadTask.current) cancelMediaTask(uploadTask.current)
+      for (const id of Object.keys(imgInflight.current)) cancelMediaTask(imgInflight.current[id])
+      imgInflight.current = {}
+      for (const id of Object.keys(videoCache.current)) {
+        if (videoCache.current[id].url) URL.revokeObjectURL(videoCache.current[id].url)
+      }
+      videoCache.current = {}
+      pendingUploadedVideo.current = ""
+      themeCache.current = {}
+      thumbTried.current = {}
+      setImgCache({})
+      const emptyBackground = { id: "", dataUrl: "", theme: null }
+      readyBgRef.current = emptyBackground
+      setReadyBg(emptyBackground)
+      setBackgroundError("")
+      setBackgroundProgress(null)
+      if (uploadFinished.current) await uploadFinished.current
+      const payload = unwrapCallResult(await props.api.call(
+        "gallery_remove",
+        { op: "clear_media", confirm: true },
+        { timeoutMs: MEDIA_CLEANUP_TIMEOUT_MS },
+      ))
+      if (payload?.cleared !== true) throw new Error("video_cleanup_incomplete")
+      setGalleryItems(Array.isArray(payload.items) ? payload.items as GalleryItem[] : [])
+      setSavedAp(normAppearance(payload.appearance))
+      setDraftAp(normAppearance(payload.appearance))
+      setMediaStorage(readMediaStorage(payload.media_storage))
+      if (payload.cleanup_pending) {
+        toast.error(t("panel.appearance.cleanupPending", { defaultValue: "仍有媒体数据等待清理，请关闭占用文件的程序后重试。" }))
+        return false
+      }
+      if (payload.storage_reclaim_pending) {
+        toast.info(t("panel.appearance.storageReclaimPending", { defaultValue: "媒体条目已清除；数据库文件大小可能暂时不变。" }))
+      }
+      toast.success(t("panel.appearance.mediaCleared", { defaultValue: "壁纸与缓存已清空" }))
+      return true
+    } catch (err) {
+      toast.error(errorText(err, t))
+      try { await refreshMediaSnapshot() } catch {}
+      return false
+    } finally {
+      mediaClearing.current = false
       setApBusy(false)
     }
   }
@@ -280,6 +798,7 @@ export default function Panel(props: PluginSurfaceProps<State>) {
   const advance = actions.find((a) => a.id === "advance_days") as HostedAction | undefined
   const toggle = actions.find((a) => a.id === "toggle") as HostedAction | undefined
   const resetAll = actions.find((a) => a.id === "reset_all") as HostedAction | undefined
+  const liftMoodAction = actions.find((a) => a.id === "lift_mood") as HostedAction | undefined
   const pruneLanlan = actions.find((a) => a.id === "prune_lanlan") as HostedAction | undefined
 
   // kit 的 useConfirm 默认按钮文案是英文 Confirm/Cancel，必须显式传本地化文案
@@ -288,23 +807,40 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     cancelLabel: t("panel.cancel", { defaultValue: "取消" }),
   }
 
-  async function saveSettings() {
+  // 设置落盘（周期/注入/情绪/日记/通用同一入口）：锚点未设与动作缺失都当场抛错，
+  // 由调用方翻成 toast
+  async function postSettings() {
     if (!updateSettingsAction) {
-      toast.error(t("panel.errors.actionUnavailable", { defaultValue: "操作不可用（插件可能未运行）" }))
-      return
+      throw new Error(t("panel.errors.actionUnavailable", { defaultValue: "操作不可用（插件可能未运行）" }))
     }
+    if (!DATE_RE.test(String(state.anchor_date || ""))) {
+      throw new Error(t("panel.errors.setAnchorFirst", { defaultValue: "请先设置周期起点，再开启模拟" }))
+    }
+    const base = formBaseline.current as Record<string, any>
+    const current = form as Record<string, any>
+    const dirty: Record<string, any> = {}
+    for (const key of Object.keys(current)) {
+      const now = current[key]
+      const was = base[key]
+      // 数组/对象按序列化比（phase_openers 这类是列表），标量按值比
+      const same = now === was || (typeof now === "object" && JSON.stringify(now) === JSON.stringify(was))
+      if (!same) dirty[key] = now
+    }
+    // 一个都没改：不发这一趟，更不写存档（写了就等于替用户把出厂默认钉死）
+    if (Object.keys(dirty).length === 0) return
+    const result = await props.api.call("update_settings", dirty)
+    // 用入口返回的最新快照立即回填表单，不依赖 context 重取
+    const snap = (result && typeof result === "object" && (result as Record<string, any>).enabled !== undefined)
+      ? (result as Partial<Settings>)
+      : null
+    if (snap) {
+      syncForm({ ...settings, ...snap })
+    }
+  }
+
+  async function saveSettings() {
     try {
-      if (!DATE_RE.test(String(state.anchor_date || ""))) {
-        throw new Error(t("panel.errors.setAnchorFirst", { defaultValue: "请先设置潮汐首日锚点，再开启模拟" }))
-      }
-      const result = await props.api.call("update_settings", { ...form })
-      // 用入口返回的最新快照立即回填表单，不依赖 context 重取
-      const snap = (result && typeof result === "object" && (result as Record<string, any>).enabled !== undefined)
-        ? (result as Partial<Settings>)
-        : null
-      if (snap) {
-        setForm(settingsToForm({ ...settings, ...snap }))
-      }
+      await postSettings()
       toast.success(t("panel.messages.saved", { defaultValue: "设置已保存" }))
       try {
         await props.api.refresh()
@@ -316,6 +852,41 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     }
   }
 
+  // 设置页的统一保存（1.3.2）：这页既能改通用设置、又能改面板外观，
+  // 而外观卡不再有自家保存钮——一趟把两摊待存内容都落盘。
+  // 两半各自独立成败：设置被锚点闸挡下时外观照样存住（卡内读数随之转"已同步"）；
+  // 外观没动过就不发第二趟，省一次无谓写盘。失败只报第一条（两半同因居多），
+  // 没存住的那半由各自的可见状态兜底：表单未回填、外观读数仍亮着"有未保存的调整"
+  async function saveSettingsPage() {
+    if (savingAll) return
+    setSavingAll(true)
+    const apDirty = !appearanceEquals(draftAp, savedAp)
+    let failure: unknown = null
+    try {
+      await postSettings()
+    } catch (err) {
+      failure = err
+    }
+    if (apDirty) {
+      try {
+        await postAppearanceDraft()
+      } catch (err) {
+        if (!failure) failure = err
+      }
+    }
+    try {
+      await props.api.refresh()
+    } catch {
+      // 回读失败不影响落盘结论
+    }
+    if (failure) {
+      toast.error(errorText(failure, t))
+    } else {
+      toast.success(t("panel.messages.saved", { defaultValue: "设置已保存" }))
+    }
+    setSavingAll(false)
+  }
+
   // 总开关切换：返回值供 TmSwitch 乐观回滚（false = 取消/失败，开关动画回落）
   async function onToggle() {
     if (!toggle) {
@@ -325,7 +896,7 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     const turningOff = status.enabled !== false
     const ok = await confirmDialog({
       title: turningOff ? t("panel.turnOff", { defaultValue: "关闭模拟" }) : t("panel.turnOn", { defaultValue: "开启模拟" }),
-      message: t("actions.toggle.confirm", { defaultValue: "切换身体节律模拟的总开关，确认？" }),
+      message: t("actions.toggle.confirm", { defaultValue: "确定切换模拟总开关吗？" }),
       tone: turningOff ? "warning" : "primary",
       ...confirmLabels,
     })
@@ -363,27 +934,10 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     }
   }
 
-  async function onClearDiary() {
-    const ok = await confirmDialog({
-      title: t("actions.clear_diary.label", { defaultValue: "清空时光日记" }),
-      message: t("actions.clear_diary.confirm", { defaultValue: "将删除全部时光日记（她的手记与自动碎片），不可恢复，确认？" }),
-      tone: "danger",
-      ...confirmLabels,
-    })
-    if (!ok) return
-    try {
-      await props.api.call("clear_diary")
-      await props.api.refresh()
-      toast.success(t("panel.diary.cleared", { defaultValue: "时光日记已清空" }))
-    } catch (err) {
-      toast.error(errorText(err, t))
-    }
-  }
-
   async function onDeleteFragment(ts: string) {
     const ok = await confirmDialog({
-      title: t("actions.delete_diary_item.label", { defaultValue: "删除这条碎片" }),
-      message: t("actions.delete_diary_item.confirm", { defaultValue: "将删除这条自动记录的碎片，不可恢复，确认？" }),
+      title: t("actions.delete_diary_item.label", { defaultValue: "删除这条片段" }),
+      message: t("actions.delete_diary_item.confirm", { defaultValue: "确定删除这条对话片段吗？删除后无法恢复。" }),
       tone: "danger",
       ...confirmLabels,
     })
@@ -439,25 +993,35 @@ export default function Panel(props: PluginSurfaceProps<State>) {
   }
 
   async function onInviteJournal() {
+    if (journalSubmitLock.current) return
+    journalSubmitLock.current = true
+    setJournalSubmitting(true)
     try {
       const payload = unwrapCallResult(await props.api.call("invite_journal", {}))
       await props.api.refresh()
       const r = (payload || {}) as Record<string, any>
-      // 四态文案全在前端按 invited/mode 码翻译（i18n 契约 1.3.0 第九轮）：
-      // 后端不再回人类可读 note，中文裸串不会短路 t()。传输拒收是真错误，
-      // 不能与"开关未开启"共用一条 info 软提示（1.2.4 语义不变）；
-      // respond（当面递到）/ read（冷却内悄悄补递）分文案（1.2.3 既定双态）
-      if (r.invited === false && r.mode === "failed") {
-        toast.error(t("panel.journal.inviteFailed", { defaultValue: "邀请没能送到她手上（消息通道正忙或不可用），再按一次试试" }))
+      if (r.accepted) {
+        toast.info(t("panel.review.accepted", { defaultValue: "已加入生成队列，完成后会显示在这里" }))
+      } else if (r.reason === "already_writing") {
+        toast.info(t("panel.review.alreadyWriting", { defaultValue: "已有内容正在生成，请等待完成" }))
+      } else if (r.reason === "not_enough_material") {
+        toast.info(t("panel.journal.notEnoughMaterial", { defaultValue: "暂无可写素材，请先聊一轮，或积累新的时光日记记录。" }))
+      } else if (r.accepted === false) {
+        toast.error(diaryWriteError(r, t))
+      } else if (r.invited === false && r.mode === "failed") {
+        toast.error(t("panel.journal.inviteFailed", { defaultValue: "邀请发送失败，消息通道可能正忙或不可用。请稍后重试。" }))
       } else if (r.invited === false) {
         toast.info(t("panel.journal.inviteOff", { defaultValue: "个人日记开关未开启，邀请未发送" }))
       } else if (r.mode === "respond") {
-        toast.success(t("panel.journal.invitedRespond", { defaultValue: "邀请已当面递到她手上，她这会儿正想着呢——写不写由她自己决定" }))
+        toast.success(t("panel.journal.invitedRespond", { defaultValue: "写作请求已发送，是否写作由角色决定" }))
       } else {
-        toast.success(t("panel.journal.invitedQuiet", { defaultValue: "她刚收到过邀请，这次改成悄悄提醒——给她留点考虑的空间" }))
+        toast.success(t("panel.journal.invitedQuiet", { defaultValue: "最近已发送过邀请，本次改为后台提醒" }))
       }
     } catch (err) {
       toast.error(errorText(err, t))
+    } finally {
+      journalSubmitLock.current = false
+      setJournalSubmitting(false)
     }
   }
 
@@ -491,6 +1055,9 @@ export default function Panel(props: PluginSurfaceProps<State>) {
   }
 
   async function onWriteReviewNow() {
+    if (reviewSubmitLock.current) return
+    reviewSubmitLock.current = true
+    setReviewSubmitting(true)
     try {
       // 受理式入口（1.2.3）：后端秒回"已开始写"，真正的成文在后台一拍内起跑；
       // 成败结论经 dashboard review_brief.last_result 由下方 effect 弹完成 toast。
@@ -499,26 +1066,24 @@ export default function Panel(props: PluginSurfaceProps<State>) {
       await props.api.refresh()
       const r = (payload || {}) as Record<string, any>
       if (r.accepted) {
-        toast.info(t("panel.review.accepted", { defaultValue: "已开始写这一篇，写完会自动出现在这里，不用守着" }))
+        toast.info(t("panel.review.accepted", { defaultValue: "已加入生成队列，完成后会显示在这里" }))
       } else if (r.reason === "already_writing") {
-        toast.info(t("panel.review.alreadyWriting", { defaultValue: "上一篇还在写，写完会自动出现在这里，稍等一下" }))
+        toast.info(t("panel.review.alreadyWriting", { defaultValue: "已有内容正在生成，请等待完成" }))
       } else if (r.reason === "not_enough_material") {
         // 数字走插值不进文案（后端只回 turns/min_turns 字段）
         toast.info(t("panel.review.notEnoughMaterial", {
-          defaultValue: "素材还不够（目前 {turns} 轮，至少 {min_turns} 轮才值得写一篇），再聊聊吧",
+          defaultValue: "素材不足：目前 {turns} 轮，至少需要 {min_turns} 轮互动",
           turns: String(r.turns ?? 0),
           min_turns: String(r.min_turns ?? 10),
         }))
-      } else if (r.reason === "slot_unresolved") {
-        // 休眠原因复用新手向导通道卡的既有文案（零新增 key，1.md 既定）
-        toast.info(r.dormant_reason === "free_route"
-          ? t("onboarding.channels.freeRoute", { defaultValue: "休眠 · 宿主免费端点限制" })
-          : t("onboarding.channels.noModel", { defaultValue: "休眠 · 槽位没配模型" }))
       } else {
-        toast.info(t("panel.review.writeFailed", { defaultValue: "这一篇还没写成，稍后再试" }))
+        toast.error(diaryWriteError(r, t))
       }
     } catch (err) {
       toast.error(errorText(err, t))
+    } finally {
+      reviewSubmitLock.current = false
+      setReviewSubmitting(false)
     }
   }
 
@@ -547,58 +1112,93 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     if (reviewResultSeen.current === result.ts) return
     reviewResultSeen.current = result.ts
     if (result.written) {
-      toast.success(t("panel.review.written", { defaultValue: "这一篇已经写好了，翻开看看吧" }))
-    } else if (result.reason === "persist_failed") {
-      toast.error(t("panel.review.persistFailed", { defaultValue: "这一篇写成了但没存住，素材还留着，可以再点一次" }))
+      toast.success(t("panel.review.written", { defaultValue: "记录已生成" }))
     } else {
-      toast.info(t("panel.review.writeFailed", { defaultValue: "这一篇还没写成，稍后再试" }))
+      toast.error(diaryWriteError(result, t))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.review_brief && state.review_brief.last_result && state.review_brief.last_result.ts, state.lanlan])
 
-  // 重置全部数据（危险区）：原走 kit ActionButton，它的错误展示是内联裸串
-  // （会把我们的稳定码直喷给用户），改受控 Button + errorText 翻译——确认文案
-  // 取 actions.reset.*（与后端 @ui.action 的 label/confirm 同一对键，两端同源）
-  async function onResetAll() {
-    const ok = await confirmDialog({
-      title: t("actions.reset.label", { defaultValue: "重置全部数据" }),
-      message: t("actions.reset.confirm", { defaultValue: "将清空当前角色的周期偏移、情绪状态和心情手记，确认？" }),
-      tone: "danger",
-      ...confirmLabels,
-    })
-    if (!ok) return
+  const journalResultSeen = useRef<number>(0)
+  const journalResultRole = useRef<string | null>(null)
+  useEffect(() => {
+    const result = state.journal_write && state.journal_write.last_result
+    const role = state.lanlan || ""
+    if (journalResultRole.current !== role) {
+      journalResultRole.current = role
+      journalResultSeen.current = (result && result.ts) || 0
+      return
+    }
+    if (!result || !result.ts || journalResultSeen.current === result.ts) return
+    journalResultSeen.current = result.ts
+    if (result.written) toast.success(t("panel.review.written", { defaultValue: "记录已生成" }))
+    else toast.error(diaryWriteError(result, t))
+  }, [state.journal_write && state.journal_write.last_result && state.journal_write.last_result.ts, state.lanlan])
+
+  async function onEndMood() {
+    if (moodEndLock.current || !mood.active || !liftMoodAction) return
+    moodEndLock.current = true
+    const expected = { ...currentMoodRef.current }
     try {
-      await props.api.call("reset_all", {})
+      const ok = await confirmDialog({
+        title: t("actions.liftMood.label", { defaultValue: "结束当前状态" }),
+        message: t("actions.liftMood.confirm", { defaultValue: "结束当前角色的情绪工具状态？心情观察与变化记录会保留，这不代表角色已经释怀。" }),
+        ...confirmLabels,
+      })
+      if (!ok) return
+      if (expected.lanlan !== currentMoodRef.current.lanlan || expected.startedAt !== currentMoodRef.current.startedAt) {
+        toast.error(t("panel.errors.moodChanged", { defaultValue: "角色或情绪状态已变化，请查看最新状态后重试。" }))
+        return
+      }
+      setMoodEnding(true)
+      await props.api.call("lift_mood", {
+        expected_lanlan: expected.lanlan,
+        expected_started_at: expected.startedAt,
+      })
       await props.api.refresh()
     } catch (err) {
       toast.error(errorText(err, t))
+    } finally {
+      setMoodEnding(false)
+      moodEndLock.current = false
     }
   }
 
-  async function onClearReview() {
-    const ok = await confirmDialog({
-      title: t("actions.clear_review.label", { defaultValue: "清空我的日记" }),
-      message: t("actions.clear_review.confirm", { defaultValue: "将删除全部「我的日记」评价（累计素材一并清零），不可恢复，确认？" }),
-      tone: "danger",
-      ...confirmLabels,
-    })
-    if (!ok) return
+  // 确认文案与后端 action 共用翻译，错误码经 errorText 展示。
+  async function onResetAll() {
+    if (resetLock.current) return
+    resetLock.current = true
+    const expectedLanlan = state.lanlan || ""
     try {
-      await props.api.call("clear_review", {})
+      const ok = await confirmDialog({
+        title: t("actions.reset.label", { defaultValue: "重置状态与记录" }),
+        message: t("actions.reset.confirm", { defaultValue: "确定清空当前角色的状态与记录吗？快进天数、情绪状态、三本日记（时光日记、个人日记、我的日记）、全部归档、累计素材和相处统计都会清空，待写任务会取消，且无法恢复。模拟开关恢复默认设置；周期起点、参数、全局设置、壁纸和其他角色的数据保留。" }),
+        tone: "danger",
+        ...confirmLabels,
+      })
+      if (!ok) return
+      setResetting(true)
+      unwrapCallResult(await props.api.call("reset_all", { expected_lanlan: expectedLanlan }))
+      invalidateRecords()
       await props.api.refresh()
-      toast.success(t("panel.review.cleared", { defaultValue: "我的日记已清空" }))
+      toast.success(t("panel.settings.resetDone"))
     } catch (err) {
       toast.error(errorText(err, t))
+    } finally {
+      setResetting(false)
+      resetLock.current = false
     }
   }
 
   async function onLoadStats(month?: string, year?: string) {
+    const generation = ++statsGeneration.current
     setStatsLoading(true)
     try {
       const args: Record<string, string> = {}
       if (month) args.month = month
       if (year) args.year = year
       const payload = unwrapCallResult(await props.api.call("get_stats", args))
+      if (!panelAlive.current || generation !== statsGeneration.current) return
       const r = (payload || {}) as Record<string, any>
       setHeatData((r.heatmap || {}) as Heatmap)
       setMonthData((r.month || null) as MonthReport | null)
@@ -606,12 +1206,14 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     } catch (err) {
       console.warn("[forever_companion] load stats failed:", err)
     } finally {
-      setStatsLoading(false)
+      if (generation === statsGeneration.current) setStatsLoading(false)
     }
   }
 
   // 切角色时旧统计立即失效：清到空态，避免上一个角色的热力图残留展示
   useEffect(() => {
+    statsGeneration.current += 1
+    setStatsLoading(false)
     setHeatData(null)
     setMonthData(null)
     setMonthList([])
@@ -644,7 +1246,7 @@ export default function Panel(props: PluginSurfaceProps<State>) {
       const payload = unwrapCallResult(await props.api.call("set_capability", { capability_id: id, enabled }))
       const r = (payload || {}) as Record<string, any>
       if (r.note === "reverted_to_default") {
-        toast.info(t("panel.features.reverted", { defaultValue: "该功能在功能配置里是关着的（或被依赖的功能挡住），这里无法强行点亮" }))
+        toast.info(t("panel.features.reverted", { defaultValue: "此功能在设置中已关闭，或所需功能尚未开启。请先完成相关设置。" }))
         return false
       } else if (r.persist_error) {
         // 既定契约：内存当场生效、盘上保持原样，如实报错可重试；
@@ -669,8 +1271,8 @@ export default function Panel(props: PluginSurfaceProps<State>) {
       const r = (payload || {}) as Record<string, any>
       toast.success(
         r.hide_disabled_tools
-          ? t("panel.features.hideToolsOn", { defaultValue: "已开启：不再生效的功能会把她看不见的工具一并摘除" })
-          : t("panel.features.hideToolsOff", { defaultValue: "已回到温和模式：工具始终在位，调用时才拒绝" }),
+          ? t("panel.features.hideToolsOn", { defaultValue: "隐藏对所有角色都不生效的工具" })
+          : t("panel.features.hideToolsOff", { defaultValue: "保留工具，已关闭的功能不执行" }),
       )
       await props.api.refresh()
       return true
@@ -689,7 +1291,7 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     }
     const ok = await confirmDialog({
       title: t("actions.prune_lanlan.label", { defaultValue: "清除残留数据" }),
-      message: t("actions.prune_lanlan.confirm", { defaultValue: "将删除该角色残留的周期、情绪与手记数据，不可恢复，确认？" }),
+      message: t("actions.prune_lanlan.confirm", { defaultValue: "确定清除这个角色的残留数据吗？周期、情绪、日记和旧版周记都会删除，且无法恢复。" }),
       tone: "danger",
       ...confirmLabels,
     })
@@ -706,8 +1308,8 @@ export default function Panel(props: PluginSurfaceProps<State>) {
   async function onSetAnchor(date: string): Promise<boolean> {
     if (!setAnchor) return false
     const ok = await confirmDialog({
-      title: t("actions.set_anchor.label", { defaultValue: "设置潮汐首日" }),
-      message: t("actions.set_anchor.confirm", { defaultValue: "将重设周期锚点并重新计算阶段，确认？" }),
+      title: t("actions.set_anchor.label", { defaultValue: "设置周期起点" }),
+      message: t("actions.set_anchor.confirm", { defaultValue: "确定设置新的周期起点吗？快进天数会清零，并重新计算当前阶段。" }),
       tone: "warning",
       ...confirmLabels,
     })
@@ -741,7 +1343,7 @@ export default function Panel(props: PluginSurfaceProps<State>) {
       await props.api.call("update_settings", { birthday_date: date, birthday_keep_diary: keepDiary })
       await props.api.refresh()
       if (date) {
-        toast.success(t("panel.birthday.saved", { defaultValue: "已记下主人的生日" }))
+        toast.success(t("panel.birthday.saved", { defaultValue: "生日已保存" }))
       } else {
         toast.success(t("panel.birthday.cleared", { defaultValue: "已清除生日设置" }))
       }
@@ -752,7 +1354,7 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     }
   }
 
-  const VALID_TABS = ["overview", "calendar", "diary", "moment", "features", "cycle", "mood", "settings"]
+  const VALID_TABS = ["overview", "calendar", "diary", "moment", "mood", "features", "cycle", "settings"]
   const activeTab = VALID_TABS.indexOf(tab) >= 0 ? tab : "overview"
 
   // 面板始终跟随宿主当前角色（5 秒轮询自动跟上切卡），lanlan_list 提供全部已知角色的状态摘要
@@ -764,24 +1366,47 @@ export default function Panel(props: PluginSurfaceProps<State>) {
     { id: "calendar", label: t("panel.tab.calendar", { defaultValue: "日历" }) },
     { id: "diary", label: t("panel.tab.diary", { defaultValue: "日记" }) },
     { id: "moment", label: t("panel.tab.moment", { defaultValue: "时光" }) },
+    { id: "mood", label: t("panel.tab.mood", { defaultValue: "情绪" }) },
     { id: "features", label: t("panel.tab.features", { defaultValue: "功能" }) },
     { id: "cycle", label: t("panel.tab.cycle", { defaultValue: "周期" }) },
-    { id: "mood", label: t("panel.tab.mood", { defaultValue: "情绪" }) },
     { id: "settings", label: t("panel.tab.settings", { defaultValue: "设置" }) },
   ]
 
-  // 实时预览语义：背景层按 draft 渲染（图未拉到时留空闪一次可接受）；
-  // 参数经 display:contents 包装层落成 CSS 变量供 styles.ts 的 var() 消费
-  const bgDataUrl = draftAp.bg_id ? (imgCache[draftAp.bg_id] || "") : ""
-  const rootStyle = Object.assign({ display: "contents" }, appearanceVars(draftAp)) as Record<string, string>
+  // 参数保持 draft 实时预览；图片准备期间只暂留仍在图库中的旧图。
+  const previousBgExists = galleryItems.some((item) => String(item.id || "") === readyBg.id)
+  const displayedBg = readyBg.media?.loading && previousReadyBg.current ? previousReadyBg.current : readyBg
+  const bgDataUrl = draftAp.bg_id && (readyBg.id === draftAp.bg_id || previousBgExists)
+    ? displayedBg.dataUrl
+    : ""
+  const themeColors = bgDataUrl && displayedBg.theme ? displayedBg.theme : DEFAULT_THEME_COLORS
+  // 背景材质只在壁纸就绪时应用，无壁纸保持默认中性卡片。
+  const surfaceAppearance = bgDataUrl ? draftAp : { ...draftAp, glass: 0, card_alpha: 100 }
+  const rootStyle = Object.assign({ display: "contents" }, appearanceVars(surfaceAppearance), themeColorVars(themeColors)) as Record<string, string>
+
+  if (state.backup_recovery_required) return (
+    <Page>
+      <div className="tm-settings">
+        <style>{PANEL_STYLES}</style>
+        <BackupPanel t={t} api={props.api} available={true} disabled={false} recoveryRequired={true} onRestored={onBackupRestored} />
+      </div>
+    </Page>
+  )
 
   return (
     <Page className={bgDataUrl ? "tm-has-bg" : ""}>
       <div key="root" className="tm-appearance-root" style={rootStyle}>
       <style key="styles">{PANEL_STYLES}</style>
+      <style key="demo-styles">{CAPDEMO_STYLES}</style>
 
       {bgDataUrl ? (
-        <div key="bg" className="tm-bg" style={bgLayerStyle(draftAp, bgDataUrl)}>
+        <div key="bg" className="tm-bg" aria-hidden="true">
+          <div className="tm-bg-image" style={bgLayerStyle(readyBg.media?.kind === "video" && draftAp.fill === "repeat"
+            ? { ...draftAp, fill: "cover" } : draftAp, bgDataUrl)} />
+          {readyBg.media?.kind === "video" && readyBg.media.url ? (
+            <BackgroundVideo media={readyBg.media} appearance={draftAp}
+              onReady={() => backgroundPlaybackReady(readyBg.id, readyBg.media!)}
+              onError={() => backgroundPlaybackError(readyBg.id, readyBg.media!)} />
+          ) : null}
           <div className="tm-bg-dim" style={{ opacity: String(draftAp.dim) }} />
         </div>
       ) : null}
@@ -863,7 +1488,7 @@ export default function Panel(props: PluginSurfaceProps<State>) {
           {activeTab === "cycle" ? (
             <div className="tm-pane">
               {!state.anchor_date ? (
-                <Alert tone="warning" message={t("panel.errors.setAnchorFirst", { defaultValue: "请先设置潮汐首日锚点，再开启模拟" })} />
+                <Alert tone="warning" message={t("panel.errors.setAnchorFirst", { defaultValue: "请先设置周期起点，再开启模拟" })} />
               ) : null}
               <CycleSettingsCard t={t} settings={settings} form={form} updateForm={updateForm} lanlan={state.lanlan} />
               <InjectSettingsCard t={t} form={form} updateForm={updateForm} />
@@ -872,7 +1497,13 @@ export default function Panel(props: PluginSurfaceProps<State>) {
           ) : null}
           {activeTab === "mood" ? (
             <div className="tm-pane">
-              <MoodSettingsCard t={t} form={form} updateForm={updateForm} />
+              <MoodSettingsCard
+                key={state.lanlan || ""}
+                t={t} form={form} updateForm={updateForm}
+                mood={mood} enabled={status.enabled !== false}
+                canEnd={!!liftMoodAction} ending={moodEnding}
+                onEnd={onEndMood}
+              />
               <EmotionSenseSettingsCard t={t} form={form} updateForm={updateForm} />
               <ChannelSettingsCard
                 t={t}
@@ -880,12 +1511,14 @@ export default function Panel(props: PluginSurfaceProps<State>) {
                 updateForm={updateForm}
                 toneSlotOptions={state.tone_slot_options}
                 channelStatus={state.channel_status}
+                agentUsage={state.agent_tier_usage}
               />
               <SaveBar t={t} canSave={!!updateSettingsAction} onSave={saveSettings} />
             </div>
           ) : null}
           {activeTab === "diary" ? (
             <DiaryPane
+              key={`${state.lanlan || ""}:${recordsRevision}`}
               t={t}
               diary={state.diary_recent || []}
               diaryTotal={state.diary_total || 0}
@@ -896,17 +1529,18 @@ export default function Panel(props: PluginSurfaceProps<State>) {
               lanlan={state.lanlan}
               reviewBrief={state.review_brief}
               reviewArchiveBrief={state.review_archive_brief}
-              onClearDiary={onClearDiary}
               onDeleteFragment={onDeleteFragment}
               onLoadJournal={onLoadJournal}
               onLoadJournalArchive={onLoadJournalArchive}
 
               onLoadMoreDiary={onLoadMoreDiary}
               onInviteJournal={onInviteJournal}
+              journalWrite={state.journal_write}
+              journalSubmitting={journalSubmitting}
+              reviewSubmitting={reviewSubmitting}
               onLoadReview={onLoadReview}
               onLoadReviewArchive={onLoadReviewArchive}
               onWriteReviewNow={onWriteReviewNow}
-              onClearReview={onClearReview}
               settingsChildren={(
                 <>
                   <DiarySettingsCard t={t} form={form} updateForm={updateForm} />
@@ -953,24 +1587,39 @@ export default function Panel(props: PluginSurfaceProps<State>) {
               updateForm={updateForm}
               resetAll={resetAll}
               onResetAll={onResetAll}
+              resetting={resetting}
               lanlanList={lanlanKnown}
               lanlan={state.lanlan}
               canPrune={!!pruneLanlan}
               onPruneLanlan={onPruneLanlan}
               onReopenGuide={reopenGuide}
+              api={props.api}
+              canBackup={actions.some((action) => action.id === "data_backup")}
+              backupDisabled={savingAll || apBusy || journalSubmitting || reviewSubmitting || resetting}
+              onRestored={onBackupRestored}
+              footer={<SaveBar t={t} canSave={!!updateSettingsAction} saving={savingAll} onSave={saveSettingsPage} />}
             >
               <AppearanceCard
+                key={`appearance-${mediaReset}`}
                 t={t}
                 items={galleryItems}
                 draft={draftAp}
                 saved={savedAp}
-                saving={apSaving}
+                theme={themeColors}
+                themeFromWallpaper={!!bgDataUrl && readyBg.theme !== DEFAULT_THEME_COLORS}
                 uploading={apBusy}
+                videoProgress={videoProgress}
+                backgroundError={backgroundError}
+                backgroundProgress={backgroundProgress?.id === draftAp.bg_id ? backgroundProgress : null}
+                onCancelUpload={() => { if (uploadTask.current) cancelMediaTask(uploadTask.current) }}
                 onDraft={onDraftChange}
-                onSave={saveAppearance}
                 onRevert={() => { setDraftAp(savedAp) }}
                 onAdd={addImage}
+                onAddVideo={addVideo}
                 onAskRemove={(item: GalleryItem) => removeImage(String(item.id || ""))}
+                mediaStorage={mediaStorage}
+                onUpdateVideoPolicy={updateVideoPolicy}
+                onClearMedia={clearMedia}
               />
             </ManagePane>
           ) : null}

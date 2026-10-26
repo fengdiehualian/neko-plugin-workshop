@@ -14,6 +14,12 @@ import websockets
 from utils.api_config_loader import get_free_voices
 from utils.config_manager import get_reserved
 
+#: 宿主用 ``gsv:<raw>`` 标记 GPT-SoVITS 音色（见宿主的 ``config.GSV_VOICE_PREFIX``）。
+#: 插件的语音管线**没有这一路** —— 它只有：本地 ws SoVITS/CosyVoice、MiMo、MiniMax、
+#: Gemini native、免费音色、DashScope（百炼）。撞到这种 id 要当场说清楚，别拿它去问百炼
+#: （那边只会回一个"音色不存在"，看起来像网络问题）。
+GSV_VOICE_PREFIX = "gsv:"
+
 try:
     from utils.tts.native_voice_registry import get_active_realtime_native_provider_for_ui
 except (ImportError, ModuleNotFoundError):
@@ -169,6 +175,14 @@ class QQVoiceReplyService:
 
             voices = config_manager.get_voices_for_current_api()
             voice_id = await self.get_current_voice_id()
+            if voice_id.startswith(GSV_VOICE_PREFIX):
+                # 走到这里说明本地那条 ws 线路没产出音频（没配端点或合成失败），而
+                # GPT-SoVITS 只存在于宿主自己的 TTS 里 —— 插件这条链上没有它。
+                raise RuntimeError(
+                    f"当前音色是宿主的 GPT-SoVITS 音色（{GSV_VOICE_PREFIX}…），插件的语音管线没有这一路："
+                    "要么把 tts_custom 指向 ws://… 用本地合成，要么在角色上换成插件支持的音色"
+                    "（百炼 / MiniMax / MiMo / Gemini / 免费音色）"
+                )
             if not voice_id and get_active_realtime_native_provider_for_ui:
                 active_native = get_active_realtime_native_provider_for_ui(config_manager)
                 if active_native:
@@ -316,7 +330,10 @@ class QQVoiceReplyService:
             except Exception:
                 tts_api_config = {}
             if not voice_id:
-                raise RuntimeError("未配置 voice_id 且无实时语音 provider，无法合成语音")
+                raise RuntimeError(
+                    "当前猫娘未配置 voice_id，而这条 TTS 线路需要音色"
+                    "（本地 SoVITS/CosyVoice 已经先试过：没配 ws:// 端点，或者合成没成）"
+                )
             preview_base_url = cosyvoice_base_url or tts_api_config.get("base_url", "")
             from utils.api_config_loader import get_cosyvoice_clone_model
             clone_model = (voice_data or {}).get("clone_model") or get_cosyvoice_clone_model(provider)
@@ -342,12 +359,18 @@ class QQVoiceReplyService:
             raise RuntimeError(str(e)) from e
 
     async def synthesize_reply_voice_file(self, text: str) -> tuple[str, str]:
+        """合成一条语音并落成文件，返回 ``(file:// uri, mime)``。
+
+        **这里不再要求角色必须有 ``voice_id``**（2026-09-29 改）。以前第一件事就是
+        `if not voice_id: raise`，而它挡住的是**本地那条路**：`_synthesize_local_tts`
+        （自建 SoVITS/CosyVoice，音色取自 ``tts_custom.voice_name``，缺 voice_id 时用
+        ``"default"``）本来就排在最前面、本来就不需要角色音色 —— GSV/自建 TTS 的用户因此
+        永远发不出语音，日志里只留一句"当前猫娘未配置 voice_id"，像是配置错了。
+        要求现在留在真正需要它的地方：云端各分支自己有守卫（DashScope 那条见下）。
+        """
         normalized_text = str(text or "").strip()
         if not normalized_text:
             raise RuntimeError("语音合成文本不能为空")
-        voice_id = await self.get_current_voice_id()
-        if not voice_id:
-            raise RuntimeError("当前猫娘未配置 voice_id，无法发送语音")
         await self.cleanup_voice_output_dir()
         audio_bytes, mime_type = await self.synthesize_reply_voice_audio(normalized_text)
         if not audio_bytes:
@@ -358,6 +381,58 @@ class QQVoiceReplyService:
         output_path = voice_dir / f"qq_reply_{int(time.time() * 1000)}_{random.randint(1000, 9999)}{suffix}"
         await asyncio.to_thread(output_path.write_bytes, audio_bytes)
         return output_path.resolve().as_uri(), mime_type
+
+    def _client_supports_voice(self) -> bool:
+        """当前通道能不能收语音。
+
+        开放平台的 `supports_voice` 是 False，而这里以前**从不问它**：`voice` 模式下
+        每次都先 `synthesize_reply_voice_file()`（真跑一次 TTS、落一个音频文件），
+        然后 `send_*_record` 在那边是空桩、返回 None，于是判成"未确认"再回退文本 ——
+        功能上没错，但每次白烧一次语音合成。
+
+        宁可少发一句也不肯多烧一次 TTS，所以合成之前就问。
+        拿不到这个属性的连接**按支持处理**（保持旧行为：只有明确说不支持才跳过）。
+        """
+        client = getattr(self.plugin, "qq_client", None)
+        if client is None:
+            return False
+        return bool(getattr(client, "supports_voice", True))
+
+    async def _private_text_fallback(
+        self, target_qq: str, normalized_text: str, *, mode: str, fallback: bool,
+    ) -> bool:
+        """通道发不出语音时，私聊这条该怎么收场。
+
+        * ``both``：文字本来就是这条回复的一部分（今天也是"先发文字、语音失败保留文字"），
+          照发；
+        * ``voice``：只有 ``fallback`` 允许时才拿文字顶上；不允许的调用方（转达 / 主动发言）
+          要的是"语音没发出去就是没发出去"，这里返回 False 让它如实报未确认，
+          而不是擅自补一条那几位调用方明确不要的文字。
+        """
+        if mode != "both" and not fallback:
+            self.plugin.logger.info("当前通道不支持语音，且未允许回退文本，跳过私聊回复")
+            return False
+        if not normalized_text:
+            return False
+        return self._confirm_send(
+            await self.plugin.qq_client.send_message(target_qq, normalized_text)
+        )
+
+    async def _group_text_fallback(
+        self, group_id: str, text_segments: list[dict[str, Any]], normalized_text: str, *,
+        mode: str, fallback: bool, keyboard: str = "",
+    ) -> bool:
+        """群聊版的同上（判据一致，只是发送接口不同：segments + keyboard）。"""
+        if mode != "both" and not fallback:
+            self.plugin.logger.info("当前通道不支持语音，且未允许回退文本，跳过群聊回复")
+            return False
+        if not normalized_text:
+            return False
+        return self._confirm_send(
+            await self.plugin.qq_client.send_group_message_segments(
+                group_id, text_segments, keyboard=keyboard,
+            ),
+        )
 
     @staticmethod
     def _confirm_send(result) -> bool:
@@ -375,6 +450,11 @@ class QQVoiceReplyService:
         if mode == "text":
             return self._confirm_send(
                 await self.plugin.qq_client.send_message(target_qq, normalized_text)
+            )
+        if not self._client_supports_voice():
+            # 这个通道发不出语音：直接按上面那套判据落文字，不做那次注定要丢的合成。
+            return await self._private_text_fallback(
+                target_qq, normalized_text, mode=mode, fallback=fallback_to_text_on_voice_failure,
             )
         # both 模式：LLM 自主决定 → 有 <record> 则语音，否则纯文字
         if mode == "both":
@@ -437,6 +517,12 @@ class QQVoiceReplyService:
         if mode == "text":
             return self._confirm_send(
                 await self.plugin.qq_client.send_group_message_segments(group_id, text_segments, keyboard=keyboard),
+            )
+        if not self._client_supports_voice():
+            # 与私聊那条同源：通道发不出语音时，别先合成一遍再判失败。
+            return await self._group_text_fallback(
+                group_id, text_segments, normalized_text,
+                mode=mode, fallback=fallback_to_text_on_voice_failure, keyboard=keyboard,
             )
         # both 模式：LLM 自主决定 → 有 <record> 则语音，否则纯文字
         if mode == "both":

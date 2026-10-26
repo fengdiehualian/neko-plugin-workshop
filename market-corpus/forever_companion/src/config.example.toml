@@ -55,8 +55,13 @@ extreme_invite_cooldown_minutes = 30  # 邀请冷却（分钟）
 # 时光日记·自动碎片（0.7.0）：小模型把用户的重要话语（喜好/厌恶/有分量的话/
 # 过激言行）记进时光日记，供她自主检索；只存插件本地，不改变她的行为
 enabled = true
-slot = "summary"                   # 提取模型槽位（直连宿主 core_config.json 该槽端点）；槽位无模型时自动休眠
-min_interval_sec = 60              # 相邻两次分析的最小间隔（秒）
+slot = "agent"                     # 提取模型槽位：agent（默认）/summary/conversation/correction/vision
+                                   # 默认与成文同档：免费路由只放行 agent，summary 那档必被服务端拒，
+                                   # 对新用户等于永久休眠；agent 档的花费由下面 [agent_tier] 的日预算管住
+mode = "host"                      # 通道：host（默认）复用宿主模型管线（端点与身份由宿主给，插件不读盘）；
+                                   #   custom = 插件读宿主本地 core_config.json 直连该槽端点（接本地模型/独立服务商时用，
+                                   #   但免费路由下这条路拼不出端点，切过来这条通道就休眠）
+min_interval_sec = 60              # 相邻两次分析的最小间隔（秒）；走 agent 档时代码里另有 300 秒地板，写更小不生效
 confidence_threshold = 0.6         # 置信度门槛：低于此不记（宁漏勿错）
 nudge_gap_minutes = 30             # 吵架轻语间隔（分钟）：重度负面情绪中记到过激/厌恶碎片时的提醒间隔
 
@@ -69,9 +74,17 @@ interval_days = 7                  # 邀请节奏（天）：距上一篇日记�
 # 我的日记（0.8.0）：关于主人的互动评价——素材纯本地累计，双门槛先到先写时
 # 由小模型以中性观察者口吻成文；只给用户看，不注入她的上下文、不进宿主记忆
 enabled = true
-slot = "summary"                   # 成文模型槽位（碎片同款直连通道）；槽位无模型时自动休眠
+slot = "agent"                     # 成文模型槽位：agent（默认）/summary/conversation/correction/vision
+                                   # 默认走 agent 档：免费路由只放行它，summary 那档从插件调用必被服务端拒
+mode = "host"                      # 通道：host（默认）复用宿主模型管线，零配置即用；custom = 插件直连该槽端点
 turns_threshold = 50               # 成文门槛：攒满 N 轮互动（与天数门槛先到先写）
 days_threshold = 7                 # 成文门槛：距统计起点满 N 天且期间有聊天（挂机不写空篇）
+
+[agent_tier]
+# agent 档每日预算（碎片提取 + 我的日记成文合记一份，按角色分账，次日自动归零）：
+# 免费路由只放行 agent 档，而那一档带服务端日配额（宿主自己定 500 次/天）且与宿主
+# agent 功能共用同一份池子，所以先按下不发；推荐 5~50，硬顶 150
+daily_budget = 20                  # 每天最多让 agent 档替插件跑几次（另有一道 300 秒间隔地板在代码里）
 
 [capabilities]
 # 能力中心（1.2.7）：面板「功能」页的统一开关体系——按角色否决任意能力
@@ -102,7 +115,7 @@ date = ""                        # 主人生日 YYYY-MM-DD；年份只用于日�
 enabled = true
 check_rate = 1.0                 # 筛选模式抽查频率：1.0=每轮 / 0.5=一半 / 0.25=偶尔 / 0=关闭筛选
                                  #（校正模式不受此限：情绪生效期间每轮都分析，避免恰好漏掉关键回复）
-min_interval_sec = 60            # 相邻两次分析的最小间隔（秒）：连珠炮对话防刷屏
+min_interval_sec = 20            # 相邻两次语气分析的最小间隔（秒）：仅有新回复时分析
 window_turns = 2                 # 校正模式的语气趋势窗口（轮）：攒满 N 轮按多数派判定一次
                                  #（2 = 连续两轮同向即提醒，响应更快；3 = 更稳但偏慢）
 confidence_threshold = 0.6       # 筛选模式的置信度阈值：低于此不递提醒

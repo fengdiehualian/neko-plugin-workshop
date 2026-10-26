@@ -10,7 +10,10 @@ from typing import Any, Dict, List, Optional
 class PermissionManager:
     """权限管理器"""
 
-    VALID_LEVELS = {"admin", "trusted", "normal"}
+    #: 用户级别。``blacklist``（2026-09-27 使用者要求）＝**不处理这个人的消息**：
+    #: 群消息、戳一戳、入群欢迎、私聊一律在派发层最前面被拦掉，不进 backlog、
+    #: 不进注意力、不进 LLM（实现见 ``message_dispatcher.handle_message`` 顶部）。
+    VALID_LEVELS = {"admin", "trusted", "normal", "blacklist"}
     NICKNAME_MAX_CHARS = 64
     _NICKNAME_FORBIDDEN_CHARS = frozenset("[]|")
     _NICKNAME_ALLOWED_FORMAT_CHARS = frozenset({"\u200d"})
@@ -34,6 +37,18 @@ class PermissionManager:
 
         if trusted_users:
             for user in trusted_users:
+                # 容错：手写配置常见 ["123456"] 字符串条目（真机已炸过一次
+                # startup：'str' object has no attribute 'get'）。非空字符串按
+                # 默认档位收录，其余坏条目跳过——一条脏数据不该炸整个插件。
+                if not isinstance(user, dict):
+                    raw = str(user or "").strip()
+                    if raw:
+                        self._users[raw] = {
+                            "level": "trusted",
+                            "nickname": "",
+                            "normal_relay_probability": None,
+                        }
+                    continue
                 qq = self._normalize_qq(user.get("qq", ""))
                 level = self._normalize_level(user.get("level", "trusted"))
                 nickname = str(user.get("nickname", "") or "").strip()
@@ -202,6 +217,13 @@ class PermissionManager:
     def is_admin(self, qq_number: str) -> bool:
         """检查是否是管理员"""
         return self.get_permission_level(qq_number) == "admin"
+
+    def is_blacklisted(self, qq_number: str) -> bool:
+        """检查是否被拉黑（级别 ``blacklist``）。
+
+        拉黑的人**不该有任何特权**：``is_trusted`` / ``is_admin`` 对它都为 False。
+        """
+        return self.get_permission_level(qq_number) == "blacklist"
 
     def is_trusted(self, qq_number: str) -> bool:
         """检查是否是信任用户（包括管理员）"""

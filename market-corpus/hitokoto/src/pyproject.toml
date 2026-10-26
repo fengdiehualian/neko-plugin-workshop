@@ -19,3 +19,8 @@ dependencies = []
 Homepage = "https://github.com/Alumin-Hydro/n.e.k.o_plugin_hitokoto"
 Repository = "https://github.com/Alumin-Hydro/n.e.k.o_plugin_hitokoto"
 Plugin = "https://market.project-neko.cn/"
+
+[tool.neko.build]
+# Development-only files stay out of the installable package.
+exclude_dirs = ["tests"]
+exclude_files = [".gitignore", ".gitattributes", "ruff.toml", ".env", "store.db"]

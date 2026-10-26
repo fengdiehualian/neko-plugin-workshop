@@ -39,11 +39,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from plugin.plugins.qq_auto_reply.connector_seam import qq_open_plat as _qq_plat
 from plugin.plugins.qq_auto_reply.dashboard_service import QQDashboardService
 from plugin.plugins.qq_auto_reply.message_dispatcher import QQMessageDispatcher
 from plugin.plugins.qq_auto_reply.settings_service import QQSettingsService
 
-_qq_plat = pytest.importorskip("utils.connection.onebot.qq_open_plat")
 _C2C_ACTOR_ID_KEYS = _qq_plat._C2C_ACTOR_ID_KEYS
 _GROUP_ACTOR_ID_KEYS = _qq_plat._GROUP_ACTOR_ID_KEYS
 QQOpenPlatformConnection = _qq_plat.QQOpenPlatformConnection

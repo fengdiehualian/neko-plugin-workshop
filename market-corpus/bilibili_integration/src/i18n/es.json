@@ -203,5 +203,22 @@
   "ui.error.clear_failed": "Error al borrar",
   "ui.error.invalid_uid": "Introduce un UID numérico de Bilibili",
   "ui.error.add_failed": "Error al agregar",
-  "ui.error.remove_failed": "Error al eliminar"
+  "ui.error.remove_failed": "Error al eliminar",
+  "actions.publish_dynamic.label": "Publicar dinámica",
+  "entries.publish_dynamic.name": "Publicar dinámica en Bilibili",
+  "entries.publish_dynamic.description": "Publica una dinámica pública de texto o con hasta 9 imágenes usando la cuenta conectada",
+  "ui.dynamic.section": "PUBLICAR",
+  "ui.dynamic.hint": "Publica con tu cuenta guardada sin iniciar la escucha. Hasta 2000 caracteres y 9 imágenes de un máximo de 10 MiB cada una.",
+  "ui.dynamic.text": "Texto de la dinámica",
+  "ui.dynamic.files": "Elegir imágenes (opcional)",
+  "ui.dynamic.urls": "URL de imágenes (opcional, una por línea)",
+  "ui.dynamic.view": "Ver dinámica publicada",
+  "ui.dynamic.success": "Dinámica publicada",
+  "ui.dynamic.invalid_input": "Introduce hasta 2000 caracteres o añade hasta 9 imágenes. Las URL de imágenes deben usar HTTP(S).",
+  "ui.dynamic.invalid_image": "Usa imágenes PNG, JPEG, GIF o WebP válidas.",
+  "ui.dynamic.image_too_large": "Las imágenes no pueden estar vacías ni superar los 10 MiB cada una.",
+  "ui.dynamic.not_configured": "Guarda primero tus credenciales de Bilibili.",
+  "ui.dynamic.failed": "No se pudo publicar. Revisa el inicio de sesión y las fuentes de las imágenes.",
+  "ui.dynamic.uncertain": "No se puede confirmar el resultado. Revisa tus dinámicas en Bilibili antes de publicar de nuevo para evitar duplicados.",
+  "tools.publish_dynamic.description": "Publica una dinámica pública en Bilibili con la cuenta configurada. text es texto sin formato (hasta 2000 caracteres); images es una lista opcional de hasta 9 URL HTTP(S) o URL de datos de imagen en Base64 (PNG, JPEG, GIF, WebP; 10 MiB cada una). Proporciona texto o imágenes. Devuelve dynamic_id y url. No es necesario iniciar la escucha. Si el resultado es incierto, no reintentes automáticamente; revisa primero las dinámicas de Bilibili."
 }

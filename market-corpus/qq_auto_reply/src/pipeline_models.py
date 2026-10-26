@@ -13,17 +13,68 @@ class QQPipelineStageTrace:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-# 合成来源：这些轮次的 sender 只是名义上的发言人（主动搭话的控制指令、
-# 缓冲合并/确认、延迟投递、回溯补回、入群通知），其 prompt 文本不是这个人
-# 说的话。写侧（不入 participant bucket）、读侧（不召回该成员的 scoped
-# 记忆）、mention 计数三处必须用同一份判据，否则一处漏掉就等于用别人的
-# 私人事实去生成公开发言。
+# ── source_kind 的单一真相表 ─────────────────────────────────────────
+#
+# 这些常量是**全部真实写者**（`source_kind=` 的赋值点）。任何一处新增来源都必须
+# 同时决定它属于下面哪一类，否则就会重演本次修掉的两个洞。
+#
+#: 该轮是**真实的人在说话**：sender 就是发言人本人。
+KIND_INCOMING = "incoming"
+KIND_INCOMING_PRIVATE = "incoming_private"
+KIND_INCOMING_GROUP = "incoming_group"
+KIND_RAPID_FIRE = "rapid_fire_flush"
+
+#: 该轮的 sender 只是**名义发言人**，prompt 文本不是这个人说的话。
+#: 主动搭话的控制指令、缓冲合并、回溯补回、入群通知、禁言反应都属此类。
+#:
+#: 原来还有一个 `KIND_PROACTIVE_SPEECH = "proactive_speech"`（**冷场破冰**那一轮）。
+#: 主动破冰整套已于 2026-09-29 删除（使用者口径「干脆不要这个先」），它随之成为
+#: **零生产者**的死常量；看门狗 `test_no_declared_kind_is_dead` 会当场报出来，故一并删除。
+KIND_PROACTIVE_PRIVATE = "proactive_private"
+KIND_PROACTIVE_GROUP = "proactive_group"
+KIND_RETROACTIVE_REVIEW = "retroactive_review"
+KIND_GROUP_JOIN_NOTICE = "group_join_notice"
+#: 群里**别人**被禁言/解禁 → 她按"正在和她对话的人"的判断说一句（2026-09-29 使用者口径：
+#: 「先用『他不是正在和她对话的人 → 不反应』判断，再生成」）。sender 同样是名义发言人：
+#: `_synthetic_source` 里放的这个值，`user_id` 是事件主角（被禁言的人），prompt 文本是
+#: 我们写的事件描述，**不是他这一轮说的话**。
+KIND_GROUP_BAN_NOTICE = "group_ban_notice"
+#: 异步插件任务的结果回投（她先前答应过"结果出来告诉你"，后台轮询到结果后由
+#: `plugin_tool_followup_service` 合成的那一轮）。sender 同样是**名义发言人**：
+#: 群聊里借管理员的身份，私聊里就是收件人本人。
+KIND_PLUGIN_TOOL_RESULT = "plugin_tool_result"
+
+#: 合成来源：其 sender 是名义发言人而非真实说话者。
+#:
+#: 写侧（不入 participant bucket）、读侧（不召回该成员的 scoped 记忆）、mention
+#: 计数必须用**同一份**判据，否则一处漏掉就等于用别人的私人事实去生成公开发言。
+#:
+#: ⚠️ 本集合曾经漏掉 `proactive_private` / `proactive_group`（主动发言把 admin
+#: 当 sender，于是**管理员在本群的成员域画像被注入一条公开发到全群的回复**，
+#: 见 `runtime_ops_service.py` 的两个 send 入口），同时含一个**零生产者**的
+#: `buffer_delayed`。两类漂移（漏真实生产者 / 留死常量）都是靠人工同步集合与
+#: 赋值点造成的，现在由 `tests/test_qq_source_kind_sets.py` 的看门狗盯着。
 SYNTHETIC_SOURCE_KINDS = frozenset({
-    "proactive_speech",
-    "rapid_fire_flush",
-    "buffer_delayed",
-    "retroactive_review",
-    "group_join_notice",
+    KIND_PROACTIVE_PRIVATE,
+    KIND_PROACTIVE_GROUP,
+    KIND_RAPID_FIRE,
+    KIND_RETROACTIVE_REVIEW,
+    KIND_GROUP_JOIN_NOTICE,
+    KIND_GROUP_BAN_NOTICE,
+    KIND_PLUGIN_TOOL_RESULT,
+})
+
+#: 这些来源**本身已经是缓冲投递链路的一环**，不得再被投进 reply_buffer
+#: （否则会自我延迟/自我合并）。与 `SYNTHETIC_SOURCE_KINDS` 是**不同的判据**：
+#: 入群通知是合成轮，但它走正常投递、不过缓冲；而主动发言两者都是。
+#: 曾经这里是 `reply_pipeline` 里内联的第三个元组，于是同样漏了 proactive_group。
+BUFFER_INTERNAL_SOURCE_KINDS = frozenset({
+    KIND_RAPID_FIRE,
+    KIND_PROACTIVE_PRIVATE,
+    KIND_PROACTIVE_GROUP,
+    # 结果回投是一条**到点就该发**的通知：它已经在后台等过一轮了，再进缓冲
+    # 就等于"等结果"之后又随机延迟并可能和别的草稿合并。
+    KIND_PLUGIN_TOOL_RESULT,
 })
 
 
@@ -36,17 +87,17 @@ def delivered_blocks_text(blocks) -> str:
     reach anti-repeat suppression."""
     parts: list[str] = []
     for block in blocks or []:
-        # 与投递侧同一优先级：record 块在文本之前被处理并 continue，所以
-        # 一个既有 text 又有 record 的块，用户听到的是语音、看不到那段
-        # 文本——两段都记会把没送出去的内容写进记忆与 mention 计数。
+        # 与投递侧同口径：同块的 record 与 text **两者都发**（先文字、再语音），
+        # 所以两段都要记进记忆与 mention 计数。以前只记 record，是因为那会儿
+        # 文字根本发不出去（投递侧 record 分支直接 continue）。
         record = str(getattr(block, "record", "") or "").strip()
-        value = record or str(getattr(block, "text", "") or "").strip()
-        if value:
-            parts.append(value)
+        for value in (str(getattr(block, "text", "") or "").strip(), record):
+            if value:
+                parts.append(value)
         # 选项文案在**文本块**上才会送到用户面前（开放平台渲染成按钮，
-        # NapCat/私聊把它并进正文，语音把它念出来）。record 块走的是另一
-        # 条分支并直接 continue，keyboard 根本不会渲染——把它记下来等于
-        # 让没人看过的选项进记忆与 mention 计数。
+        # NapCat/私聊把它并进正文，语音把它念出来）。record 块投递时不把
+        # keyboard 交给文本分支（见 reply_delivery_node 的 record 分支），
+        # 所以它根本不会渲染——记下来等于让没人看过的选项进记忆与 mention 计数。
         if not record:
             labels = " / ".join(
                 part.strip()
@@ -61,6 +112,22 @@ def delivered_blocks_text(blocks) -> str:
 def is_synthetic_source(source_kind: str | None) -> bool:
     """True when the turn's nominal sender did not actually say anything."""
     return str(source_kind or "") in SYNTHETIC_SOURCE_KINDS
+
+
+def backlog_sender_label(item: dict, *, default: str = "群友") -> str:
+    """一条 backlog 记录里发言人的显示名。
+
+    **键名只能写在这里**。backlog 落盘的键是 ``sender_name``（见
+    ``QQBacklogMessage.to_dict`` 与真实 ``backlog_state.json``），而另外几条路径
+    （喂给插件的消息字典）用的是 ``sender_nickname``。三处读点各自硬编码键名时，
+    两处写成了 ``sender_nickname`` —— 对 backlog 记录永远取不到，于是**全部回落到
+    QQ 号**：转发卡片、回溯补回摘要里显示的都是数字而不是昵称。
+    """
+    for key in ("sender_name", "sender_nickname"):
+        value = str(item.get(key) or "").strip()
+        if value:
+            return value
+    return str(item.get("sender_id") or "").strip() or default
 
 
 @dataclass(slots=True)
@@ -84,6 +151,14 @@ class QQReplyRequest:
     mentioned_user_ids: list[str] = field(default_factory=list)
     mentions_other_user: bool = False
     mentions_all: bool = False
+    #: 「谁在跟谁说话」的结论（`addressing.AddresseeVerdict` 的三个字段）。
+    #: 空 `addressee_kind` = **没有结论**（开放平台通道 / 合成轮 / 旁路调用），
+    #: 提示词层据此退回改动前的 6 个标签 —— 刻意不是"另有一份实现"。
+    #: 只带 kind/target/evidence：`first_at`（段序）与 `matched_name` 只服务减分与
+    #: 硬门控，在门控内部就用完了，进请求只会多一份没消费者的数据。
+    addressee_kind: str = ""
+    addressee_target: str = ""
+    addressee_evidence: str = ""
     reply_message_id: str = ""
     reply_context: str = ""
     at_user_id: str = ""
@@ -94,7 +169,6 @@ class QQReplyRequest:
     inherited_consent_snapshot: dict[str, bool] = field(default_factory=dict)
     permission_level_override: str | None = None
     force_reply: bool = False
-    suppression_reason: str = ""
     forward_sub_count: int = 0
     # 接收边界的 member 记忆政策快照（None=旁路调用者，build 内回退实时
     # 读）：handler 排队期间 OFF->ON 不得让收到时无授权的发言被收集。
@@ -248,7 +322,11 @@ class QQRelayResult:
 
 @dataclass(slots=True)
 class QQMessageBlock:
-    """KiraAI-style 消息块：对应 LLM 输出的一个 <msg>...</msg>"""
+    """一个 `<msg>...</msg>` 块：容器形态借自 KiraAI，字段集合是本插件自己的。
+
+    上游的子标签由 `TagSet` 动态注册（没有固定的块 dataclass），`keyboard`/`ark` 等
+    字段上游并不存在 —— 所以这里的 "KiraAI-style" 只指容器形态，不指字段级等价。
+    """
     text: str = ""
     emoji: str = ""        # QQ 表情 ID（如 "277"）
     at_user: str = ""       # @的QQ号

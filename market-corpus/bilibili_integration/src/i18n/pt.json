@@ -203,5 +203,22 @@
   "ui.error.clear_failed": "Falha ao limpar",
   "ui.error.invalid_uid": "Informe um UID numérico do Bilibili",
   "ui.error.add_failed": "Falha ao adicionar",
-  "ui.error.remove_failed": "Falha ao remover"
+  "ui.error.remove_failed": "Falha ao remover",
+  "actions.publish_dynamic.label": "Publicar dinâmica",
+  "entries.publish_dynamic.name": "Publicar dinâmica no Bilibili",
+  "entries.publish_dynamic.description": "Publique uma dinâmica pública de texto ou com até 9 imagens usando a conta conectada",
+  "ui.dynamic.section": "PUBLICAR",
+  "ui.dynamic.hint": "Publique com a conta salva sem iniciar a escuta. Até 2000 caracteres e 9 imagens de no máximo 10 MiB cada.",
+  "ui.dynamic.text": "Texto da dinâmica",
+  "ui.dynamic.files": "Escolher imagens (opcional)",
+  "ui.dynamic.urls": "URLs das imagens (opcional, uma por linha)",
+  "ui.dynamic.view": "Ver dinâmica publicada",
+  "ui.dynamic.success": "Dinâmica publicada",
+  "ui.dynamic.invalid_input": "Insira até 2000 caracteres ou adicione até 9 imagens. As URLs das imagens devem usar HTTP(S).",
+  "ui.dynamic.invalid_image": "Use imagens PNG, JPEG, GIF ou WebP válidas.",
+  "ui.dynamic.image_too_large": "As imagens não podem estar vazias e devem ter no máximo 10 MiB cada.",
+  "ui.dynamic.not_configured": "Salve primeiro suas credenciais do Bilibili.",
+  "ui.dynamic.failed": "Não foi possível publicar. Verifique o login e as fontes das imagens.",
+  "ui.dynamic.uncertain": "Não foi possível confirmar o resultado. Verifique suas dinâmicas no Bilibili antes de publicar novamente para evitar duplicatas.",
+  "tools.publish_dynamic.description": "Publica uma dinâmica pública no Bilibili com a conta configurada. text é texto simples (até 2000 caracteres); images é uma lista opcional de até 9 URLs HTTP(S) ou URLs de dados de imagem em Base64 (PNG, JPEG, GIF, WebP; 10 MiB cada). Forneça texto ou imagens. Retorna dynamic_id e url. Não é necessário iniciar a escuta. Se o resultado for incerto, não tente novamente automaticamente; verifique primeiro as dinâmicas no Bilibili."
 }

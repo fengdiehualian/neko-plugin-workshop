@@ -23,6 +23,13 @@ _RUNTIME_PROVIDED = {
     "i18n",       # 宿主注入的翻译表，插件代码大量使用
     "logger",     # SDK 基类在实例上设的
     "plugin_id",  # 同上
+    # `NekoPluginBase.__init__`（plugin/sdk/plugin/base.py:46-51）在实例上设的：
+    # `ctx` 是 SDK 上下文（`__init__(self, ctx)` 的参数），`plugins` 是跨插件调用
+    # 门面（`self.plugins = Plugins(self.ctx)`）。两者都在**基类**里设、不在本插件
+    # 的类上，所以 `dir(QQAutoReplyPlugin)` 查不到 —— 但它们是运行时确实存在的，
+    # 与"重构删了方法"不是一回事。
+    "ctx",
+    "plugins",
 }
 
 

@@ -40,6 +40,7 @@ class EventSpec:
 EVENT_CATALOG: dict[str, EventSpec] = {
     "crash":          EventSpec("crash", CAT_SAFETY, 9, True, 15),
     "hard_brake":     EventSpec("hard_brake", CAT_SAFETY, 6, False, 20),
+    "vehicle_damage": EventSpec("vehicle_damage", CAT_SAFETY, 6, False, 60),
     "speeding":       EventSpec("speeding", CAT_SAFETY, 5, False, 30),
     "low_fuel":       EventSpec("low_fuel", CAT_SAFETY, 5, False, -1),
     "time_warning":   EventSpec("time_warning", CAT_TASK, 6, False, 120),
@@ -49,6 +50,9 @@ EVENT_CATALOG: dict[str, EventSpec] = {
     "fine":           EventSpec("fine", CAT_TASK, 5, False, -1),
     "job_start":      EventSpec("job_start", CAT_TASK, 4, False, -1),
     "tollgate":       EventSpec("tollgate", CAT_TRIP, 3, False, -1),
+    "ferry":          EventSpec("ferry", CAT_TRIP, 4, False, -1),
+    "train":          EventSpec("train", CAT_TRIP, 4, False, -1),
+    "mountain_pass":  EventSpec("mountain_pass", CAT_TRIP, 4, False, 300),
     "refuel":         EventSpec("refuel", CAT_TRIP, 3, False, -1),
     "trailer_attach": EventSpec("trailer_attach", CAT_TRIP, 2, False, -1),
     "trailer_detach": EventSpec("trailer_detach", CAT_TRIP, 2, False, -1),
@@ -59,14 +63,26 @@ EVENT_CATALOG: dict[str, EventSpec] = {
     "time_relaxed":   EventSpec("time_relaxed", CAT_TASK, 3, False, -1),
     "time_tight":     EventSpec("time_tight", CAT_TASK, 5, False, -1),
     "early_arrival":  EventSpec("early_arrival", CAT_TASK, 4, False, -1),
-    "cargo_damage":   EventSpec("cargo_damage", CAT_TASK, 5, False, -1),
+    "cargo_damage":   EventSpec("cargo_damage", CAT_TASK, 6, False, 30),
+    # ── 机务/操作类（2026-10：主人指出"灯光气压这些采集了就没用过"）──
+    # 这些信号一直躺在遥测里、面板上也显示，但从来没进过播报层
+    "air_pressure_low":  EventSpec("air_pressure_low", CAT_SAFETY, 8, False, 180),
+    "engine_warning":    EventSpec("engine_warning", CAT_SAFETY, 8, False, 240),
+    "park_brake_moving": EventSpec("park_brake_moving", CAT_SAFETY, 8, False, 120),
+    "engine_stalled":    EventSpec("engine_stalled", CAT_SAFETY, 8, False, 120),
+    "overheat":          EventSpec("overheat", CAT_SAFETY, 7, False, 300),
+    "lights_off_night":  EventSpec("lights_off_night", CAT_SAFETY, 7, False, 300),
+    "wheels_airborne":   EventSpec("wheels_airborne", CAT_SAFETY, 7, False, 120),
+    "brake_temp_high":   EventSpec("brake_temp_high", CAT_SAFETY, 6, False, 300),
+    "adblue_low":        EventSpec("adblue_low", CAT_SAFETY, 5, False, 900),
+    "battery_low":       EventSpec("battery_low", CAT_SAFETY, 5, False, 600),
+    "high_beam_on":      EventSpec("high_beam_on", CAT_TRIP, 3, False, 600),
+    "blinker_forgotten": EventSpec("blinker_forgotten", CAT_TRIP, 3, False, 300),
+    # 休息/睡觉（ETS2 真实机制：睡一觉会把强制休息倒计时顶回去）
+    "rested":            EventSpec("rested", CAT_TRIP, 4, False, 600),
 }
 
 
 def spec(event_id: str) -> EventSpec:
     """取事件规格；未知事件给保守默认。"""
     return EVENT_CATALOG.get(event_id, EventSpec(event_id, CAT_TRIP, 1, False, 30))
-
-
-def preempt_ids() -> frozenset[str]:
-    return frozenset(eid for eid, s in EVENT_CATALOG.items() if s.preempt)

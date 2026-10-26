@@ -183,6 +183,7 @@ body::before {
       <span class="pill"><span class="dot" id="statusDot"></span><span id="statusText">加载中</span></span>
     </div>
   </div>
+  <div id="renderWarn" style="display:none;margin:0 0 10px;padding:7px 11px;border-radius:8px;background:#f8514918;border:1px solid #f8514955;color:#ff9d8a;font-size:0.74rem;"></div>
 
   <!-- 驾驶 -->
   <div id="view-drive">
@@ -200,13 +201,20 @@ body::before {
       <div class="row"><span class="k">情绪</span><span class="v" id="mood">-</span></div>
       <div class="row"><span class="k">猫娘</span><span class="v" id="mode">-</span></div>
       <div class="row"><span class="k">驾驶场景</span><span class="v" id="scenario">-</span></div>
+      <div class="row"><span class="k">本轮玩法</span><span class="v" id="playLabel">-</span></div>
+      <div class="row"><span class="k">货物类型</span><span class="v" id="cargoFamily">-</span></div>
       <div class="row"><span class="k">播报</span><span class="v" id="broadcast">-</span></div>
     </div>
     <div class="btn-group">
       <button class="btn btn-ghost" onclick="installTelemetry()">📥 导入遥测</button>
       <button class="btn btn-accent" onclick="testSay()">🔊 测试开口</button>
+      <button class="btn" onclick="takePhoto()">📸 拍一张</button>
     </div>
     <div class="btn-group" style="margin-top:10px;" id="pilotBtns"></div>
+    <div class="card" style="margin-top:16px;">
+      <h2>💬 陪玩时间线 <span class="line"></span></h2>
+      <div id="timeline"><div class="empty">还没开始说话</div></div>
+    </div>
   </div>
 
   <!-- 活动 -->
@@ -221,8 +229,9 @@ body::before {
   <div id="view-diagnostics" style="display:none;">
     <div class="btn-group" style="margin-bottom:14px;">
       <button class="btn btn-accent" onclick="installTelemetry()">📥 导入遥测文件</button>
-      <button class="btn btn-ghost" onclick="reparseMap()">🗺️ 重新解析地图</button>
+      <button class="btn" onclick="runDiagnose()">🩺 自检</button>
     </div>
+    <div id="selfCheck" style="margin-bottom:14px;"></div>
     <div class="diag-grid" id="diagGrid"></div>
     <div class="card" style="margin-top:16px;">
       <h2>📊 决策日志 <span class="line"></span></h2>
@@ -244,6 +253,10 @@ body::before {
     <div class="card">
       <h2>🏆 成就里程碑 <span class="line"></span></h2>
       <div id="milestones" class="empty">还没有成就，继续跑吧喵</div>
+    </div>
+    <div class="card">
+      <h2>📔 旅途日记 <span class="line"></span></h2>
+      <div class="act-list" id="diaryList"><div class="empty">还没有日记，跑完一单就有了喵</div></div>
     </div>
   </div>
 
@@ -285,12 +298,20 @@ body::before {
     <div class="card">
       <h2>🎚 播报频率 <span class="line"></span></h2>
       <div class="btn-group" id="freqGroup"></div>
-      <div style="color:var(--text3);font-size:0.72rem;margin-top:11px;">quiet 安静 / standard 标准 / active 活跃，影响各类事件冷却。</div>
+      <div style="color:var(--text3);font-size:0.72rem;margin-top:11px;">陪聊密度：安静 144 秒 / 标准 90 秒 / 活跃 58 秒一条；同时影响事件冷却。</div>
     </div>
     <div class="card">
       <h2>📑 播报类别 <span class="line"></span></h2>
       <div class="btn-group" id="catGroup"></div>
-      <div style="color:var(--text3);font-size:0.72rem;margin-top:11px;">关闭的类别不推送（危急驾驶安全始终保留）。</div>
+      <div style="color:var(--text3);font-size:0.72rem;margin-top:11px;">关掉哪一类就不再说那一类；「陪聊」管路况/进城/夜路/生活闲聊等十几个维度（危急驾驶安全始终保留）。</div>
+    </div>
+    <div class="card">
+      <h2>🎛 陪玩节奏 <span class="line"></span></h2>
+      <div style="color:var(--text3);font-size:0.72rem;margin-bottom:8px;">陪聊间隔 / 电台间隔 / 途经地名半径 —— 改完点保存，重启也生效。</div>
+      <div id="pacingForm"></div>
+      <div class="btn-group" style="margin-top:10px;">
+        <button class="btn btn-accent" onclick="savePacing()">💾 保存节奏配置</button>
+      </div>
     </div>
     <div class="card">
       <h2>🤖 LLM 配置 <span class="line"></span></h2>
@@ -329,7 +350,7 @@ const SCENARIO_LABELS = {
   HIGHWAY:'高速', DELIVERY:'卸货', SETTLE:'结算'
 };
 const FREQ_LABELS = { quiet:'安静', standard:'标准', active:'活跃' };
-const CAT_LABELS = { safety:'驾驶安全', task:'任务', trip:'旅程', lifecycle:'启停', chatter:'闲聊' };
+const CAT_LABELS = { safety:'驾驶安全', task:'任务', trip:'旅程', lifecycle:'启停', chatter:'陪聊' };
 const VOICE_STYLES = [
   { id:'default', label:'自然' }, { id:'tsundere', label:'傲娇' }, { id:'yandere', label:'病娇' },
   { id:'loli', label:'萝莉' }, { id:'onee', label:'御姐' }, { id:'genki', label:'元气少女' },
@@ -384,29 +405,39 @@ function statCard(label, val, cls, hint) {
 
 function renderDrive() {
   var s = state;
-  var speedTone = s.is_speeding ? 'red' : '';
+  // 未连接 / 在主菜单时遥测字段全是 0，不能当真实读数显示，
+  // 否则会看到"油量 0% 该加油了"这种假警报
+  var live = !!s.telemetry_live;
+  var speedTone = live && s.is_speeding ? 'red' : '';
   var connTxt = s.connected ? '已连接' : (s.game_running ? '游戏运行中' : '未检测到游戏');
   var connCls = s.connected ? 'green' : (s.game_running ? 'amber' : 'red');
   var connDesc = s.connected ? '遥测正常' : (s.game_running ? '在主菜单，进入驾驶后连接' : '启动游戏后自动连接');
   document.getElementById('driveGrid').innerHTML =
     statCard('连接', connTxt, connCls, connDesc) +
-    statCard('车速', s.speed_kmh !== undefined ? Math.round(s.speed_kmh) + ' km/h' : '-', speedTone, s.is_speeding ? '超速中！' : '') +
-    statCard('限速', s.speed_limit_kmh !== undefined ? Math.round(s.speed_limit_kmh) + ' km/h' : '-') +
-    statCard('油量', s.fuel_percent !== undefined ? Math.round(s.fuel_percent) + '%' : '-', s.fuel_percent !== undefined && s.fuel_percent < 15 ? 'amber' : '', s.fuel_percent !== undefined && s.fuel_percent < 15 ? '该加油了' : '') +
-    statCard('续航', s.fuel_range_km !== undefined ? Math.round(s.fuel_range_km) + ' km' : '-') +
-    statCard('损伤', s.damage !== undefined ? Math.round(s.damage) + '%' : '-', s.damage !== undefined && s.damage > 30 ? 'red' : '') +
-    statCard('车辆', s.truck || '-', 'grad') +
-    statCard('动力', s.power_type === 'electric' ? '电动' : s.power_type === 'diesel' ? '柴油' : '-');
+    statCard('车速', live ? Math.round(s.speed_kmh || 0) + ' km/h' : '-', speedTone, live && s.is_speeding ? '超速中！' : '') +
+    statCard('限速', live ? Math.round(s.speed_limit_kmh || 0) + ' km/h' : '-') +
+    statCard('油量', live ? Math.round(s.fuel_percent || 0) + '%' : '-', live && s.fuel_percent < 15 ? 'amber' : '', live && s.fuel_percent < 15 ? '该加油了' : '') +
+    statCard('续航', live ? Math.round(s.fuel_range_km || 0) + ' km' : '-') +
+    statCard('损伤', live ? Math.round(s.damage || 0) + '%' : '-', live && s.damage > 30 ? 'red' : '') +
+    statCard('车辆', (live && s.truck) || '-', 'grad') +
+    statCard('动力', !live ? '-' : (s.power_type === 'electric' ? '电动' : s.power_type === 'diesel' ? '柴油' : '-'));
 
-  document.getElementById('taskCargo').textContent = s.cargo || '-';
+  // 任务卡整卡按 on_job 收口：没接任务时不能显示 0%／100% 这种看着像真数据的值
+  document.getElementById('taskCargo').textContent = s.on_job ? (s.cargo || '-') : '-';
   document.getElementById('taskRoute').textContent = s.on_job ? (s.city_src || '-') + ' → ' + (s.city_dst || '-') : '无任务';
   document.getElementById('taskProgress').textContent = s.on_job ? Math.round(s.progress_percent || 0) + '%（剩 ' + Math.round(s.remaining_km || 0) + ' km）' : '-';
-  document.getElementById('taskDelivery').textContent = s.delivery_remaining_min != null ? s.delivery_remaining_min + ' 分钟' : '-';
-  document.getElementById('taskCargoDamage').textContent = s.cargo_damage !== undefined ? Math.round((1 - s.cargo_damage) * 100) + '%' : '-';
+  document.getElementById('taskDelivery').textContent = (s.on_job && s.delivery_remaining_min != null) ? s.delivery_remaining_min + ' 分钟' : '-';
+  document.getElementById('taskCargoDamage').textContent = (s.on_job && s.cargo_damage != null) ? Math.round((1 - s.cargo_damage) * 100) + '%' : '-';
 
   document.getElementById('mood').textContent = MOOD_LABELS[s.mood] || s.mood || '-';
   document.getElementById('mode').textContent = (s.catgirl || {}).name || '-';
   document.getElementById('scenario').textContent = SCENARIO_LABELS[s.scenario] || s.scenario || '-';
+  var ps = s.playstyle || {};
+  var pl = document.getElementById('playLabel');
+  if (pl) pl.textContent = ps.label || '-';
+  var cf = document.getElementById('cargoFamily');
+  if (cf) cf.textContent = ps.cargo_family || '-';
+  renderTimeline(s);
   document.getElementById('broadcast').textContent = s.dry_run ? 'dry_run（试运行）' : '已开启';
   // 猫娘智驾按钮（按状态显示）
   var pst = (s.pilot || {}).state || 'idle';
@@ -425,17 +456,46 @@ function renderDrive() {
   }
 }
 
+function renderTimeline(s) {
+  var box = document.getElementById('timeline');
+  if (!box) return;
+  var list = ((s.push || {}).recent) || [];
+  var mark = {
+    sent: { t:'说了', c:'ok' }, queued: { t:'排队', c:'no' },
+    dropped_topic: { t:'去重', c:'no' }, muted: { t:'静默', c:'no' },
+    failed: { t:'失败', c:'no' }
+  };
+  var prio = { critical: '🔴', important: '🟡', chat: '⚪' };
+  var mdr = s.mood_drive || {};
+  box.innerHTML = list.length ? (
+    '<div style="color:var(--text3);font-size:0.7rem;margin-bottom:8px;">' +
+      '当前情绪主线：' + (mdr.mood || '-') + ' · 陪聊密度 ×' + (mdr.gap_mult || 1) +
+      ' · ' + ((s.push || {}).pending || 0) + ' 条待发</div>' +
+    list.map(function (e) {
+      var mk = mark[e.status] || { t: e.status, c: 'no' };
+      var t = new Date((e.ts || 0) * 1000);
+      var hh = ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2);
+      return '<div class="log-item"><span class="res ' + mk.c + '">' + mk.t + '</span>' +
+        '<span>' + (prio[e.priority] || '') + ' ' + (e.topic || '-') + '</span>' +
+        '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+        (e.text || '') + '</span><span class="why">' + hh + '</span></div>';
+    }).join('')) : '<div class="empty">还没开始说话</div>';
+}
+
 function renderMemory() {
   var s = state, counts = s.memory || {};
   var prof = s.profile || {}, pstats = prof.stats || {};
   var led = s.ledger || {};
+  var dc = s.diary || {}, dt = dc.today || {};
   document.getElementById('memoryGrid').innerHTML =
     statCard('城市足迹', counts.cities || 0) +
     statCard('货物偏好', counts.cargos || 0) +
     statCard('总里程', pstats.total_km !== undefined ? Math.round(pstats.total_km) + ' km' : '-', 'grad') +
     statCard('完成单数', pstats.trips || 0) +
     statCard('本月净赚', led.net !== undefined ? Math.round(led.net) + ' €' : '-', 'green') +
-    statCard('驾驶画像', prof.label || '-');
+    statCard('驾驶画像', prof.label || '-') +
+    statCard('今天里程', dt.km !== undefined ? Math.round(dt.km) + ' km' : '-') +
+    statCard('今天单数', dt.trips || 0, dt.trips ? 'green' : '');
   var cities = s.top_cities || [], cargos = s.top_cargos || [];
   document.getElementById('cityTags').innerHTML = cities.length
     ? cities.map(c => '<span class="tag">' + (c.key || '') + ' · ' + (c.count || 0) + ' 次</span>').join('')
@@ -447,6 +507,23 @@ function renderMemory() {
   if (ms) ms.innerHTML = (prof.milestones || []).length
     ? (prof.milestones || []).map(m => '<span class="tag">🏆 ' + m + '</span>').join('')
     : '<div class="empty">还没有成就，继续跑吧喵</div>';
+  // 旅途日记：把"跑过什么"写成能回味的记录
+  var diaryBox = document.getElementById('diaryList');
+  if (diaryBox) {
+    var rec = dc.recent || [];
+    diaryBox.innerHTML = rec.length ? rec.map(function (e) {
+      var route = (e.src || '?') + ' → ' + (e.dst || '?');
+      var extra = [];
+      if (e.km) extra.push(Math.round(e.km) + ' km');
+      if (e.cargo) extra.push(e.cargo);
+      if (e.revenue) extra.push(Math.round(e.revenue) + ' €');
+      if (e.crashes) extra.push('碰撞 ' + e.crashes + ' 次');
+      if (e.speedings) extra.push('超速 ' + e.speedings + ' 次');
+      return '<div class="act-item"><span class="act-mark t2"></span><div style="flex:1;min-width:0;">' +
+        '<div class="t">' + route + '</div><div class="d">' + extra.join(' · ') + '</div></div>' +
+        '<span class="time">' + (e.day || '') + '</span></div>';
+    }).join('') : '<div class="empty">还没有日记，跑完一单就有了喵</div>';
+  }
 }
 
 function renderMap() {
@@ -489,6 +566,17 @@ function renderDiagnostics() {
   items.push({ n:'安全门', s: safety.status === 'running' ? '正常' : safety.status === 'paused' ? '已急停' : '自动急停', cls: safety.status === 'running' ? 'good' : 'bad', d: '失败计数 ' + (safety.failures || 0) });
   items.push({ n:'播报频率', s: FREQ_LABELS[s.broadcast_frequency] || '-', cls: 'good', d: '事件冷却倍率' });
   items.push({ n:'限流剩余', s: (safety.rate_limit_remaining || 0) + 's', cls: 'good', d: '全局限流时钟' });
+  items.push({ n:'损伤感知', s: (s.damage !== undefined ? Math.round(s.damage) + '%' : '-'), cls: (s.damage || 0) > 50 ? 'warn' : 'good', d: '货损：job ' + Math.round((s.cargo_damage_job || 0) * 100) + '% / 挂车 ' + Math.round((s.cargo_damage_trailer || 0) * 100) + '%' });
+  items.push({ n:'碰撞加速度', s: (s.accel_g !== undefined ? s.accel_g + ' g' : '-'), cls: 'good', d: '撞一下看峰值（判定阈值 ' + (s.crash_accel_g || 1.5) + 'g）' });
+  var mech = s.mech || {}, lt = s.lights || {};
+  var gearTxt = s.gear === -1 ? 'R' : (s.gear === 0 ? 'N' : (s.gear !== undefined ? s.gear : '-'));
+  var ltOn = [lt.low_beam && '近光', lt.parking && '示宽', lt.brake && '刹车', lt.hazard && '双闪', lt.beacon && '警报', lt.blinker_left && '左转', lt.blinker_right && '右转'].filter(Boolean).join('/');
+  items.push({ n:'档位 / 灯光', s: String(gearTxt), cls: 'good', d: ltOn || '灯光全灭' });
+  items.push({ n:'机务', s: (mech.brake_temp !== undefined ? mech.brake_temp + '°C' : '-'), cls: (mech.brake_temp || 0) > 300 ? 'warn' : 'good', d: '气压 ' + (mech.air_pressure || 0) + ' · 油温 ' + (mech.oil_temp || 0) + ' · 水温 ' + (mech.water_temp || 0) + ' · 电压 ' + (mech.battery_v || 0) + 'V · 着地轮 ' + (mech.wheels_on_ground || 0) });
+  items.push({ n:'地图区域', s: s.in_city ? '市区' : '郊外/高速', cls: 'good', d: '比例尺 ' + (s.map_scale || 0) + (s.map_scale === 3 ? '（1:3 城市）' : (s.map_scale >= 10 ? '（1:19 野外）' : '')) });
+  var pl = s.pilot || {};
+  var stateLabel = { idle: '未接管', offer: '等回复', engaged: '她正在开', handing_over: '交还中' }[pl.state] || '-';
+  items.push({ n:'接力驾驶', s: stateLabel, cls: pl.state === 'engaged' ? 'good' : '', d: '前视点跟踪：横向 ' + (pl.lateral_m === undefined ? '-' : pl.lateral_m + ' m') + ' · 转向 ' + (pl.steer_cmd === undefined ? '-' : pl.steer_cmd) + ' · 方向符号 ' + (pl.steer_sign || 1) + (pl.heading_known ? '' : ' · 未标定朝向') });
   document.getElementById('diagGrid').innerHTML = items.map(i =>
     '<div class="diag-item"><div class="n">' + i.n + '</div><div class="s ' + i.cls + '">' + i.s + '</div><div class="desc">' + i.d + '</div></div>').join('');
   var log = s.decision_log || [];
@@ -500,7 +588,12 @@ function renderDiagnostics() {
 function renderSettings() {
   var s = state, cg = s.catgirl || {};
   // 人设来自宿主导入：显示名字/特质/口头禅
-  var traits = (cg.traits || []).slice(0, 3).join('、');
+  // 注意 traits 可能是字符串（宿主导出整句），旧版直接 .slice().join() 会抛
+  // TypeError，把设置页后半段（口吻/频率/类别）整片掐断成空白卡
+  var rawTraits = cg.traits;
+  var traits = Array.isArray(rawTraits)
+    ? rawTraits.slice(0, 3).join('、')
+    : String(rawTraits || '');
   document.getElementById('modeGroup').innerHTML =
     '<div class="diag-item"><div class="n">' + (cg.name || '猫娘') + '</div>' +
     '<div class="s good">宿主导入</div><div class="desc">' +
@@ -519,6 +612,67 @@ function renderSettings() {
   document.getElementById('catGroup').innerHTML = Object.keys(cats).map(c =>
     '<button class="mode-chip' + (cats[c] ? ' active' : '') + '" onclick="toggleCategory(\'' + c + '\',' + cats[c] + ')">' + (CAT_LABELS[c] || c) + '</button>').join('');
   loadLlmForm();
+  loadPacingForm();
+}
+
+var PACING_FIELDS = [
+  { k:'companion_gap_s', t:'陪聊基准间隔', u:'秒', min:30, max:600, i:15 },
+  { k:'companion_event_quiet_s', t:'事件后让路', u:'秒', min:0, max:180, i:15 },
+  { k:'radio_interval_s', t:'电台间隔', u:'秒（0=关）', min:0, max:3600, i:60 },
+  { k:'passing_radius_km', t:'途经地名半径', u:'km', min:1, max:20, i:1 },
+  { k:'passing_cooldown_s', t:'同地点播报冷却', u:'秒', min:300, max:7200, i:300 },
+];
+var PACING_TOGGLES = [
+  { k:'companion_enabled', t:'陪玩总开关' },
+  { k:'content_opening_story', t:'接单开场故事' },
+  { k:'content_arrival_culture', t:'到达地文化介绍' },
+  { k:'content_passing_places', t:'途经地名介绍' },
+  { k:'content_radio_dj', t:'猫娘电台' },
+];
+
+function loadPacingForm() {
+  callEntry('get_pacing', {}).then(function (r) {
+    var st = (r && r.state) || {};
+    var box = document.getElementById('pacingForm');
+    if (!box) return;
+    box.innerHTML = PACING_FIELDS.map(function (f) {
+      var v = st[f.k];
+      return '<div class="row"><span class="k">' + f.t + '</span><span class="v">' +
+        '<input id="pc-' + f.k + '" type="number" step="' + f.i + '" min="' + f.min +
+        '" max="' + f.max + '" value="' + (v === undefined || v === null ? '' : v) +
+        '" style="width:90px;padding:5px;border-radius:6px;border:1px solid var(--border);' +
+        'background:var(--glass);color:var(--text);"> <span style="color:var(--text3);font-size:0.7rem;">' +
+        f.u + '</span></span></div>';
+    }).join('') + PACING_TOGGLES.map(function (f) {
+      var on = !!st[f.k];
+      return '<div class="row"><span class="k">' + f.t + '</span><span class="v">' +
+        '<button class="mode-chip' + (on ? ' active' : '') + '" id="pt-' + f.k +
+        '" onclick="togglePacing(\'' + f.k + '\')">' + (on ? '开' : '关') + '</button></span></div>';
+    }).join('');
+  }).catch(function () {});
+}
+
+function togglePacing(key) {
+  var b = document.getElementById('pt-' + key);
+  if (!b) return;
+  var on = !b.classList.contains('active');
+  b.classList.toggle('active', on);
+  b.textContent = on ? '开' : '关';
+}
+
+async function savePacing() {
+  var values = {};
+  PACING_FIELDS.forEach(function (f) {
+    var el = document.getElementById('pc-' + f.k);
+    if (el && el.value !== '') values[f.k] = parseFloat(el.value);
+  });
+  PACING_TOGGLES.forEach(function (f) {
+    var b = document.getElementById('pt-' + f.k);
+    if (b) values[f.k] = b.classList.contains('active');
+  });
+  var r = await callEntry('set_pacing', { values: values });
+  toast(r && r.applied ? '节奏配置已保存' : '没有可保存的改动或保存失败', !(r && r.applied));
+  setTimeout(loadState, 600);
 }
 
 function loadLlmForm() {
@@ -554,12 +708,22 @@ async function clearLlmConfig() {
 }
 
 function render() {
-  renderDrive();
-  renderMemory();
-  renderMap();
-  renderActivity();
-  renderDiagnostics();
-  renderSettings();
+  // 每个渲染器独立 try/catch：一个字段异常不再把整页（含设置项）掐成空白。
+  // 曾经 traits 是字符串 → renderSettings 抛错 → 口吻/频率/类别三张卡全空，
+  // 用户看到的却是"设置里没有可调项"。
+  var failed = [];
+  [renderDrive, renderMemory, renderMap, renderActivity, renderDiagnostics, renderSettings]
+    .forEach(function (fn) {
+      try { fn(); } catch (e) { failed.push((fn.name || 'render') + ': ' + (e && e.message)); }
+    });
+  if (failed.length) {
+    console.error('[neko_pawpilot 面板] 渲染失败:', failed);
+    var w = document.getElementById('renderWarn');
+    if (w) { w.style.display = ''; w.textContent = '⚠ 部分面板未渲染：' + failed.join('；'); }
+  } else {
+    var w2 = document.getElementById('renderWarn');
+    if (w2) { w2.style.display = 'none'; }
+  }
   document.getElementById('sDot').className = 'dot ' + (state.connected ? 'on' : 'off');
   document.getElementById('sText').textContent = state.connected ? '已连接游戏' : '未连接游戏';
   document.getElementById('statusDot').className = 'dot ' + (state.connected ? 'on' : 'off');
@@ -583,18 +747,35 @@ async function installTelemetry() {
   setTimeout(loadState, 800);
 }
 
-async function reparseMap() {
-  if (!confirm('重新解析地图需要 1-3 分钟，期间面板会等待。继续吗？')) return;
-  toast('开始解析地图…');
-  var r = await callEntry('reparse_map', {}, 240000);
-  if (r && r.ok) toast(r.detail || '地图解析完成');
-  else toast((r && r.detail) || '地图解析失败', true);
-  setTimeout(loadState, 800);
-}
-
 async function testSay() {
   var r = await callEntry('test_say', {});
   toast(r && r.pushed ? '测试消息已发出（dry_run 时仅记录）' : '测试开口失败', !(r && r.pushed));
+}
+
+async function takePhoto() {
+  toast('📸 正在拍…');
+  var r = await callEntry('take_photo', {});
+  toast((r && r.reply) || '拍照失败', !(r && r.reply));
+  setTimeout(loadState, 800);
+}
+
+async function runDiagnose() {
+  var box = document.getElementById('selfCheck');
+  if (box) box.innerHTML = '<div class="card"><h2>🩺 自检中… <span class="line"></span></h2><div class="empty">正在逐项实测（识屏会真截一张图，稍等）</div></div>';
+  var r = await callEntry('diagnose', {}, 30000);
+  var items = (r && r.items) || [];
+  if (!items.length) { toast('自检没返回结果', true); if (box) box.innerHTML = ''; return; }
+  var bad = items.filter(function (i) { return !i.ok; }).length;
+  if (box) box.innerHTML = '<div class="card"><h2>🩺 自检结果 · ' +
+    (bad ? ('<span style="color:var(--red)">' + bad + ' 项有问题</span>') : '<span style="color:var(--green)">全部正常</span>') +
+    ' <span class="line"></span></h2>' +
+    items.map(function (i) {
+      return '<div class="row"><span class="k">' + (i.ok ? '✅ ' : '❌ ') + i.name +
+        '</span><span class="v">' + (i.detail || '') +
+        (i.ok || !i.hint ? '' : '<br><span style="color:var(--text3);font-size:0.7rem">' + i.hint + '</span>') +
+        '</span></div>';
+    }).join('') + '</div>';
+  toast(bad ? ('自检发现 ' + bad + ' 项问题') : '自检通过：全部正常', bad > 0);
 }
 
 async function toggleVoiceStyle(style) {

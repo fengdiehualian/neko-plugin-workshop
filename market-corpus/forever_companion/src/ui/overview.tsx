@@ -47,7 +47,7 @@ export function OverviewPane(props: {
       />
 
       {/* ---- 她的现在 ---- */}
-      <Card title={t("panel.overview.now", { defaultValue: "她的现在" })}>
+      <Card title={t("panel.overview.now", { defaultValue: "当前状态" })}>
         <div className="tm-ov-hero">
           <RingStatus t={t} status={status} settings={settings} />
           <div className="tm-ov-hero-text">
@@ -58,7 +58,7 @@ export function OverviewPane(props: {
             <div className="tm-status-sub">
               {enabled
                 ? `${t("panel.ring.cycleDayN", { n: String(status.cycle_day ?? "-"), defaultValue: "周期第 {n} 天" })} · ${t("panel.ring.untilTideN", { n: String(status.days_until_next_period ?? "-"), defaultValue: "距下次潮汐还有 {n} 天" })}`
-                : t("panel.offSub", { defaultValue: "模拟已关闭，她暂时不会感受身体节律" })}
+                : t("panel.offSub", { defaultValue: "模拟已关闭，已有记录会保留" })}
             </div>
             {enabled && mood.system_enabled !== false && mood.active && mood.affect ? (
               <MoodChip t={t} mood={mood} />
@@ -80,7 +80,7 @@ export function OverviewPane(props: {
             <span className="tm-ov-tile-num">{diaryTotal}</span>
             <span className="tm-ov-tile-label">{t("panel.overview.tileDiary", { defaultValue: "时光日记" })}</span>
             <span className="tm-ov-tile-sub">
-              {t("panel.overview.tileDiarySub", { defaultValue: "她写 {n} · 碎片 {m}" })
+              {t("panel.overview.tileDiarySub", { defaultValue: "手记 {n} · 片段 {m}" })
                 .replace("{n}", String(selfCount))
                 .replace("{m}", String(fragmentTotal))}
             </span>
@@ -128,7 +128,7 @@ function MoodChip(props: { t: TFunc; mood: Mood }) {
   let remaining = ""
   if (mood.expires_at) {
     const minutes = Math.max(0, Math.round((mood.expires_at * 1000 - Date.now()) / 60000))
-    remaining = t("panel.overview.moodRemaining", { defaultValue: "约 {n} 分钟后缓和" }).replace("{n}", String(minutes))
+    remaining = t("panel.overview.moodRemaining", { defaultValue: "工具记录约 {n} 分钟后到期" }).replace("{n}", String(minutes))
   }
   return (
     <div className="tm-ov-mood-chip">

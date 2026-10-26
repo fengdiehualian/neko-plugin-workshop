@@ -1,6 +1,6 @@
 """正面情绪动作包（心有涟漪/暖流涌动/满潮欢喜，0.5.5）测试。
 
-覆盖：三个新动作的 apply/到期自动解除/恢复台词分语气/target_lanlan 定向、
+覆盖：三个新动作的 apply/到期记录解除/read 提醒/target_lanlan 定向、
 主动搭话暂停白名单（新动作生效不写 proactive 开关、存量重度负面仍暂停、
 跨角色引用计数兼容）、ripple 期间道歉关键词触发和好提醒、
 set_mood/debug_set_mood 接受新动作、行为约束 hint 与默认时长。
@@ -70,18 +70,17 @@ def test_new_actions_apply_with_default_durations(plugin_factory_full, tm, monke
         assert "行为基调" in line
 
 
-def test_ripple_hint_requires_rising_tide_to_recover(tm) -> None:
-    # 对称约束：想恢复正常必须先调 mood_rising_tide（与冷战等负面动作一致）
+def test_positive_hints_offer_optional_record_updates(tm) -> None:
     assert "mood_rising_tide" in tm.ForeverCompanionPlugin._MOOD_BEHAVIOR_HINTS["ripple"]
     for action in ("warm_current", "spring_tide"):
-        # 正面动作：兴致回落后自然恢复或调 rising_tide
+        # 正面动作提供可选更新工具，不要求先调用才能改变语气。
         assert "mood_rising_tide" in tm.ForeverCompanionPlugin._MOOD_BEHAVIOR_HINTS[action]
 
 
-# ---------- 到期自动解除 + 恢复台词分语气 + target_lanlan ----------
+# ---------- 到期记录解除 + read 提醒 + target_lanlan ----------
 
 
-def test_new_actions_expire_with_gentle_recovery_line(plugin_factory_full, tm, monkeypatch) -> None:
+def test_new_actions_expire_with_read_only_notice(plugin_factory_full, tm, monkeypatch) -> None:
     p = plugin_factory_full(http=_HostHttp(current="YUI", master=False))
     now = [1000.0]
     monkeypatch.setattr(tm.time, "time", lambda: now[0])
@@ -95,12 +94,12 @@ def test_new_actions_expire_with_gentle_recovery_line(plugin_factory_full, tm, m
         assert len(recovery) == 1
         assert recovery[0].get("target_lanlan") == "小灵"
         text = recovery[0]["parts"][0]["text"]
-        # 温和回落文案：自然接着相处，不用冲突导向的"打破僵局"
-        assert "接着相处" in text
+        assert recovery[0]["ai_behavior"] == "read"
+        assert "不代表你已经消气、原谅或改变感受" in text
         assert "打破僵局" not in text
 
 
-def test_heavy_negative_recovery_line_keeps_conflict_tone(plugin_factory_full, tm, monkeypatch) -> None:
+def test_heavy_negative_expiry_does_not_require_reconciliation(plugin_factory_full, tm, monkeypatch) -> None:
     p = plugin_factory_full(http=_HostHttp(current="YUI", master=False))
     now = [1000.0]
     monkeypatch.setattr(tm.time, "time", lambda: now[0])
@@ -109,8 +108,9 @@ def test_heavy_negative_recovery_line_keeps_conflict_tone(plugin_factory_full, t
     run(p._supervise_once())
     recovery = _pushes_of(p, "mood_recovered")
     assert len(recovery) == 1
-    # 重度负面仍用现有"打破僵局"文案，语义不变
-    assert "打破僵局" in recovery[0]["parts"][0]["text"]
+    assert recovery[0]["ai_behavior"] == "read"
+    assert "不代表你已经消气" in recovery[0]["parts"][0]["text"]
+    assert "打破僵局" not in recovery[0]["parts"][0]["text"]
 
 
 # ---------- 主动搭话暂停白名单 ----------

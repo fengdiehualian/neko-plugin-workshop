@@ -14,7 +14,10 @@ free 降级/防环）、_load_core_config 缓存与坏文件降级、直连回�
 """
 
 import asyncio
+from copy import deepcopy
 from datetime import date
+
+import pytest
 
 
 def run(coro):
@@ -59,7 +62,8 @@ class _SenseHttp:
             fn = (_parse_qs(_urlparse(path).query).get("filename") or [""])[0]
             if not _re.match(r"^recent_(.+)\.json$", fn):
                 return None
-            return {"content": list(self.turns), "fingerprint": str(len(self.turns))}
+            fingerprint = hash(tuple((item["type"], item["data"]["content"]) for item in self.turns))
+            return {"content": list(self.turns), "fingerprint": str(fingerprint)}
         if path == "/api/emotion/analysis":
             self.analysis_calls.append({"body": body, "headers": headers})
             if self.emotion is None:
@@ -179,6 +183,7 @@ def test_min_interval_throttles_analysis(plugin_factory_full, tm, monkeypatch) -
     http = _SenseHttp(emotion=("angry", 0.95))
     http.set_turns([("你好", "你好呀")])
     p = _sense_plugin(plugin_factory_full, http)
+    p._emotion_sense_cfg["min_interval_sec"] = 60  # 显式的旧间隔仍生效
     shard = p._get_shard("YUI")
     now = [5000.0]
     monkeypatch.setattr(tm.time, "time", lambda: now[0])
@@ -192,6 +197,99 @@ def test_min_interval_throttles_analysis(plugin_factory_full, tm, monkeypatch) -
     assert run(p._maybe_tone_sense("YUI", shard)) is False  # 提醒被 10 分钟筛选节流挡住
     assert len(http.analysis_calls) == 4  # 但 min_interval 已过，分析确实执行了（又 2 次）
 
+
+def test_default_interval_updates_next_reply_after_twenty_seconds(plugin_factory_full, tm, monkeypatch) -> None:
+    http = _SenseHttp(emotion=("happy", 0.9))
+    http.set_turns([("你好", "你好呀")])
+    p = _sense_plugin(plugin_factory_full, http)
+    shard = p._get_shard("YUI")
+    now = [5000.0]
+    monkeypatch.setattr(tm.time, "time", lambda: now[0])
+    run(p._maybe_tone_sense("YUI", shard))
+    http.add_turn("真好", "我好开心")
+    run(p._maybe_tone_sense("YUI", shard))
+    first = shard.mood.valence
+    http.add_turn("继续聊", "今天真棒")
+    now[0] += 19
+    run(p._maybe_tone_sense("YUI", shard))
+    assert len(http.analysis_calls) == 2
+    now[0] += 1
+    run(p._maybe_tone_sense("YUI", shard))
+    assert len(http.analysis_calls) == 4
+    assert shard.mood.valence > first
+    now[0] += 20
+    run(p._maybe_tone_sense("YUI", shard))
+    assert len(http.analysis_calls) == 4  # 没有新回复时不额外调用模型
+
+
+def test_rolling_window_same_reply_different_user_is_new_turn(plugin_factory_full) -> None:
+    http = _SenseHttp()
+    http.set_turns([("第一句话", "好呀"), ("第二句话", "好呀")])
+    p = _sense_plugin(plugin_factory_full, http)
+    shard = p._get_shard("YUI")
+    run(p._poll_recent_turns(shard, lanlan="YUI"))
+    http.set_turns([("第二句话", "好呀"), ("第三句话", "好呀")])
+    assert run(p._poll_recent_turns(shard, lanlan="YUI")) == ("第三句话", "好呀")
+    assert run(p._poll_recent_turns(shard, lanlan="YUI")) is None
+
+
+@pytest.mark.parametrize("confidence", [0.2, 0.59, float("nan"), float("inf"), -0.1, 1.1])
+def test_unreliable_reply_does_not_update_mood_or_correction(
+    plugin_factory_full, tm, monkeypatch, confidence
+) -> None:
+    http = _SenseHttp(emotion=("sad", confidence))
+    http.set_turns([("你好", "你好呀")])
+    p = _sense_plugin(plugin_factory_full, http)
+    shard = p._get_shard("YUI")
+    monkeypatch.setattr(tm.time, "time", lambda: 5000.0)
+    run(p.set_mood(action="warm_current", minutes=30, _ctx={"lanlan_name": "YUI"}))
+    before = shard.mood.to_mapping()
+    run(p._maybe_tone_sense("YUI", shard))
+    http.add_turn("新消息", "新回复")
+    assert run(p._maybe_tone_sense("YUI", shard)) is False
+    assert shard.mood.to_mapping() == before
+    assert shard.tone_window == []
+    assert not _pushes_of(p, "tone_correction")
+
+
+def test_unreliable_user_does_not_offset_happy_reply(plugin_factory_full, tm, monkeypatch) -> None:
+    http = _SenseHttp()
+    http.set_turns([("你好", "你好呀")])
+    p = _sense_plugin(plugin_factory_full, http)
+    shard = p._get_shard("YUI")
+    monkeypatch.setattr(tm.time, "time", lambda: 5000.0)
+    run(p._maybe_tone_sense("YUI", shard))
+    calls = []
+
+    async def analyze(text, lanlan):
+        calls.append(text)
+        return ("sad", 0.4) if text == "用户消息" else ("happy", 0.9)
+
+    monkeypatch.setattr(p, "_analyze_turn_tone", analyze)
+    http.add_turn("用户消息", "角色回复")
+    run(p._maybe_tone_sense("YUI", shard))
+    assert len(calls) == 2
+    assert shard.mood.valence == pytest.approx(0.09)
+
+
+def test_affect_timestamp_uses_completion_time(plugin_factory_full, tm, monkeypatch) -> None:
+    http = _SenseHttp()
+    http.set_turns([("你好", "你好呀")])
+    p = _sense_plugin(plugin_factory_full, http, sense_cfg={"user_affect_weight": 0})
+    shard = p._get_shard("YUI")
+    now = [5000.0]
+    monkeypatch.setattr(tm.time, "time", lambda: now[0])
+    run(p._maybe_tone_sense("YUI", shard))
+
+    async def analyze(text, lanlan):
+        now[0] += 8
+        return "happy", 0.9
+
+    monkeypatch.setattr(p, "_analyze_turn_tone", analyze)
+    http.add_turn("用户消息", "角色回复")
+    run(p._maybe_tone_sense("YUI", shard))
+    assert shard.mood.affect_updated_at == 5008.0
+    assert shard.mood.valence == pytest.approx(0.09)
 
 # ---------- 筛选模式命中矩阵 + 阶段灵敏度 ----------
 
@@ -455,6 +553,7 @@ def test_update_settings_emotion_sense_fields(plugin_factory_full) -> None:
     p = _sense_plugin(plugin_factory_full, _SenseHttp())
     res = run(p.update_settings(
         emotion_sense_enabled=False,
+        tone_min_interval_sec=45,
         tone_check_rate=0.5,
         tone_phase_sensitivity_enabled=False,
         tone_phase_sensitivity=0.25,
@@ -464,15 +563,81 @@ def test_update_settings_emotion_sense_fields(plugin_factory_full) -> None:
     assert getattr(res, "error", None) is None
     cfg = p._emotion_sense_cfg
     assert cfg["enabled"] is False
+    assert cfg["min_interval_sec"] == 45
     assert cfg["check_rate"] == 0.5
     assert cfg["phase_sensitivity_enabled"] is False
     assert cfg["phase_sensitivity"] == 0.25
     assert cfg["slot"] == "conversation"
     # Store 覆盖层持久化
     assert p.store.data["settings"]["emotion_sense"]["check_rate"] == 0.5
+    assert p.store.data["settings"]["emotion_sense"]["min_interval_sec"] == 45
     assert p.store.data["settings"]["emotion_sense"]["slot"] == "conversation"
     # snapshot 回显槽位选择
     assert p._settings_snapshot()["tone_slot"] == "conversation"
+    assert res.value["tone_min_interval_sec"] == 45
+    restarted = plugin_factory_full(store_initial=deepcopy(p.store.data))
+    assert restarted._settings_snapshot()["tone_min_interval_sec"] == 45
+
+
+@pytest.mark.parametrize("interval", [10, 3600, 30.0])
+def test_update_settings_interval_boundaries(plugin_factory_full, interval) -> None:
+    p = _sense_plugin(plugin_factory_full)
+    result = run(p.update_settings(tone_min_interval_sec=interval))
+    assert getattr(result, "error", None) is None
+    assert result.value["tone_min_interval_sec"] == interval
+    assert type(p._emotion_sense_cfg["min_interval_sec"]) is int
+
+
+@pytest.mark.parametrize("interval", [
+    0, 9, 3601, 20.5, True, None, "20", float("nan"), float("inf"), -float("inf"),
+])
+def test_update_settings_invalid_interval_has_no_side_effects(plugin_factory_full, interval) -> None:
+    p = _sense_plugin(plugin_factory_full)
+    store_before = deepcopy(p.store.data)
+    config_before = deepcopy(p._emotion_sense_cfg)
+    enabled_before = p._enabled(p._get_shard("YUI"))
+    result = run(p.update_settings(tone_min_interval_sec=interval, enabled=not enabled_before))
+    assert str(result.error) == "settings_value_invalid"
+    assert p._emotion_sense_cfg == config_before
+    assert p.store.data == store_before
+    assert p._enabled(p._get_shard("YUI")) == enabled_before
+
+
+@pytest.mark.parametrize("interval", [1, 60, 7200])
+def test_existing_interval_survives_unrelated_save_and_reload(plugin_factory_full, interval) -> None:
+    p = plugin_factory_full(store_initial={"settings": {"emotion_sense": {"min_interval_sec": interval}}})
+    assert p._settings_snapshot()["tone_min_interval_sec"] == interval
+    result = run(p.update_settings(tone_check_rate=0.5))
+    assert result.value["tone_min_interval_sec"] == interval
+    restarted = plugin_factory_full(store_initial=deepcopy(p.store.data))
+    assert restarted._settings_snapshot()["tone_min_interval_sec"] == interval
+
+
+def test_saved_interval_changes_runtime_throttle_immediately(plugin_factory_full, tm, monkeypatch) -> None:
+    http = _SenseHttp(emotion=("happy", 0.9))
+    http.set_turns([("你好", "你好呀")])
+    p = _sense_plugin(plugin_factory_full, http, sense_cfg={"min_interval_sec": 60})
+    shard = p._get_shard("YUI")
+    now = [5000.0]
+    monkeypatch.setattr(tm.time, "time", lambda: now[0])
+    run(p._maybe_tone_sense("YUI", shard))
+    http.add_turn("真好", "我好开心")
+    run(p._maybe_tone_sense("YUI", shard))
+    http.add_turn("继续聊", "今天真棒")
+    now[0] += 10
+    run(p._maybe_tone_sense("YUI", shard))
+    assert len(http.analysis_calls) == 2
+    assert run(p.update_settings(tone_min_interval_sec=10)).value["tone_min_interval_sec"] == 10
+    run(p._maybe_tone_sense("YUI", shard))
+    assert len(http.analysis_calls) == 4
+    assert run(p.update_settings(tone_min_interval_sec=30)).value["tone_min_interval_sec"] == 30
+    http.add_turn("下一轮", "我也很开心")
+    now[0] += 29
+    run(p._maybe_tone_sense("YUI", shard))
+    assert len(http.analysis_calls) == 4
+    now[0] += 1
+    run(p._maybe_tone_sense("YUI", shard))
+    assert len(http.analysis_calls) == 6
 
 
 def test_update_settings_tone_slot_validated(plugin_factory_full) -> None:
@@ -495,9 +660,13 @@ _CORE_CFG = {
     "coreApiKey": "sk-core",
     "assistApi": "qwen",
     "assistApiKeyQwen": "sk-assist-qwen",
+    # 宿主这张表是扁平的，键为 "scope:provider"（main_routers/config_router/
+    # connectivity.py:685,776 写盘）。旧桩曾写成嵌套 {scope: {provider: url}}，
+    # 与宿主真实形态不符，于是把插件的同一处误读一起钉成了绿（1.3.2 修）
     "resolvedProviderUrls": {
-        "core": {"qwen": "https://core.example.com/v1"},
-        "assist": {"qwen": "https://assist.example.com/v1", "deepseek": "https://ds.example.com/v1"},
+        "core:qwen": "https://core.example.com/v1",
+        "assist:qwen": "https://assist.example.com/v1",
+        "assist:deepseek": "https://ds.example.com/v1",
     },
     "conversationModelProvider": "follow_assist",
     "conversationModelId": "qwen-conv",

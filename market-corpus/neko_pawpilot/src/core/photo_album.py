@@ -24,6 +24,7 @@ class PhotoAlbum:
         self.plugin = plugin
         self._photos: List[Dict[str, Any]] = []
         self._last_shot = 0.0
+        self.last_reason = ""             # 上一次没拍成的原因（面板要说清楚）
 
     def detect(self, ocr_text: str) -> Optional[str]:
         """OCR 文本里找美景关键词，返回场景名。"""
@@ -35,15 +36,31 @@ class PhotoAlbum:
                 return scene
         return None
 
-    async def shoot(self, scene: str, ocr: Any) -> Optional[str]:
-        """截屏存相册并返回照片记录；冷却 10 分钟。"""
+    def can_shoot(self, cooldown: float = 600.0) -> bool:
+        return (time.time() - self._last_shot) >= cooldown
+
+    async def shoot(self, scene: str, ocr: Any,
+                    force: bool = False,
+                    allow_background: bool = False) -> Optional[str]:
+        """截屏存相册并返回照片记录；自动拍有 10 分钟冷却，明确要求可 force。
+
+        截图一律走 `ocr.capture_game()`：只截游戏窗口。以前截整屏，
+        截出来的是面板+桌面，跟"美景"毫无关系。
+        """
         now = time.time()
-        if now - self._last_shot < 600:
+        if not force and now - self._last_shot < 600:
+            self.last_reason = "cooldown"
             return None
         self._last_shot = now
         try:
-            img = await __import__("asyncio").to_thread(ocr.capture)
+            grab = getattr(ocr, "capture_game", None)
+            if callable(grab):
+                img, note = await __import__("asyncio").to_thread(
+                    grab, allow_background)
+            else:
+                img, note = await __import__("asyncio").to_thread(ocr.capture), ""
             if img is None:
+                self.last_reason = note or "抓不到画面"
                 return None
             photos_dir = self.plugin.data_path("photos")
             photos_dir.mkdir(parents=True, exist_ok=True)
@@ -53,8 +70,10 @@ class PhotoAlbum:
             record = {"name": name, "scene": scene, "ts": int(now), "path": str(path)}
             self._photos.insert(0, record)
             self._photos = self._photos[:50]
+            self.last_reason = ""
             return record
-        except Exception:
+        except Exception as exc:            # noqa: BLE001
+            self.last_reason = f"{type(exc).__name__}: {exc}"
             return None
 
     def list_photos(self, top: int = 10) -> List[Dict[str, Any]]:

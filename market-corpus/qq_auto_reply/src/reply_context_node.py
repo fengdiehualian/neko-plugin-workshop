@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from utils.config_manager import get_config_manager
 
 from .pipeline_models import QQPipelineStageTrace, QQReplyContext, is_synthetic_source
+
+if TYPE_CHECKING:
+    from . import addressing
 
 
 class QQReplyContextNode:
@@ -124,6 +127,7 @@ class QQReplyContextNode:
         quoted_message_id: str = "",
         mentions_other_user: bool = False,
         mentions_all: bool = False,
+        addressee: "addressing.AddresseeVerdict | None" = None,
         reply_context: str = "",
         force_reply: bool = False,
         source_kind: str = "",
@@ -413,6 +417,7 @@ class QQReplyContextNode:
             quoted_message_id=quoted_message_id,
             mentions_other_user=mentions_other_user,
             mentions_all=mentions_all,
+            addressee=addressee,
         )
         traces.append(
             QQPipelineStageTrace(

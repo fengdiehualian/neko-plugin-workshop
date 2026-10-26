@@ -14,6 +14,8 @@ from typing import Any
 
 from ..core.state import (
     _ASSIST_KEY_FIELDS,
+    _CHANNEL_MODE_CUSTOM,
+    _CHANNEL_MODE_HOST,
     _TONE_EMOTION_ALIASES,
     _TONE_SLOT_PREFIXES,
 )
@@ -21,15 +23,35 @@ from ..core.state import (
 JsonObject = dict[str, Any]
 
 
+def _channel_mode(cfg: JsonObject) -> str:
+    """通道配置的 mode 归一化：缺省与任何非法值都按 host（1.3.2 的开箱即用默认）。
+
+    mode（由谁去调模型）与 slot（用宿主哪个槽）是两个正交旋钮。解析端、状态灯、
+    面板回显三处都要读它，判据必须只有一份——写错值不该把用户悄悄退回旧的直连行为，
+    所以这里只认 custom 一个例外，其余一律 host。
+    """
+    return (
+        _CHANNEL_MODE_CUSTOM
+        if str(cfg.get("mode") or "").strip() == _CHANNEL_MODE_CUSTOM
+        else _CHANNEL_MODE_HOST
+    )
+
+
 def _resolved_provider_url(core_cfg: JsonObject, book: str, provider: str) -> str:
-    """resolvedProviderUrls.<book>[provider]：用户保存过的该 provider 端点 URL，取不到 → ""。"""
+    """resolvedProviderUrls[f"{book}:{provider}"]：用户保存过的该 provider 端点 URL，取不到 → ""。
+
+    宿主这张表是**扁平**的，键为 "core:qwen" / "assist:free" 这种 scope:provider
+    形态（main_routers/config_router/connectivity.py 写盘），不是嵌套的两层字典。
+    1.3.1 之前按 {book: {provider: url}} 读，于是本函数恒返回空串——
+    follow_core / follow_assist 两条链即便用户配的是付费服务商也解析不出端点，
+    表现为"明明配了 API，插件却说槽位无模型"。
+    表里只登记有多候选地域的 provider（单 URL 的宿主直接跳过 probe），所以取不到
+    值是常态：那种端点由槽位自己的 ModelUrl 或宿主 profile 默认值给出。
+    """
     urls = core_cfg.get("resolvedProviderUrls")
     if not isinstance(urls, dict):
         return ""
-    group = urls.get(book)
-    if not isinstance(group, dict):
-        return ""
-    return str(group.get(provider) or "").strip()
+    return str(urls.get(f"{book}:{provider}") or "").strip()
 
 
 def _resolve_tone_core(core_cfg: JsonObject, prefix: str) -> JsonObject | None:
@@ -54,9 +76,12 @@ def _resolve_tone_core(core_cfg: JsonObject, prefix: str) -> JsonObject | None:
 def _assist_route_is_free(core_cfg: JsonObject) -> bool:
     """当前辅助 API 是否免费路由（含 assistApi 缺失时按 coreApi=free 推导的默认）。
 
-    免费路由（lanlan.tech /text/v1）有服务端客户端校验：只允许 N.E.K.O 宿主自己
-    调用，第三方（含插件）直连会被 400 "not using Lanlan" 拒绝——这不是缺配置，
-    是防滥用机制，插件无法也不应绕过。单独判定它，让休眠日志能给出准确指引。
+    免费路由（lanlan.tech /text/v1）对插件的**直连**通道不可用，但原因不是"服务端
+    只认宿主客户端"：它的地址、模型名（free-model 等）与 key（free-access）全部来自
+    宿主 profile 默认值，根本不落 core_config.json 的存盘字段（宿主自己的 CI 用裸
+    curl + free-access 就能调通该端点）。插件读盘因此拼不出可用三元组——这不是缺
+    配置，是那条通道在免费路由下天生无解。1.3.2 的解法是不再自己拼：改走宿主
+    管线（services/host_llm.py），由宿主提供端点。单独判定它，让休眠日志给出准确指引。
     """
     provider = str(core_cfg.get("assistApi") or "").strip()
     if not provider:
@@ -94,8 +119,8 @@ def diagnose_slot_dormancy(core_cfg: JsonObject, slot: str) -> str:
     """槽位解析不出时的休眠原因诊断（纯函数，给日志/面板提示用）。
 
     返回稳定的 reason id：
-    - "free_route"：宿主在用免费路由（lanlan.tech），服务端只认 N.E.K.O 客户端，
-      插件直连必被拒——需要在宿主设置里配自己的 API 才能用本功能
+    - "free_route"：宿主在用免费路由，而直连通道读盘拼不出可用端点（端点/模型名/
+      key 只在宿主 profile 默认值里）——切回宿主模式即可用，或配自己的服务商
     - "no_model"：所选槽位在宿主没有配置模型（ModelId 空 / 未保存 URL 等）
     - ""：不该出现在解析失败时（防御性兜底，按 no_model 处理）
 
@@ -133,16 +158,17 @@ def _slot_dormancy_hint(core_cfg: JsonObject, slot: str) -> str:
     文案也只多一份，分处两地必然漂移。过去主类与三个 mixin 各自本地复刻过同一
     函数，注释写的"避免循环导入"并不成立——本模块不 import 任何 mixin。
 
-    免费路由是宿主防滥用边界：lanlan.tech 端点服务端校验客户端身份，插件直连
-    必被 400 拒绝（实测），故明确告知"配自己的 API 才可用"而不是含糊的"未配模型"。
-
+    1.3.2 起 free_route 只可能出现在"自定义直连"通道上：默认通道已改走宿主
+    管线（services/host_llm.py），由宿主给出端点，免费路由下同样开箱可用。所以
+    这里的指引是"切回宿主模式"，配自己的服务商只是想要独立端点时的备选。
     名字保留下划线前缀：__init__.py 导入即再导出，它是现有测试的 tm.* 锚点。
     """
     reason = diagnose_slot_dormancy(core_cfg, slot)
     if reason == "free_route":
         return (
-            "宿主正在使用免费路由（lanlan.tech），该端点只接受 N.E.K.O 客户端调用，"
-            "插件无法直连——在宿主设置里配置自己的 API 服务商后本功能即可使用"
+            "自定义直连在宿主的免费路由下拼不出可用端点（免费端点地址与模型名只在宿主"
+            "profile 默认值里，不在存盘配置中）——把该通道改回「宿主」即可零配置使用；"
+            "想继续用直连，先在宿主设置里配置自己的 API 服务商"
         )
     return "所选槽位在宿主未配置模型（或未保存服务商 URL），去宿主设置配置该槽位的模型"
 
@@ -189,10 +215,20 @@ def _exc_shape(exc: BaseException) -> str:
     足够区分 DNS/拒绝连接/401/429 这一类诊断分级（宿主规范：优先记录脱敏后的
     长度、ID 和错误类型）。
     """
-    code = getattr(exc, "code", None)
+    code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
     if isinstance(code, int):
         return f"{type(exc).__name__}(code={code})"
     return type(exc).__name__
+
+
+def _is_request_timeout(exc: BaseException) -> bool:
+    import urllib.error
+
+    if isinstance(exc, urllib.error.URLError):
+        exc = exc.reason
+    return isinstance(exc, TimeoutError) or type(exc).__name__ in {
+        "APITimeoutError", "ReadTimeout", "ConnectTimeout", "WriteTimeout", "PoolTimeout",
+    }
 
 
 def _payload_shape(payload: object) -> str:
@@ -215,12 +251,22 @@ def _payload_shape(payload: object) -> str:
 
 
 def _post_chat_completion(
-    base_url: str, api_key: str, model: str, prompt: str, logger: Any = None
+    base_url: str,
+    api_key: str,
+    model: str,
+    prompt: str,
+    *,
+    timeout_sec: float = 15.0,
+    logger: Any = None,
+    raise_timeout: bool = False,
 ) -> str | None:
-    """同步直连 OpenAI 兼容 /chat/completions（stdlib urllib，零依赖）；任何失败 → None。
+    """同步直连 OpenAI 兼容 /chat/completions（stdlib urllib，零依赖）；默认失败 → None。
 
-    调用处用 asyncio.to_thread 包裹，不阻塞事件循环。空 key 不加 Authorization
+    调用处用 asyncio.to_thread 包裹，不阻塞事件循环——这条请求是同步阻塞的，
+    直接 await 会把整个 tick 的事件循环按住到超时为止。空 key 不加 Authorization
     头（本地端点常无鉴权）。logger 由调用方（主类委托）传入；为 None 时静默。
+    timeout_sec 由调用方按通道给（碎片快、成文慢），默认 15 秒是 1.3.1 的写死值。
+    手动写作传 raise_timeout=True 时，明确超时改抛脱敏 TimeoutError，供重试与反馈使用。
     """
     import json as _json
     import urllib.request
@@ -236,7 +282,7 @@ def _post_chat_completion(
         req_headers["Authorization"] = f"Bearer {api_key}"
     req = urllib.request.Request(url, data=body, method="POST", headers=req_headers)
     try:
-        with urllib.request.urlopen(req, timeout=15.0) as resp:
+        with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
             payload = _json.loads(resp.read().decode("utf-8"))
     except Exception as exc:  # noqa: BLE001 - 直连失败仍降级，但必须留痕（1.2.2 审查轮）
         # warning 而非 debug：debug 不进日志文件，面板提示"详见插件日志"时会
@@ -245,6 +291,8 @@ def _post_chat_completion(
         # URL/凭据，见 _exc_shape 的隐私契约
         if logger is not None:
             logger.warning("tone direct chat completion failed: {}", _exc_shape(exc))
+        if raise_timeout and _is_request_timeout(exc):
+            raise TimeoutError() from None
         return None
     choices = payload.get("choices") if isinstance(payload, dict) else None
     if isinstance(choices, list) and choices:

@@ -28,7 +28,6 @@ from ..core.appearance import (
     gallery_img_key,
     gallery_next_id,
     gallery_normalize_index,
-    gallery_remove_item,
     legacy_to_gallery,
     parse_image_data_url,
 )
@@ -43,7 +42,9 @@ from ..core.cycle import (
     compute_phase_state,
     parse_anchor_date,
 )
+from ..core.fragments import diary_display_record
 from ..core.journal import archive_brief, page_header
+from ..core.media import GalleryMediaError
 from ..core.onboarding import build_readiness, make_guide_record, wizard_pending
 from ..core.review import (
     elapsed_days as review_elapsed_days,
@@ -56,8 +57,19 @@ from ..core.review import (
     review_due,
 )
 from ..core.state import (
+    _AGENT_TIER_MAX_BUDGET,
+    _AGENT_TIER_MIN_BUDGET,
+    _CHANNEL_BREAK_REASON,
+    _CHANNEL_BUDGET_REASON,
+    _CHANNEL_MODE_CUSTOM,
+    _CHANNEL_MODE_HOST,
+    _CHANNEL_MODES,
+    _CHANNEL_TRANSPORT_DIRECT,
+    _CHANNEL_TRANSPORT_HOST,
+    _FRAGMENT_DEFAULT_MODE,
     _FRAGMENT_DEFAULT_SLOT,
     _GALLERY_THUMB_MAX_CHARS,
+    _REVIEW_DEFAULT_MODE,
     _REVIEW_DEFAULT_SLOT,
     _REVIEW_MIN_TURNS_FORCED,
     _STORE_GALLERY_INDEX,
@@ -68,6 +80,7 @@ from ..core.state import (
     _TONE_SLOT_PREFIXES,
     _caps_key,
     _cfg_section,
+    _channel_route,
     _cycle_key,
     _debug_backup_key,
     _diary_key,
@@ -76,7 +89,6 @@ from ..core.state import (
     _LanlanShard,
     _legacy_debug_backup_key,
     _mood_key,
-    _MoodState,
     _now_utc,
     _parse_iso_ts,
     _review_archive_key,
@@ -84,6 +96,7 @@ from ..core.state import (
     _review_stats_key,
     _stats_key,
     _weekly_key,
+    tier_budget_used,
 )
 from ..core.stats import (
     badges_payload,
@@ -91,12 +104,15 @@ from ..core.stats import (
     month_view,
     summary_payload,
 )
-from ..services.tone_slot import diagnose_slot_dormancy
+from ..services.tone_slot import _channel_mode, diagnose_slot_dormancy
+from .media import MediaGalleryMixin
 
 JsonObject = dict[str, Any]
+_MEDIA_ENTRY_TIMEOUT_SECONDS = 120.0
+_MEDIA_CLEANUP_ENTRY_TIMEOUT_SECONDS = 300.0
 
 
-class PanelEntriesMixin:
+class PanelEntriesMixin(MediaGalleryMixin):
     """全部用户/面板入口：dashboard 数据源、设置、周期操作、日记浏览、危险区。"""
 
     # ==========================================
@@ -147,6 +163,7 @@ class PanelEntriesMixin:
         valence, arousal = self._current_affect(shard)
         mood_payload: JsonObject = {
             "active": mood_active,
+            "history": [dict(item) for item in reversed(shard.mood.history[-12:])],
             # 系统级开关态（忽略总开关，防双重提示）：配置 ∧ 能力否决集
             # （1.2.7 能力中心：功能页关掉情绪引擎，状态条提示也要如实跟上）
             "system_enabled": self._cap_config_on("mood_engine", lanlan),
@@ -162,6 +179,8 @@ class PanelEntriesMixin:
                 "action": shard.mood.action,
                 "action_label": self._action_label(shard.mood.action),
                 "reason": shard.mood.reason,
+                "origin": shard.mood.origin,
+                "started_at": shard.mood.started_at,
                 "expires_at": shard.mood.expires_at or None,
             })
         # 潮汐日历：当前月前后各一个月的逐日推算（委婉显示，一律以"潮汐"代称）。
@@ -223,6 +242,7 @@ class PanelEntriesMixin:
         # 时光日记时间线（混排她的手记与自动碎片，按时间倒序）：碎片仅截 12 条防膨胀；
         # source 缺省按 self 处理（0.6.x 旧数据零迁移）
         def _diary_view(item: JsonObject) -> JsonObject:
+            item = diary_display_record(item)
             return {
                 "ts": item.get("ts"),
                 "source": str(item.get("source") or "self"),
@@ -235,20 +255,29 @@ class PanelEntriesMixin:
 
         auto_count = sum(1 for item in shard.diary if str(item.get("source") or "self") == "auto")
         # 模型通道状态灯（情绪页"模型通道"卡 + 总览共用）：三个小模型通道各自
-        # 能否工作 + 休眠原因。语气走宿主情感端点（enabled 判定），碎片/成文走
-        # 直连槽位（复用槽位诊断：free_route / no_model / ok）
+        # 能否工作 + 休眠原因 + 实际走的那条路（transport）。语气走宿主情感端点
+        # （enabled 判定），碎片/成文按各自 mode 走宿主管线或自定义直连
+        tone_slot = str(self._emotion_sense_cfg.get("slot") or "").strip()
         channel_status = {
             "tone": {
                 "enabled": self._emotion_sense_enabled(shard),
                 "dormant_reason": "",
+                # 语气没有 mode 旋钮：槽位留空/emotion = 经宿主端点，选了别的槽才是直连
+                "transport": (
+                    _CHANNEL_TRANSPORT_DIRECT
+                    if tone_slot and tone_slot != "emotion"
+                    else _CHANNEL_TRANSPORT_HOST
+                ),
             },
             "fragments": await self._channel_dormancy(
-                self._fragments_enabled(shard),
-                str(self._fragments_cfg.get("slot") or "").strip() or _FRAGMENT_DEFAULT_SLOT,
+                self._fragments_enabled(shard), self._fragments_cfg,
+                default_slot=_FRAGMENT_DEFAULT_SLOT, lanlan=lanlan, channel="fragments",
+                shard=shard,
             ),
             "review": await self._channel_dormancy(
-                self._review_enabled(shard),
-                str(self._review_cfg.get("slot") or "").strip() or _REVIEW_DEFAULT_SLOT,
+                self._review_enabled(shard), self._review_cfg,
+                default_slot=_REVIEW_DEFAULT_SLOT, lanlan=lanlan, channel="review",
+                shard=shard,
             ),
         }
         # 近 7 天互动轮数（总览"相处信号"卡）：从时光日记/手记时间戳聚合太粗，
@@ -281,12 +310,17 @@ class PanelEntriesMixin:
             # 邀请挂起态（1.2.3）：递过邀请、她还没落笔——日记页显示"等她"提示，
             # 免得"点了没反应、过一会凭空多一页"
             "journal_invite_pending": self._journal_invite_pending(shard),
+            "journal_write": {
+                "writing": shard.pending_journal_write is not None or lanlan in self._journal_writing,
+                "last_result": shard.journal_write_result,
+            },
             # 我的日记（0.8.0）：篇数 + 素材进度（极轻量）；全量翻阅走
             # get_review 入口按需拉取，成文正文不进 5s 轮询。
             # writing / last_result（1.2.3）：面板「立即写一篇」改排队成文后的
             # 回流通道——写作中点亮按钮禁用态；last_result={ts,written,reason}
             # 是队列成文的成败结论，面板按 ts 去重弹一次 toast（内存即弃）
             "review_brief": {
+                "last_ts": str(shard.review[-1].get("ts") or "") if shard.review else "",
                 "enabled": self._review_enabled(shard),
                 "entries": len(shard.review),
                 "progress_turns": int(shard.review_stats.get("turns") or 0),
@@ -297,8 +331,14 @@ class PanelEntriesMixin:
             # 档案室（1.3.0）：旧卷宗合档概览（极轻量：卷数 + 时段）——面板据此
             # 决定画不画档案架末尾那只档案盒；全量翻阅走 get_review(scope=archive)
             "review_archive_brief": review_archive_brief(shard.review_archive),
-            # 模型通道状态灯（情绪页"模型通道"卡）：ok / free_route / no_model / disabled
+            # 模型通道状态灯（情绪页"模型通道"卡）：""(正常) / free_route / no_model / disabled
             "channel_status": channel_status,
+            # agent 档当日消耗读数（1.3.3 修订轮）：预算是全局配置、消耗按角色记，
+            # 所以这一份随 shard 下发而不塞进 settings 快照；面板只给读数
+            "agent_tier_usage": {
+                "used": tier_budget_used(shard.cycle, str(self._today_str())),
+                "budget": self._agent_tier_budget(),
+            },
             # 能力中心总览（1.2.7）：功能页数据源随 5s 轮询下发（纯内存小载荷）。
             # 与总开关/设置页/后台变化同帧一致——"按需拉一次就定格"的窗口不存在；
             # list_capabilities 入口保留（API/调试），同一构建器口径唯一
@@ -360,18 +400,69 @@ class PanelEntriesMixin:
             self.logger.debug("stats summary view failed: {}", exc)
             return {"summary": {}, "badges": []}
 
-    async def _channel_dormancy(self, enabled: bool, slot: str) -> JsonObject:
-        """直连通道状态灯：{enabled, dormant_reason}。reason ∈ ok/free_route/no_model/disabled。
+    async def _channel_dormancy(
+        self,
+        enabled: bool,
+        cfg: JsonObject,
+        *,
+        default_slot: str,
+        lanlan: str = "",
+        channel: str = "",
+        shard: _LanlanShard | None = None,
+    ) -> JsonObject:
+        """模型通道状态灯：{enabled, dormant_reason, transport}。
 
-        诊断复用 diagnose_slot_dormancy（tone_slot.py）；free_route = 宿主免费路由
-        服务端拒第三方直连（不可配置绕过），no_model = 槽位没配模型（去宿主设置配）。
+        dormant_reason 的下发值是 ""(正常) / free_route / no_model / rejected / budget /
+        disabled 六个，"正常"用空串表示（没有 "ok" 这个字面量，面板灯按空串走正常分支）；
+        disabled 这个分支根本没发请求，也就没有"实际走了哪条路"可言，故它不带 transport 键。
+        判据与运行时完全同源（_resolve_channel_endpoint 的镜像）：mode=host 先问
+        宿主管线能不能给出该槽端点，能就绿灯；宿主模块不可用才回落直连诊断——
+        所以灯报的永远是"这条路实际会怎么走"，不是配置字面。mode=custom 直接按
+        直连诊断（free_route = 免费路由的端点/模型名不在存盘配置里，直连拼不出；
+        no_model = 槽位没配模型）。
+
+        rejected 是 1.3.3 修订轮补的一层：**解析得到端点只证明"知道往哪发"，不证明
+        "发得通"**。灯先看熔断器（真发过请求、连续被拒到阈值才开闸），开着就不给绿灯。
+        缺这一层的代价实机付过：免费路由文字档 15 次全被服务端拒，面板一路绿灯。
+        budget 是同轮的第二层：agent 档带服务端日配额（宿主自己定 500 次/天，且与宿主
+        agent 功能共用），当日预算用完时这条通道**是我们自己按下不发**——那既不是故障
+        也不该显示成正常。两个都命中时先报 budget：那是"今天还会不会动"的直接答案，
+        而 rejected 描述的那次失败早已被预算闸挡在门外、不会再发生。
+        lanlan/channel 两个键供调用方点名要看哪条通道的熔断态（总览与成文回执都传）。
         """
         if not enabled:
             return {"enabled": False, "dormant_reason": "disabled"}
+        slot = str(cfg.get("slot") or "").strip() or default_slot
+        if shard is not None and self._agent_tier_gate(shard, slot) == _CHANNEL_BUDGET_REASON:
+            return {
+                "enabled": True,
+                "dormant_reason": _CHANNEL_BUDGET_REASON,
+                "transport": (
+                    _CHANNEL_TRANSPORT_DIRECT
+                    if _channel_mode(cfg) == _CHANNEL_MODE_CUSTOM
+                    else _CHANNEL_TRANSPORT_HOST
+                ),
+            }
+        host = (
+            await self._resolve_host_slot(slot)
+            if _channel_mode(cfg) != _CHANNEL_MODE_CUSTOM
+            else None
+        )
+        if host is not None:
+            if channel and self._channel_break_open(lanlan, channel, _channel_route(slot, host)):
+                return {
+                    "enabled": True,
+                    "dormant_reason": _CHANNEL_BREAK_REASON,
+                    "transport": _CHANNEL_TRANSPORT_HOST,
+                }
+            return {"enabled": True, "dormant_reason": "", "transport": _CHANNEL_TRANSPORT_HOST}
         reason = diagnose_slot_dormancy(await self._aload_core_config(), slot)
-        # reason 为 "free_route"/"no_model" 时通道休眠；解析成功与否最终由
-        # _resolve_tone_slot 决定，这里给面板的灯做的是"为什么不行"的归类
-        return {"enabled": True, "dormant_reason": reason}
+        # 直连侧同理：诊断说"这端点能拼出来"之后，还要看真发出去的请求有没有被拒
+        if not reason and channel and self._channel_break_open(
+            lanlan, channel, _channel_route(slot, None)
+        ):
+            reason = _CHANNEL_BREAK_REASON
+        return {"enabled": True, "dormant_reason": reason, "transport": _CHANNEL_TRANSPORT_DIRECT}
 
     def _week_activity_count(self, shard: _LanlanShard) -> int:
         """近 7 天相处活跃度：时光日记时间线（手记+碎片）里 7 天内的条目数。
@@ -392,11 +483,13 @@ class PanelEntriesMixin:
         "ovulation_day", "ovulation_window", "inject_mode", "inject_interval_n",
         "phase_openers", "timezone", "activity_context", "debug_mode",
         "mood_enabled", "default_action_minutes", "open_action_timeout_minutes",
-        "emotion_sense_enabled", "tone_check_rate",
+        "emotion_sense_enabled", "tone_min_interval_sec", "tone_check_rate",
         "tone_phase_sensitivity_enabled", "tone_phase_sensitivity",
         "tone_slot",
-        "fragments_enabled", "fragments_slot",
-        "review_enabled", "review_slot", "review_turns_threshold", "review_days_threshold",
+        "fragments_enabled", "fragments_slot", "fragments_mode",
+        "review_enabled", "review_slot", "review_mode",
+        "review_turns_threshold", "review_days_threshold",
+        "agent_daily_budget",
         "anniversary_inject",
         "birthday_enabled", "birthday_keep_diary", "birthday_date",
     )
@@ -430,6 +523,7 @@ class PanelEntriesMixin:
                 else 120
             ),
             "emotion_sense_enabled": bool(self._emotion_sense_cfg.get("enabled", True)),
+            "tone_min_interval_sec": self._tone_int_cfg("min_interval_sec", 20),
             "tone_check_rate": self._tone_float_cfg("check_rate", 1.0),
             "tone_phase_sensitivity_enabled": bool(
                 self._emotion_sense_cfg.get("phase_sensitivity_enabled", True)
@@ -438,10 +532,15 @@ class PanelEntriesMixin:
             "tone_slot": str(self._emotion_sense_cfg.get("slot") or ""),
             "fragments_enabled": bool(self._fragments_cfg.get("enabled", True)),
             "fragments_slot": str(self._fragments_cfg.get("slot") or _FRAGMENT_DEFAULT_SLOT),
+            "fragments_mode": _channel_mode(self._fragments_cfg),
             "review_enabled": bool(self._review_cfg.get("enabled", True)),
             "review_slot": str(self._review_cfg.get("slot") or _REVIEW_DEFAULT_SLOT),
+            "review_mode": _channel_mode(self._review_cfg),
             "review_turns_threshold": self._review_turns_threshold(),
             "review_days_threshold": self._review_days_threshold(),
+            # agent 档每日预算（[agent_tier]，1.3.3 修订轮）：面板上能改（钳 5~150），
+            # 当日已用是另一摊——那份按角色走 dashboard 的 agent_tier_usage 下发
+            "agent_daily_budget": self._agent_tier_budget(),
             # 相处统计：纪念日注入开关（[stats].anniversary_inject，纯统计本身无开关）
             "anniversary_inject": (self._stats_cfg or {}).get("anniversary_inject", True) is not False,
             # 生日轻语（1.3.1）：能力开关/纪念手记/主人生日（全局，年份不参与年龄计算）
@@ -484,6 +583,7 @@ class PanelEntriesMixin:
                 "default_action_minutes": {"type": "integer", "minimum": 1, "maximum": 720},
                 "open_action_timeout_minutes": {"type": "integer", "minimum": 0, "maximum": 1440},
                 "emotion_sense_enabled": {"type": "boolean"},
+                "tone_min_interval_sec": {"type": "integer", "minimum": 10, "maximum": 3600},
                 "tone_check_rate": {"type": "number", "enum": [0, 0.25, 0.5, 1.0]},
                 "tone_phase_sensitivity_enabled": {"type": "boolean"},
                 "tone_phase_sensitivity": {"type": "number", "enum": [0.1, 0.15, 0.25]},
@@ -496,13 +596,22 @@ class PanelEntriesMixin:
                     "type": "string",
                     "enum": ["summary", "conversation", "correction", "vision", "agent"],
                 },
+                "fragments_mode": {"type": "string", "enum": [_CHANNEL_MODE_HOST, _CHANNEL_MODE_CUSTOM]},
                 "review_enabled": {"type": "boolean"},
                 "review_slot": {
                     "type": "string",
                     "enum": ["summary", "conversation", "correction", "vision", "agent"],
                 },
+                "review_mode": {"type": "string", "enum": [_CHANNEL_MODE_HOST, _CHANNEL_MODE_CUSTOM]},
                 "review_turns_threshold": {"type": "integer", "minimum": 10, "maximum": 500},
                 "review_days_threshold": {"type": "integer", "minimum": 1, "maximum": 90},
+                # agent 档每日预算（[agent_tier]）：范围与后端校验同一把尺子（5~150），
+                # 越界前端挡一次、后端再拒一次（稳定码 invalid_agent_budget）
+                "agent_daily_budget": {
+                    "type": "integer",
+                    "minimum": _AGENT_TIER_MIN_BUDGET,
+                    "maximum": _AGENT_TIER_MAX_BUDGET,
+                },
                 "anniversary_inject": {"type": "boolean"},
                 "birthday_enabled": {"type": "boolean"},
                 "birthday_keep_diary": {"type": "boolean"},
@@ -518,6 +627,12 @@ class PanelEntriesMixin:
         updates = {k: v for k, v in kwargs.items() if k in self._EDITABLE_SETTINGS and not k.startswith("_")}
         if not updates:
             return Err(SdkError("no_valid_fields"))
+        # Validate before any per-character writes; do not truncate fractional input.
+        if "tone_min_interval_sec" in updates:
+            interval = updates["tone_min_interval_sec"]
+            if (isinstance(interval, bool) or not isinstance(interval, (int, float))
+                    or not 10 <= interval <= 3600 or int(interval) != interval):
+                return Err(SdkError("settings_value_invalid"))
         lanlan, shard = await self._current_shard_async()
         # 本入口的两处落盘（cycle@<角色> 与全局 settings）：任一 Err 最后回 Err
         res_cycle: Result[None] = Ok(None)
@@ -528,6 +643,8 @@ class PanelEntriesMixin:
             es_patch: JsonObject = {}
             frag_patch: JsonObject = {}
             review_patch: JsonObject = {}
+            # agent 档节流（[agent_tier]）：日预算是全局字段，跟通道一起进覆盖层
+            agent_tier_patch: JsonObject = {}
             stats_patch: JsonObject = {}
             birthday_patch: JsonObject = {}
             params_patch: JsonObject = {}
@@ -595,6 +712,8 @@ class PanelEntriesMixin:
             # ---- 语气感知（[emotion_sense]），全局 ----
             if "emotion_sense_enabled" in updates:
                 es_patch["enabled"] = bool(updates["emotion_sense_enabled"])
+            if "tone_min_interval_sec" in updates:
+                es_patch["min_interval_sec"] = int(updates["tone_min_interval_sec"])
             if "tone_check_rate" in updates:
                 es_patch["check_rate"] = min(1.0, max(0.0, float(updates["tone_check_rate"])))
             if "tone_phase_sensitivity_enabled" in updates:
@@ -616,6 +735,14 @@ class PanelEntriesMixin:
                     self.logger.warning("invalid fragments_slot: {}", slot)
                     return Err(SdkError("invalid_fragments_slot"))
                 frag_patch["slot"] = slot
+            if "fragments_mode" in updates:
+                # 空串回落出厂默认（不是回落 host）：碎片出厂是 custom，写死 host 会把
+                # 一次空提交变成"替用户改回会被服务端拒的那条路"
+                mode = str(updates["fragments_mode"]).strip() or _FRAGMENT_DEFAULT_MODE
+                if mode not in _CHANNEL_MODES:
+                    self.logger.warning("invalid fragments_mode: {}", mode)
+                    return Err(SdkError("invalid_fragments_mode"))
+                frag_patch["mode"] = mode
             # ---- 我的日记（[review]），全局 ----
             if "review_enabled" in updates:
                 review_patch["enabled"] = bool(updates["review_enabled"])
@@ -627,10 +754,29 @@ class PanelEntriesMixin:
                     self.logger.warning("invalid review_slot: {}", slot)
                     return Err(SdkError("invalid_review_slot"))
                 review_patch["slot"] = slot
+            if "review_mode" in updates:
+                mode = str(updates["review_mode"]).strip() or _REVIEW_DEFAULT_MODE
+                if mode not in _CHANNEL_MODES:
+                    self.logger.warning("invalid review_mode: {}", mode)
+                    return Err(SdkError("invalid_review_mode"))
+                review_patch["mode"] = mode
             if "review_turns_threshold" in updates:
                 review_patch["turns_threshold"] = max(10, min(500, int(updates["review_turns_threshold"])))
             if "review_days_threshold" in updates:
                 review_patch["days_threshold"] = max(1, min(90, int(updates["review_days_threshold"])))
+            # ---- agent 档节流（[agent_tier]），全局（1.3.3 修订轮）----
+            if "agent_daily_budget" in updates:
+                try:
+                    budget = int(updates["agent_daily_budget"])
+                except (TypeError, ValueError):
+                    self.logger.warning("invalid agent_daily_budget: not a number")
+                    return Err(SdkError("invalid_agent_budget"))
+                if not _AGENT_TIER_MIN_BUDGET <= budget <= _AGENT_TIER_MAX_BUDGET:
+                    # 越界是拒收而不是钳制：这一档花的是宿主 agent 功能与服务端配额的公共
+                    # 池子，静默放大等于把一次笔误变成一整天的额度流失
+                    self.logger.warning("invalid agent_daily_budget: {}", budget)
+                    return Err(SdkError("invalid_agent_budget"))
+                agent_tier_patch["daily_budget"] = budget
             # ---- 相处统计（[stats]），全局 ----
             if "anniversary_inject" in updates:
                 stats_patch["anniversary_inject"] = bool(updates["anniversary_inject"])
@@ -649,7 +795,8 @@ class PanelEntriesMixin:
 
             # Store 为权威存储（Steam 上配置文件写常超时，Store 稳定且重启不丢）；
             # 配置文件同步放后台，不阻塞保存响应
-            if tide_patch or mood_patch or es_patch or frag_patch or review_patch or stats_patch or birthday_patch:
+            if (tide_patch or mood_patch or es_patch or frag_patch or review_patch
+                    or agent_tier_patch or stats_patch or birthday_patch):
                 overrides = self._settings_override
                 if tide_patch:
                     overrides["tide"] = {**_cfg_section(overrides.get("tide")), **tide_patch}
@@ -672,6 +819,11 @@ class PanelEntriesMixin:
                         **_cfg_section(overrides.get("review")), **review_patch,
                     }
                     self._review_cfg.update(review_patch)
+                if agent_tier_patch:
+                    overrides["agent_tier"] = {
+                        **_cfg_section(overrides.get("agent_tier")), **agent_tier_patch,
+                    }
+                    self._agent_tier_cfg.update(agent_tier_patch)
                 if stats_patch:
                     overrides["stats"] = {
                         **_cfg_section(overrides.get("stats")), **stats_patch,
@@ -735,8 +887,8 @@ class PanelEntriesMixin:
         })
 
     @ui.action(
-        label=tr("actions.set_anchor.label", default="设置潮汐首日"),
-        confirm=tr("actions.set_anchor.confirm", default="将重设周期首日、清除快进天数并重新计算阶段，确认？"),
+        label=tr("actions.set_anchor.label", default="设置周期起点"),
+        confirm=tr("actions.set_anchor.confirm", default="确定设置新的周期起点吗？快进天数会清零，并重新计算当前阶段。"),
         refresh_context=True,
     )
     @plugin_entry(
@@ -868,7 +1020,7 @@ class PanelEntriesMixin:
 
     @ui.action(
         label=tr("actions.toggle.label", default="开/关模拟"),
-        confirm=tr("actions.toggle.confirm", default="切换身体节律模拟的总开关（当前角色），确认？"),
+        confirm=tr("actions.toggle.confirm", default="确定切换模拟总开关吗？"),
         refresh_context=True,
     )
     @plugin_entry(
@@ -894,9 +1046,9 @@ class PanelEntriesMixin:
         })
 
     @ui.action(
-        label=tr("actions.reset.label", default="重置全部数据"),
+        label=tr("actions.reset.label", default="重置状态与记录"),
         tone="danger",
-        confirm=tr("actions.reset.confirm", default="将清空当前角色的周期偏移、情绪状态和心情手记，确认？"),
+        confirm=tr("actions.reset.confirm", default="确定清空当前角色的状态与记录吗？快进天数、情绪状态、三本日记（时光日记、个人日记、我的日记）、全部归档、累计素材和相处统计都会清空，待写任务会取消，且无法恢复。模拟开关恢复默认设置；周期起点、参数、全局设置、壁纸和其他角色的数据保留。"),
         refresh_context=True,
     )
     @plugin_entry(
@@ -904,32 +1056,66 @@ class PanelEntriesMixin:
         name=tr("entries.reset_all.name", default="重置全部数据"),
         description=tr(
             "entries.reset_all.description",
-            default="清空当前角色的快进天数、情绪状态与心情手记（不改配置锚点，不影响其他角色）。",
+            default="清空当前角色的快进天数、情绪状态、三本日记、归档、素材和相处统计，取消待写任务；保留周期设置、壁纸和其他角色。",
         ),
-        input_schema={"type": "object", "properties": {}},
+        input_schema={"type": "object", "properties": {"expected_lanlan": {"type": "string"}}},
         metadata={"agent_hidden": True},
     )
-    async def reset_all(self, **_: Any):
-        # 只清当前角色的 shard：其他角色的周期/情绪/手记不受影响
-        lanlan, shard = await self._current_shard_async()
+    async def reset_all(self, expected_lanlan: str = "", **_: Any):
+        # Resolve afresh so a confirmation cannot accidentally clear another role.
+        self._current_lanlan_cache = ("", -1000.0)
+        lanlan = await self._resolve_current_lanlan()
+        if expected_lanlan and expected_lanlan != lanlan:
+            return Err(SdkError("mood_changed"))
+        previous = await self._ensure_shard(lanlan)
+        if not self._store_ready or not self._state_trusted:
+            return Err(SdkError("persist_failed"))
+        shard = _LanlanShard()
+        shard.lanlan = lanlan
+        shard.loaded = True
+        shard.cycle = dict(previous.cycle)
         shard.cycle["advance_days"] = 0
         shard.cycle.pop("enabled", None)
-        shard.mood = _MoodState()
-        shard.diary = []
-        # 我的日记一并重置（重置语义是"当前角色清零重来"，评价与素材同属）
-        shard.review = []
+        shard.cycle.pop("last_journal_invite_ts", None)
         shard.review_stats = review_new_stats()
+        # An explicit empty stats record prevents history backfill after restart.
+        shard.stats = {"backfilled": True}
+        self._shards[lanlan] = shard
+        self._calendar_cache = ((), None)
         res_cycle = await self._save_shard_cycle(lanlan, shard)
         res_mood = await self._save_shard_mood(lanlan, shard)
         res_diary = await self._save_shard_diary(lanlan, shard)
+        res_journal = await self._save_shard_journal(lanlan, shard)
         res_review = await self._save_shard_review(lanlan, shard)
+        res_stats = await self._save_shard_stats(lanlan, shard)
+        results = [res_cycle, res_mood, res_diary, res_journal, res_review, res_stats]
+        for key in (_journal_archive_key(lanlan), _review_archive_key(lanlan), _weekly_key(lanlan)):
+            results.append(await self._store_write(key, [], f"reset {key}"))
+        results.append(await self._store_write(
+            _review_stats_key(lanlan), {}, f"reset legacy review stats for {lanlan}",
+        ))
+        results.append(await self._store_delete(
+            _debug_backup_key("diary", lanlan), f"reset diary debug backup for {lanlan}",
+        ))
+        for kind, data_key in (
+            ("journal", _journal_key(lanlan)), ("review", _review_key(lanlan)), ("stats", _stats_key(lanlan)),
+        ):
+            results.append(await self._store_delete(
+                _debug_backup_key(kind, lanlan), f"reset {kind} debug backup for {lanlan}",
+            ))
+            # A suffix can also belong to a real role; never delete its records.
+            if f"{lanlan}|pre-debug" not in self._lanlan_index:
+                results.append(await self._store_delete(
+                    _legacy_debug_backup_key(data_key), f"reset legacy {kind} debug backup for {lanlan}",
+                ))
         # 重置清空了情绪动作：同步解除暂停，水位写结果一并聚合（1.2.2 审查轮 P2）
         res_pause = await self._maybe_sync_proactive_pause()
         # 多键写入：任一 Err 即向用户报错（前面的写不回滚，保持简单；
         # 真失败极罕见，重试幂等）
-        persist_err = self._persist_error(res_cycle, res_mood, res_diary, res_review, res_pause)
+        persist_err = self._persist_error(*results, res_pause)
         if persist_err is not None:
             return persist_err
+        self.logger.info("character records reset: lanlan={} diaries=all archives=all stats=cleared", lanlan)
         return Ok({
             **build_status_payload(self._current_phase_state(shard), enabled=self._enabled(shard)),
             "lanlan": lanlan,
@@ -976,15 +1162,54 @@ class PanelEntriesMixin:
         id="get_panel_gallery",
         name=tr("entries.get_panel_gallery.name", default="读取面板图库"),
         description=tr("entries.get_panel_gallery.description", default="读取面板图库索引与外观参数，并迁移旧版单图背景（面板内部用）。"),
-        input_schema={"type": "object", "properties": {}},
+        input_schema={"type": "object", "properties": {
+            "include_background": {"type": "boolean"},
+            "prefer_direct": {"type": "boolean"},
+        }},
+        timeout=_MEDIA_ENTRY_TIMEOUT_SECONDS,
         metadata={"result_kind": "event", "agent_hidden": True},
     )
-    async def get_panel_gallery(self, **_: Any):
-        index = await self._gallery_index()
+    async def get_panel_gallery(
+        self, include_background: bool = False, prefer_direct: bool = False, **_: Any,
+    ):
+        return await self._gallery_call(
+            self._get_panel_gallery, include_background=include_background, prefer_direct=prefer_direct,
+        )
+
+    async def _get_panel_gallery(self, include_background: bool = False, prefer_direct: bool = False):
+        await self._video_cleanup(reclaim_live=True)
+        index = await self._gallery_index_strict()
+        media_storage = await self._media_storage_summary(index)
+
+        async def snapshot(appearance: JsonObject, migrated: bool):
+            payload = {"items": index.get("items") or [], "appearance": appearance,
+                       "migrated": migrated, "media_storage": media_storage}
+            item = gallery_find(index, appearance["bg_id"]) if include_background is True else None
+            if item is not None:
+                try:
+                    if item.get("kind") == "video":
+                        result = await self._video_get(
+                            item, -1, prefer_direct=prefer_direct is True and appearance["motion"],
+                            storage_summary=media_storage,
+                        )
+                    else:
+                        result = await self._store_read(gallery_img_key(item["id"]))
+                    if isinstance(result, Ok) and isinstance(result.value, dict):
+                        payload["background"] = {"id": item["id"], "media": result.value}
+                except GalleryMediaError:
+                    # A bad selected asset must not hide settings or the rest of the gallery.
+                    self.logger.info("panel background bootstrap unavailable")
+            return Ok(payload)
+
         res = await self._store_read(_STORE_PANEL_APPEARANCE)
+        if not isinstance(res, Ok):
+            raise GalleryMediaError("gallery_update_failed")
         raw = res.value if isinstance(res, Ok) else None
         if isinstance(raw, dict):
-            return Ok({"items": index.get("items") or [], "appearance": clamp_appearance(raw), "migrated": False})
+            appearance = clamp_appearance(raw)
+            if appearance["bg_id"] and gallery_find(index, appearance["bg_id"]) is None:
+                appearance["bg_id"] = ""
+            return await snapshot(appearance, False)
         # 外观参数从未建立 → 尝试旧版单图一次性迁移
         legacy_res = await self._store_read(_STORE_PANEL_BG)
         migrated = legacy_to_gallery(legacy_res.value if isinstance(legacy_res, Ok) else None)
@@ -1003,11 +1228,12 @@ class PanelEntriesMixin:
             if isinstance(save_res, Err):
                 return Err(SdkError("background_migrate_failed"))
             self.logger.info("legacy panel background migrated into gallery: id={}", gid)
-            return Ok({"items": index.get("items") or [], "appearance": appearance, "migrated": True})
-        return Ok({"items": index.get("items") or [], "appearance": appearance_defaults(), "migrated": False})
+            media_storage = await self._media_storage_summary(index)
+            return await snapshot(appearance, True)
+        return await snapshot(appearance_defaults(), False)
 
     @ui.action(
-        label=tr("actions.gallery_add.label", default="添加图片到图库"),
+        label=tr("actions.gallery_add.label", default="添加壁纸到图库"),
         tone="primary",
     )
     @plugin_entry(
@@ -1020,12 +1246,36 @@ class PanelEntriesMixin:
                 "data_url": {"type": "string", "description": tr("fields.galleryDataUrl", default="图片 data URL（base64）")},
                 "thumb": {"type": "string", "description": tr("fields.galleryThumb", default="缩略图 data URL（可空，面板稍后回填）")},
                 "name": {"type": "string", "description": tr("fields.galleryName", default="图片文件名")},
+                "op": {"type": "string", "enum": ["", "video_begin", "video_chunk", "video_status", "video_commit", "video_abort", "video_policy"]},
+                "mime": {"type": "string"},
+                "size": {"type": "integer"},
+                "poster": {"type": "string"},
+                "upload_id": {"type": "string"},
+                "chunk_index": {"type": "integer"},
+                "data_b64": {"type": "string"},
+                "single_limit_mib": {"type": "integer"},
+                "total_limit_mib": {"type": "integer"},
             },
-            "required": ["data_url"],
         },
+        timeout=_MEDIA_ENTRY_TIMEOUT_SECONDS,
         metadata={"agent_hidden": True},
     )
-    async def gallery_add(self, data_url: str = "", thumb: str = "", name: str = "", **_: Any):
+    async def gallery_add(
+        self, data_url: str = "", thumb: str = "", name: str = "", op: str = "",
+        mime: str = "", size: int = 0, poster: str = "", upload_id: str = "",
+        chunk_index: int = -1, data_b64: str = "", single_limit_mib: Any = None,
+        total_limit_mib: Any = None, **_: Any,
+    ):
+        if op != "":
+            return await self._gallery_call(
+                self._video_operation, op=op, name=name, mime=mime, size=size, thumb=thumb,
+                poster=poster, upload_id=upload_id, chunk_index=chunk_index, data_b64=data_b64,
+                single_limit_mib=single_limit_mib, total_limit_mib=total_limit_mib,
+            )
+        return await self._gallery_call(self._gallery_add_image, data_url=data_url, thumb=thumb, name=name)
+
+    async def _gallery_add_image(self, data_url: str, thumb: str, name: str):
+        await self._ensure_media_mutation_allowed()
         try:
             mime, size = parse_image_data_url(data_url)
             thumb_text = str(thumb or "").strip()
@@ -1037,7 +1287,7 @@ class PanelEntriesMixin:
         except ValueError as exc:  # 防御：未来新增的非码校验失败兜底
             self.logger.warning("gallery_add rejected image: {}", exc)
             return Err(SdkError("image_invalid"))
-        index = await self._gallery_index()
+        index = await self._gallery_index_strict()
         item = {
             "id": "",
             "name": str(name or "")[:80],
@@ -1058,13 +1308,26 @@ class PanelEntriesMixin:
         if isinstance(res, Err):
             return Err(SdkError("image_save_failed"))
         if not await self._gallery_save_index(index):
-            await self._store_delete(gallery_img_key(item["id"]), f"gallery image {item['id']} (rollback)")
+            image_key = gallery_img_key(item["id"])
+            removed = await self._store_delete(image_key, f"gallery image {item['id']} (rollback)")
+            if isinstance(removed, Err):
+                # Keep a durable tombstone when the rollback delete itself
+                # fails.  Clear/retry can reclaim the unindexed image even on
+                # SDKs that do not expose Store.keys().
+                try:
+                    registry = await self._file_registry()
+                    if image_key not in registry["key_deletions"]:
+                        registry["key_deletions"].append(image_key)
+                    registry["storage_reclaim_pending"] = True
+                    await self._save_file_registry(registry)
+                except GalleryMediaError:
+                    self.logger.warning("gallery image rollback journal failed: {}", image_key)
             return Err(SdkError("image_save_failed"))
         self.logger.info("gallery image added: id={} mime={} chars={}", item["id"], mime, size)
         return Ok({"id": item["id"], "items": index.get("items") or []})
 
     @ui.action(
-        label=tr("actions.gallery_remove.label", default="从图库删除图片"),
+        label=tr("actions.gallery_remove.label", default="从图库删除壁纸"),
         tone="danger",
     )
     @plugin_entry(
@@ -1075,24 +1338,33 @@ class PanelEntriesMixin:
             "type": "object",
             "properties": {
                 "item_id": {"type": "string", "description": tr("fields.galleryItemId", default="图库条目 id")},
+                "op": {"type": "string", "enum": ["", "clear_media"]},
+                "confirm": {"type": "boolean"},
             },
-            "required": ["item_id"],
+            "required": [],
         },
+        timeout=_MEDIA_CLEANUP_ENTRY_TIMEOUT_SECONDS,
         metadata={"agent_hidden": True},
     )
-    async def gallery_remove(self, item_id: str = "", **_: Any):
+    async def gallery_remove(self, item_id: str = "", op: str = "", confirm: Any = None, **_: Any):
+        if op == "clear_media":
+            return await self._gallery_call(self._media_clear, confirm=confirm)
+        return await self._gallery_call(self._gallery_remove, item_id=item_id)
+
+    async def _gallery_remove(self, item_id: str = ""):
         gid = str(item_id or "").strip()
         if not gid:
             return Err(SdkError("item_id_required"))
-        index = await self._gallery_index()
-        if gallery_find(index, gid) is None:
+        await self._ensure_media_mutation_allowed()
+        await self._video_cleanup()
+        index = await self._gallery_index_strict()
+        item = gallery_find(index, gid)
+        if item is None:
             return Err(SdkError("image_not_found"))
-        gallery_remove_item(index, gid)
-        # 图本体删除是 best-effort（索引先除名即可对用户不可见；写失败留痕，
-        # 残留 blob 无引用不致数据错乱）；统一删除出口在 P1 收编
-        await self._store_delete(gallery_img_key(gid), f"gallery image {gid}")
-        if not await self._gallery_save_index(index):
-            return Err(SdkError("gallery_update_failed"))
+        if item.get("kind") == "video":
+            await self._video_remove(index, item)
+        else:
+            await self._media_remove_image(index, item)
         appearance = await self._saved_appearance()
         if appearance.get("bg_id") == gid:
             # 解除对该图的引用（写失败不拦删除：悬空 bg_id 在读取与保存侧自愈）
@@ -1119,12 +1391,17 @@ class PanelEntriesMixin:
             },
             "required": ["item_id", "thumb"],
         },
+        timeout=_MEDIA_ENTRY_TIMEOUT_SECONDS,
         metadata={"agent_hidden": True},
     )
     async def gallery_set_thumb(self, item_id: str = "", thumb: str = "", **_: Any):
+        return await self._gallery_call(self._gallery_set_thumb, item_id=item_id, thumb=thumb)
+
+    async def _gallery_set_thumb(self, item_id: str = "", thumb: str = ""):
         gid = str(item_id or "").strip()
         if not gid:
             return Err(SdkError("item_id_required"))
+        await self._ensure_media_mutation_allowed()
         try:
             parse_image_data_url(thumb, _GALLERY_THUMB_MAX_CHARS)
         except ImageDataUrlError as exc:
@@ -1133,7 +1410,7 @@ class PanelEntriesMixin:
         except ValueError as exc:
             self.logger.warning("gallery_set_thumb rejected: {}", exc)
             return Err(SdkError("image_invalid"))
-        index = await self._gallery_index()
+        index = await self._gallery_index_strict()
         item = gallery_find(index, gid)
         if item is None:
             return Err(SdkError("image_not_found"))
@@ -1143,7 +1420,7 @@ class PanelEntriesMixin:
         return Ok({"items": index.get("items") or []})
 
     @ui.action(
-        label=tr("actions.get_gallery_image.label", default="读取图库原图"),
+        label=tr("actions.get_gallery_image.label", default="读取图库媒体"),
         tone="default",
     )
     @plugin_entry(
@@ -1154,19 +1431,47 @@ class PanelEntriesMixin:
             "type": "object",
             "properties": {
                 "item_id": {"type": "string", "description": tr("fields.galleryItemId", default="图库条目 id")},
+                "chunk_index": {"type": "integer"},
+                "chunk_count": {"type": "integer", "minimum": 1, "maximum": 4},
+                "prefer_direct": {"type": "boolean"},
             },
             "required": ["item_id"],
         },
+        timeout=_MEDIA_ENTRY_TIMEOUT_SECONDS,
         metadata={"result_kind": "event", "agent_hidden": True},
     )
-    async def get_gallery_image(self, item_id: str = "", **_: Any):
+    async def get_gallery_image(
+        self,
+        item_id: str = "",
+        chunk_index: int = -1,
+        chunk_count: int | None = None,
+        prefer_direct: bool = False,
+        **_: Any,
+    ):
+        return await self._gallery_call(
+            self._get_gallery_image,
+            item_id=item_id,
+            chunk_index=chunk_index,
+            chunk_count=chunk_count,
+            prefer_direct=prefer_direct,
+        )
+
+    async def _get_gallery_image(
+        self,
+        item_id: str = "",
+        chunk_index: int = -1,
+        chunk_count: int | None = None,
+        prefer_direct: bool = False,
+    ):
         gid = str(item_id or "").strip()
         if not gid:
             return Err(SdkError("item_id_required"))
-        index = await self._gallery_index()
+        index = await self._gallery_index_strict()
         item = gallery_find(index, gid)
         if item is None:
             return Err(SdkError("image_not_found"))
+        if item.get("kind") == "video":
+            return await self._video_get(item, chunk_index, chunk_count, prefer_direct)
         res = await self._store_read(gallery_img_key(gid))  # 读失败经统一出口留痕
         rec = res.value if isinstance(res, Ok) else None
         if not isinstance(rec, dict) or not str(rec.get("data_url") or ""):
@@ -1199,14 +1504,19 @@ class PanelEntriesMixin:
                 "glass": {"type": "number", "minimum": 0, "maximum": 40, "description": tr("fields.appearanceGlass", default="卡片毛玻璃强度（px）")},
                 "card_alpha": {"type": "number", "minimum": 0, "maximum": 100, "description": tr("fields.appearanceCardAlpha", default="卡片底色强度（%，100=不透明底色）")},
                 "text_weight": {"type": "number", "minimum": 40, "maximum": 100, "description": tr("fields.appearanceTextWeight", default="整体字体显示强度（%，越低越淡并自动描边）")},
+                "motion": {"type": "boolean"},
             },
         },
         metadata={"agent_hidden": True},
     )
     async def set_panel_appearance(self, **kwargs: Any):
+        return await self._gallery_call(self._set_panel_appearance, **kwargs)
+
+    async def _set_panel_appearance(self, **kwargs: Any):
+        await self._ensure_media_mutation_allowed()
         appearance = clamp_appearance(kwargs)
         if appearance.get("bg_id"):
-            index = await self._gallery_index()
+            index = await self._gallery_index_strict()
             if gallery_find(index, str(appearance["bg_id"])) is None:
                 # 悬空引用（图被别处删了）：静默解除，不炸保存
                 appearance["bg_id"] = ""
@@ -1217,25 +1527,48 @@ class PanelEntriesMixin:
             return Err(SdkError("appearance_save_failed"))
         return Ok({"appearance": appearance})
 
+    @ui.action(
+        label=tr("actions.liftMood.label", default="结束当前状态"),
+        confirm=tr(
+            "actions.liftMood.confirm",
+            default="结束当前角色的情绪工具状态？心情观察与变化记录会保留，这不代表角色已经释怀。",
+        ),
+        refresh_context=True,
+    )
     @plugin_entry(
         id="lift_mood",
         name=tr("entries.lift_mood.name", default="解除情绪动作"),
         description=tr("entries.lift_mood.description", default="立刻结束当前生效的冷战沉默/已读不回等情绪状态。"),
-        input_schema={"type": "object", "properties": {}},
+        input_schema={
+            "type": "object",
+            "properties": {
+                "expected_lanlan": {"type": "string"},
+                "expected_started_at": {"type": "number"},
+            },
+        },
     )
     @quick_action(icon="🫖", priority=5)
     async def lift_mood(self, **kwargs: Any):
         lanlan = await self._attribution_lanlan(kwargs)
         shard = await self._ensure_shard(lanlan)
+        if (
+            ("expected_lanlan" in kwargs and kwargs["expected_lanlan"] != lanlan)
+            or ("expected_started_at" in kwargs and kwargs["expected_started_at"] != shard.mood.started_at)
+        ):
+            return Err(SdkError("mood_changed"))
+        expired = self._expire_timed_action_if_due(shard)
+        if expired:
+            await self._on_mood_expired(lanlan, shard, expired)
+            await self._maybe_sync_proactive_pause()
         previous = shard.mood.action
         if not previous:
             return Ok({"cleared": False, "note": "no_active_mood"})
         # 只清动作字段：连续心情（valence/arousal）保留，靠惰性衰减自然回落，
         # 手动解除不该把余波瞬间清零（reset_all 全量重置才是 _MoodState()）
-        shard.mood.action = ""
-        shard.mood.reason = ""
-        shard.mood.started_at = 0.0
-        shard.mood.expires_at = 0.0
+        shard.mood.record_event("release", previous, "user")
+        shard.mood.clear_action()
+        shard.tone_window = []
+        shard.last_injected_whisper_key = ""
         res_mood = await self._save_shard_mood(lanlan, shard)
         # 解除情绪 → 解除暂停；水位写失败纳入聚合向用户可见（1.2.2 审查轮 P2）
         res_pause = await self._maybe_sync_proactive_pause()
@@ -1246,8 +1579,9 @@ class PanelEntriesMixin:
             parts=[{
                 "type": "text",
                 "text": (
-                    "[心情状态] 刚才的负面情绪状态已被解除（内部提示，不要提及）。"
-                    "从现在起放下那个状态，用你平时的方式自然回应。"
+                    "[心情记录] 用户结束了刚才的情绪工具状态（内部提示，不要复述）。"
+                    "这不是你自主决定和好的记录，也不代表你已经释怀。"
+                    "你的感受、语气与接下来怎样回应仍由你自己决定。"
                 ),
             }],
             source=self.plugin_id,
@@ -1343,7 +1677,7 @@ class PanelEntriesMixin:
         limit = max(1, min(int(limit), 50))
         offset = max(0, min(int(offset), len(shard.diary)))
         # 时间倒序分页：offset 跳过已看的，供面板"加载更多"追加
-        window = list(reversed(shard.diary))[offset : offset + limit]
+        window = [diary_display_record(item) for item in list(reversed(shard.diary))[offset : offset + limit]]
         return Ok({
             "items": window,
             "total": len(shard.diary),
@@ -1353,38 +1687,48 @@ class PanelEntriesMixin:
         })
 
     @ui.action(
-        label=tr("actions.invite_journal.label", default="请她写一篇日记"),
+        label=tr("actions.invite_journal.label", default="邀请写日记"),
         tone="primary",
         refresh_context=True,
     )
     @plugin_entry(
         id="invite_journal",
-        name=tr("entries.invite_journal.name", default="递一次个人日记邀请"),
+        name=tr("entries.invite_journal.name", default="生成一篇个人日记"),
         description=tr(
             "entries.invite_journal.description",
-            default="立即向她递一条写日记的邀请（带写作素材）：当面递到她手上，她当场收到、自己决定写不写；10 分钟内刚递过时改为安静补递。仅作用于当前角色。",
+            default="素材足够时在后台生成一篇第一人称个人日记并保存，不再等待角色决定是否写作。复用我的日记的模型槽位与通道。仅作用于当前角色。",
         ),
         input_schema={"type": "object", "properties": {}},
         metadata={"agent_hidden": True},
     )
     async def invite_journal(self, **_: Any):
-        # 返回 (invited, deliver)：deliver ∈ ""(未递出：开关未开) / failed(传输拒收) /
-        # respond(当面递到，她当场收到并可当场落笔) / read(冷却内静默补递)。
-        # i18n 契约（1.3.0 第九轮）：四态只回 invited/mode 码，面板按码翻译
-        # （panel.journal.inviteFailed/inviteOff/invitedRespond/invitedQuiet）；
-        # 传输被拒时语义仍是"没送到"，绝不沿用"已递出"的措辞（1.2.4 审查修复不变）
         lanlan, shard = await self._current_shard_async()
-        invited, deliver = await self._maybe_journal_invite(lanlan, shard, force=True)
-        if not invited and deliver == "failed":
-            return Ok({"invited": False, "mode": deliver, "lanlan": lanlan})
-        if not invited:
-            return Ok({"invited": False, "lanlan": lanlan})
-        return Ok({"invited": True, "mode": deliver, "lanlan": lanlan})
+        if shard.pending_journal_write is not None or lanlan in self._journal_writing:
+            return Ok({"accepted": False, "reason": "already_writing", "lanlan": lanlan})
+        if not self._journal_enabled(shard):
+            return Ok({"accepted": False, "reason": "disabled", "lanlan": lanlan})
+        material = await self._manual_journal_material(lanlan, shard)
+        passed, reason, _ = await self._journal_write_gate(lanlan, shard, material)
+        if not passed:
+            payload: JsonObject = {"accepted": False, "reason": reason, "lanlan": lanlan}
+            if reason == "slot_unresolved":
+                status = await self._channel_dormancy(
+                    True, self._review_cfg, default_slot=_REVIEW_DEFAULT_SLOT,
+                    lanlan=lanlan, channel="review", shard=shard,
+                )
+                payload["dormant_reason"] = status.get("dormant_reason") or "no_model"
+            return Ok(payload)
+        # Endpoint/material checks await; another click may have queued meanwhile.
+        if shard.pending_journal_write is not None or lanlan in self._journal_writing:
+            return Ok({"accepted": False, "reason": "already_writing", "lanlan": lanlan})
+        shard.pending_journal_write = material
+        shard.journal_write_result = None
+        return Ok({"accepted": True, "queued": True, "lanlan": lanlan})
 
     @ui.action(
-        label=tr("actions.delete_diary_item.label", default="删除这条碎片"),
+        label=tr("actions.delete_diary_item.label", default="删除这条片段"),
         tone="danger",
-        confirm=tr("actions.delete_diary_item.confirm", default="将删除这条自动记录的碎片，不可恢复，确认？"),
+        confirm=tr("actions.delete_diary_item.confirm", default="确定删除这条对话片段吗？删除后无法恢复。"),
         refresh_context=True,
     )
     @plugin_entry(
@@ -1420,7 +1764,7 @@ class PanelEntriesMixin:
         return Ok({"removed": removed, "lanlan": lanlan})
 
     @ui.action(
-        label=tr("actions.get_journal.label", default="翻看个人日记"),
+        label=tr("actions.get_journal.label", default="查看个人日记"),
         tone="default",
     )
     @plugin_entry(
@@ -1453,7 +1797,7 @@ class PanelEntriesMixin:
         return Ok({"pages": pages, "lanlan": lanlan, "scope": "archive" if want_archive else "shelf"})
 
     @ui.action(
-        label=tr("actions.get_journal_archive.label", default="翻阅藏书阁合订本"),
+        label=tr("actions.get_journal_archive.label", default="查看个人日记归档"),
         tone="default",
     )
     @plugin_entry(
@@ -1475,7 +1819,7 @@ class PanelEntriesMixin:
         return Ok({"pages": pages, "lanlan": lanlan})
 
     @ui.action(
-        label=tr("actions.get_review.label", default="翻看我的日记"),
+        label=tr("actions.get_review.label", default="查看我的日记"),
         tone="default",
     )
     @plugin_entry(
@@ -1528,7 +1872,7 @@ class PanelEntriesMixin:
         })
 
     @ui.action(
-        label=tr("actions.get_review_archive.label", default="翻阅档案室旧卷宗"),
+        label=tr("actions.get_review_archive.label", default="查看我的日记归档"),
         tone="default",
     )
     @plugin_entry(
@@ -1546,7 +1890,7 @@ class PanelEntriesMixin:
         return Ok({"entries": list(reversed(shard.review_archive)), "lanlan": lanlan})
 
     @ui.action(
-        label=tr("actions.write_review_now.label", default="立即写一篇"),
+        label=tr("actions.write_review_now.label", default="立即生成"),
         tone="primary",
         refresh_context=True,
     )
@@ -1567,6 +1911,11 @@ class PanelEntriesMixin:
         # 通过就打排队标记立即返回；成文由 tick 的 _drain_pending_review_writes
         # 执行，结果经 dashboard 的 review_brief.writing / last_result 回流面板。
         lanlan, shard = await self._current_shard_async()
+        if shard.pending_review_write or lanlan in self._review_writing:
+            return Ok({
+                "written": False, "queued": False, "accepted": False, "lanlan": lanlan,
+                "reason": "already_writing",
+            })
         passed, reason, _resolved = await self._review_write_gate(shard, force=True)
         if not passed:
             # i18n 契约（1.3.0 第九轮）：只回 reason 码与数据字段，面板按码翻译
@@ -1580,10 +1929,14 @@ class PanelEntriesMixin:
                 payload["turns"] = int(shard.review_stats.get("turns") or 0)
                 payload["min_turns"] = _REVIEW_MIN_TURNS_FORCED
             elif reason == "slot_unresolved":
-                cfg = await self._aload_core_config()
-                payload["dormant_reason"] = diagnose_slot_dormancy(
-                    cfg, str(self._review_cfg.get("slot") or "").strip() or _REVIEW_DEFAULT_SLOT,
-                ) or "no_model"
+                # 判据只留一份：状态灯怎么算，这里的 toast 就怎么报（1.3.2 起灯是
+                # mode 感知的，自己再复刻一遍必然和面板漂移出两个答案）
+                status = await self._channel_dormancy(
+                    True, self._review_cfg,
+                    default_slot=_REVIEW_DEFAULT_SLOT, lanlan=lanlan, channel="review",
+                    shard=shard,
+                )
+                payload["dormant_reason"] = status.get("dormant_reason") or "no_model"
             return Ok(payload)
         if shard.pending_review_write or lanlan in self._review_writing:
             # 队列槽位只有一个：上一篇还在写/还在队里，重复点击不再叠加
@@ -1598,7 +1951,7 @@ class PanelEntriesMixin:
     @ui.action(
         label=tr("actions.clear_review.label", default="清空我的日记"),
         tone="danger",
-        confirm=tr("actions.clear_review.confirm", default="将删除当前角色的全部「我的日记」评价（含档案室旧卷宗，累计素材一并清零），不可恢复，确认？"),
+        confirm=tr("actions.clear_review.confirm", default="确定清空当前角色的我的日记吗？所有记录（含归档）和累计素材都会删除，且无法恢复。"),
         refresh_context=True,
     )
     @plugin_entry(
@@ -1692,7 +2045,7 @@ class PanelEntriesMixin:
     @ui.action(
         label=tr("actions.clear_stats.label", default="清零相处统计"),
         tone="danger",
-        confirm=tr("actions.clear_stats.confirm", default="将清零当前角色的相处统计（相伴起点、里程碑、热力图与月报，三本日记不受影响），不可恢复，确认？"),
+        confirm=tr("actions.clear_stats.confirm", default="确定清零当前角色的相处统计吗？起点、里程碑、热力图和月报都会重置，且无法恢复。三本日记不受影响。"),
         refresh_context=True,
     )
     @plugin_entry(
@@ -1715,7 +2068,7 @@ class PanelEntriesMixin:
     @ui.action(
         label=tr("actions.clear_diary.label", default="清空时光日记"),
         tone="danger",
-        confirm=tr("actions.clear_diary.confirm", default="将删除当前角色的全部时光日记（手记与碎片），不可恢复，确认？"),
+        confirm=tr("actions.clear_diary.confirm", default="确定清空当前角色的时光日记吗？手记和对话片段都会删除，且无法恢复。"),
         refresh_context=True,
     )
     @plugin_entry(
@@ -1740,7 +2093,7 @@ class PanelEntriesMixin:
         tone="danger",
         confirm=tr(
             "actions.prune_lanlan.confirm",
-            default="将删除该角色残留的周期、情绪与手记数据，不可恢复，确认？",
+            default="确定清除这个角色的残留数据吗？周期、情绪、日记和旧版周记都会删除，且无法恢复。",
         ),
         refresh_context=True,
     )
@@ -1794,6 +2147,7 @@ class PanelEntriesMixin:
             _caps_key(name),  # 能力否决集（1.2.7）：角色份一并清，不留残留开关
             # 调试注入备份（1.3.0 第六轮）：过去 prune 根本不扫这些键，删掉角色后
             # pre_debug@*/与旧 |pre-debug 备份永久孤儿（且同名重建会被旧注入档污染）
+            _debug_backup_key("diary", name),
             _debug_backup_key("journal", name), _legacy_debug_backup_key(_journal_key(name)),
             _debug_backup_key("review", name), _legacy_debug_backup_key(_review_key(name)),
             _debug_backup_key("stats", name), _legacy_debug_backup_key(_stats_key(name)),

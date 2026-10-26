@@ -382,18 +382,18 @@ def test_review_compose_failure_logs_detailed_reason(tm, boot_factory, monkeypat
 
     monkeypatch.setattr(p, "_post_chat_completion", lambda *a, **k: "")
     written, reason = run(p._maybe_write_review("default", shard, force=True))
-    assert (written, reason) == (False, "compose_failed")
+    assert (written, reason) == (False, "invalid_reply")
     assert any(
-        "review compose failed" in w and "unparsable" in w and "len=0" in w
+        "diary compose failed" in w and "invalid_reply" in w and "len=" in w and " | 0" in w
         for w in logger.warnings
     ), f"空回复必须留痕含长度，got: {logger.warnings}"
 
     logger.warnings.clear()
     monkeypatch.setattr(p, "_post_chat_completion", lambda *a, **k: None)
     written2, reason2 = run(p._maybe_write_review("default", shard, force=True))
-    assert (written2, reason2) == (False, "compose_failed")
+    assert (written2, reason2) == (False, "request_failed")
     assert any(
-        "review compose failed" in w and "request failed" in w for w in logger.warnings
+        "diary compose failed" in w and "request_failed" in w for w in logger.warnings
     ), f"请求失败必须留痕并指向直连 warning，got: {logger.warnings}"
 
 

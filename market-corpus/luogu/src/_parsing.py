@@ -14,14 +14,18 @@ Robustness contract
   falling back to a default. A single drifted key must never fail the whole
   parse. Only a missing JSON block raises ``LuoguParseError``.
 * Tags are Luogu numeric ids (e.g. ``[1, 42, ...]``); we keep them as decimal
-  strings (``"1"``). A real id→name map is not in the page payload, so callers
-  render them as ``#id`` until such a table is wired in.
+  strings (``"1"``). The page payload carries neither the names nor a complete
+  table, so ``_TAG_NAMES`` seeds a static snapshot and
+  ``merge_tag_names(parse_tag_dictionary(...))`` grows it from the live
+  ``/_lfe/tags`` dictionary. Ids in neither render as ``#id``.
 """
 
 from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable, Mapping
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import unquote
 
@@ -282,6 +286,9 @@ _TAG_NAMES: dict[str, str] = {
 }
 
 _TAG_LINK_RE = re.compile(r"tag=(\d{1,4})\">([^<]+)<")
+# Rendered for ids that are in no known dictionary; also the marker
+# ``usable_tag_names`` uses to reject a name as a search keyword.
+_UNKNOWN_TAG_PREFIX = "#"
 
 
 def extract_tag_names(html: str) -> None:
@@ -295,11 +302,83 @@ def extract_tag_names(html: str) -> None:
 
 def tag_name(tag_id: str) -> str:
     """Human-readable name for a numeric Luogu tag id (or ``#id`` if unknown)."""
-    return _TAG_NAMES.get(str(tag_id), f"#{tag_id}")
+    return _TAG_NAMES.get(str(tag_id), f"{_UNKNOWN_TAG_PREFIX}{tag_id}")
 
 
 def tag_names(ids: tuple[str, ...] | list[str]) -> tuple[str, ...]:
     return tuple(tag_name(tag_id) for tag_id in ids)
+
+
+def parse_tag_dictionary(text: str) -> dict[str, str]:
+    """Parse Luogu's ``/_lfe/tags`` JSON into ``{tag_id: name}``.
+
+    Live shape (measured 2026-09, anonymous-accessible, 505 entries):
+    ``{"tags": [{"id": 1, "name": "模拟", "type": 2, "parent": 110}, ...]}``.
+    Anything unexpected yields ``{}`` so the caller keeps the static seed.
+    """
+    try:
+        payload = json.loads(text)
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    raw = payload.get("tags")
+    if isinstance(raw, dict):  # tolerate a plain {"1": "模拟"} mapping
+        return {
+            tag_id_string(key): str(value).strip()
+            for key, value in raw.items()
+            if str(value).strip()
+        }
+    if not isinstance(raw, list):
+        return {}
+    names: dict[str, str] = {}
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        ident = item.get("id")
+        label = item.get("name")
+        if ident is None or label is None:
+            continue
+        text_label = str(label).strip()
+        if text_label:
+            names[tag_id_string(ident)] = text_label
+    return names
+
+
+def merge_tag_names(mapping: Mapping[str, str]) -> int:
+    """Merge live ``{id: name}`` pairs into the shared map; returns added count.
+
+    Live values win over the static seed: the seed is a point-in-time snapshot
+    and Luogu both adds tags and renames them. Only previously-unknown ids count
+    as "added", so the return value stays meaningful for logging.
+    """
+    added = 0
+    for tag_id, name in mapping.items():
+        key = str(tag_id).strip()
+        label = str(name).strip()
+        if not key or not label:
+            continue
+        if key not in _TAG_NAMES:
+            added += 1
+        _TAG_NAMES[key] = label
+    return added
+
+
+def usable_tag_names(ids: Iterable[str]) -> list[str]:
+    """Names among ``ids`` that are meaningful as ``/problem/list`` keywords.
+
+    ``/problem/list?keyword=`` matches visible problem text, not tag ids:
+    ``keyword=42`` returns nothing and ``keyword=3`` returns every problem whose
+    *title* contains a "3" (measured 2026-09). Unknown ids render as ``#<id>``,
+    which is equally useless, so they are dropped here and the caller falls back
+    to topical default keywords.
+    """
+    names: list[str] = []
+    for tag_id in ids:
+        label = tag_name(tag_id)
+        if label and not label.startswith(_UNKNOWN_TAG_PREFIX) and label not in names:
+            names.append(label)
+    return names
 
 
 def _tags_to_ids(values: tuple[Any, ...]) -> tuple[str, ...]:
@@ -483,6 +562,46 @@ def _verdict_is_ac(status: object) -> bool:
     return str(status).upper() == "AC"
 
 
+# --- Submission timestamps ---------------------------------------------------
+# Luogu's `submitTime` is a **10-digit seconds** Unix timestamp. Reading it as
+# milliseconds is a known trap (every submission lands in 1970), so the length
+# decides the unit and anything implausible is dropped rather than trusted.
+_EPOCH_SECONDS_RE = re.compile(r"^\d{10}$")
+_EPOCH_MILLIS_RE = re.compile(r"^\d{13}$")
+_ISO_LIKE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}([T ].*)?$")
+# Luogu opened in 2013; a timestamp before that (or far in the future) is junk.
+_MIN_YEAR = 2013
+_MAX_YEAR = 2100
+
+
+def normalize_submit_time(value: Any) -> str:
+    """Normalise ``submitTime`` into an ISO-8601 UTC string (``""`` if unusable).
+
+    Seconds in, ``2026-09-27T05:31:32Z`` out — so date/week/trend maths and
+    string ordering both work, and the value no longer depends on the raw unit
+    Luogu happened to send. Submissions are bucketed into local days later, by
+    the caller that knows the configured timezone.
+    """
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return ""
+    if _EPOCH_MILLIS_RE.match(text):
+        seconds = int(text) / 1000
+    elif _EPOCH_SECONDS_RE.match(text):
+        seconds = int(text)
+    elif _ISO_LIKE_RE.match(text):
+        return text
+    else:
+        return ""
+    try:
+        stamp = datetime.fromtimestamp(seconds, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        return ""
+    if not _MIN_YEAR <= stamp.year <= _MAX_YEAR:
+        return ""
+    return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def parse_solution_page(html: str) -> dict[str, Any]:
     """Parse a problem solution page: return the problem name + solution list."""
     extract_tag_names(html)
@@ -536,7 +655,7 @@ def parse_submissions(html: str) -> list[SubmissionRecord]:
                 tags=_tags_to_ids(tags),
                 solved=_verdict_is_ac(status),
                 attempt_count=max(1, _pick_int(record, "attemptCount", "count")),
-                submitted_at=str(_pick(record, "submitTime", "submit_time", default="")),
+                submitted_at=normalize_submit_time(_pick(record, "submitTime", "submit_time", default="")),
             )
         )
     return submissions
@@ -592,14 +711,18 @@ __all__ = [
     "is_challenge_html",
     "is_not_logged_in",
     "extract_tag_names",
+    "merge_tag_names",
+    "normalize_submit_time",
     "parse_contest_list",
     "parse_problem_detail",
     "parse_problem_list",
     "parse_solution_page",
     "parse_submissions",
+    "parse_tag_dictionary",
     "parse_user_profile",
     "record_list_count",
     "tag_id_string",
     "tag_name",
     "tag_names",
+    "usable_tag_names",
 ]

@@ -22,9 +22,11 @@ Get-ChildItem "$env:LOCALAPPDATA\Blizzard\Hearthstone" -Filter Power.log -Recurs
 
 ## 有日志但没有角色主动说话
 
-依次检查：
+若缺少开场、重连或结算回应，先确认 `llm_data_consent=true`。生命周期没有独立开关。配置 `target_lanlan` 时会定向投递；未配置目标时只依赖宿主恰好一个在线会话的 targetless 路由，零个或多个在线会话都不会投递。超过 30 秒的待投递生命周期会丢弃。接入已经开始的对局应说“重新接上”，不会重放开场。
 
-1. `llm_data_consent` 与 `llm_commentary_enabled` 是否都开启；
+若希望获得中局主动陪伴，再依次检查：
+
+1. `llm_data_consent=true` 且 `llm_do_not_disturb=false`；
 2. N.E.K.O 当前角色是否配置了可用模型；
 3. 当前是否在旁观模式；
 4. 最近是否有用户聊天，普通事件会安静 30 秒；
@@ -32,19 +34,25 @@ Get-ChildItem "$env:LOCALAPPDATA\Blizzard\Hearthstone" -Filter Power.log -Recurs
 6. 事件优先级是否达到默认阈值 5；
 7. 点击“测试解说”检查 SDK 是否接受提交。
 
-插件不会为每个回合或商店变化都发言。稀疏、情绪相关的主动回应是设计行为。
+插件不会为每个回合或商店变化都发言。即使关闭免打扰，中局回应仍会保持稀疏并只选择有情绪价值的事件；开场/重连/结算回应随局势共享生效，不受免打扰影响。
 
-## 主动解说关闭后还能问酒馆问题吗
+## 开启免打扰后还能问酒馆问题吗
 
-可以。保持 `llm_data_consent=true`，当前角色仍可调用 `hearthstone_battlegrounds_advice`。主动解说开关只控制插件是否主动发起角色回复。
+可以。保持 `llm_data_consent=true`；模型可在首答同一轮调用 `hearthstone_current_turn` 或 `hearthstone_live_state`，也可由统一 Agent 入口读取同一权威快照。`llm_do_not_disturb` 只抑制中局主动事件；开场、重连和结算始终随局势共享生效。
 
-若工具返回 `llm_data_sharing_not_authorized`，说明数据同意未开启。若 `current_public_state` 为空，确认已经进入酒馆且日志正在增长。
+若查询返回 `llm_data_sharing_not_authorized`，说明数据共享未开启。若状态为空，确认已经进入酒馆且日志正在增长。若面板已有商店/战团但角色仍声称没有炉石能力，依次确认目标角色的 `/api/tools` 已注册 `hearthstone_current_turn` 和 `hearthstone_live_state`、模型请求携带对应 schema、tool callback 返回 `is_error=false` 且 `output` 是非空实时事实文本；再检查 Agent 是否能发现 `query_hearthstone_live_state`。插件必须保持 `passive=false`，否则 Agent 会跳过查询入口。工具 callback 没有可信角色、会话或 turn 字段，因此插件不会从 callback 另起一次主动回复。
 
 ## 为什么候选英雄不完整或不能给出具体出牌
 
-候选列表只显示 `Power.log` 明确归属于本地玩家、未隐藏且未锁定的英雄。日志尚未建立本地 controller、某个选项未公开或选择阶段已经结束时，列表可能为空；插件不会根据常见候选数或卡池补猜。列表可用时，角色可以结合公共英雄规则和本机样本比较，但不会提供没有来源的全局胜率。“买哪个随从”等即时酒馆建议还要求处于招募阶段并有正在更新的当前商店；战斗阶段或缓存状态只能解释已观察信息。
+候选列表只显示 `Power.log` 明确归属于本地玩家、未隐藏且未锁定的英雄。日志尚未建立本地 controller、某个选项未公开或选择阶段已经结束时，列表可能为空；插件不会根据常见候选数或卡池补猜。列表可用时，统一工具可以结合公共英雄规则和本机样本供角色比较，但不会提供没有来源的全局胜率。“哪张更值得考虑”等定性酒馆建议要求工具当次读到招募阶段、正在更新的完整商店和规则证据；个别费用缺失不会关闭定性比较。若询问可负担性、剩余金币或购买顺序，当前金币和商店所有卡牌的实际费用也必须完整，角色不得用默认 3 费补算，也不得在金币为 0 时把未知费用卡牌直接判为买不起。战斗阶段或缓存状态只能解释已观察信息。
 
-普通对战会在用户主动提问时共享本地玩家当前可见的具体手牌。若角色仍答不出回合或手牌，先确认局势问答授权已开启、状态为实时，再明确询问“现在第几回合”或“根据当前手牌应该出什么牌”，让角色调用 `hearthstone_current_state`。工具不会提供完整合法操作与目标枚举；字段缺失时应如实说明。对手隐藏手牌、奥秘身份和牌序是永久边界，重新配置日志也不会开放。
+普通对战可在用户主动提问时同轮调用实时工具，共享当前轮次或本地玩家当前可见的具体手牌。若角色仍答不出回合或手牌，先确认局势问答授权已开启、状态为实时，再核对 `/api/tools` 中的两个注册项、对应 tool call 和 callback；没有 tool call 时检查 Agent 入口是否可发现，并重新提问触发当前快照查询，不能沿用较早对话。工具不会提供完整合法操作与目标枚举；字段缺失时应如实说明。对手隐藏手牌、奥秘身份和牌序是永久边界，重新配置日志也不会开放。
+
+排查模型链路时分别核对：单条概况是否收到；目标角色是否可见两个工具及其 schema；模型是否发起 tool call；官方 callback 是否返回非空 output 或明确错误；Agent 是否读取同源快照。概况不能证明商店、手牌等详细事实已送达，SDK 提交也不证明最终回复。模型是否选择工具单独观测，不用重复主动补答掩盖未调用问题。
+
+面板“局势查询链路健康”把这些环节分开显示：日志必须为新鲜，`snapshot revision` 应随实际局势变化增长；同轮工具注册应为 `healthy`；`callback_succeeded` 只表示工具 callback 正常返回，Agent 的同名状态只表示 Agent callback 成功，生命周期的 `submitted` 只表示 SDK 本地提交路径已接管请求。它们都不证明模型已经生成、显示或播放最终回答。出现问题时点击“导出脱敏诊断”，优先提交该 JSON 和对应对话截图，不要提交完整 `Power.log`。
+
+需要观察真实模型行为时，可由隔离矩阵启动 `tests/neko_answer_probe.py --enable-real-e2e`。`SKIP` 表示诊断环境不完整；`answer_timeout`、未调用工具或遗漏事实记录模型/宿主表现，但不自动归因于插件。插件链路应分别以真实日志检查点、官方注册表、精确一次 callback、完整被动包和生命周期提交判断。不要为让模型回答通过而增加私有对话关联、额外重试或提示协议，也不要为绕过 `tool_name_conflict` 停用或覆盖用户正在使用的插件。
 
 ## 为什么没有全服胜率
 
@@ -52,7 +60,7 @@ Get-ChildItem "$env:LOCALAPPDATA\Blizzard\Hearthstone" -Filter Power.log -Recurs
 
 ## 卡牌目录不可用或已陈旧
 
-查看 `card_catalog.degraded_reason`、`dataset.patch`、`checked_at` 和 `stale`。首次安装需要短暂下载公共当前卡池；超时、HTTP 429/5xx 或离线时，插件会保留旧缓存，不会中断日志监听。确认网络允许访问 `https://hsbg.cards`，并检查 `card_catalog_network_enabled=true`。不希望插件直连该服务时可关闭此项，角色仍能读取实时局势，但卡牌规则依据会减少。少量旧式或不规则金卡 CardID 可能出现在 `missing_ids`；这表示没有可靠规则补全，不影响 Power.log 中的实时身材。
+查看 `card_catalog.degraded_reason`、`dataset.patch`、`checked_at` 和 `stale`。首次安装需要短暂下载公共当前卡池；超时、HTTP 429/5xx 或离线时，插件会保留旧缓存，不会中断日志监听。确认网络允许访问 `https://hsbg.cards`，并检查 `card_catalog_network_enabled=true`。不希望插件直连该服务时可关闭此项；统一工具仍会返回日志实际观测的实时局势，但卡牌规则依据会减少。少量旧式或不规则金卡 CardID 可能出现在 `missing_ids`；这表示没有可靠规则补全，不影响 Power.log 中的实时身材。
 
 ## 对手阵容看起来过时
 
@@ -72,7 +80,7 @@ Get-ChildItem "$env:LOCALAPPDATA\Blizzard\Hearthstone" -Filter Power.log -Recurs
 
 ## 状态或卡牌不准确
 
-游戏更新可能改变日志格式。记录插件/N.E.K.O 版本、模式、阶段、`source_state`、`lines_seen`、`last_event_kind`、`last_error_code` 和是否发生日志轮换。不要直接上传完整 `Power.log`；按[隐私说明](privacy-security.md#问题报告与合规)裁剪并脱敏。
+游戏更新可能改变日志格式。记录插件/N.E.K.O 版本、模式、阶段、`source_state`、`lines_seen`、`last_event_kind`、`last_error_code` 和是否发生日志轮换，或直接导出面板提供的脱敏诊断。不要直接上传完整 `Power.log`；按[隐私说明](privacy-security.md#问题报告与合规)裁剪并脱敏。
 
 ## 恢复 log.config
 

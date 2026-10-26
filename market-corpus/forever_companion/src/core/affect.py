@@ -24,7 +24,9 @@ from .state import (
     _AFFECT_VALENCE_TAU_SEC,
     _TONE_AFFECT_AROUSAL_STEP,
     _TONE_AFFECT_DIRECTIONS,
+    _TONE_AFFECT_MIN_CONFIDENCE,
     _TONE_AFFECT_VALENCE_STEP,
+    _TONE_EMOTION_ALIASES,
     _MoodState,
 )
 
@@ -42,6 +44,20 @@ _MOOD_AFFECT_IMPULSES = {
     "warm_current": (0.35, 0.15),
     "spring_tide": (0.55, 0.45),
 }
+
+
+def normalize_tone_signal(label: str, confidence: float) -> tuple[str, float] | None:
+    """只接受已知标签与有限的 [0,1] 置信度，两种分析通道使用同一规则。"""
+    if not isinstance(label, str):
+        return None
+    canonical = _TONE_EMOTION_ALIASES.get(label.strip().lower())
+    try:
+        conf = float(confidence)
+    except (TypeError, ValueError):
+        return None
+    if canonical is None or not math.isfinite(conf) or not 0.0 <= conf <= 1.0:
+        return None
+    return canonical, conf
 
 
 def _current_affect(
@@ -82,13 +98,18 @@ def _feed_tone_affect(
     """语气信号积分进连续心情（筛选/校正两种模式都喂）。
 
     步长 = confidence × weight × 上限（valence ±0.10 / arousal ±0.12）——单轮限幅，
-    借"单事件最多移动一格"的思路防一句话把心情打满；neutral 微拉一格：
-    valence 向 0 拉，arousal 向静息基线拉（双向，不越过目标）。
-    weight 是来源权重：她的回复 1.0，用户消息 0.25（互动氛围同向传导、占比更低）。
+    借"单事件最多移动一格"的思路防一句话把心情打满；置信度不足 0.6 不积分。
+    neutral 不主动改变 valence，由时间自然衰减；角色 arousal 以四分之一步回归基线。
+    weight 是来源权重：她的回复 1.0，用户消息 0.25；用户的中性消息不拉动角色心情。
     """
-    conf = max(0.0, min(1.0, confidence))
+    signal = normalize_tone_signal(label, confidence)
+    if signal is None:
+        return
+    label, conf = signal
+    if conf < _TONE_AFFECT_MIN_CONFIDENCE:
+        return
     w = max(0.0, min(1.0, weight))
-    if conf <= 0.0 or w <= 0.0:
+    if w <= 0.0 or not math.isfinite(weight) or (label == "neutral" and w < 1.0):
         return
     current = now if now is not None else time.time()
     baseline = max(0.0, min(1.0, arousal_baseline))
@@ -96,10 +117,9 @@ def _feed_tone_affect(
     dv_step = conf * w * _TONE_AFFECT_VALENCE_STEP
     da_step = conf * w * _TONE_AFFECT_AROUSAL_STEP
     if label == "neutral":
-        # 各向自己的目标微拉：最多移动一格，不越过（valence → 0，arousal → 基线）
-        dv = -math.copysign(min(abs(valence), dv_step), valence) if valence else 0.0
+        dv = 0.0
         gap = arousal - baseline
-        da = -math.copysign(min(abs(gap), da_step), gap) if gap else 0.0
+        da = -math.copysign(min(abs(gap), da_step * 0.25), gap) if gap else 0.0
     else:
         direction = _TONE_AFFECT_DIRECTIONS.get(label)
         if direction is None:

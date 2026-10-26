@@ -11,9 +11,7 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
-OneBotClient = pytest.importorskip("utils.connection.onebot").OneBotClient
+from plugin.plugins.qq_auto_reply.connector_seam import OneBotClient
 
 
 def _img_message(*, content="", has_text=False):

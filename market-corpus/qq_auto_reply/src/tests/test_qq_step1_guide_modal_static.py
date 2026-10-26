@@ -15,11 +15,16 @@ def test_step1_modal_markup_present():
 
 
 def test_step1_state_persisted_in_config_and_backend():
-    config_store = (ROOT / "plugin/plugins/qq_auto_reply/config_store.py").read_text(encoding="utf-8")
-    backend = (ROOT / "plugin/plugins/qq_auto_reply/__init__.py").read_text(encoding="utf-8")
+    # 默认值的真相已归并到 settings_schema 的声明表里 —— config_store 不再逐键手写
+    # （见 config_store.default_config 的 docstring），白名单也由那张表生成，
+    # 所以 __init__.py 里不再有这个键的字面量。断言改指表与运行时白名单。
+    from plugin.plugins.qq_auto_reply import settings_schema
+
+    schema = (ROOT / "plugin/plugins/qq_auto_reply/settings_schema.py").read_text(encoding="utf-8")
     dashboard = (ROOT / "plugin/plugins/qq_auto_reply/dashboard_service.py").read_text(encoding="utf-8")
-    assert '"guide_step_napcat_done": False' in config_store
-    assert 'guide_step_napcat_done' in backend
+    assert 'SettingSpec("guide_step_napcat_done", "bool", False' in schema
+    # 端到端：它确实在保存白名单里（界面能存下来）
+    assert "guide_step_napcat_done" in settings_schema.SAVEABLE_KEYS
     # Runtime status is built by the runtime service, and the napcat step's done-state
     # is derived from a live managed+running NapCat process in the dashboard service.
     assert 'runtime = self.plugin.runtime_service.build_runtime_status()' in dashboard

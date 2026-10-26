@@ -57,6 +57,25 @@ class QQBacklogStore:
             await atomic_write_json_async(self._path, normalized)
             return normalized
 
+    async def update_group_attention_state(self, attention_state: dict[str, Any]) -> dict[str, Any]:
+        """在**同一把锁内**读改写 ``group_attention_state``，返回落盘后的整份 state。
+
+        注意力服务此前自己做 ``load()`` → 改字段 → ``save()``，而这三步不在
+        ``QQBacklogStore`` 的锁里：``append_message`` 全程持锁期间，注意力那边
+        可能已经 load 出一份**旧快照**，随后 save 把整份文档写回，于是这把锁
+        白拿了——并发下要么丢刚 append 的消息，要么丢刚更新的注意力（``save``
+        自身只在写入时取锁，挡不住这种交错）。
+
+        修法不是加第二把锁，而是把读改写整体交给**已有的那把**：磁盘文档只有
+        一个写入者，锁的语义才成立。注意力服务仍负责自己的内存缓存与
+        ``cleanup_stale_cache``，这里只做原子落盘。
+        """
+        async with self._lock:
+            state = await self.load()
+            state["group_attention_state"] = dict(attention_state or {})
+            await atomic_write_json_async(self._path, state)
+            return state
+
     async def append_message(self, message: QQBacklogMessage, *, conversation_display_name: str, group_display_name: str | None = None) -> dict[str, Any]:
         async with self._lock:
             state = await self.load()
@@ -188,7 +207,30 @@ class QQBacklogStore:
             await atomic_write_json_async(self._path, state)
             return total_removed
 
-    async def mark_group_reviewed(self, group_id: str) -> dict[str, Any]:
+    def _recount_conversation_review(self, conversation: dict[str, Any]) -> int:
+        """按消息自身的 ``review_status`` 重算会话未审数，返回该值。
+
+        增量维护（标记时 ``-1``）在"同一 message_id 出现在多个会话"或重复
+        标记时会漂移；直接从消息重算既便宜又不会错。
+        """
+        messages = [item for item in list(conversation.get("messages") or []) if isinstance(item, dict)]
+        unread = sum(1 for item in messages if item.get("review_status") == "unreviewed")
+        conversation["unread_count"] = unread
+        return unread
+
+    async def mark_group_reviewed(self, group_id: str, *, message_ids: set[str] | None = None) -> dict[str, Any]:
+        """把群内消息标记为已审核。
+
+        ``message_ids`` 是**本次真正被消费掉的全集**（调用方从
+        ``get_unreviewed_message_ids_since`` 取）。老实现无条件标掉该群所有会话
+        的所有消息，而回溯只会把最新 ``retroactive_review_max_messages`` 条喂给
+        模型 —— 超窗的旧消息因此被标成"已审"却从没被看到，永不补回。传入 ID 集
+        后，标记边界就等于实际消费边界，剩下的留给下一轮。
+
+        ``None``（默认）保留"全标"语义，供 ``relay_service`` 与手动入口使用；
+        显式传空集表示"本次什么都没消费"，不改任何 review_status，只刷新群级
+        统计与 ``last_notified_at``。
+        """
         async with self._lock:
             state = await self.load()
             groups = state["groups"]
@@ -205,17 +247,28 @@ class QQBacklogStore:
                     continue
                 messages = []
                 for item in list(conversation.get("messages") or []):
-                    updated = dict(item)
-                    updated["review_status"] = "reviewed"
-                    last_reviewed_message_id = str(updated.get("message_id") or last_reviewed_message_id)
+                    updated = dict(item) if isinstance(item, dict) else item
+                    if isinstance(updated, dict):
+                        mid = str(updated.get("message_id") or "")
+                        should_mark = (
+                            updated.get("review_status") == "unreviewed"
+                            and (message_ids is None or mid in message_ids)
+                        )
+                        if should_mark:
+                            updated["review_status"] = "reviewed"
+                        if updated.get("review_status") == "reviewed":
+                            last_reviewed_message_id = mid or last_reviewed_message_id
                     messages.append(updated)
                 conversation["messages"] = messages
-                conversation["unread_count"] = 0
+                self._recount_conversation_review(conversation)
                 conversation["last_reviewed_at"] = now
                 conversation["last_reviewed_message_id"] = last_reviewed_message_id or str(conversation.get("last_message_id") or "")
                 conversations[key] = conversation
-            group["unread_count"] = 0
-            group["label_counts"] = {}
+            group["unread_count"] = sum(
+                int((conversations.get(key) or {}).get("unread_count") or 0)
+                for key in keys
+            )
+            group["label_counts"] = self._count_group_labels(conversations, keys)
             group["last_notified_at"] = now
             groups[group_id] = group
             state["groups"] = groups
@@ -277,7 +330,65 @@ class QQBacklogStore:
             await atomic_write_json_async(self._path, state)
             return state
 
-    async def get_recent_group_messages(self, group_id: str, *, limit: int = 5, exclude_message_id: str = "") -> list[dict[str, Any]]:
+    async def set_forward_mark(
+        self, group_id: str, *, message_id: str, timestamp: int,
+    ) -> dict[str, Any]:
+        """记下 `<mark/>` 的起点：群 + 那一条消息 + 当时的时刻。
+
+        合并转发要的是「标记之后的多人多句」，所以起点必须落盘 —— 标记发生在
+        某一轮回复里，而转发往往在几十条消息之后才由模型发起。
+        """
+        async with self._lock:
+            state = await self.load()
+            groups = state["groups"]
+            normalized_group_id = str(group_id or "").strip()
+            if not normalized_group_id:
+                return state
+            group = groups.get(normalized_group_id)
+            if not isinstance(group, dict):
+                # 群还没有 backlog 记录时**建一条**，而不是静默丢弃标记。
+                # 旧写法在这里直接 return，于是"标记成功"和"标记被吃掉"从外面看
+                # 一模一样 —— 提示词承诺的转发会莫名其妙地永远不触发。
+                group = QQGroupBacklog(
+                    group_id=normalized_group_id,
+                    display_name=f"QQ群 {normalized_group_id}",
+                ).to_dict()
+            group["forward_mark"] = {
+                "message_id": str(message_id or "").strip(),
+                "timestamp": int(timestamp or 0),
+            }
+            groups[normalized_group_id] = group
+            state["groups"] = groups
+            await atomic_write_json_async(self._path, state)
+            return state
+
+    async def get_forward_mark(self, group_id: str) -> dict[str, Any] | None:
+        state = await self.load()
+        group = state["groups"].get(str(group_id or "").strip())
+        if not isinstance(group, dict):
+            return None
+        mark = group.get("forward_mark")
+        return mark if isinstance(mark, dict) else None
+
+    async def clear_forward_mark(self, group_id: str) -> dict[str, Any]:
+        """转发用掉起点后清掉它 —— 同一个标记不能复用，否则下次转发会把
+        早就发过的对话再抛一遍。"""
+        async with self._lock:
+            state = await self.load()
+            groups = state["groups"]
+            normalized_group_id = str(group_id or "").strip()
+            group = groups.get(normalized_group_id)
+            if not isinstance(group, dict):
+                return state
+            group.pop("forward_mark", None)
+            groups[normalized_group_id] = group
+            state["groups"] = groups
+            await atomic_write_json_async(self._path, state)
+            return state
+
+    async def get_recent_group_messages(
+        self, group_id: str, *, limit: int = 5, exclude_message_id: str = "",
+    ) -> list[dict[str, Any]]:
         state = await self.load()
         groups = state["groups"]
         conversations = state["conversations"]
@@ -303,8 +414,14 @@ class QQBacklogStore:
         return timeline
 
 
-    async def get_unreviewed_messages_since(self, group_id: str, since_timestamp: int = 0, *, limit: int = 30) -> list[dict[str, Any]]:
-        """取出群中自 since_timestamp 以来的未审核消息（供回溯补回使用）。"""
+    async def get_unreviewed_messages_since(self, group_id: str, since_timestamp: int = 0, *, limit: int = 0) -> list[dict[str, Any]]:
+        """取出群中自 since_timestamp 以来的未审核消息（供回溯补回使用）。
+
+        ``limit > 0`` 只取**最新** limit 条——这是给模型看的窗口，不是"本次消费
+        到的全集"。要标记已审请用 {@link get_unreviewed_message_ids_since} 取
+        全集 ID，否则超窗消息会被 ``mark_group_reviewed`` 一起标掉却从没被看到，
+        等于永久静默丢失（老代码正是这样）。
+        """
         state = await self.load()
         groups = state["groups"]
         conversations = state["conversations"]
@@ -329,6 +446,19 @@ class QQBacklogStore:
         if limit > 0:
             results = results[-int(limit):]
         return results
+
+    async def get_unreviewed_message_ids_since(self, group_id: str, since_timestamp: int = 0) -> set[str]:
+        """群中自 since_timestamp 以来**全部**未审核消息的 ID（不受窗口限制）。
+
+        与 {@link get_unreviewed_messages_since} 配对使用：那个给模型看窗口，
+        这个给 ``mark_group_reviewed`` 定"已审"边界。返回空集代表没有未审消息。
+        """
+        messages = await self.get_unreviewed_messages_since(group_id, since_timestamp, limit=0)
+        return {
+            str(item.get("message_id") or "").strip()
+            for item in messages
+            if str(item.get("message_id") or "").strip()
+        }
 
     async def mark_message_reviewed(self, message_id: str) -> None:
         """将指定消息标记为已审核（AI 回复后即时调用）。"""

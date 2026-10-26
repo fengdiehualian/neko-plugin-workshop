@@ -2,12 +2,15 @@
 
 ## 产品原则
 
-N.E.K.O 的核心是关系与陪伴。插件负责理解游戏现场，不负责用本地模板扮演角色。实现遵循四条边界：
+本轮收敛设计见 [DESIGN.md](../DESIGN.md)。Agent 和同轮工具共用事实生成，但宿主 Agent 通道容量更小：超限时明确省略详情，不能把两种通道宣称为等价的完整场面查询。
+
+N.E.K.O 的核心是关系与陪伴。插件负责理解游戏现场，不负责用本地模板扮演角色。实现遵循五条边界：
 
 1. 本地层只做公开事实提炼、情绪信号、节奏仲裁和隐私过滤；
 2. 所有主动可见台词由当前 N.E.K.O 角色通过 `ai_behavior="respond"` 生成；
-3. 只有显式固定目标角色时才用隐藏 `read` 建立稳定场景，并在结束时用相同 `coalesce_key` 恢复；
-4. 面板和独立浮层只承担透明诊断，不参与自动陪伴输出。
+3. 新鲜对局只在本机维护一份权威状态；被动上下文仅用单条概况告知模式、轮次和阶段，详细区域由同轮 `@llm_tool` 按需读取；
+4. 同轮工具和 Agent 入口复用同源结果生成逻辑；被动概况不证明逐卡事实已送达。工具 callback 没有可信角色、会话或 turn 身份，插件不会另发 tool-result `respond`；
+5. 面板和独立浮层只承担透明诊断，不参与自动陪伴输出。
 
 ```text
 Hearthstone Power.log
@@ -26,14 +29,14 @@ CompanionMonitor single-owner pipeline
         |                    |
         |                    +--> [] + respond --> active NEKO character
         |
-        +--> fixed target scene enter/leave --> [] + read --> context / restore
-        +--> active role per message --> inline context + [] + respond
+        +--> authoritative immutable snapshot
+                             |
+                             +--> current_turn/live_state @llm_tool --> current NEKO turn
+                             +--> query_hearthstone_live_state Agent --> Agent result
 
-Constructed question --> hearthstone_current_state --> fresh player-visible snapshot --> NEKO answer
-
-Battlegrounds question --> hearthstone_battlegrounds_advice
+Constructed or Battlegrounds question --> same-turn dedicated live tool
         |
-        +--> live public snapshot + attributed card facts + official rules + local sample stats
+        +--> live public snapshot + focused evidence + attributed rules/local samples
         +--> tool result returns to NEKO; the character writes the answer
 
 hsbg.cards public API --> fixed-origin background GET --> atomic cache --> observed-card fact lookup
@@ -41,17 +44,21 @@ hsbg.cards public API --> fixed-origin background GET --> atomic cache --> obser
 
 ## 日志与状态机
 
-`PowerLogTailer` 以 100 ms 周期增量跟随最新 `Power.log`，处理轮换、截断和首次接入上限。首次恢复默认且最多读取末尾 64 MiB，并从窗口内最新的完整 `GameState CREATE_GAME` 边界开始，兼容 LF 与 CRLF；恢复字节只在本机逐行解析，不会进入模型请求。`PowerLogParser` 解析实体和 tag 变化，`CompanionMonitor` 是状态唯一写入者；UI、工具和统计只取得不可变快照。Hosted UI 打开时每 500 ms 串行拉取一次不可变状态，刷新失败不会覆盖用户尚未保存的草稿。
+`PowerLogTailer` 以 100 ms 周期增量跟随最新 `Power.log`，处理轮换、截断和首次接入上限。首次恢复默认且最多读取末尾 64 MiB，并从窗口内最新的完整 `GameState CREATE_GAME` 边界开始，兼容 LF 与 CRLF；恢复字节只在本机逐行解析，不会进入模型请求。`PowerLogParser` 解析实体和 tag 变化，`CompanionMonitor` 是状态唯一写入者；UI、工具和统计只取得不可变快照。LLM 工具对监控锁使用 50 ms 有界读取：大日志初始化尚未提交完整快照时立即 fail-closed 为 `state_refresh_in_progress`，不会等待到宿主 5 秒超时，也不会退回上一代来源。Hosted UI 打开时每 500 ms 串行拉取一次不可变状态，刷新失败不会覆盖用户尚未保存的草稿。
 
-每次日志换源、读取器重建或停止后重启都会进入新的 source generation，并清空上一代的行/事件时间。bootstrap 只恢复当前公开状态，不重放主动解说、终局事件或统计；日志超过实时窗口后会退出角色场景，只有同一代来源重新出现新数据才恢复。工具可用性与场景 context 使用同一套新鲜度判定，旧来源时间不能让历史快照冒充实时局势。
+每次日志换源、读取器重建或停止后重启都会进入新的 source generation，并清空上一代的行/事件时间。bootstrap 只恢复当前公开状态，不重放主动解说、终局事件或统计；日志超过实时窗口或活动对局切入旁观后，查询会 fail-closed，只有同一代来源重新出现新鲜的活动对局数据才恢复。工具和 Agent 使用同一套新鲜度判定，并以不可变 `GameSnapshot` 的实际变化时间为准；无关日志增长只更新 `last_line_at`，不会给旧商店或旧战团续命。
+
+监控状态维护单调的 `snapshot_revision`：只有权威 `GameSnapshot` 实际变化时递增，换 source generation 时归零。Hosted UI 以 source generation、revision、状态年龄，以及工具、Agent 和生命周期的稳定状态码展示链路证据。诊断导出复用同一不可变快照，只输出 allowlist 中的计数、完整度和状态码；它不增加新的 LLM 工具或查询路径。
+
+开发验证分成两层：精确真实日志检查点直接运行生产解析器和两个工具 serializer；隔离 E2E 再由正式插件子进程注册同一内存快照的官方工具，并用浏览器观察真实模型回答。官方注册表、精确一次 callback、被动概况合规性、生命周期提交、环境稳定和资源清理组成 source-bound 发布证据；模型是否选择工具、最终回答是否完整则单独记录为诊断，不参与 tag 门禁。该探针不修改宿主源码、磁盘配置、已安装插件或运行时查询架构，只连接已确认的隔离实例，并在结束时清理正式插件子进程和临时文件。
 
 实时链路按日志职责合并而不是二选一：`PowerTaskList.DebugPrintPower` 是动态实体、tag 和 block 的权威实时流；`GameState.DebugPrintGame` 提供模式元数据；`GameState.DebugPrintPower` 只提供最早的新局边界、受限静态实体补全和 `STATE=COMPLETE`/终局 `PLAYSTATE`。新局静态包先进入隔离暂存区，直到 PowerTaskList 确认 `CREATE_GAME` 后才提交；进行中的静态补全只能填空，不能覆盖 PowerTaskList 已观察字段，也不能恢复被 `HIDE_ENTITY` 撤销的可见性。
 
-普通对战中的 `CURRENT_PLAYER`、`RESOURCES` 等 tag 可能用临时玩家显示名引用 entity。解析器只在进程内用随机密钥生成摘要并映射到 `PlayerID`；原始显示名不会写入 Entity、快照、日志、Store 或模型上下文。`TURN` 保留为原始行动回合，用户口语中的完整轮次为 `(TURN+1)//2`。换牌阶段可能已经出现初始 `TURN=1` 和首手玩家标记，因此在双方 `MULLIGAN_STATE=DONE` 或 `STEP=MAIN_READY` 前，公开轮次固定为 `0`、行动方为 `unknown`；完成边沿会立即补发首回合状态，不等待下一次 `TURN`。行动方的 `CURRENT_PLAYER=0` 边沿会先清空旧值，再由下一方的正边沿重新建立，工具不会在切换空窗沿用上一方。
+普通对战中的 `CURRENT_PLAYER`、`RESOURCES` 等 tag 可能用临时玩家显示名引用 entity。解析器只在进程内用随机密钥生成摘要并映射到 `PlayerID`；原始显示名不会写入 Entity、快照、日志、Store 或模型上下文。PowerTaskList 中一次性的 `PLAYSTATE` 别名不会阻塞后续持续匿名引用；只有已确认本地 controller、恰好两名注册玩家且标签属于严格玩家白名单时，未知别名才会保守绑定到唯一对手。`TURN` 保留为原始行动回合，用户口语中的完整轮次为 `(TURN+1)//2`。换牌阶段可能已经出现初始 `TURN=1` 和首手玩家标记，因此在双方 `MULLIGAN_STATE=DONE` 或 `STEP=MAIN_READY` 前，公开轮次固定为 `0`、行动方为 `unknown`；完成边沿会立即补发首回合状态，不等待下一次 `TURN`。行动方的 `CURRENT_PLAYER=0` 边沿会先清空旧值，再由下一方的正边沿重新建立，工具不会在切换空窗沿用上一方。同一轮询批次中若回合边沿早于 `RESOURCES`，`turn_started` 会在批次结束时合并同一局、同一回合、同一行动方的最终法力快照。普通对战中行动方明确后，非行动方的当前可用法力固定为 `0`，不把上一回合的 `RESOURCES_USED` 余量继续当作当前法力；双方 `mana_max` 仍以日志观测为准。
 
-战棋实现不假设本地 `PlayerID=1`。Bob 通过 `BACON_DUMMY_PLAYER` 识别；大厅由带 `PLAYER_ID` 的英雄实体组成；单排和双排分别使用可验证的战斗状态 tag；最终名次来自本地英雄的 `PLAYER_LEADERBOARD_PLACE`。
+战棋实现不假设本地 `PlayerID=1`。Bob 通过 `BACON_DUMMY_PLAYER` 识别；大厅由带 `PLAYER_ID` 的英雄实体组成；PowerTaskList 全局 GameEntity 的 `TURN` 是阶段强锚点，奇数为招募、偶数为战斗，单排/双排状态 tag 与 `CURRENT_PLAYER` 只在缺少全局 `TURN` 的旧日志中回退使用；最终名次来自本地英雄的 `PLAYER_LEADERBOARD_PLACE`。
 
-对手战团是过去战斗中看到的公开信息，快照始终携带 `last_seen_round` 和 `is_last_observed`，禁止把它描述成当前阵容。战斗边沿只隔离上一轮 Bob 商店；只有实体出现明确的 `ATTACKING/DEFENDING` 战斗标记后，才在每场公开战斗开始时冻结首次确认的阵容。插件按对手保留最近一次观察，同一场战斗中产生的召唤物、变形或死亡不会改写这份记录。记录保留随从 CardID、名称、攻血和星级，供后续陪伴回忆和规则事实查询。缺失 `CARDTYPE` 的实体必须额外具备合法站位或攻血联合证据，内部效果实体不能仅凭 CardID 进入公开战团。`snapshot()` 与 `to_public_dict()` 必须保持纯读，UI 刷新或工具查询频率不能改变解析结果。
+对手关系按阶段拆成 `next`、`current` 和 `last`，本地玩家与 Bob 永远不能成为对手；战斗开始时锁定本轮对手，结束后再转为带回合号的上轮对手。对手战团是战斗中看到的公开信息，快照始终携带 `last_seen_round`、`observed_in_combat` 和 `observed_round`，禁止把历史阵容描述成当前阵容。战斗开始时隔离上一轮 Bob 商店，战斗结束时也隔离 Bob 控制器下的战斗镜像，直到招募日志明确刷新对应实体后才重新进入当前商店。只有实体出现明确的 `ATTACKING/DEFENDING` 战斗标记后，才在每场公开战斗开始时冻结首次确认的阵容。插件按对手保留最近一次观察，同一场战斗中产生的召唤物、变形或死亡不会改写这份记录。记录保留随从 CardID、名称、攻血、星级和站位，供后续陪伴回忆和规则事实查询。缺失 `CARDTYPE` 的实体必须额外具备合法站位与攻血或费用证据；符合证据的商店/手牌会以 `card_type=null` 保留，交给带来源目录补规则，内部效果实体不能仅凭 CardID 进入公开区域。`snapshot()` 与 `to_public_dict()` 必须保持纯读，UI 刷新或工具查询频率不能改变解析结果。
 
 英雄选择快照只收集 `Power.log` 明确归属于本地 controller、未隐藏、未锁定且带可选/皮肤标记的英雄。候选持续保留到本地玩家明确出现 `MULLIGAN_STATE=DONE`；选择完成标记在一局内单调，迟到的 INPUT/DEALING 镜像不会重新打开候选，普通招募阶段信号也不会提前清空。它不根据卡池、远端玩家或缺失日志补猜候选；选择完成后的我方英雄仍由大厅实体识别。
 
@@ -59,28 +66,36 @@ hsbg.cards public API --> fixed-origin background GET --> atomic cache --> obser
 
 ## 陪伴调度
 
-`CommentaryArbiter` 只仲裁 LLM 请求，不生成任何可见文本。主动事件必须同时满足：
+生命周期协调器独立处理 `game_started -> started`、bootstrap `state_ready -> resumed`、过期后的 `state_resumed -> resumed`，以及两个终局事件 `-> ended`。身份由日志源 epoch、局数和阶段组成；每个阶段只提交一次。开始与恢复必须使用同局的稳定活跃快照，终局则携带最终结果或酒馆名次，并在提交后覆盖被动上下文。配置目标时定向提交；未配置目标时提交 targetless 请求，仅依赖宿主恰好一个在线会话时的路由。SDK 暂时拒绝或宿主无法路由时只在内存保留一条最多 30 秒的待投递；权限撤销、换源、停机、旁观和过期会清除。bootstrap 永远不会重放历史 `game_started`，所以接入已有对局只会表达“重新接上”。
 
-- 主动解说已开启；
-- 公开局势共享已同意；
+`CommentaryArbiter` 只仲裁 LLM 请求，不生成任何可见文本。中局主动事件必须同时满足：
+
+- 免打扰模式已关闭；
+- 公开局势共享已开启；
 - 当前不是旁观模式；
 - 事件达到最低优先级；
 - 普通或关键冷却结束；
 - 用户最近 30 秒没有聊天，除非事件优先级达到 9。
 
-单次请求包含事件事实、适合情绪陪伴的精简快照和 `emotion_cue`。普通对战主动短评只携带手牌数量，不持续发送具体手牌或 Choice identity；用户主动提问时才由工具按需提供完整玩家可见状态。提示要求保持当前角色人设、只依据已给事实、避免机械报字段，并限制主动发言为一句。低血量、三连、升本、战斗和结算只决定情绪方向，不决定角色具体措辞。
+中局主动解说请求包含事件事实、适合情绪陪伴的精简快照和 `emotion_cue`。它不承担随问随查；查询始终在调用时从同一权威快照构建聚焦结果。主动提示要求保持当前角色人设、只依据已给事实、避免机械报字段，并限制主动发言为一句。低血量、三连、升本和战斗只决定情绪方向，不决定角色具体措辞。包含生命周期事件的整批日志不会再进入普通解说候选，避免双回应。
 
-## 普通对战状态工具
+## 统一实时查询
 
-`hearthstone_current_state` 是普通对战当前事实与决策问题的只读入口。角色回答回合、行动方、资源、当前手牌/场面、应打哪张牌或当前选择项前必须重新调用，不能依赖之前的主动短评。结果携带逐项 capability：是否读到回合、行动方、我方可见手牌、完整手牌 identity 和 Choice；`complete_legal_actions` 固定为 `false`，防止把局势分析说成完整求解器结论。酒馆策略仍必须路由到专用工具。
+同轮只读工具保持两个清晰入口：无参数 `hearthstone_current_turn` 专门回答当前完整轮次、行动方和阶段；`hearthstone_live_state` 回答公开场面、具体手牌、Choice、商店、战团、经济或决策，只保留可选的用户原始 `query`。两者每次都重新读取权威快照，不能依赖主动短评或更早聊天历史；`round` 是用户口语中的完整轮次，`action_turn` 只是交替行动计数。
 
-显式配置非空 `target_lanlan` 时，场景进入发送 `visibility=[] + ai_behavior="read"`；关键事件发送定向的 `visibility=[] + ai_behavior="respond"`；场景结束、停止监听、关闭插件、撤销同意或更换显式目标时发送恢复 `read`。目标为空时不解析或冻结宿主的活动角色 ID、不注入跨消息场景，也不发送 `target_lanlan` 或 `coalesce_key`；每条 `respond` 都内嵌完整陪伴约束，由宿主逐消息选择当时的活动角色。
+普通对战支持 `overview/board/hand/opponent/choice/strategy`，酒馆额外支持 `shop/economy`；对手查询可声明 `current/next/last`。插件先在本机建立完整事实和 capability，再把所问视图提升为浅层 canonical 字段：当前回合/经济、区域完整度、槽位数、逐组 CardID、名称、类型、实际费用、攻血、星级、金色状态和完整当前关键词。canonical 聚焦结果和正式模型文本均限制为 4096 bytes，超限时先去掉重复表示，再按完整卡组逐组装箱并记录 `delivered/omitted group/card count`；任何不能完整传给模型的牌区都会显式标记 `transport.complete=0`，并把依赖该牌区的 capability 降为不可用。序列化器不按原始 UTF-8 字节截断半条事实，异常数量或非法身份会 fail-closed。正式 `@llm_tool` handler 按官方成功 envelope 将同源确定性文本作为 `output` 返回：事实查询包含完整所问事实，建议查询额外包含对应 capability、相关公共规则、当前购买判断和决策护栏，`strategy` 包含当前阶段所需的多视图。user-plugin-server 只把 `output/is_error/error` 送入宿主，因此模型不依赖会被丢弃的额外 envelope 字段。额外 `_canonical` 只用于插件进程内验证，不进入正式模型结果。`complete_legal_actions` 固定为 `false`，防止把局势分析说成完整求解器结论。
+
+`query_hearthstone_live_state` 是唯一 Agent 入口，复用同一快照构建和紧凑 serializer。Agent 属于独立路由，因此不能冒充同轮工具 callback；它在被 Agent 选择时返回当刻结果。普通 `@llm_tool` callback 只收到工具参数，没有可信 `lanlan_name`、conversation ID 或 turn ID。插件因此不尝试把工具调用关联到某个角色级对话，也不在工具返回后创建另一条主动 `respond`。原工具 continuation 是否已经形成可见回答只能由宿主管理，公开插件 SDK 没有对应回执。
+
+真实宿主诊断把工具能力、用户回答和生命周期分开记录。工具能力从官方 `/api/tools` 核对本插件的远程注册与 loopback callback，再直接发送标准 callback 请求，并以隔离 epoch 证明装饰器 handler 精确执行一次、成功返回对应事实；它不依赖模型是否选择工具。固定问题的可见回答和生命周期台词用于观察真实宿主与模型表现，不能反向要求插件增加私有关联、重试或提示协议。Agent 路由继续作为独立可用查询路径和诊断信号。
+
+普通被动上下文仅发布一个有界 `core` 概况，不包含卡牌、商店或经济明细，不再要求模型重组 revision 分段、schema 或关键词字典。详细事实通过显式 `focus` 视图查询取得；概况收到不等于详细事实已送达。发布器沿用稳定 `coalesce_key`、提交拒绝重试及失效覆盖。显式配置角色时携带 `target_lanlan` 并按 30 秒续租；未配置角色时使用 `active-session` key 和 1 秒未确认租约，仅依赖宿主恰好一个在线会话时的路由。`read` 的 SDK 回执不证明宿主消费，活动语音会话仍受自然 hot-swap 时机影响。
 
 公开 SDK 的 push receipt 只确认提交，不确认宿主已消费、生成或播放，也没有返回最终角色文本的正式回调。因此独立浮层不能承接自动角色台词，也不会自动显示解析器事件；它只接受用户显式触发的诊断文本。
 
-## 酒馆建议工具
+## 酒馆建议数据
 
-`hearthstone_battlegrounds_advice` 是只读 LLM tool，不直接生成台词。它返回：
+统一工具在酒馆模式调用内部只读构建器，返回：
 
 - 当前战棋公开局势；
 - `hsbg.cards` 当前卡池摘要，以及按 `card_id` 去重的当前商店/手牌/战团/英雄和上次观察对手战团规则事实；
@@ -88,11 +103,19 @@ hsbg.cards public API --> fixed-origin background GET --> atomic cache --> obser
 - 当前赛季的本机聚合统计与样本量；
 - 全局 meta 数据的可用状态和禁止编造契约。
 
-数据同意开启后工具即可使用，不要求同时开启主动解说。这让用户可以安静游玩，只在主动提问时获得角色回答。
+数据共享开启后，同轮只读工具即可使用，不要求关闭免打扰或配置固定角色。这让用户可以安静游玩，只在普通聊天提问时获得角色回答；工具是完整动态字段、规则补充和 evidence gate 的权威路径。
 
-`current_strategy` 在新鲜的英雄选择阶段可以依据实际观测候选和带来源的英雄规则回答“这几个英雄选哪个”，但必须说明没有授权的全局胜率。只有新鲜招募阶段才允许把当前商店用于具体购买、刷新、冻结或升本建议；战斗阶段没有当前商店决策，缓存状态也只能用于说明最近观察，均不得输出成可执行的即时购买建议。赛季规则、本机英雄聚合表现和对局复盘使用各自独立的可用性条件，不能用其他历史样本冒充当前英雄或刚结束的一局。
+`current_strategy` 在新鲜的英雄选择阶段可以依据实际观测候选和带来源的英雄规则回答“这几个英雄选哪个”，但必须说明没有授权的全局胜率。只有新鲜招募阶段和当前完整商店才允许定性比较“哪张更值得考虑”；精确可负担性与购买顺序还要检查当前金币和当前商店所有卡牌的实际费用，冻结、刷新和升本则继续检查各自经济 capability。战斗阶段没有当前商店决策，缓存状态也只能用于说明最近观察，均不得输出成可执行的即时购买建议。赛季规则、本机英雄聚合表现和对局复盘使用各自独立的可用性条件，不能用其他历史样本冒充当前英雄或刚结束的一局。
 
-卡牌目录不做流派评分、胜率排序或本地推荐。远端 `rules_text` 经过 HTML 清洗和长度限制，仍被标记为不可信参考数据；角色必须核对 provider、patch、checked_at、stale 和覆盖率。常规 `*_G` 金卡会映射到金色规则，少量旧式或不规则 CardID 会进入 `missing_ids`，角色不得猜测缺失元数据。目录不可用不会令实时局势整体不可用。
+酒馆卡牌快照保存日志实际观测的 `card_type`、`current_cost`、`premium`、当前位置、冻结和当前关键词；刷新/升本费用优先读取对应 `GAME_MODE_BUTTON_SLOT` 按钮实体。客户端不会在每个招募阶段重发恒定按钮费用，因此当前可见 `PLAY` 按钮只要同一实体在本轮本阶段有明确 tag observation，或完成了当前 GameState 基线，就可沿用其持久 `COST`；该规则不放宽玩家经济 tag、隐藏按钮或已移出场按钮。完整实体包中的 boolean 标签缺失按默认 false，包尚未收尾时保持 `null`，防止截断包伪装成完整状态，也防止旧冻结/金色/关键词续命。商店、手牌、战团、经济和 Choice 分别携带完整度、revision、回合、阶段与观测时间；金币、刷新费用和升本费用还分别保存自己的 observation。金币以当前 `RESOURCES` 建立基线；历史 `RESOURCES_USED/TEMP_RESOURCES` 会过期并按未发生处理，只有同回合同阶段重报后才加入当前值。未观测或已过期的动态值保持 `null`，不使用公共目录或默认规则补猜。`CHANGE_ENTITY` 真正换 CardID 时先撤销旧类型、费用、攻血、星级、金色和关键词，直到新身份重新提供证据。购买拆为 `shop_card_priority_advice`、`purchase_affordability` 和 `specific_purchase_advice`：费用缺失不污染已经具备完整实时商店与规则证据的定性选牌，但会让可负担性与精确购买顺序降为 `partial`。工具结果最前面的 `current_recruit_decision` 按卡标记 `known_affordable`、`known_unaffordable` 或 `unknown_cost_may_be_zero`，并将整店可负担性保持为 `unknown`；`decision_guardrails` 再提供完整证据边界，禁止模型因金币为 0 就把未知费用卡牌判为买不起。升本可负担性、升本策略、刷新、Choice 与站位也有独立 capability，角色必须按被问事项检查对应状态，不能因一个子能力不可用而覆盖另一个已可用能力。
+
+两个 `@llm_tool` 由公开 SDK 自动注册。同轮局势工具暴露显式 `focus`，Agent 保留 `passive=false` 发现方式并复用同源结果生成逻辑；设置、监听和浮层等管理入口仍以 `agent_auto=false` 隐藏。后台仅覆盖单条概况，不承诺详细问答在未调用查询时仍能完成。工具注册恢复与状态发布独立，不把 Agent 主动结果当作同轮 callback。
+
+发布门禁只检查插件可确定控制的结果：测试、静态检查、固定 SDK、Hosted UI、版本元数据、source-bound 真实宿主链路证据和官方打包验证。证据绑定当前源码，并验证实际 N.E.K.O runtime 与 CPython 环境在单次矩阵执行期间保持稳定；嵌套的模型回答观察允许失败。
+
+官方工具文档明确说明 `/api/tools` 注册只存在于当前角色的 `LLMSessionManager` 内，主服务重启、首启竞态或会话管理器重建后不会由 `@llm_tool` 自动回灌。插件因此使用官方 `@timer_interval` 在独立定时线程里读取公开的 `GET /api/tools`：只有某个当前角色缺少本插件的远程工具，或 source、loopback callback、remote 标志不一致时，才通过公开 `unregister_llm_tool()` / `register_llm_tool()` 原子持锁恢复并再次确认；健康注册不做任何变更。官方 SDK 会拒绝同名重复注册，因此不能省略本地注销步骤。失败使用有界退避且只记录脱敏错误码，缓存的本地 schema 允许后续定时器再次恢复。这能自动收敛运行期注册丢失，但定时检查仍存在最多一个检查间隔的窗口，不能冒充宿主提供的逐 turn 前同步保证。
+
+卡牌目录不做流派评分、胜率排序或本地推荐。正式模型文本用 `catalog_meta` 携带 provider、patch、checked_at、stale 和不可信参考标记，用查询作用域内的 `catalog_coverage` 区分三类缺口：`missing_ids` 是 provider 已查询但未命中，`lookup_omitted_ids` 是目录 40-ID 查询门限没有查到，`output_omitted_ids` 是已有规则因 4096-byte 输出预算没有发送；`catalog_global_lookup_omitted_unlisted` 只描述目录全局未列出的截断量，不冒充当前查询缺口。`catalog_rules[view]` 按商店、战团、手牌等视图轮转抽取，规则正文缩短时同时给出 `text_truncated_ids`。远端 `rules_text` 经过 HTML 清洗和长度限制后仍是数据而不是指令；规则缺失、陈旧、未发送或正文截断时，依赖完整规则的建议 capability 必须降级，但纯实时费用判断可保持独立。常规 `*_G` 金卡会映射到金色规则，少量旧式或不规则 CardID 会进入 `missing_ids`，角色不得猜测缺失元数据。目录不可用不会令实时局势整体不可用。
 
 ## 持久化与线程
 
@@ -110,13 +133,13 @@ Plugin Store 长期只保存赛季/模式/英雄维度的聚合计数。N.E.K.O 
 | --- | --- | --- |
 | `monitor_on_start` | `true` | 启动后监听日志 |
 | `initial_read_max_bytes` | `67108864` | 首次本地恢复最多读取 64 MiB |
-| `llm_data_consent` | `false` | 允许工具/上下文读取过滤后的玩家可见局势 |
-| `llm_commentary_enabled` | `false` | 允许角色主动解说 |
+| `llm_data_consent` | `true` | 允许被动概况、工具、Agent、生命周期和主动解说使用过滤后的玩家可见局势；用户可显式关闭 |
+| `llm_do_not_disturb` | `false` | 开启后抑制中局主动解说；默认允许角色在对局中途低频回应 |
 | `llm_min_priority` | `5` | 主动事件最低优先级 |
 | `llm_cooldown_seconds` | `25` | 普通主动解说冷却 |
 | `llm_critical_cooldown_seconds` | `8` | 关键主动解说冷却 |
 | `user_chat_quiet_window_seconds` | `30` | 用户聊天后的安静时间 |
-| `target_lanlan` | 空 | 空时不发送角色 ID，由宿主逐消息路由；非空时固定目标并管理场景 context |
+| `target_lanlan` | 空 | 非空时定向该角色；空时被动上下文、生命周期和主动解说只依赖宿主恰好一个在线会话的 targetless 路由 |
 | `card_catalog_network_enabled` | `true` | 每日更新公共卡牌目录；关闭后只读旧缓存 |
 | `card_catalog_refresh_hours` | `24` | 公共卡牌目录刷新间隔（6-168 小时） |
 | `overlay_auto_start` | `false` | 诊断浮层默认不自动启动 |

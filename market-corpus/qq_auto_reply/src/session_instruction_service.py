@@ -9,7 +9,6 @@ from config.prompts.prompts_sys import (
     get_context_summary_ready,
     normalize_sys_prompt_locale,
 )
-from main_logic.core import apply_role_placeholders
 from utils.language_utils import get_global_language_full
 
 from .pipeline_models import QQInstructionBundle
@@ -20,23 +19,36 @@ from .prompt_fragment_templates import (
     CHAT_ENV_PROMPT_SECTION,
     CORE_MEMORY_SECTION,
     DETAIL_CONSTRAINTS_SECTION,
-    FORMAT_PROMPT_SECTION,
     FORMAT_PROMPT_SECTION_NEKO_DYNAMIC,
     FORMAT_PROMPT_SECTION_OPEN_PLATFORM,
     OUTPUT_PROMPT_SECTION,
+    PENDING_COMMITMENTS_SECTION,
+    RECALL_TRIGGER_HINT,
     ROLE_CARD_SECTION,
-    ROLE_PROMPT_SECTION,
     SESSIONS_PROMPT_SECTION,
-    TIME_PROMPT_SECTION,
     USER_PROFILE_PROMPT_SECTION,
+    pick_locale,
 )
 from .scene_prompt_templates import (
-    SCENE_COLLECTIVE_GROUP,
-    SCENE_DIRECTED_GROUP,
     SCENE_KIRA_UNIFIED_GROUP,
     SCENE_PRIVATE_CHAT,
-    SCENE_SHARED_GROUP,
 )
+from .time_context import build_time_context  # noqa: E402  (由 ruff --fix 归位)
+
+
+def _apply_role_placeholders(*args: Any, **kwargs: Any) -> str:
+    """``main_logic.core.apply_role_placeholders`` 的**惰性**入口。
+
+    模块级 import 它会让每次插件进程启动都付 ~476ms：那条链是
+    ``main_logic.core`` → ``.manager`` → ``.greeting`` → ``startup_greeting_policy``
+    → ``memory`` 包，而记忆子系统的导入图里有 ``fastapi`` + ``starlette``（约 260ms）。
+    插件自己不开任何 HTTP 服务，纯属替宿主的包结构买单 —— 而模块级 import 让这笔钱在
+    「这个函数压根没被调用过」的启动路径上照付。这里只要一个字符串占位符替换，
+    挪到调用点即可。
+    """
+    from main_logic.core import apply_role_placeholders
+
+    return apply_role_placeholders(*args, **kwargs)
 
 
 def resolve_prompt_override(
@@ -71,16 +83,22 @@ def resolve_prompt_override(
 
 class QQSessionInstructionService:
     # 提示词层定义（供编辑器 + 运行时覆盖解析使用）
+    #
+    # 2026-09-27 审计删掉了四类层（见 docs/SESSION-HANDOFF.md §25）：
+    #   · `role`（角色设定）—— 与本体的角色扮演前言/人设**直接冲突**（它说"你是 AI 数字生命"，
+    #     人设说"NOT a system… never think of herself as a system"）；
+    #   · `time` 的静态模板 —— 从来没进过提示词（运行时用的是 `build_time_context()`），
+    #     layer 本身改成运行时层；
+    #   · `scene_group_collective / shared / directed` 与 `naming_with_title / without_title`
+    #     —— 只在已删除的 neko_scene 分支里可达，删除后没人再构造它们；
+    #   · `format_prompt_section`（旧纯文本版）—— 本来就不在这一层表里。
     _PROMPT_LAYERS: list[dict[str, Any]] = [
         # === 静态层（可编辑） ===
         {"id": "init",                  "i18n_key": "",                      "required_placeholders": ["{name}"],                       "format_after": True},
-        {"id": "role",                  "i18n_key": "role_prompt_section",   "required_placeholders": [],                                "format_after": False},
         {"id": "attention",             "i18n_key": "attention_prompt_section", "required_placeholders": [],                            "format_after": False},
         {"id": "format_neko_dynamic",   "i18n_key": "format_prompt_section_neko_dynamic", "required_placeholders": ["{emoji_catalog}", "{sticker_catalog}"],  "format_after": True},
-        {"id": "format_neko_scene",     "i18n_key": "format_prompt_section", "required_placeholders": [],                               "format_after": False},
         {"id": "format_open_platform",  "i18n_key": "format_prompt_section_open_platform", "required_placeholders": ["{sticker_catalog}"], "format_after": True},
         {"id": "persona_wrapper",       "i18n_key": "character_prompt_section", "required_placeholders": ["{character_prompt}"],       "format_after": True},
-        {"id": "time",                  "i18n_key": "time_prompt_section",   "required_placeholders": ["{time_str}"],                   "format_after": True},
         {"id": "detail",                "i18n_key": "detail_constraints_section", "required_placeholders": [],                          "format_after": False},
         {"id": "output",                "i18n_key": "output_prompt_section", "required_placeholders": [],                               "format_after": False},
         # kira_unified 是纯软指令，模板本身一个占位符都没有（见
@@ -88,17 +106,10 @@ class QQSessionInstructionService:
         # 护栏对每一份 i18n bundle 都判"缺占位符"，把非中文用户的这一段整个
         # 换回中文默认常量，还每轮打一条 warning。要求必须以模板实际内容为准。
         {"id": "scene_group_dynamic",   "i18n_key": "prompts.group.kira_unified", "required_placeholders": [], "format_after": True},
-        {"id": "scene_group_collective","i18n_key": "prompts.group.collective", "required_placeholders": ["{her_name}", "{master_name}", "{group_id}"], "format_after": True},
-        {"id": "scene_group_shared",    "i18n_key": "prompts.group.shared_session", "required_placeholders": ["{her_name}", "{master_name}", "{group_id}"], "format_after": True},
-        # directed 的加固默认模板本身不含 {group_id}（身份边界只点名发言人
-        # 与主人/管理员），把它声明成必需就是一条**永远无法满足**的判据，
-        # 再完整的翻译也会被判缺占位符。其余四个是真正的身份边界，保留。
-        {"id": "scene_group_directed",  "i18n_key": "prompts.group.directed", "required_placeholders": ["{her_name}", "{master_name}", "{sender_id}", "{user_title}"], "format_after": True},
         {"id": "scene_private",         "i18n_key": "prompts.private.body",  "required_placeholders": ["{her_name}", "{master_name}", "{sender_id}", "{user_title}"], "format_after": True},
-        {"id": "naming_with_title",     "i18n_key": "prompts.group.naming_with_title", "required_placeholders": ["{user_title}"],       "format_after": False},
-        {"id": "naming_without_title",  "i18n_key": "prompts.group.naming_without_title", "required_placeholders": [],                "format_after": False},
         {"id": "core_memory_section",   "i18n_key": "core_memory_section",    "required_placeholders": ["{memory_context}", "{context_ready}"], "format_after": True},
         # === 运行时层（只读，不参与覆盖） ===
+        {"id": "time",                  "i18n_key": "__runtime__",            "required_placeholders": [], "runtime": True},
         {"id": "accounts",              "i18n_key": "__runtime__",            "required_placeholders": [], "runtime": True},
         {"id": "sessions",              "i18n_key": "__runtime__",            "required_placeholders": [], "runtime": True},
         {"id": "chat_environment",      "i18n_key": "__runtime__",            "required_placeholders": [], "runtime": True},
@@ -161,11 +172,14 @@ class QQSessionInstructionService:
             pass
 
     def _resolve_time_section(self, locale: str) -> str:
-        """解析时间层：优先使用动态时间上下文，回退静态模板。"""
-        fatigue = getattr(self.plugin, "fatigue_service", None)
-        if fatigue:
-            return fatigue.get_dynamic_time_context()
-        return self._resolve_static_layer("time_prompt_section", TIME_PROMPT_SECTION, locale, time_str=self._format_current_time())
+        """解析时间层：动态时间上下文（当前时间/星期/时段 + 时间表达提示）。
+
+        **这里曾经有两行 return**：第一行 `build_time_context()`、第二行指向
+        `time_prompt_section` 静态模板（含七条作息表）—— 第二行永远到不了，于是那段
+        342 字符的作息表从没进过提示词，只在提示词编辑器里假装可编辑（2026-09-27 审计，
+        见 docs/SESSION-HANDOFF.md §25）。现在死模板已删，`time` 层是运行时层。
+        """
+        return build_time_context()
 
     def _resolve_static_layer(self, i18n_key: str, default_template: str, locale: str = "", **format_kwargs) -> str:
         """解析静态提示词层：先查 prompt_overrides，再回退 i18n/默认模板。"""
@@ -271,6 +285,15 @@ class QQSessionInstructionService:
         布局迁移后那里已经没有 data/ 了，会永远读不到存档。"""
         return self.plugin.data_path("sticker.json")
 
+    #: 提示词里的目录条目上限（实测见 docs/SESSION-HANDOFF.md §4.0u：一份真实群聊
+    #: system prompt 是 15k~18.6k 字符，其中"输出格式"段 4.2k，**一半是这两个目录**）。
+    #: 目录进的是每轮都发、且免费线没有 prompt caching 的 system 段，所以它按 token
+    #: 收费；但条目本身是**能力面**（模型只能挑目录里出现过的 id），所以只压
+    #: "绝大多数情况用不到的那部分"，不按使用频率动态筛（那会让同一张表情包
+    #: 时而可选时而不可能选，行为不可解释）。
+    MAX_STICKER_CATALOG_ENTRIES = 60
+    MAX_EMOJI_CATALOG_ENTRIES = 40
+
     def _load_sticker_catalog(self) -> str:
         """加载自定义表情包目录，格式化为 Kira 风格的列表"""
         if self._sticker_catalog_cache:
@@ -280,8 +303,18 @@ class QQSessionInstructionService:
             with open(self._sticker_data_path(), "r", encoding="utf-8") as f:
                 data = json.loads(f.read())
             if isinstance(data, dict) and data:
+                items = list(data.items())
+                if len(items) > self.MAX_STICKER_CATALOG_ENTRIES:
+                    # 截断必须留痕：否则用户"传了却挑不到"只会表现为"模型不选它"，
+                    # 而目录本身在界面上看不出来少了一截。
+                    self.plugin.logger.info(
+                        f"[Prompt] 表情包目录超过 {self.MAX_STICKER_CATALOG_ENTRIES} 条，"
+                        f"提示词里只列前 {self.MAX_STICKER_CATALOG_ENTRIES} 条"
+                        f"（共 {len(items)} 条；后传的仍可用 <sticker>ID</sticker> 直接指定）"
+                    )
+                    items = items[:self.MAX_STICKER_CATALOG_ENTRIES]
                 lines = []
-                for sid, info in data.items():
+                for sid, info in items:
                     desc = info.get("desc", "") if isinstance(info, dict) else str(info)
                     lines.append(f"    [{sid}] {desc}")
                 self._sticker_catalog_cache = "\n".join(lines)
@@ -302,8 +335,13 @@ class QQSessionInstructionService:
                 with open(emoji_path, "r", encoding="utf-8") as f:
                     data = json.loads(f.read())
                 if isinstance(data, dict):
-                    items = [f"    {eid}: {desc}" for eid, desc in list(data.items())[:80]]
-                    self._emoji_catalog_cache = "\n".join(items)
+                    # 只列前 N 条（实测 80 行 = 870 字符，占了"输出格式"段的 21%）。
+                    # emoji.json 按 QQ 表情 id 顺序排列，前 40 条正是最常用的那批；
+                    # `<emoji>ID</emoji>` 本身不受限，模型仍可贴目录外的 id。
+                    items = list(data.items())[:self.MAX_EMOJI_CATALOG_ENTRIES]
+                    self._emoji_catalog_cache = "\n".join(
+                        f"    {eid}: {desc}" for eid, desc in items
+                    )
                     return self._emoji_catalog_cache
         except Exception as e:
             self.plugin.logger.warning(f"加载 emoji.json 失败: {e}")
@@ -349,7 +387,7 @@ class QQSessionInstructionService:
         )
 
         master_title = master_name if master_name else self.plugin.i18n.t("prompts.default_master", default="主人")
-        base_prompt = apply_role_placeholders(
+        base_prompt = _apply_role_placeholders(
             character_prompt,
             lanlan_name=her_name,
             master_name=master_title,
@@ -369,19 +407,16 @@ class QQSessionInstructionService:
         def t(key, default):
             return self.plugin.i18n.t(key, default=default)
 
-        strategy_mode = getattr(self.plugin, "_strategy_mode", "neko_dynamic")
         is_open_plat = self.plugin.qq_client and not self.plugin.qq_client.needs_attention if self.plugin.qq_client else False
+        # 只剩两条路：开放平台段与动态策略段 —— 两者都教标签，所以下面统一套占位符。
         if is_open_plat:
             format_section = self._resolve_static_layer("format_prompt_section_open_platform", FORMAT_PROMPT_SECTION_OPEN_PLATFORM, user_language)
-        elif strategy_mode == "neko_dynamic":
-            format_section = self._resolve_static_layer("format_prompt_section_neko_dynamic", FORMAT_PROMPT_SECTION_NEKO_DYNAMIC, user_language)
         else:
-            format_section = self._resolve_static_layer("format_prompt_section", FORMAT_PROMPT_SECTION, user_language)
-        if is_open_plat or strategy_mode == "neko_dynamic":
-            format_section = format_section.format(
-                emoji_catalog=self._load_emoji_catalog(),
-                sticker_catalog=self._load_sticker_catalog(),
-            )
+            format_section = self._resolve_static_layer("format_prompt_section_neko_dynamic", FORMAT_PROMPT_SECTION_NEKO_DYNAMIC, user_language)
+        format_section = format_section.format(
+            emoji_catalog=self._load_emoji_catalog(),
+            sticker_catalog=self._load_sticker_catalog(),
+        )
 
         sessions_section = self._build_sessions_section(
             is_group=is_group, group_id=group_id, sender_id=sender_id,
@@ -399,7 +434,8 @@ class QQSessionInstructionService:
         )
         sections = [
             self._resolve_init_template(user_language).format(name=her_name),
-            self._resolve_static_layer("role_prompt_section", ROLE_PROMPT_SECTION, user_language),
+            # 「角色设定（Role）」段已删除：她是谁由本体的角色扮演前言与人设决定，
+            # 插件再声明一次「你是 AI 数字生命」会与人设直接冲突（§25）。
             self._resolve_static_layer("attention_prompt_section", ATTENTION_PROMPT_SECTION, user_language),
             format_section,
             self._build_accounts_section(
@@ -446,6 +482,16 @@ class QQSessionInstructionService:
         used_member_subject = bool(core_used_member)
         if core_memory_text:
             sections.append(core_memory_text)
+        # 「你手上还没交的活」：只有插件自己知道（异步结果还在等）——记忆里没有、
+        # 模型的消息历史里也没有，所以每轮补一行；没有在办的事时整段不出现。
+        pending_section = self._build_pending_commitments_section(
+            is_group=is_group,
+            group_id=group_id,
+            sender_id=sender_id,
+            locale=user_language,
+        )
+        if pending_section:
+            sections.append(pending_section)
         # 用户画像：合成轮（buffer总结/破冰/回溯）memory_sender_id 为空，
         # 此时 sender_id 是占位符（如 admin QQ），不应注入画像
         if core_sender_id:
@@ -649,8 +695,7 @@ class QQSessionInstructionService:
             "admin": "主人/管理员本人",
             "trusted": "受信任用户",
             "normal": "普通用户，通常走中继或低频响应",
-            "open": "开放群聊用户",
-            "none": "未授权用户",
+                "none": "未授权用户",
         }.get(permission_level, permission_level or "unknown")
         profile_lines = [
             f"- 当前用户称呼：{user_title}",
@@ -749,6 +794,36 @@ class QQSessionInstructionService:
                 logger.warning(f"[UserProfile] 记忆查询失败 sender={sender_id} is_group={is_group}: {exc}")
 
         return ""
+
+    def _build_pending_commitments_section(
+        self,
+        *,
+        is_group: bool,
+        group_id: str | None,
+        sender_id: str,
+        locale: str = "",
+    ) -> str:
+        """这一轮要不要告诉她"你还在等某个结果"。没有在办的事时返回空串（不进 prompt）。
+
+        数据来自回投服务那一份**插件自己的状态**（`plugin_tool_followup_service`）——
+        它是唯一知道"她答应过、结果还没到"的地方。拿不到服务（轻量调用方/测试）就当没有。
+        """
+        followups = getattr(self.plugin, "plugin_tool_followup_service", None)
+        describe = getattr(followups, "pending_items_for", None)
+        if not callable(describe):
+            return ""
+        try:
+            items = describe(
+                is_group=bool(is_group),
+                group_id=str(group_id or ""),
+                sender_id=str(sender_id or ""),
+            )
+        except Exception:
+            self.plugin.logger.warning("构建「在办的事」提示段失败", exc_info=True)
+            return ""
+        if not items:
+            return ""
+        return pick_locale(PENDING_COMMITMENTS_SECTION, locale).format(items="、".join(items))
 
     async def _build_core_memory_section(
         self,
@@ -865,6 +940,9 @@ class QQSessionInstructionService:
                     "core_memory_section", CORE_MEMORY_SECTION, locale,
                     memory_context=memory_context,
                     context_ready=context_ready,
+                    # 走到这里 = 这一轮**确实挂了** recall_memory（同一道
+                    # `should_use_memory_context` 闸），所以附上"该查就查"是安全的。
+                    recall_hint=pick_locale(RECALL_TRIGGER_HINT, locale),
                 )
             except Exception as render_error:
                 # 翻译/覆盖里多写一个未知占位符会让 format 抛 KeyError，而
@@ -875,6 +953,7 @@ class QQSessionInstructionService:
                 )
                 return CORE_MEMORY_SECTION.format(
                     memory_context=memory_context, context_ready=context_ready,
+                    recall_hint=pick_locale(RECALL_TRIGGER_HINT, locale),
                 )
         except Exception as e:
             self.plugin.logger.warning(f"读取 Memory Server 上下文失败: {e}")
@@ -1025,7 +1104,7 @@ class QQSessionInstructionService:
         sections.append(
             ROLE_CARD_SECTION.format(
                 card_fields="\n".join(
-                    f"{field_name}: {apply_role_placeholders(str(field_value), lanlan_name=her_name, master_name=master_title)}"
+                    f"{field_name}: {_apply_role_placeholders(str(field_value), lanlan_name=her_name, master_name=master_title)}"
                     for field_name, field_value in character_card_fields.items()
                 ),
             )
@@ -1084,39 +1163,12 @@ class QQSessionInstructionService:
         admin_line = ""
         if permission_level == "admin":
             admin_line = f"\n## 身份确认（Identity Confirmation）\n当前发言人 {user_title}（QQ: {sender_id}）**就是主人/管理员本人**。请使用对主人的称呼和态度来回应，不要怀疑对方的身份。\n"
-        # 猫娘动态主策略：统一软指令，不加硬 Identity Boundary
-        strategy_mode = getattr(self.plugin, "_strategy_mode", "neko_dynamic")
-        if strategy_mode == "neko_dynamic":
-            return admin_line + self._resolve_static_layer(
-                "prompts.group.kira_unified", SCENE_KIRA_UNIFIED_GROUP,
-                her_name=her_name, master_name=master_title, group_id=group_id or "",
-            )
-        # N.E.K.O 退级策略：四套硬场景模板（原有逻辑）
-        if group_scene_mode == "group_collective" or group_facing:
-            return admin_line + self._resolve_static_layer(
-                "prompts.group.collective", SCENE_COLLECTIVE_GROUP,
-                her_name=her_name, master_name=master_title, group_id=group_id or "",
-            )
-        if group_scene_mode == "shared_context" or shared_group_session:
-            return admin_line + self._resolve_static_layer(
-                "prompts.group.shared_session", SCENE_SHARED_GROUP,
-                her_name=her_name, master_name=master_title, group_id=group_id or "",
-            )
-        naming_instruction = (
-            self._resolve_static_layer("prompts.group.naming_with_title", '- 在回复中自然地称呼对方为"{user_title}"', user_title=user_title)
-            if address_user_by_name else
-            self._resolve_static_layer("prompts.group.naming_without_title", '- 不要直接称呼对方名字、昵称或QQ号，只针对当前话题自然回应')
-        )
-        title_line = self._resolve_static_layer("prompts.group.title_line", '- 当前发言人的称呼是：{user_title}\n', user_title=user_title) if address_user_by_name else ""
+        # 群聊场景段只有这一条路：统一的软指令（「该不该说话」的判定交给注意力门控，
+        # 场景段只描述环境）。原来的「退级策略」四套硬模板随策略模式一起删除，
+        # 见 docs/SESSION-HANDOFF.md §13/§24。
         return admin_line + self._resolve_static_layer(
-            "prompts.group.directed", SCENE_DIRECTED_GROUP,
-            her_name=her_name,
-            master_name=master_title,
-            user_title=user_title,
-            sender_id=sender_id,
-            group_id=group_id or "",
-            title_line=title_line,
-            naming_instruction=naming_instruction,
+            "prompts.group.kira_unified", SCENE_KIRA_UNIFIED_GROUP,
+            her_name=her_name, master_name=master_title, group_id=group_id or "",
         )
 
     def _build_private_scene_section(

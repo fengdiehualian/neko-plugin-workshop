@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>洛谷 · 刷题热力图</title>
+  <style>
+    :root { --bg:#12161f; --card:#1b2230; --text:#e6e9ef; --muted:#7f8a9b; --accent:#5b9dff; --ok:#3fbf7f; --bad:#e05a5a; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:24px; background:var(--bg); color:var(--text); font:14px/1.6 system-ui,"Segoe UI","Microsoft YaHei",sans-serif; }
+    .container { max-width:900px; margin:0 auto; }
+    a.back { display:inline-block; margin-bottom:14px; color:var(--muted); text-decoration:none; font-size:13px; }
+    h1 { font-size:20px; margin:0 0 4px; }
+    .sub { color:var(--muted); margin:0 0 18px; font-size:13px; }
+    .badge { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:12px; margin-bottom:14px; }
+    .badge.ok { background:rgba(63,191,127,.15); color:var(--ok); }
+    .badge.no { background:rgba(224,90,90,.15); color:var(--bad); }
+    .panel { background:var(--card); border:1px solid #2a3345; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .stats { display:flex; flex-wrap:wrap; gap:18px; }
+    .stat { min-width:92px; }
+    .stat .k { font-size:12px; color:var(--muted); }
+    .stat .v { font-size:20px; font-weight:600; }
+    .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:12px; }
+    .btn { padding:7px 14px; border:1px solid #33415c; border-radius:8px; background:transparent; color:var(--text); font-size:13px; cursor:pointer; }
+    .btn:hover { border-color:var(--accent); }
+    .btn.primary { background:var(--accent); color:#0b0f18; border-color:var(--accent); font-weight:600; }
+    .btn.on { border-color:var(--accent); color:var(--accent); }
+    .btn[disabled] { opacity:.5; cursor:default; }
+    .chart-wrap { overflow-x:auto; padding-bottom:6px; }
+    .months, .weeks { display:flex; gap:3px; }
+    .months { height:16px; margin-bottom:4px; }
+    .mslot { width:12px; flex:0 0 12px; font-size:10px; color:var(--muted); white-space:nowrap; overflow:visible; }
+    .week { width:12px; flex:0 0 12px; display:flex; flex-direction:column; gap:3px; }
+    .cell { width:12px; height:12px; border-radius:3px; background:#232c3d; }
+    .cell[data-level="1"] { background:#1f4d38; }
+    .cell[data-level="2"] { background:#2f7a52; }
+    .cell[data-level="3"] { background:#43a86b; }
+    .cell[data-level="4"] { background:#63d68b; }
+    .cell.future { background:transparent; box-shadow:inset 0 0 0 1px #1c2432; }
+    .cell.out { background:transparent; }
+    .legend { display:flex; align-items:center; gap:6px; margin-top:12px; font-size:12px; color:var(--muted); }
+    .legend .cell { width:12px; height:12px; }
+    .status { margin-top:12px; font-size:13px; color:var(--muted); }
+    .status.bad { color:var(--bad); }
+    .status.ok { color:var(--ok); }
+    code { background:#0e1220; padding:1px 5px; border-radius:4px; font-family:ui-monospace,Consolas,monospace; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a class="back" href="index.html">← 返回洛谷首页</a>
+    <h1>刷题热力图</h1>
+    <p class="sub">格子深浅 = 当天 AC <strong>去重</strong>题数（同题重复 AC 只算 1 题），按本地时区分日。</p>
+    <div id="badge" class="badge no">加载中…</div>
+
+    <div class="panel">
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="panel">
+      <div class="toolbar">
+        <button class="btn on" data-range="91">近 3 月</button>
+        <button class="btn" data-range="182">近半年</button>
+        <button class="btn" data-range="371">近 1 年</button>
+        <span style="flex:1"></span>
+        <button id="refresh" class="btn primary">🔄 刷新热力图</button>
+      </div>
+      <div class="chart-wrap">
+        <div class="months" id="months"></div>
+        <div class="weeks" id="weeks"></div>
+      </div>
+      <div class="legend">
+        <span>少</span>
+        <div class="cell" data-level="0"></div>
+        <div class="cell" data-level="1"></div>
+        <div class="cell" data-level="2"></div>
+        <div class="cell" data-level="3"></div>
+        <div class="cell" data-level="4"></div>
+        <span>多</span>
+      </div>
+      <div id="status" class="status"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+      // Derive /plugin/<id> from the served path so the page works on any host/port.
+      var m = (location.pathname || "").match(/^(\/plugin\/[^\/]+)/);
+      var base = m ? m[1] : "/plugin/luogu";
+      var SURFACE = "heatmap";
+
+      var badge = document.getElementById("badge");
+      var statsEl = document.getElementById("stats");
+      var monthsEl = document.getElementById("months");
+      var weeksEl = document.getElementById("weeks");
+      var statusEl = document.getElementById("status");
+      var refreshBtn = document.getElementById("refresh");
+
+      var payload = null;
+      var rangeDays = 91;
+      var autoTried = false;
+
+      function setStatus(text, kind) {
+        statusEl.textContent = text || "";
+        statusEl.className = "status" + (kind ? " " + kind : "");
+      }
+
+      function loadContext() {
+        return fetch(base + "/hosted-ui/context?kind=panel&id=" + SURFACE)
+          .then(function (r) { return r.json(); })
+          .then(function (ctx) {
+            var state = (ctx && ctx.state) || ctx || {};
+            payload = (state.payload && state.payload.grid) ? state.payload : null;
+            renderBadge(state);
+            if (payload) { render(); }
+            else {
+              clearChart();
+              if (!state.configured) {
+                setStatus("尚未配置洛谷登录态：请先在「登录凭据」页填写 Cookie。", "bad");
+              } else if (!autoTried) {
+                autoTried = true;
+                setStatus("首次查看需要抓取提交记录，正在计算…");
+                return doRefresh();
+              } else {
+                setStatus("暂无缓存数据，点「刷新热力图」重算。");
+              }
+            }
+          })
+          .catch(function () {
+            badge.className = "badge no";
+            badge.textContent = "⚠️ 无法加载";
+            setStatus("读取插件状态失败。", "bad");
+          });
+      }
+
+      function renderBadge(state) {
+        var configured = !!(state && state.configured);
+        badge.className = "badge " + (configured ? "ok" : "no");
+        var built = payload && payload.built_at ? "｜更新于 " + payload.built_at.replace("T", " ") : "";
+        badge.textContent = (configured ? "✅ 已配置登录态" : "ℹ️ 未配置登录态") + built;
+      }
+
+      function clearChart() {
+        statsEl.innerHTML = "";
+        monthsEl.innerHTML = "";
+        weeksEl.innerHTML = "";
+      }
+
+      function daysAgo(todayStr, days) {
+        var d = new Date(todayStr + "T00:00:00Z");
+        d.setUTCDate(d.getUTCDate() - days + 1);
+        return d.toISOString().slice(0, 10);
+      }
+
+      function addStat(key, value) {
+        var box = document.createElement("div");
+        box.className = "stat";
+        var k = document.createElement("div"); k.className = "k"; k.textContent = key;
+        var v = document.createElement("div"); v.className = "v"; v.textContent = value;
+        box.appendChild(k); box.appendChild(v);
+        statsEl.appendChild(box);
+      }
+
+      function render() {
+        var cutoff = daysAgo(payload.today, rangeDays);
+        var grid = payload.grid.filter(function (week) {
+          return week.some(function (cell) { return cell.date >= cutoff && cell.in_range; });
+        });
+
+        addStat("AC（去重）", payload.total_ac);
+        addStat("活跃天数", payload.active_days);
+        addStat("当前连续", payload.current_streak + " 天");
+        addStat("最长连续", payload.longest_streak + " 天");
+        if (payload.best_day && payload.best_day.date) {
+          addStat("最佳单日", payload.best_day.count + " 题");
+        }
+
+        monthsEl.innerHTML = "";
+        weeksEl.innerHTML = "";
+        var lastLabel = "";
+        grid.forEach(function (week) {
+          var first = week[0] || {};
+          var month = (first.date || "").slice(0, 7);
+          var slot = document.createElement("div");
+          slot.className = "mslot";
+          if (month && month !== lastLabel) {
+            slot.textContent = parseInt(month.slice(5, 7), 10) + "月";
+            lastLabel = month;
+          }
+          monthsEl.appendChild(slot);
+
+          var col = document.createElement("div");
+          col.className = "week";
+          week.forEach(function (cell) {
+            var el = document.createElement("div");
+            el.className = "cell";
+            var inRange = cell.in_range && cell.date >= cutoff;
+            if (!inRange) { el.classList.add("out"); }
+            else if (cell.future) { el.classList.add("future"); }
+            else { el.setAttribute("data-level", String(cell.level || 0)); }
+            el.title = cell.date + "｜AC " + cell.count + " 题";
+            col.appendChild(el);
+          });
+          weeksEl.appendChild(col);
+        });
+        renderBadge({ configured: true });
+        setStatus("显示最近 " + rangeDays + " 天；缓存日期 " + payload.built_at, "ok");
+      }
+
+      function doRefresh() {
+        refreshBtn.disabled = true;
+        setStatus("正在抓取提交记录并重算…（可能需要十几秒）");
+        return postAction("refresh_heatmap", { days: 0 })
+          .then(function (res) {
+            if (res && res.result) {
+              return loadContext();
+            }
+            var err = (res && res.error) || {};
+            setStatus((err.why || err.message || "刷新失败。"), "bad");
+          })
+          .catch(function () { setStatus("刷新请求失败。", "bad"); })
+          .finally(function () { refreshBtn.disabled = false; });
+      }
+
+      function postAction(action, args) {
+        return fetch(base + "/hosted-ui/action/" + action, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ args: args, kind: "panel", surface_id: SURFACE })
+        }).then(function (r) { return r.json(); });
+      }
+
+      refreshBtn.addEventListener("click", function () { doRefresh(); });
+      Array.prototype.forEach.call(document.querySelectorAll(".btn[data-range]"), function (btn) {
+        btn.addEventListener("click", function () {
+          rangeDays = parseInt(btn.getAttribute("data-range"), 10) || 91;
+          Array.prototype.forEach.call(document.querySelectorAll(".btn[data-range]"), function (other) {
+            other.classList.toggle("on", other === btn);
+          });
+          if (payload) { render(); }
+        });
+      });
+
+      loadContext();
+    })();
+  </script>
+</body>
+</html>

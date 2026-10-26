@@ -23,7 +23,7 @@ export function MoodGaugeCard(props: { t: TFunc; mood: Mood; enabled: boolean })
         <div className="tm-gauge-head">
           <span className="tm-gauge-word" style={{ color }}>{word}</span>
           <span className="tm-gauge-hint">
-            {t("panel.mood.gauge.hint", { defaultValue: "情绪动作与语气感知留下的余波，会随时间自然平复" })}
+            {t("panel.mood.gauge.hint", { defaultValue: "根据情绪动作和语气分析更新，并随时间逐渐恢复" })}
           </span>
         </div>
         <GaugeBar

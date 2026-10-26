@@ -84,20 +84,20 @@ def test_parse_rejects_malformed_no_payload(tm) -> None:
 # ---------- clamp_appearance：参数归一 ----------
 
 
-def test_clamp_defaults_reproduce_legacy_look(tm) -> None:
+def test_clamp_defaults_keep_wallpaper_clear_and_cards_transparent(tm) -> None:
     out = tm.clamp_appearance(None)
     assert out == tm.appearance_defaults()
-    # 1.1.x 观感：cover/center/无滤镜/glass=16/dim=0.3/底色与文字强度满格
     assert out["fill"] == "cover"
     assert out["position"] == "center"
     assert out["blur"] == 0.0
     assert out["brightness"] == 100.0
     assert out["saturate"] == 100.0
     assert out["contrast"] == 100.0
-    assert out["glass"] == 16.0
-    assert out["dim"] == 0.3
-    assert out["card_alpha"] == 100.0
+    assert out["glass"] == 0.0
+    assert out["dim"] == 0.4
+    assert out["card_alpha"] == 0.0
     assert out["text_weight"] == 100.0
+    assert out["motion"] is True
 
 
 def test_clamp_numeric_bounds_and_junk(tm) -> None:
@@ -124,6 +124,13 @@ def test_clamp_enums(tm) -> None:
     assert bad["fill"] == "cover"
     assert bad["position"] == "center"
     assert bad["bg_id"] == ""
+
+
+def test_motion_accepts_only_real_booleans_and_old_defaults(tm) -> None:
+    assert tm.clamp_appearance({"motion": False})["motion"] is False
+    assert tm.clamp_appearance({"motion": True})["motion"] is True
+    for bad in (None, 0, 1, "false", "true", [], {}):
+        assert tm.clamp_appearance({"motion": bad})["motion"] is True
 
 
 # ---------- 图库索引纯操作 ----------
@@ -160,6 +167,16 @@ def test_gallery_add_respects_limit(tm) -> None:
     assert len(index["items"]) == tm._GALLERY_MAX_ITEMS
 
 
+def test_gallery_normalizes_video_kind_without_changing_old_images(tm) -> None:
+    index = tm.gallery_normalize_index({
+        "items": [{"id": "g1"}, {"id": "g2", "kind": "video"}, {"id": "g3", "kind": "application"}],
+        "next": 4,
+    })
+    assert "kind" not in index["items"][0]
+    assert index["items"][1]["kind"] == "video"
+    assert "kind" not in index["items"][2]
+
+
 # ---------- legacy_to_gallery：旧版单图迁移 ----------
 
 
@@ -180,7 +197,7 @@ def test_legacy_migration_rejects_junk(tm) -> None:
     assert tm.legacy_to_gallery({"data_url": "https://x/y.png"}) is None
     # 坏 dim 回退默认而不是拒迁
     migrated = tm.legacy_to_gallery({"data_url": PNG_URL, "dim": "nope"})
-    assert migrated is not None and migrated[3]["dim"] == 0.3
+    assert migrated is not None and migrated[3]["dim"] == 0.4
 
 
 # ---------- 入口链路 ----------
@@ -193,8 +210,31 @@ def test_get_gallery_fresh_defaults(plugin_factory_full, tm) -> None:
     assert res.value["items"] == []
     assert res.value["migrated"] is False
     assert res.value["appearance"]["bg_id"] == ""
+    assert res.value["appearance"] == tm.appearance_defaults()
     # 无旧图时不写外观记录（首次真保存才落盘）
     assert p.store.data.get("panel_appearance") is None
+
+
+def test_new_wallpaper_uses_defaults_and_roundtrips(plugin_factory_full, tm) -> None:
+    p = plugin_factory_full()
+    added = run(p, "gallery_add", data_url=PNG_URL)
+    gid = added.value["id"]
+    saved = run(p, "set_panel_appearance", bg_id=gid)
+    expected = {**tm.appearance_defaults(), "bg_id": gid}
+    assert saved.value["appearance"] == expected
+    assert p.store.data["panel_appearance"] == expected
+    assert run(p, "get_panel_gallery").value["appearance"] == expected
+
+
+def test_saved_appearance_is_not_overwritten_by_new_defaults(plugin_factory_full) -> None:
+    saved = {
+        "bg_id": "", "fill": "contain", "position": "right top",
+        "blur": 8.0, "dim": 0.3, "brightness": 95.0, "saturate": 120.0,
+        "contrast": 110.0, "glass": 16.0, "card_alpha": 100.0, "text_weight": 85.0,
+    }
+    p = plugin_factory_full(store_initial={"panel_appearance": saved})
+    assert run(p, "get_panel_gallery").value["appearance"] == {**saved, "motion": True}
+    assert p.store.data["panel_appearance"] == saved
 
 
 def test_legacy_migration_flow(plugin_factory_full, tm) -> None:
@@ -259,8 +299,9 @@ def test_set_appearance_normalizes_and_clears_dangling(plugin_factory_full, tm) 
     out = saved.value["appearance"]
     assert out == {
         "bg_id": gid, "fill": "repeat", "position": "right bottom",
-        "blur": 30.0, "dim": 0.3, "brightness": 30.0, "saturate": 100.0,
+        "blur": 30.0, "dim": 0.4, "brightness": 30.0, "saturate": 100.0,
         "contrast": 100.0, "glass": 25.0, "card_alpha": 70.0, "text_weight": 55.0,
+        "motion": True,
     }
     # 悬空 bg_id（指向不存在条目）：静默解除后照常保存（整包替换：其余字段回默认）
     dangling = run(p, "set_panel_appearance", bg_id="nope")

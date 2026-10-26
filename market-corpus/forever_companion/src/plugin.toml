@@ -1,9 +1,9 @@
 [plugin]
 name = "永远的陪伴"
-description = "赋予 AI 更全面的陪伴能力：她有真实的身体节律（潮汐周期）、会起伏的情绪（十二个自主情绪工具）、属于自己的三本日记（时光日记/个人日记/我的日记），以及能看见你们相处痕迹的总览仪表盘。插件只递状态与工具，如何回应由她自己决定。"
-short_description = "Full companionship for your AI companion: body rhythm, self-directed moods, her own diaries, and a dashboard of your time together."
+description = "为 AI 角色提供日常状态、情绪工具、三本日记和相处统计。你可以按需开启功能，在面板中查看状态、翻阅记录，回顾日常互动。实际回复由角色使用的模型决定。"
+short_description = "Daily status, mood tools, three diaries, and interaction statistics."
 keywords = ["陪伴", "companion", "companionship", "情绪", "mood", "emotion", "周期", "period", "身体", "body", "潮汐", "tide", "日历", "calendar", "日记", "diary", "journal", "记忆", "memory", "生日", "birthday"]
-version = "1.3.1"
+version = "1.4.2"
 id = "forever_companion"
 type = "plugin"
 entry = "plugin.plugins.forever_companion:ForeverCompanionPlugin"
@@ -138,11 +138,19 @@ extreme_invite_cooldown_minutes = 30
 # 碎片只存进插件自己的日记本，由她通过检索工具自主取用（吵架翻旧账/回忆喜好），
 # 不会主动改变她的行为；面板可见、可单条删除。
 enabled = true
-# 碎片提取模型槽位：走可自定义 prompt 的直连通道（宿主情感端点只做五分类，不适用），
-# 默认 summary 槽（与宿主记忆抽取同层级）。读取宿主本地 core_config.json 解析端点
-# （数据出域，介意可关闭）；槽位未配置模型时功能自动休眠，其余功能不受影响
-slot = "summary"
-# 相邻两次碎片分析的最小间隔（秒）：与语气感知共用"每轮至多分析一次"的节奏
+# 碎片提取模型槽位：默认 agent 槽（与成文同一条路）。为什么不是语义更贴的 summary
+# （与宿主记忆抽取同层级）：免费路由只放行 agent 档，summary/conversation/correction 都
+# 落在 free-model，从插件调用一律被服务端拒——那对新用户等于永久休眠。代价是 agent 档
+# 带服务端日配额（宿主自己定 500 次/天，且与宿主 agent 功能共用），所以它配着下面
+# [agent_tier] 的每日预算 + 300 秒间隔地板一起用；想换回 summary 也行，面板上改一次就生效
+slot = "agent"
+# 碎片提取通道：host（默认）= 复用宿主自己的模型管线，端点/模型名/客户端身份都由宿主给出，
+# 插件不读你的配置文件；custom = 插件读宿主本地 core_config.json 拼出该槽端点自己直连
+# （接本地模型或独立服务商时用，明文 key 的边界见 README「隐私与数据边界」）——注意免费路由
+# 下这条路拼不出端点，切过来这条通道就会休眠。host 解析不到端点时自动回落 custom，不会比旧版差
+mode = "host"
+# 相邻两次碎片分析的最小间隔（秒）：与语气感知共用"每轮至多分析一次"的节奏。
+# 走 agent 档时代码里还有一道 300 秒地板，这个值写得更小也不生效（防自动节拍砸配额）
 min_interval_sec = 60
 # 置信度门槛：低于此不记（宁漏勿错，玩笑/含糊的话会被挡掉）
 confidence_threshold = 0.6
@@ -165,12 +173,27 @@ interval_days = 7
 # 不注入她的上下文、不进宿主记忆管线、不注册任何她可调用的工具。
 # 评价客观：过激言行/冷淡期也会如实写，不粉饰。
 enabled = true
-# 成文模型槽位：与碎片提取同款直连通道（读宿主本地 core_config.json，
-# 数据出域，介意可关闭）；槽位未配置模型时功能自动休眠
-slot = "summary"
+# 成文模型槽位：默认 agent 槽（1.3.3 修订轮从 summary 改过来）。为什么改：宿主免费
+# 路由按模型档位放行，summary/conversation/correction 都落在 free-model 这一档，从
+# 插件子进程调用一律被服务端拒（400 "STOP ABUSE"），而 agent 档（free-agent-model）
+# 实测可用。成文是"攒满门槛点一次才一篇"的低频调用，占 agent 档日配额可控；碎片提取
+# 约每 62 秒一拍，故意不跟着上 agent 档（会抢宿主 agent 功能的配额），见 [fragments].slot
+slot = "agent"
+# 成文通道：host（默认，复用宿主管线、零配置即用）/ custom（插件读宿主本地配置直连）
+# 含义与取值同 [fragments].mode
+mode = "host"
 # 双门槛：攒满 N 轮 或 距统计起点满 N 天（且期间有聊天）先到先写
 turns_threshold = 50
 days_threshold = 7
+
+[agent_tier]
+# agent 档（宿主的 free-agent-model）每日预算。为什么要有这一节：免费路由上只有 agent
+# 档放行（summary/conversation/correction 那档从插件调用必被服务端拒），而这一档带**服务端**
+# 日配额 500 次/天，且宿主自己的 agent 功能与本插件共用同一份池子。凡是走 agent 槽的调用
+# （碎片提取 + 我的日记成文）合记一个当日计数，用完即休眠到次日零点，一条请求都不多发。
+# 推荐带 5~50；上限硬钳在 150（再多就是在拿宿主 agent 换她的碎片了）。
+# 另有一道代码里的间隔地板：走 agent 档时相邻两次调用至少间隔 300 秒，配置写更小不生效
+daily_budget = 20
 
 [stats]
 # 相处统计（1.1.0）：按天聚合的长期累计——徽章墙/热力图/月报的唯一数据源。
@@ -217,7 +240,7 @@ enabled = true
 # （校正模式不受此限：情绪生效期间每轮都分析，避免恰好漏掉关键回复）
 check_rate = 1.0
 # 相邻两次分析的最小间隔（秒）：连珠炮对话防刷屏
-min_interval_sec = 60
+min_interval_sec = 20
 # 校正模式的语气趋势窗口（轮）：攒满 N 轮按多数派判定一次
 # （2 = 语气连续两轮同向即提醒，响应更快；3 = 更稳但偏慢）
 window_turns = 2

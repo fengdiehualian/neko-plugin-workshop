@@ -31,6 +31,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from .fragments import diary_display_record
 from .state import (
     _COLD_ACTIONS,
     _POSITIVE_ACTIONS,
@@ -430,10 +431,26 @@ def month_view(stats: JsonObject, month: str, *, diary: list[JsonObject] | None 
     months = stats.get("months") if isinstance(stats.get("months"), dict) else {}
     sealed = months.get(month)
     if isinstance(sealed, dict) and sealed.get("sealed"):
-        return sealed
-    agg = _aggregate_month(stats, month, diary=diary)
-    agg["sealed"] = False
-    return agg
+        view = dict(sealed)
+    else:
+        view = _aggregate_month(stats, month, diary=diary)
+        view["sealed"] = False
+    voice = view.get("voice")
+    if isinstance(voice, dict):
+        visible = dict(voice)
+        # 旧月报没有保留 demo 标记；按时间和截取正文与原手记核对身份。
+        if visible.get("demo") is not True:
+            for item in diary or []:
+                if (
+                    isinstance(item, dict) and item.get("demo") is True
+                    and str(item.get("source") or "self") == "self"
+                    and _parse_iso_ts(item.get("ts")) == _parse_iso_ts(voice.get("ts"))
+                    and str(item.get("entry") or "")[:120] == voice.get("entry")
+                ):
+                    visible["demo"] = True
+                    break
+        view["voice"] = diary_display_record(visible)
+    return view
 
 
 def _month_days(stats: JsonObject, month: str) -> list[tuple[str, JsonObject]]:
@@ -462,6 +479,8 @@ def _pick_month_voice(diary: list[JsonObject] | None, month: str) -> JsonObject 
             continue
         if best is None or len(entry) > len(str(best.get("entry") or "")):
             best = {"ts": ts.isoformat(timespec="seconds"), "mood": str(item.get("mood") or ""), "entry": entry[:120]}
+            if item.get("demo") is True:
+                best["demo"] = True
     return best
 
 

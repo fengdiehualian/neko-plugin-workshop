@@ -4,8 +4,28 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+_TRAIT_SPLIT_RE = re.compile(r"[，,、;；/\s]+")
+
+
+def _normalize_traits(raw: Any) -> list:
+    """traits 统一成字符串列表（宿主可能给字符串/列表/带空格的混写）。"""
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        return [t.strip() for t in _TRAIT_SPLIT_RE.split(raw) if t.strip()]
+    if isinstance(raw, (list, tuple, set)):
+        out = []
+        for item in raw:
+            if isinstance(item, str):
+                out.extend(t.strip() for t in _TRAIT_SPLIT_RE.split(item) if t.strip())
+            elif item:
+                out.append(str(item))
+        return out
+    return [str(raw)]
 
 MOOD_DEFAULTS = {
     "mood_pool": ["excitement", "worry", "sleepy", "sympathy", "proud", "calm"],
@@ -13,6 +33,22 @@ MOOD_DEFAULTS = {
         "excitement": 0.06, "worry": 0.04, "sleepy": 0.02,
         "sympathy": 0.05, "proud": 0.07, "calm": 0.03,
     },
+}
+
+# 情绪 → 陪玩的全局倾向（人设主线）。gap_mult 越小越热闹。
+MOOD_DRIVES: Dict[str, Dict[str, Any]] = {
+    "excitement": {"gap_mult": 0.85, "bias": "banter",
+                   "tone": "现在心情很兴奋：话多一点、活泼一点，可以起哄"},
+    "worry":      {"gap_mult": 0.9, "bias": "care",
+                   "tone": "现在心里发慌、担心他：多提醒、多关心，语气别轻飘"},
+    "sleepy":     {"gap_mult": 1.5, "bias": "care",
+                   "tone": "现在很困：说话要短、要轻、别硬逗他。"
+                           "时段一律按游戏内时间说，没拿到就别提"},
+    "sympathy":   {"gap_mult": 1.1, "bias": "care",
+                   "tone": "刚经历过不顺利的事：语气温柔一点，别开玩笑"},
+    "proud":      {"gap_mult": 0.9, "bias": "memory",
+                   "tone": "现在很得意：可以炫耀、可以夸他，也可以翻旧账夸自己"},
+    "calm":       {"gap_mult": 1.0, "bias": "", "tone": "心情平稳：自然说话"},
 }
 
 
@@ -86,6 +122,25 @@ class Mood:
 
     def snapshot(self) -> Dict[str, float]:
         return {k: round(v.value, 2) for k, v in self.arcs.items()}
+
+    def drive(self) -> Dict[str, Any]:
+        """当前主导情绪 → 陪玩的**全局倾向**（密度 / 话题 / 语气）。
+
+        2026-10 人设一致性：以前情绪只影响零散几句的措辞，21 个陪玩维度各说各的，
+        玩家感受不到"她今天是什么状态"。现在情绪成为一条主线：
+          - gap_mult  调陪聊密度（犯困就更安静、兴奋就更热闹）
+          - bias      话题倾向（心疼→关心、得意→回忆）
+          - tone      交给宿主 LLM 的语气说明
+
+        注意（2026-10 翻车修正）：`sleepy` 原来 bias 到"夜路"，于是她一边犯困
+        一边聊夜路——可主人游戏里明明是上午，听起来就是假话。现在困了就倾向"关心"，
+        时段一律以游戏内时间为准（见 runtime._greeting）。
+        """
+        name = self.primary()
+        d = MOOD_DRIVES.get(name) or MOOD_DRIVES["calm"]
+        out = dict(d)
+        out["mood"] = name
+        return out
 
 
 def _load_host_persona() -> Optional[Dict[str, Any]]:
@@ -164,7 +219,13 @@ class Persona:
             data = _load_host_persona() or {}
         self.name = data.get("name", "喵喵")
         self.user_call = data.get("user_call", "主人")
-        self.traits: list = data.get("traits", [])
+        # 宿主导出的 traits 可能是**一个字符串**（实测就是整句"嘴硬心软的傲娇…"），
+        # 旧版直接当列表用，后果很严重：
+        #   1) "、".join(字符串) 会在每个字之间插顿号 → 注入 LLM 的人设提示变成
+        #      「你、是、喵、喵、嘴、硬、心、软…」，宿主 LLM 会吐槽"乱念奇怪东西"
+        #   2) 面板 JS 的 traits.slice(0,3).join() 直接抛 TypeError，
+        #      设置页卡在后半段不渲染（口吻/频率/类别三张卡全空）
+        self.traits: list = _normalize_traits(data.get("traits", []))
         self.description = data.get("description", "")
         self.habits: dict = data.get("habits", {})
         self._voice_styles = _load_voice_styles()
@@ -227,6 +288,19 @@ class Persona:
             if not text.endswith(("喵", "呢", "哦", "啦", "呀")):
                 text += self._rng.choice(["喵", "呢", "啦", "呀"])
         return text
+
+    def style_note(self) -> str:
+        """只给"口吻风格"这一条（不重述人设/名字/口头禅）。
+
+        respond 通道（宿主 LLM 说话）不能用 persona_hint：宿主本来就知道自己是谁，
+        每句都塞一遍「你是X。口头禅：Y」会让它句句复读口头禅（实测每句都以
+        「喂笨蛋主人！」开头），严重时还会把这段当成别人硬塞的指令而吐槽
+        「这破插件又乱念什么奇怪东西」。
+        """
+        prompts = [self._voice_styles.get(s, {}).get("prompt", "")
+                   for s in self.voice_styles]
+        prompts = [p for p in prompts if p]
+        return " ".join(prompts)
 
     def persona_hint(self) -> str:
         """人设提示：主人设 + 多口吻融合，注入 LLM 让宿主按此演绎。"""

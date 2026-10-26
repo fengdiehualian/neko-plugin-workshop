@@ -8,18 +8,15 @@ import asyncio
 import json
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from plugin.plugins.qq_auto_reply.backlog_store import QQBacklogStore
 from plugin.sdk.plugin import Err, NekoPluginBase, Ok, SdkError, lifecycle, neko_plugin, plugin_entry, tr, ui
 
-# OneBotConnector 仅作类型注解使用（from __future__ import annotations 下为惰性求值），运行时
-# 无需导入；在缺 utils.connection 的隔离测试环境里也能加载包（连接由 create_onebot_connection
-# 在方法内惰性构建，见下方）。
-try:
-    from utils.connection.onebot import OneBotConnector
-except (ImportError, ModuleNotFoundError):
-    OneBotConnector = None
+# OneBotConnector 仅作类型注解使用（from __future__ import annotations 下为惰性求值），
+# 运行时无需导入 —— 连接由 connector_seam 在方法内惰性解析并构建，见 _make_qq_connection。
+if TYPE_CHECKING:
+    from .connector_seam import OneBotConnector
 
 try:
     from utils.tts.native_voice_registry import get_active_realtime_native_provider_for_ui
@@ -43,6 +40,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     read_legacy_voice_id = None
 
+from . import settings_schema
 from .attention_gate_service import QQAttentionGateService
 from .attention_service import QQAttentionService
 from .backlog_models import QQBacklogMessage as QQBacklogMessage
@@ -52,18 +50,27 @@ from .dashboard_service import QQDashboardService
 from .deploy_service import QQDeployService
 from .display_name_service import QQDisplayNameService
 from .enrichment import QQMessageEnricher
-from .fatigue_service import QQFatigueService
 from .feedback_classifier import QQFeedbackClassifier as QQFeedbackClassifier
-from .group_permission import GroupPermissionManager
+from .group_permission import DEFAULT_GROUP_LEVEL, GroupPermissionManager
 from .handler_runtime_service import QQHandlerRuntimeService
 from .memory_bridge import QQMemoryBridge
 from .memory_tool_service import QQMemoryToolService
 from .message_dispatcher import QQMessageDispatcher
 from .napcat_service import QQNapcatService
+from .outbound_guard_service import QQOutboundGuardService
 from .permission import PermissionManager
+from .plugin_tool_followup_service import QQPluginToolFollowupService
+from .plugin_tool_service import (
+    PLUGIN_TOOL_MAX_MOUNTED,
+    QQPluginToolService,
+    channel_allows_plugin_tools,
+    emit_bridge_log,
+)
+from .proactive_initiative_service import QQProactiveInitiativeService
 from .prompt_builder import QQPromptBuilder
 from .prompting import QQAutoReplyPromptingMixin
 from .relay_service import QQRelayService
+from .repeat_echo_service import QQRepeatEchoService
 from .reply_buffer_service import QQReplyBufferService
 from .reply_context_node import QQReplyContextNode
 from .reply_decision_node import QQReplyDecisionNode
@@ -75,8 +82,10 @@ from .reply_postprocess_node import QQReplyPostprocessNode
 from .reply_relay_node import QQReplyRelayNode
 from .runtime_ops_service import QQProactiveMessageService, QQRuntimeOpsService
 from .runtime_service import QQRuntimeService
+from .runtime_transition import runtime_transition_guard
 from .session import QQAutoReplySessionMixin
 from .session_bootstrap_service import QQSessionBootstrapService
+from .session_handoff_service import QQSessionHandoffService
 from .session_instruction_service import (
     QQSessionInstructionService,
     resolve_prompt_override,
@@ -86,6 +95,7 @@ from .session_runtime_service import QQSessionRuntimeService
 from .settings_service import QQSettingsService
 from .targets import QQAutoReplyTargetsMixin
 from .targets import QQAutoReplyValidationError as QQAutoReplyValidationError
+from .time_context import build_time_context
 from .voice_reply_service import QQVoiceReplyService
 
 # 本地依赖（vendored lib/）由 _lib_bootstrap 在模块加载时放入 sys.path；此处记录目录，
@@ -107,7 +117,24 @@ def build_open_ui_payload(*, plugin_id: str, available: bool, i18n=None) -> dict
 
 #: 合法的连接方式。三条接入流程各自对应其中一段：napcat/napcat_forward 走 OneBot，
 #: open_platform 走官方 Bot API。schema 与校验都引用它，别再各写一份内联元组。
-CONNECTION_MODES: tuple[str, ...] = ("napcat", "napcat_forward", "open_platform")
+#: 真相在 settings_schema 的 `qq_connection_mode` 那条 enum。
+CONNECTION_MODES: tuple[str, ...] = tuple(
+    settings_schema.BY_KEY["qq_connection_mode"].enum or ()
+)
+
+#: 表情包自动描述用的提示词。
+#:
+#: 和引用回复那句"描述这张图片"不同：这句描述**是要给模型自己以后挑图用的**
+#: （它会进 system prompt 的表情包目录），所以要素是"画面 + 情绪 + 什么场合发"，
+#: 而不是客观转写。限定 30 字是因为它要进提示词，太长会挤占上下文。
+STICKER_VLM_PROMPT = (
+    "这是一张聊天用的表情包图片。请用一句简短中文描述它的画面和情绪，"
+    "让人只看这句就知道什么场合适合发它（不超过30字；直接给描述，不要引号、不要解释）"
+)
+
+#: 免费文字端的域名特征：命中它才需要按免费线的规矩发请求
+#: （见 `QQAutoReplyPlugin._vlm_free_route_system_prompt`）。
+FREE_ROUTE_HOST_HINT = "lanlan"
 
 
 @neko_plugin
@@ -151,12 +178,15 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
         )
         self.deploy_service = QQDeployService(self)
         self.backlog_service = QQBacklogService(self)
-        self.fatigue_service: Optional[QQFatigueService] = None
         self.attention_service = QQAttentionService(self)
         self.prompt_builder = QQPromptBuilder(self)
         self.memory_bridge = QQMemoryBridge(self)
         self.display_name_service = QQDisplayNameService(self)
         self.memory_tool_service = QQMemoryToolService(self)
+        # 插件工具桥（只在开放平台启用）：把别的插件的能力按分级挂到 QQ 会话上。
+        self.plugin_tool_service = QQPluginToolService(self)
+        # 异步插件任务的结果回投：她答应过"结果出来告诉你"，这条链路让它成真。
+        self.plugin_tool_followup_service = QQPluginToolFollowupService(self)
         self.relay_service = QQRelayService(self)
         self.reply_generation_service = QQReplyGenerationService(self)
         self.reply_decision_node = QQReplyDecisionNode(self)
@@ -170,6 +200,9 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
         self.voice_reply_service = QQVoiceReplyService(self)
         self.runtime_ops_service = QQRuntimeOpsService(self)
         self.proactive_message_service = QQProactiveMessageService(self)
+        # 管理员私聊的「有由头」主动搭话（2026-10-02 使用者选 A）。发送仍走
+        # `proactive_message_service`，本服务只负责"什么时候开口"与"由头从哪来"。
+        self.proactive_initiative_service = QQProactiveInitiativeService(self)
         self.handler_runtime_service = QQHandlerRuntimeService(self)
         self.message_dispatcher = QQMessageDispatcher(self)
         self.session_bootstrap_service = QQSessionBootstrapService(self)
@@ -201,21 +234,25 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
         self._ai_turn_timeout_seconds = 60.0
         self._handler_shutdown_timeout_seconds = 10.0
         self._normal_relay_probability = 0.1
-        self._truth_reply_probability = 0.1
         self._admin_qq: Optional[str] = None
-        self._strategy_mode: str = "neko_dynamic"
+        # `_strategy_mode` 已随「回复策略」删除（2026-09-27）：它只有一个取值，
+        # 留着只会让每个读取点都写一句恒真的分支。见 docs/SESSION-HANDOFF.md §24。
         # NapCat 进程/启动错误状态由连接层 napcat_service 自持，插件不再持有。
         self._proactive_task: Optional[asyncio.Task] = None
-        self._last_proactive_enabled = False
-        self._last_proactive_send_at = 0.0
-        self._last_proactive_greeting_at = 0.0
+        # `_last_proactive_enabled` / `_last_proactive_send_at` / `_last_proactive_greeting_at`
+        # 三个字段是更早那版"主动问候"的残骸：全仓库只写不读（2026-10-02 清掉）。
+        # 主动搭话的真实状态由 `proactive_initiative_service` 自持并落盘。
         self._backlog_summary_threshold = 10
         self._backlog_notify_cooldown_seconds = 900
         self._backlog_issue_notify_threshold = 1
         self._relay_backlog_items: list[dict[str, Any]] = []
         self._recent_pipeline_traces: list[dict[str, Any]] = []
-        self._poke_timestamps: dict[str, list[float]] = {}  # user_id → 最近回戳时间戳列表（5分钟窗口）
-        self._poke_storm: dict[str, list[tuple[float, str]]] = {}  # group_id → [(timestamp, poker_id)] 戳猫娘风暴检测
+        self._poke_timestamps: dict[str, list[float]] = {}  # user_id → 最近回戳时间戳列表（5分钟窗口，每人最多2次）
+        #: group_id → [(timestamp, poker_id)]：短窗内戳她的**不同人**。
+        #: 现在**只用于留痕**（日志里写一句"戳一戳风暴（N 人）"）——
+        #: 使用者 2026-09-27 定下「戳戳风暴就不需要回复了，只需要跟戳」，
+        #: 所以不管几个人戳都只跟戳、不回话，风暴本身不再改变行为。
+        self._poke_storm: dict[str, list[tuple[float, str]]] = {}
 
     def _create_backlog_store_from_settings(self, settings: dict[str, Any] | None) -> QQBacklogStore:
         return QQBacklogStore(
@@ -225,16 +262,37 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
 
     def _make_qq_connection(self):
         # 延迟导入：连接构造器依赖的模块较重（顶层 import 会拖慢插件进程启动握手），
-        # 而连接对象只在真正启动自动回复时才需要。连接本身由连接层
-        # ``utils.connection.onebot`` 的工厂构建；VLM/STT 描述器不注入连接器——
-        # 增强是插件业务，由 QQMessageEnricher 在 _ensure_qq_client_initialized 里绑定。
-        from utils.connection.onebot import create_onebot_connection
+        # 而连接对象只在真正启动自动回复时才需要。连接本身由连接器工厂构建；
+        # VLM/STT 描述器不注入连接器——增强是插件业务，由 QQMessageEnricher 在
+        # _ensure_qq_client_initialized 里绑定。
+        #
+        # 解析走 connector_seam：宿主第一方包 utils.connection.onebot 优先，拿不到时
+        # 回退 _vendor 里的副本（出处见 _vendor/connection_onebot/PROVENANCE.md）。
+        from .connector_seam import (
+            CONNECTOR_MODULE,
+            CONNECTOR_SOURCE,
+            create_onebot_connection,
+        )
 
-        return create_onebot_connection(
+        # 两路都发：`_emit_log` 只写内存缓冲 + 推 SSE（插件 UI 的运行日志页），
+        # 不进控制台/日志文件；`logger` 才是能在宿主控制台和插件日志文件里看到的。
+        # 排查"装上去到底连的哪个连接器"时要的是后者。
+        source_msg = f"[QQ] 连接器来源: {CONNECTOR_SOURCE} ({CONNECTOR_MODULE})"
+        self._emit_log("INFO", source_msg)
+        self.logger.info(source_msg)
+        connection = create_onebot_connection(
             self._qq_settings,
             logger=self.logger,
             emit_log=self._emit_log,
         )
+        # 富媒体走谁：宿主适配器（连接对象自带 upload_image）还是内置副本。
+        # 与上面那行一样两路都发 —— 排查"装上去到底跑哪份"时看的是日志文件那份。
+        from . import media_seam
+
+        media_msg = f"[QQ] 富媒体来源: {media_seam.describe(connection)}"
+        self._emit_log("INFO", media_msg)
+        self.logger.info(media_msg)
+        return connection
 
     # ── UI SSE 事件推送（#2822 通道）──────────────────────────
 
@@ -438,39 +496,104 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
         except Exception:
             return ""
 
-    async def _describe_reply_image(self, image_url: str) -> str:
-        """对引用回复中的图片做简短 VLM 描述（KiraAI 方案）。"""
-        import asyncio as _asyncio
+    def _free_route_system_prompt(self, model_config: dict[str, Any]) -> str:
+        """免费线上发给 LLM 的请求要带的 system：**本体自己的角色人设**，否则 400。
+
+        免费文字端（`www.lanlan.tech/text/v1`）对"看起来不是 Lanlan 客户端"的请求
+        直接回 400 `Invalid request: you are not using Lanlan. STOP ABUSE THE API.`
+        ——插件里所有**自己拼消息**的 LLM 调用都撞在它上面，而且撞得很安静
+        （`except` 里吞掉、或只留一条 `[VLM] … 看图失败`），表现为"功能点了没反应"。
+        同进程里聊天会话那条路没事：本体每轮都带人设。
+
+        实测的分界线**不是**进程、模型槽、streaming、key、UA、连接复用或代理，而是
+        **请求里带不带本体人设的标志句**（见 docs/SESSION-HANDOFF.md §4.0t）：
+        同一张图、同一个 `free-model`、同一个 key，人设原样发过去就 200，去掉就 400。
+
+        这里**逐字复用本体的人设文本**（`config_manager.get_character_data()` 的
+        `lanlan_prompt_map[her_name]`，也就是插件建会话时用的那份 `character_prompt`），
+        不硬编码那句英文标志句：人设是本体的资产、随本体升级，标志句变了插件跟着变，
+        不用二次维护，也避免把一句"咒语"抄进插件里看起来像绕过校验。
+
+        只对免费线加：自配 API（付费 provider / 本地端点）没有这道门，多塞 3k 字符
+        人设纯粹是按 token 付费。取不到人设时返回空串 —— 请求照发，失败由调用点
+        自己的日志说话。
+        """
+        base_url = str(model_config.get("base_url") or "").lower()
+        if FREE_ROUTE_HOST_HINT not in base_url:
+            return ""
         try:
             from utils.config_manager import get_config_manager
+
+            data = get_config_manager().get_character_data()
+            master_name = str(data[0] or "")
+            her_name = str(data[1] or "")
+            persona_map = data[5] if len(data) > 5 else None
+            persona = str((persona_map or {}).get(her_name) or "")
+            if not persona:
+                return ""
+            from .session_instruction_service import _apply_role_placeholders
+
+            return _apply_role_placeholders(
+                persona, lanlan_name=her_name, master_name=master_name,
+            ) or ""
+        except Exception as e:
+            self.logger.info(f"[FreeRoute] 免费线人设文本取不到（按无 system 继续）: {type(e).__name__}: {e}")
+            return ""
+
+    async def _vlm_describe_locator(self, locator: str, *, prompt: str, max_tokens: int = 60) -> str:
+        """对一张图（本地路径或 http(s) URL）跑一次 VLM，返回文本；失败返回 ""。
+
+        **插件里"看图"的地方都走这一条**（conversation 模型配置 → 图片压成 JPEG b64
+        → create_chat_llm_async）。刻意收成一个函数：以前只有引用回复的图走这条路，
+        表情包自动描述再抄一份的话，两处的模型配置迟早会漂移。
+
+        免费线上这条请求要带上本体人设（见 `_free_route_system_prompt`）：不带的话
+        免费端一律 400，功能会"静默没反应"。
+
+        失败一律返回空串（调用方决定怎么兜底），但**会把原因写进日志** —— 这个函数
+        服务的都是"用户看得到的功能"（表情包自动描述、引用图描述），静默返回空会让
+        用户以为是自己没点到，而真实原因可能是"没配看图模型"或"那个模型不支持看图"。
+        """
+        import asyncio as _asyncio
+        model_config = self._pick_vlm_config()
+        if not model_config:
+            self.logger.info(
+                "[VLM] 没有可用的看图模型配置（conversation 缺 model 或 base_url）")
+            return ""
+        slot = str(model_config.get("_slot") or "?")
+        model = str(model_config.get("model") or "").strip()
+        try:
             from utils.llm_client import create_chat_llm_async
 
-            model_config = get_config_manager().get_model_api_config("conversation")
-            base_url = str(model_config.get("base_url") or "").strip()
-            model = str(model_config.get("model") or "").strip()
-            api_key = str(model_config.get("api_key") or "").strip()
-            if not base_url or not model:
+            image_b64 = await self._prepare_attachment_image_b64({"path": locator})
+            if not image_b64:
+                self.logger.info(f"[VLM] 图片预处理失败，跳过描述: {locator}")
                 return ""
 
-            # 拉取图片并压缩为 JPEG base64
-            image_b64 = await self._prepare_attachment_image_b64({"url": image_url})
-            if not image_b64:
-                return ""
+            system_prompt = self._free_route_system_prompt(model_config)
+            messages: list[dict[str, Any]] = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                {"type": "text", "text": prompt},
+            ]})
 
             llm = await create_chat_llm_async(
-                model=model, base_url=base_url, api_key=api_key,
-                max_completion_tokens=60, timeout=15.0,
+                model=model, base_url=str(model_config.get("base_url") or ""),
+                api_key=str(model_config.get("api_key") or ""),
+                max_completion_tokens=max_tokens, timeout=15.0,
                 provider_type=model_config.get("provider_type"),
             )
             try:
                 response = await _asyncio.wait_for(
-                    llm.ainvoke([{"role": "user", "content": [
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-                        {"type": "text", "text": "用简短的中文描述这张图片的内容（不超过20字）"},
-                    ]}]),
+                    llm.ainvoke(messages),
                     timeout=15.0,
                 )
-                return str(getattr(response, "content", "") or "").strip()
+                text = str(getattr(response, "content", "") or "").strip()
+                if not text:
+                    self.logger.info(f"[VLM] {slot} 槽（{model}）返回空内容")
+                return text
             finally:
                 aclose = getattr(llm, "aclose", None)
                 if callable(aclose):
@@ -478,8 +601,47 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
                         await aclose()
                     except Exception:
                         pass
-        except Exception:
+        except Exception as e:
+            # 不往上抛（调用点都是"尽力而为"），但把原因留下来 —— 否则用户只看到
+            # "描述没出来"，无法判断是模型不支持看图、还是网络/额度问题。
+            self.logger.warning(f"[VLM] {slot} 槽（{model}）看图失败: {type(e).__name__}: {e}")
             return ""
+
+    def _pick_vlm_config(self) -> dict[str, Any] | None:
+        """"看图"用哪套模型配置：**conversation**（与插件改动前一致）。
+
+        这里一度改成"优先本体的 vision 槽"—— 本体给图片分析专门留了 `VISION_MODEL`
+        （`utils/screenshot_utils.py` 用的就是 `aget_model_api_config('vision')`），
+        而聊天模型不一定多模态、不支持看图时会静默失败。
+
+        **但使用者明确要求回退**：只把新功能（表情包自动描述）接到既有分析上，
+        **不要动既有路径用的模型**。这两个用途共用 `_vlm_describe_locator`，
+        换槽会连带改变引用回复图片描述的行为 —— 那不是这次要动的东西。
+
+        **别再"顺手"改回 vision。** 真出问题时有日志可查（见 `_vlm_describe_locator`），
+        不需要靠换模型来"修"。
+        """
+        try:
+            from utils.config_manager import get_config_manager
+
+            cfg = get_config_manager().get_model_api_config("conversation")
+        except Exception:
+            return None
+        if str(cfg.get("base_url") or "").strip() and str(cfg.get("model") or "").strip():
+            return dict(cfg, _slot="conversation")
+        return None
+
+    async def _describe_reply_image(self, image_url: str) -> str:
+        """对引用回复中的图片做简短 VLM 描述。
+
+        这是"VLM→文字入上下文"的**同族**做法（KiraAI 及多家都这么做），但不等价：
+        上游覆盖全部入站图（含引用链、递归无深度上限）、用专用 `default_vlm` 槽、
+        提示词可配置、按 md5 缓存，且支持 `native`（不描述、直接把图给多模态模型）；
+        我们固定 `conversation` 槽 + 固定中文提示词、无缓存、引用链深度限 3。
+        """
+        return await self._vlm_describe_locator(
+            image_url, prompt="用简短的中文描述这张图片的内容（不超过20字）",
+        )
 
     def _refresh_admin_qq(self) -> None:
         self._admin_qq = None
@@ -567,6 +729,15 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
                 logger=self.logger,
                 emit_log=self._emit_log,
             )
+        elif getattr(self.enricher, "_client", None) is not self.qq_client:
+            # 连接对象被收尾重建换掉之后（切换连接模式 / 一键部署 / 补写配置），
+            # enricher 仍指着**被丢弃的那个**：引用链、合并转发、语音、文件全都
+            # 会去调一条已经断开的连接，异常被 ``_fetch_reply_content`` 的 except
+            # 吞成一行 "Failed to fetch reply msg"，**被引用正文静默丢出 prompt**。
+            # 2026-09-27 00:41-00:58 现场：NapCat 早就在跑，增强却去调开放平台对象，
+            # 报 `QQOpenPlatformConnection.get_msg() takes 1 positional argument`。
+            self.enricher.rebind(self.qq_client)
+            self.logger.info("[增强] enricher 已重绑到新连接对象")
 
     async def _broadcast_qq_inbound(self, message: dict[str, Any]) -> None:
         """把一条入站 QQ 消息广播给其它插件（SSE 推送）。
@@ -614,8 +785,16 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
         self.settings_service.rebuild_permission_managers(settings)
         self.settings_service.apply_runtime_settings(settings)
         await self.attention_service.load_cached_state()
-        self.fatigue_service = QQFatigueService(self)
         self.reply_buffer_service = QQReplyBufferService(self)
+        # 群友复读 → 跟着复读一次（判定要按人去重、跨消息累积，所以单独一个服务；
+        # 规则与理由见 repeat_echo_service 的模块 docstring）。
+        self.repeat_echo_service = QQRepeatEchoService(self)
+        # 出站守门人：内容安全（复用关键词黑名单）+ 重复过滤。三条"把别人原文发出去"
+        # 的路（跟着复读 / 合并转发 / 别的插件原文直发）都从它过一道。
+        self.outbound_guard_service = QQOutboundGuardService(self)
+        # 接续摘要：会话被回收（空闲 5 分钟 / 换人格 / 重启）时留一句"刚才聊到哪儿"，
+        # 新会话开口就接得上（见 session_handoff_service 的模块 docstring）。
+        self.session_handoff_service = QQSessionHandoffService(self)
         self._ensure_qq_client_initialized()
         if self.attention_gate_service:
             await self.attention_gate_service.start_proactive_loop()
@@ -702,6 +881,21 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
         task = getattr(self, "_purge_task", None)
         if task is None or task.done():
             self._purge_task = asyncio.create_task(self._purge_old_reviewed_loop())
+
+        # 插件工具桥的候选表：**必须在这里起**（常驻 loop）。真机实测在 entry
+        # handler 里同步查宿主会超时（`Plugin query timed out after 15.0s`），
+        # 而后台任务里跑正常 —— 所以这条查询只能由后台循环承担。
+        # `getattr`：轻量调用方/测试可能没有这个服务，缺了也只是没有候选表。
+        tool_bridge = getattr(self, "plugin_tool_service", None)
+        if tool_bridge is not None:
+            tool_bridge.ensure_refresh_loop()
+
+        # 异步任务的结果回投（她也在这里把"从上次没说完的事"接着说完）：
+        # 磁盘上可能还留着宿主重启前在等的任务，得接着轮询 —— 否则那句
+        # "结果出来我告诉你"就永远没人兑现，而且连日志都不会有。
+        followups = getattr(self, "plugin_tool_followup_service", None)
+        if followups is not None:
+            followups.ensure_loop()
 
     async def _autostart_on_launch(self) -> None:
         """开机自启：起监听 / 拉起 NapCat。
@@ -948,9 +1142,8 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
                        "description": "user_add=加信任用户；user_remove=移除；user_nickname=改昵称；group_add=加信任群；group_remove=移除；claims=列出未认领的群内 ID；identity_bind=合并到已有身份；identity_unbind=撤销合并；refresh_contacts=从 OneBot 重新拉联系人"},
             "qq_number": {"type": "string", "description": "user_add / user_remove / user_nickname：QQ 号"},
             "nickname": {"type": "string", "description": "user_add / user_nickname：显示昵称"},
-            "level": {"type": "string", "description": "user_add / group_add：权限等级"},
+            "level": {"type": "string", "description": "user_add / group_add：权限等级（用户：admin / trusted / normal / blacklist，blacklist＝不处理这个人的消息；群：trusted / normal，群省略 level 时默认 trusted＝正常参与，只有显式 normal 才是仅转发）"},
             "normal_relay_probability": {"type": "number", "description": "user_add / group_add：普通转发概率"},
-            "open_reply_probability": {"type": "number", "description": "group_add：开放群回复概率"},
             "group_id": {"type": "string", "description": "group_add / group_remove：群号"},
             "user_id": {"type": "string", "description": "identity_bind / identity_unbind：群内 ID"},
             "target_user_id": {"type": "string", "description": "identity_bind：要并入的已有身份"},
@@ -1017,9 +1210,8 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
             return Err(SdkError("INVALID_INPUT: group_add 需要 group_id"))
         return await self.dashboard_service.add_trusted_group(
             group_id=group_id,
-            level=str(kw.get("level") or "normal"),
+            level=str(kw.get("level") or DEFAULT_GROUP_LEVEL),
             normal_relay_probability=kw.get("normal_relay_probability"),
-            open_reply_probability=kw.get("open_reply_probability"),
         )
 
     async def _trust_group_remove(self, kw: dict[str, Any]):
@@ -1117,10 +1309,63 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
             return await self._query_napcat_webui(kw)
         if action == "bots":
             return await self._query_bots(kw)
+        if action == "plugin_tools":
+            return await self._query_plugin_tools(kw)
+        if action == "proactive_initiative":
+            # 主动搭话（管理员私聊）的状态视图：开关/静音时段/今日已开口/待说的由头。
+            # 判定与"为什么还不会开口"由服务自己算，界面只显示 —— 别在两处各写一份判据。
+            return Ok(self.proactive_initiative_service.snapshot())
         return Err(SdkError(
             f"BAD_ACTION: query 不支持 {action!r}"
             f"（可选 dashboard/buffer/logs/prompt_editor/group_prompts/"
-            f"user_profiles/backlog_summary/backlog_detail/napcat_webui/bots）"))
+            f"user_profiles/backlog_summary/backlog_detail/napcat_webui/bots/plugin_tools）"))
+
+    async def _query_plugin_tools(self, kw: dict[str, Any]):
+        """插件工具桥的配置视图：**全量非 QQ 插件**（带是否在跑）+ 当前分级。
+
+        **加插件不筛启动状态**（使用者定的）：界面全量出卡片，先分配档位；是不是在跑
+        只影响"这一轮挂不挂得上"，不影响"能不能先配好"。所以候选里每条都带 ``running``，
+        界面据此打「未启动」标记；而挂载那道闸在 `select_mounted`（只带在跑的）。
+
+        另外仍给 ``configured_not_running``：配了但此刻没在跑的插件清单 ——
+        界面用它显示一行"这些挂不上去"，避免使用者以为配好了就能用。
+        """
+        _ = kw
+        service = self.plugin_tool_service
+        tiers = service.tiers()
+        # refresh_for_ui：界面要看**此刻**的启停状态（刚启动一个插件就该能加它）。
+        # 它是一次真网络往返（本机 HTTP，实测 ~0.3s，4s 上限后回退缓存）——
+        # 而每轮生成那条路径吃的是 60s 缓存（见 CANDIDATES_TTL_SECONDS）。
+        candidates = await service.refresh_for_ui()
+        running_by_id = {
+            row["plugin_id"]: bool(row.get("running")) for row in candidates
+        }
+        configured_not_running = sorted(
+            pid for pid in tiers if not running_by_id.get(pid, False)
+        )
+        current = (
+            str(self.qq_client.mode if self.qq_client is not None else "")
+            or str(self._qq_settings.get("qq_connection_mode") or "")
+        )
+        followups = getattr(self, "plugin_tool_followup_service", None)
+        pending_followups = followups.snapshot() if followups is not None else []
+        return Ok({
+            # 通道闸对所有 QQ 通道都开（开放平台 + OneBot）：界面用这个布尔决定
+            # "配置正在生效" 还是 "这条通道挂不上工具"，别再写死 mode 比较。
+            "enabled_on_this_channel": channel_allows_plugin_tools(self.qq_client),
+            "connection_mode": current,
+            "tiers": tiers,
+            "candidates": candidates,
+            "configured_not_running": configured_not_running,
+            "max_plugins": PLUGIN_TOOL_MAX_MOUNTED,
+            # 还在等结果的异步任务（结果一到她会主动回一条），界面显示它，
+            # 免得使用者以为"又没下文了"。
+            "followups_enabled": bool(followups.enabled()) if followups is not None else False,
+            "pending_followups": pending_followups,
+            "max_pending_followups": (
+                followups.max_pending() if followups is not None else 0
+            ),
+        })
 
     async def _query_dashboard(self, kw: dict[str, Any]):
         _ = kw
@@ -1285,7 +1530,6 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
         # ⚠️ 必须和 session_instruction_service._resolve_static_layer 的兜底同时
         # 翻：写侧用 'zh-TW' 存、读侧还按 'zh' 的候选链找，覆盖会静默失效。
         locale = frontend_locale if frontend_locale else get_global_language_full()
-        strategy_mode = getattr(self, "_strategy_mode", "neko_dynamic")
         is_napcat = mode in ("napcat", "napcat_forward")
         overrides = (self._qq_settings or {}).get("prompt_overrides") or {}
         if not isinstance(overrides, dict):
@@ -1300,18 +1544,15 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
                 if is_napcat:
                     if lid == "format_open_platform":
                         continue
-                    if lid == "format_neko_dynamic" and strategy_mode != "neko_dynamic":
-                        continue
-                    if lid == "format_neko_scene" and strategy_mode != "neko_scene":
-                        continue
+                    # neko_dynamic 是唯一策略 → format_neko_dynamic 永远显示；
+                    # format_neko_scene 层已随模式合并删除。
                 else:
                     # 开放平台只显示 format_open_platform
                     if lid != "format_open_platform":
                         continue
-            # NapCat 按策略模式过滤 scene 层
-            if is_scene and strategy_mode == "neko_dynamic":
-                if lid not in ("scene_group_dynamic",):
-                    continue
+            # NapCat：scene 层只保留 scene_group_dynamic（策略已单值）
+            if is_scene and lid not in ("scene_group_dynamic",):
+                continue
             # 开放平台跳过 scene/naming 层
             if not is_napcat and is_scene:
                 continue
@@ -1319,41 +1560,12 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
             i18n_key = layer_def.get("i18n_key", "")
             default_text = ""
             if not is_runtime:
-                from .prompt_fragment_templates import (
-                    ATTENTION_PROMPT_SECTION,
-                    CHARACTER_PROMPT_SECTION,
-                    DETAIL_CONSTRAINTS_SECTION,
-                    FORMAT_PROMPT_SECTION,
-                    FORMAT_PROMPT_SECTION_NEKO_DYNAMIC,
-                    FORMAT_PROMPT_SECTION_OPEN_PLATFORM,
-                    OUTPUT_PROMPT_SECTION,
-                    ROLE_PROMPT_SECTION,
-                    TIME_PROMPT_SECTION,
-                )
-                from .scene_prompt_templates import (
-                    SCENE_COLLECTIVE_GROUP,
-                    SCENE_DIRECTED_GROUP,
-                    SCENE_KIRA_UNIFIED_GROUP,
-                    SCENE_PRIVATE_CHAT,
-                    SCENE_SHARED_GROUP,
-                )
-                default_map = {
-                    "role_prompt_section": ROLE_PROMPT_SECTION,
-                    "attention_prompt_section": ATTENTION_PROMPT_SECTION,
-                    "character_prompt_section": CHARACTER_PROMPT_SECTION,
-                    "time_prompt_section": TIME_PROMPT_SECTION,
-                    "detail_constraints_section": DETAIL_CONSTRAINTS_SECTION,
-                    "output_prompt_section": OUTPUT_PROMPT_SECTION,
-                    "format_prompt_section": FORMAT_PROMPT_SECTION,
-                    "format_prompt_section_neko_dynamic": FORMAT_PROMPT_SECTION_NEKO_DYNAMIC,
-                    "format_prompt_section_open_platform": FORMAT_PROMPT_SECTION_OPEN_PLATFORM,
-                    "prompts.group.collective": SCENE_COLLECTIVE_GROUP,
-                    "prompts.group.directed": SCENE_DIRECTED_GROUP,
-                    "prompts.group.kira_unified": SCENE_KIRA_UNIFIED_GROUP,
-                    "prompts.group.shared_session": SCENE_SHARED_GROUP,
-                    "prompts.private.body": SCENE_PRIVATE_CHAT,
-                }
-                default_text = default_map.get(i18n_key, "")
+                # 层 → 模板的映射收口在 `prompt_fragment_templates.layer_default_templates()`：
+                # 编辑器回显与"bundle 有没有盖住模板"的看门狗共用一份真相源
+                # （内联副本漂了就等于没有闸，`core_memory_section` 那次就是这么漏的）。
+                from .prompt_fragment_templates import layer_default_templates
+
+                default_text = layer_default_templates().get(i18n_key, "")
             has_override = False
             effective_text = ""
             if not is_runtime:
@@ -1367,8 +1579,8 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
                     effective_text = str(found[1] or "")
                 else:
                     effective_text = self.i18n.t(i18n_key, locale=locale, default=default_text)
-            if lid == "time" and self.fatigue_service:
-                effective_text = self.fatigue_service.get_dynamic_time_context()
+            if lid == "time":
+                effective_text = build_time_context()
             layers.append({
                 "id": lid,
                 "i18n_key": i18n_key,
@@ -1379,17 +1591,12 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
                 "default_text": default_text,
                 "effective_text": effective_text,
             })
-        self._emit_log("INFO", f"[PromptEditor] mode={mode} is_napcat={is_napcat} strategy={strategy_mode} locale={locale} layers={len(layers)}")
-        self.logger.info(f"[PromptEditor] mode={mode} is_napcat={is_napcat} strategy={strategy_mode} locale={locale} layers={len(layers)}")
-        proactive_topics = list((self._qq_settings or {}).get("proactive_topics") or [])
-        if not proactive_topics and self.attention_gate_service:
-            proactive_topics = list(getattr(self.attention_gate_service, "_DEFAULT_PROACTIVE_TOPICS", []))
+        self._emit_log("INFO", f"[PromptEditor] mode={mode} is_napcat={is_napcat} locale={locale} layers={len(layers)}")
+        self.logger.info(f"[PromptEditor] mode={mode} is_napcat={is_napcat} locale={locale} layers={len(layers)}")
         return Ok({
             "mode": mode,
             "locale": locale,
-            "strategy_mode": strategy_mode,
             "layers": layers,
-            "proactive_topics": proactive_topics,
         })
 
     async def _config_init(self, kw: dict[str, Any]):
@@ -1712,14 +1919,6 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
             return Ok({"persisted": success, "group_id": gid, "deleted": True})
         return Ok({"persisted": True, "group_id": gid, "deleted": False, "reason": "not_found"})
 
-    async def _config_save_topics(self, kw: dict[str, Any]):
-        topics = kw.get("topics")
-        topic_list = [str(t).strip() for t in (topics or []) if str(t).strip()]
-        self._qq_settings["proactive_topics"] = topic_list
-        success = await self._persist_business_config()
-        self._emit_log("INFO", f"主动发言话题已更新: {len(topic_list)}条")
-        return Ok({"count": len(topic_list), "persisted": success})
-
     async def _run_message_handler(self, message: Dict[str, Any]) -> None:
         await self.handler_runtime_service.run_message_handler(message)
 
@@ -1733,90 +1932,32 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
     #: （``napcat.html`` 就在发 ``locale``）。老入口靠自己的 `**_` 把它们悄悄吞掉；
     #: 合并后如果直接 `**kw` 转发，多余的键会撞到服务层；而漏在名单外的键会**静默
     #: 丢失** —— 回复缓冲那两个开关正是这么踩的：界面能点，值从没存进去过。
-    _CONFIG_SAVE_KEYS = frozenset({
-        "onebot_url", "token", "napcat_directory", "show_napcat_window", "reply_mode",
-        "show_onboarding", "guide_step_napcat_done", "guide_step_config_done",
-        "guide_step_runtime_done", "normal_relay_probability", "truth_reply_probability",
-        "backlog_labels", "group_attention_max_score", "group_attention_focus_threshold",
-        "group_attention_focus_send_threshold", "group_attention_min_threshold",
-        "group_attention_message_gain", "attention_base_rise_rate",
-        "attention_message_boost", "attention_keyword_boost_ratio",
-        "attention_honeymoon_seconds", "attention_fall_seconds", "attention_fall_rate",
-        "attention_consume_ratio", "icebreaker_cold_threshold",
-        "retroactive_review_max_messages", "retroactive_review_max_reply",
-        "group_memory_enabled", "group_member_memory_enabled",
-        "private_participant_memory_enabled", "allow_cross_group_context",
-        "strategy_mode", "qq_connection_mode", "qq_open_app_id",
-        "qq_open_client_secret", "qq_open_identity_probe_enabled",
-        "qq_open_sandbox_enabled", "local_stt_url",
-        "group_buffer_enabled", "private_buffer_enabled",
-        "enable_group_attention",
-        "auto_start_on_launch",
-    })
+    #:
+    #: 名单由 ``settings_schema`` 生成（只收 ``saveable=True`` 的键，含历史别名）。
+    #: 加键请改那张表，别在这里手写。
+    _CONFIG_SAVE_KEYS = settings_schema.SAVEABLE_KEYS
 
     @ui.action(id="config", label=tr("entries.config.name", default="保存配置"), refresh_context=True)
     @plugin_entry(
         id="config",
         name=tr("entries.config.name", default="保存配置"),
-        description=tr("entries.config.description", default="写入持久化设置与提示词。action 取 save / init / nl / prompt_save / prompt_reset / group_prompt_save / group_prompt_delete / save_topics / attention_adjust / memory_forget。"),
+        description=tr("entries.config.description", default="写入持久化设置与提示词。action 取 save / init / nl / prompt_save / prompt_reset / group_prompt_save / group_prompt_delete / attention_adjust / memory_forget。"),
         input_schema={"type": "object", "properties": {
             "action": {"type": "string",
                        "enum": ["save", "init", "nl", "prompt_save", "prompt_reset",
                                 "group_prompt_save", "group_prompt_delete",
-                                "save_topics", "attention_adjust", "memory_forget"],
-                       "description": "save=保存设置（其余参数见下）；init=初始化配置；nl=用自然语言改 OneBot 地址/token；prompt_save/reset=提示词覆盖；group_prompt_save/delete=群专属提示词；save_topics=主动发言话题；attention_adjust=调群注意力；memory_forget=清除群长期记忆"},
+                                "attention_adjust", "memory_forget"],
+                       "description": "save=保存设置（其余参数见下）；init=初始化配置；nl=用自然语言改 OneBot 地址/token；prompt_save/reset=提示词覆盖；group_prompt_save/delete=群专属提示词；attention_adjust=调群注意力；memory_forget=清除群长期记忆"},
             "message": {"type": "string", "description": "nl：自然语言指令"},
             "locale": {"type": "string", "description": "prompt_save / prompt_reset：语言"},
             "layer_id": {"type": "string", "description": "prompt_save / prompt_reset：提示词层 id"},
             "text": {"type": "string", "description": "prompt_save / group_prompt_save：内容（群提示词传空串=删除）"},
             "group_id": {"type": "string", "description": "group_prompt_save / group_prompt_delete / attention_adjust / memory_forget：群号"},
             "delta": {"type": "number", "description": "attention_adjust：正数加分、负数扣分"},
-            "topics": {"type": "array", "items": {"type": "string"}, "description": "save_topics：话题列表"},
-            "guide_step_config_done": {"type": "boolean", "description": "init / save：配置步骤是否已完成"},
-            # ── action="save" 的键。必须与 _CONFIG_SAVE_KEYS 及
-            #    dashboard_service.save_settings 的签名三者一致 ——
-            #    漏一个，那个设置就会静默存不进去。
-            "onebot_url": {"type": "string", "description": "save：OneBot 地址"},
-            "token": {"type": "string", "description": "save：OneBot token"},
-            "napcat_directory": {"type": "string", "description": "save：NapCat 安装目录"},
-            "show_napcat_window": {"type": "boolean", "description": "save：是否显示 NapCat 窗口"},
-            "reply_mode": {"type": "string", "enum": ["text", "voice", "both"], "description": "save：回复形式"},
-            "show_onboarding": {"type": "boolean", "description": "save：是否显示引导"},
-            "guide_step_napcat_done": {"type": "boolean", "description": "save：NapCat 步骤是否已完成"},
-            "guide_step_runtime_done": {"type": "boolean", "description": "save：运行时步骤是否已完成"},
-            "normal_relay_probability": {"type": "number", "description": "save：普通转发概率 0~1"},
-            "truth_reply_probability": {"type": "number", "description": "save：开放群回复概率 0~1"},
-            "backlog_labels": {"type": "array", "items": {"type": "object"}, "description": "save：待审阅标签"},
-            "group_attention_max_score": {"type": "number", "description": "save：群注意力上限"},
-            "group_attention_focus_threshold": {"type": "number", "description": "save：进入专注的阈值"},
-            "group_attention_focus_send_threshold": {"type": "number", "description": "save：专注时主动发言阈值"},
-            "group_attention_min_threshold": {"type": "number", "description": "save：群注意力下限"},
-            "group_attention_message_gain": {"type": "number", "description": "save：每条消息的注意力增益"},
-            "attention_base_rise_rate": {"type": "number", "description": "save：注意力基础上升速率"},
-            "attention_message_boost": {"type": "number", "description": "save：消息带来的额外增益"},
-            "attention_keyword_boost_ratio": {"type": "number", "description": "save：命中关键词的增益倍率"},
-            "attention_honeymoon_seconds": {"type": "integer", "description": "save：专注后的蜜月时长（秒）"},
-            "attention_fall_seconds": {"type": "integer", "description": "save：注意力衰减周期（秒）"},
-            "attention_fall_rate": {"type": "number", "description": "save：每周期衰减量"},
-            "attention_consume_ratio": {"type": "number", "description": "save：回复消耗的注意力比例"},
-            "icebreaker_cold_threshold": {"type": "integer", "description": "save：冷场多少条后主动破冰"},
-            "retroactive_review_max_messages": {"type": "integer", "description": "save：回溯审核最多取多少条"},
-            "retroactive_review_max_reply": {"type": "integer", "description": "save：回溯最多补回多少条"},
-            "group_memory_enabled": {"type": "boolean", "description": "save：群长期记忆"},
-            "group_member_memory_enabled": {"type": "boolean", "description": "save：群成员记忆（需群记忆开启）"},
-            "private_participant_memory_enabled": {"type": "boolean", "description": "save：私聊 participant 记忆"},
-            "allow_cross_group_context": {"type": "boolean", "description": "save：允许跨群上下文"},
-            "strategy_mode": {"type": "string", "enum": ["neko_dynamic", "neko_scene"], "description": "save：策略模式"},
-            "qq_connection_mode": {"type": "string", "enum": list(CONNECTION_MODES), "description": "save：连接方式"},
-            "qq_open_app_id": {"type": "string", "description": "save：开放平台 AppID"},
-            "qq_open_client_secret": {"type": "string", "description": "save：开放平台密钥"},
-            "qq_open_identity_probe_enabled": {"type": "boolean", "description": "save：开放平台身份取证"},
-            "qq_open_sandbox_enabled": {"type": "boolean", "description": "save：开放平台沙箱环境"},
-            "local_stt_url": {"type": "string", "description": "save：本地 STT 地址"},
-            "group_buffer_enabled": {"type": "boolean", "description": "save：群聊回复缓冲"},
-            "private_buffer_enabled": {"type": "boolean", "description": "save：私聊回复缓冲"},
-            "enable_group_attention": {"type": "boolean", "description": "save：群组注意力（neko_dynamic 策略下会被强制开启）"},
-            "auto_start_on_launch": {"type": "boolean", "description": "save：自启 —— 每次插件启动都拉起 NapCat 并接上自动回复"},
+            # ── action="save" 的键由 settings_schema.input_schema_properties() 生成。
+            #    加键只改那张表 —— 过去这里要和白名单、save_settings 签名三处手工对齐，
+            #    漏一处就静默失效。
+            **settings_schema.input_schema_properties(),
         }, "required": ["action"], "additionalProperties": False},
     )
     # ⚠️ 方法名**不能**叫 `config`：基类在 `plugin/sdk/shared/core/base.py:65`
@@ -1847,8 +1988,6 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
             return await self._config_group_prompt_save(kw)
         if action == "group_prompt_delete":
             return await self._config_group_prompt_delete(kw)
-        if action == "save_topics":
-            return await self._config_save_topics(kw)
         if action == "attention_adjust":
             return await self._config_attention_adjust(kw)
         if action == "memory_forget":
@@ -1856,15 +1995,51 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
         return Err(SdkError(
             f"BAD_ACTION: config 不支持 {action!r}"
             f"（可选 save/init/nl/prompt_save/prompt_reset/group_prompt_save/"
-            f"group_prompt_delete/save_topics/attention_adjust/memory_forget）"))
+            f"group_prompt_delete/attention_adjust/memory_forget）"))
 
     async def _config_save(self, kw: dict[str, Any]):
-        """保存设置。只认白名单里的键 —— 多余的静默丢弃，而不是撞到服务层。"""
+        """保存设置。只认白名单里的键 —— 多余的**记一条日志**后丢弃。
+
+        以前是纯静默丢弃，这是本插件反复出现的故障形态：调用方（前端表单、
+        调试脚本、`proactive_topics` 这种走错了入口的键）以为保存成功，实际
+        整键消失且没有任何痕迹可查。丢弃本身是必须的（不能撞到服务层），
+        但"丢了什么"必须留痕。
+
+        **但宿主塞进来的信封键不算"手滑"**：调用插件 entry 的那两条宿主路径都会
+        往参数里加一个下划线开头的信封 ——
+
+        * `plugin/server/application/plugins/ui_query_service.py:1756-1762`：
+          hosted UI action 触发时加 `_ctx`（含 `run_id`）；
+        * `brain/task_executor.py:2329-2348`：agent 派发调用时加 `_ctx`
+          （含 `lanlan_name` / `conversation_id` / `latest_user_request` / `entry_timeout`）。
+
+        它们以前会被算进"不可识别的键"，于是**每次保存都报一条警告**
+        （真机 17:59:37 那条 `丢弃了 1 个不可识别的键: ['_ctx']`）—— 噪音会把真正的
+        手滑键名淹掉，正好毁掉这条日志存在的意义。所以下划线开头的信封键不进 `dropped`；
+        只有信封、没有真手滑时**一声不响**。
+        """
         payload = {k: v for k, v in kw.items() if k in self._CONFIG_SAVE_KEYS}
+        envelopes = sorted(k for k in kw if k.startswith("_"))
+        dropped = sorted(
+            k for k in kw
+            if k not in self._CONFIG_SAVE_KEYS and k != "action" and not k.startswith("_")
+        )
+        if dropped:
+            # 双写：ring 给界面看，文件日志给事后复盘（`_emit_log` 只进 ring，
+            # 而 ring 在插件重载时清空 —— 这条警告就这么"查不到"过一次）。
+            emit_bridge_log(
+                self,
+                "WARNING",
+                f"[Config] save 丢弃了 {len(dropped)} 个不可识别的键: {dropped}"
+                f"（可用键 {len(self._CONFIG_SAVE_KEYS)} 个；"
+                f"注意有些键有专用入口（例如 group_prompts 走 group_prompt_save））",
+            )
         if not payload:
             return Err(SdkError(
                 "INVALID_INPUT: save 没收到任何可识别的设置项"
-                f"（可用键 {len(self._CONFIG_SAVE_KEYS)} 个，见 config 入口的 input_schema）"))
+                f"（可用键 {len(self._CONFIG_SAVE_KEYS)} 个，见 config 入口的 input_schema）"
+                + (f"；被丢弃的键: {dropped + envelopes}"
+                   if (dropped or envelopes) else "")))
         return await self.dashboard_service.save_settings(**payload)
 
     async def _deploy_ensure(self, kw: dict[str, Any]):
@@ -2196,6 +2371,8 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
         fname = str(filename or "").strip()
         description = str(desc or "").strip()
         raw_b64 = str(data_base64 or "").strip()
+        #: 传了就让 VLM 生成描述（覆盖 desc）；没传 / 解析失败则沿用 desc。
+        auto_desc = bool(kw.get("auto_desc"))
         if not fname:
             return Err(SdkError("INVALID_INPUT: filename 不能为空"))
         if not raw_b64:
@@ -2245,8 +2422,123 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
         with open(sticker_json, "w", encoding="utf-8") as f:
             _json.dump(data, f, ensure_ascii=False, indent=2)
         self.session_instruction_service._sticker_catalog_cache = ""
-        self.logger.info(f"上传表情包: id={sid}, file={dest_name}, desc={description}")
-        return Ok({"id": sid, "desc": description, "path": dest_name, "total": len(data)})
+
+        # 自动描述：**先注册再升级**。VLM 失败（模型没配 / 超时 / 返回空）时，
+        # 上面那条用 desc/文件名兜底的登记仍然有效 —— 不会因为一次模型抖动就丢图。
+        vlm_used = False
+        if auto_desc:
+            vlm_desc = await self._vlm_describe_locator(
+                str(dest_path), prompt=STICKER_VLM_PROMPT, max_tokens=80,
+            )
+            if vlm_desc:
+                data[sid] = {"desc": vlm_desc, "path": dest_name}
+                with open(sticker_json, "w", encoding="utf-8") as f:
+                    _json.dump(data, f, ensure_ascii=False, indent=2)
+                self.session_instruction_service._sticker_catalog_cache = ""
+                description = vlm_desc
+                vlm_used = True
+                self.logger.info(f"[VLM] 表情包自动描述: id={sid}, desc={vlm_desc}")
+            else:
+                self.logger.info(f"[VLM] 表情包自动描述返回空，沿用兜底描述: id={sid}")
+
+        self.logger.info(f"上传表情包: id={sid}, file={dest_name}, desc={description}, vlm={vlm_used}")
+        return Ok({"id": sid, "desc": description, "path": dest_name,
+                   "total": len(data), "vlm_used": vlm_used})
+
+    async def _asset_describe_sticker(self, kw: dict[str, Any]):
+        """对一张**已注册**的表情包跑 VLM，把描述写回 sticker.json。
+
+        `upload_sticker` 的 `auto_desc` 走的是同一段逻辑；这条单独开出来是为了
+        能对**以前传的**表情包补描述（那些的描述多半还是文件名）。
+        """
+        import os as _os
+
+        sid = str(kw.get("id") or "").strip()
+        if not sid:
+            return Err(SdkError("INVALID_INPUT: id 不能为空"))
+        sticker_json = str(self.data_path("sticker.json"))
+        sticker_dir = str(self.data_path("sticker"))
+        try:
+            with open(sticker_json, "r", encoding="utf-8") as f:
+                data = json.loads(f.read())
+        except Exception:
+            data = {}
+        if not isinstance(data, dict) or sid not in data:
+            return Err(SdkError(f"NOT_FOUND: 没有 id={sid} 的表情包"))
+        entry = data[sid]
+        raw_path = entry.get("path", "") if isinstance(entry, dict) else ""
+        safe_name = _os.path.basename(str(raw_path).replace("\\", "/"))
+        full_path = _os.path.join(sticker_dir, safe_name)
+        if not safe_name or not _os.path.isfile(full_path):
+            return Err(SdkError(f"NOT_FOUND: 图片文件不存在: data/sticker/{safe_name}"))
+
+        desc = await self._vlm_describe_locator(full_path, prompt=STICKER_VLM_PROMPT, max_tokens=80)
+        if not desc:
+            # 空结果要**报错**而不是静默保留旧描述：界面上点了"重新解析"却什么都没变，
+            # 用户会以为是自己没点到。多半是模型没配或没返回内容。
+            return Err(SdkError(
+                "VLM_FAILED: 没能解析出描述（对话模型未配置、不支持看图，或返回为空）"))
+
+        previous = entry.get("desc", "") if isinstance(entry, dict) else ""
+        data[sid] = {"desc": desc, "path": raw_path}
+        with open(sticker_json, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        self.session_instruction_service._sticker_catalog_cache = ""
+        self.logger.info(f"[VLM] 表情包重新描述: id={sid}, {previous!r} -> {desc!r}")
+        return Ok({"id": sid, "desc": desc, "previous": previous})
+
+    async def _asset_delete_sticker(self, kw: dict[str, Any]):
+        """删掉一个已注册表情包：先从 sticker.json 摘掉登记，再删磁盘上的图。
+
+        **顺序是刻意的**：先摘登记、再删文件。万一删文件失败（被占用 / 权限），
+        登记已经没了，猫娘不会再引用一张不存在的图；反过来则会留下悬空登记 ——
+        那比留个孤儿文件糟得多。
+        """
+        import os as _os
+
+        sid = str(kw.get("id") or "").strip()
+        if not sid:
+            return Err(SdkError("INVALID_INPUT: id 不能为空"))
+        sticker_json = str(self.data_path("sticker.json"))
+        sticker_dir = str(self.data_path("sticker"))
+        try:
+            with open(sticker_json, "r", encoding="utf-8") as f:
+                data = json.loads(f.read())
+        except Exception:
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        if sid not in data:
+            return Err(SdkError(f"NOT_FOUND: 没有 id={sid} 的表情包"))
+
+        entry = data.pop(sid)
+        raw_path = entry.get("path", "") if isinstance(entry, dict) else ""
+        with open(sticker_json, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        removed_file = False
+        # 同一个文件可能被登记了多次（register_sticker 允许这么做）；
+        # 还有人引用就别删图，否则会把别人那条表情包一起弄坏。
+        still_used = any(
+            (v.get("path", "") if isinstance(v, dict) else "") == raw_path
+            for v in data.values()
+        )
+        # 只取 basename 并统一分隔符：sticker.json 是本地文件，理论上可能被手改，
+        # 不能让 "../../x" 这种值逃出表情包目录。
+        safe_name = _os.path.basename(str(raw_path).replace("\\", "/"))
+        if safe_name and not still_used:
+            target = _os.path.join(sticker_dir, safe_name)
+            try:
+                if _os.path.isfile(target):
+                    _os.remove(target)
+                    removed_file = True
+            except Exception as e:
+                # 文件删不掉不影响这次调用的结果：登记已经摘掉了
+                self.logger.warning(f"删除表情包文件失败（登记已摘除）: {target}: {e}")
+
+        self.session_instruction_service._sticker_catalog_cache = ""
+        self.logger.info(f"删除表情包: id={sid}, path={raw_path}, 文件已删={removed_file}")
+        return Ok({"id": sid, "path": raw_path, "removed_file": removed_file, "total": len(data)})
 
     # ── asset：机器人自有资源 ───────────────────────────────────
     #
@@ -2260,11 +2552,13 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
     @plugin_entry(
         id="asset",
         name=tr("entries.asset.name", default="表情包与注意力"),
-        description=tr("entries.asset.description", default="表情包目录的读写与注意力读数。action 取 list_stickers / register_sticker / upload_sticker / attention。**此入口对 AI 隐藏。**"),
+        description=tr("entries.asset.description", default="表情包目录的读写与注意力读数。action 取 list_stickers / register_sticker / upload_sticker / describe_sticker / delete_sticker / attention。**此入口对 AI 隐藏。**"),
         input_schema={"type": "object", "properties": {
             "action": {"type": "string",
-                       "enum": ["list_stickers", "register_sticker", "upload_sticker", "attention"],
-                       "description": "list_stickers=列出已注册表情包；register_sticker=登记磁盘上已有的图片；upload_sticker=上传 base64 图片并存档；attention=读群注意力状态"},
+                       "enum": ["list_stickers", "register_sticker", "upload_sticker", "describe_sticker", "delete_sticker", "attention"],
+                       "description": "list_stickers=列出已注册表情包；register_sticker=登记磁盘上已有的图片；upload_sticker=上传 base64 图片并存档；describe_sticker=用 VLM 重新解析某张表情包的描述；delete_sticker=删除一个已注册表情包（连图一起删）；attention=读群注意力状态"},
+            "id": {"type": "string", "description": "describe_sticker / delete_sticker：表情包 id（取自 list_stickers）"},
+            "auto_desc": {"type": "boolean", "description": "upload_sticker：为 true 时用 VLM 自动生成描述并覆盖 desc；VLM 失败则沿用 desc"},
             "image_path": {"type": "string", "description": "register_sticker：data/sticker/ 下的图片文件名"},
             "filename": {"type": "string", "description": "upload_sticker：文件名（如 cat.png）"},
             "data_base64": {"type": "string", "description": "upload_sticker：图片 base64（可带 data:image/...;base64, 前缀）"},
@@ -2282,11 +2576,16 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
             return await self._asset_register_sticker(kw)
         if action == "upload_sticker":
             return await self._asset_upload_sticker(kw)
+        if action == "describe_sticker":
+            return await self._asset_describe_sticker(kw)
+        if action == "delete_sticker":
+            return await self._asset_delete_sticker(kw)
         if action == "attention":
             return await self._asset_attention(kw)
         return Err(SdkError(
             f"BAD_ACTION: asset 不支持 {action!r}"
-            f"（可选 list_stickers/register_sticker/upload_sticker/attention）"))
+            f"（可选 list_stickers/register_sticker/upload_sticker/describe_sticker"
+            f"/delete_sticker/attention）"))
 
     # ── send：收发 ──────────────────────────────────────────────
     #
@@ -2470,43 +2769,57 @@ class QQAutoReplyPlugin(QQAutoReplySessionMixin, QQAutoReplyPromptingMixin, QQAu
 
         任何一步失败都不向上抛：凭据此刻已经写好了，启动失败是**运行状态**问题，不该让
         整个绑定结果变成"失败"。
+
+        **整段持闸**：下面是「停 → 丢对象 → 启」，中间任何一刻放别的入口进来动同一个
+        连接对象，都会复现 2026-09-27 00:18:53 那次
+        ``AttributeError: 'NoneType' object has no attribute 'get'``（``disconnect``
+        把正在 ``connect`` 的 ``_http`` 关掉并置空）。重入是安全的：内层
+        ``stop_runtime`` / ``start_auto_reply`` 与本方法同属一个任务。
         """
         out: dict[str, Any] = {"ok": False, "status": "", "error": ""}
         if not auto_start:
             return out
-        try:
-            await self._stop_auto_reply_runtime(stop_napcat=False)
-        except Exception as e:
-            # 停不下来不阻断重建：对象照样丢，运行状态由下面的 start 收敛。
-            self.logger.warning(f"[绑定] 停止旧运行时失败（继续重建）: {e}")
-        self.qq_client = None
-        try:
-            # 必须走 service，不能调入口方法：`start_auto_reply` 这个入口已经并进
-            # `runtime`（见本文件 runtime 段），调 self.start_auto_reply() 只会抛
-            # AttributeError，然后被下面的 except 吞掉 —— 表现为"启动静默失败"。
-            started = await self.runtime_ops_service.start_auto_reply()
-        except Exception as e:
-            out["error"] = f"{type(e).__name__}: {e}"
-            self.logger.warning(f"[绑定] 凭据已写入，但自动回复启动失败: {e}")
+        async with runtime_transition_guard(self).hold("收尾重建运行时"):
+            self.logger.info(f"[运行时] 收尾重建连接对象（auto_start={auto_start}）")
+            try:
+                await self._stop_auto_reply_runtime(stop_napcat=False)
+            except Exception as e:
+                # 停不下来不阻断重建：对象照样丢，运行状态由下面的 start 收敛。
+                self.logger.warning(f"[绑定] 停止旧运行时失败（继续重建）: {e}")
+            self.qq_client = None
+            try:
+                # 必须走 service，不能调入口方法：`start_auto_reply` 这个入口已经并进
+                # `runtime`（见本文件 runtime 段），调 self.start_auto_reply() 只会抛
+                # AttributeError，然后被下面的 except 吞掉 —— 表现为"启动静默失败"。
+                started = await self.runtime_ops_service.start_auto_reply()
+            except Exception as e:
+                out["error"] = f"{type(e).__name__}: {e}"
+                self.logger.warning(f"[绑定] 凭据已写入，但自动回复启动失败: {e}")
+                return out
+            if started.is_ok():
+                payload = started.value if isinstance(started.value, dict) else {}
+                out["ok"] = True
+                out["status"] = str(payload.get("status") or "")
+                self.logger.info(f"[绑定] 自动回复已启动（{out['status'] or 'ok'}）")
+            else:
+                out["error"] = str(started.error)
+                self.logger.warning(f"[绑定] 凭据已写入，但自动回复启动被拒: {started.error}")
             return out
-        if started.is_ok():
-            payload = started.value if isinstance(started.value, dict) else {}
-            out["ok"] = True
-            out["status"] = str(payload.get("status") or "")
-            self.logger.info(f"[绑定] 自动回复已启动（{out['status'] or 'ok'}）")
-        else:
-            out["error"] = str(started.error)
-            self.logger.warning(f"[绑定] 凭据已写入，但自动回复启动被拒: {started.error}")
-        return out
 
     @staticmethod
     def _sanitize_message_text(text: str, *, is_reply_to_bot: bool = False) -> str:
         import re
-        # 回复标签 → 人类可读格式
+        # 回复标签 → 人类可读格式。
+        #
+        # id 用 [^\]]* 而不是 \d+：消息 ID 不保证是纯数字。实测既有
+        # ``poke_<群>_<人>_<时间戳>`` 这类（backlog 里 120 个 ID 有 14 个非纯数字），
+        # 开放平台/Lagrange 更甚。用 \d+ 时这些 CQ 码替换不掉，**用户会在聊天里
+        # 直接看到裸的 [CQ:reply,id=...]**。同一模式在 enrichment._fetch_reply_content
+        # 也有一份，改这里时两处一起改。
         if is_reply_to_bot:
-            text = re.sub(r"\[CQ:reply,id=\d+[^\]]*\]", "[回复你的消息]", text)
+            text = re.sub(r"\[CQ:reply,\s*id=[^\]]*\]", "[回复你的消息]", text)
         else:
-            text = re.sub(r"\[CQ:reply,id=\d+[^\]]*\]", "[回复他人的消息]", text)
+            text = re.sub(r"\[CQ:reply,\s*id=[^\]]*\]", "[回复他人的消息]", text)
         text = re.sub(r"\[CQ:at,qq=all\]", "@全体成员", text)
         text = re.sub(r"\[CQ:at,qq=(\d+)\]", r"@用户\1", text)
         return text

@@ -11,13 +11,13 @@ ForeverCompanionPlugin——SDK 的 entry 发现遍历 type(self)，与定义文
 
 from __future__ import annotations
 
-import asyncio
 import time
+from copy import deepcopy
 from typing import Any
 
 from plugin.sdk.plugin import Err, Ok, Result, SdkError
 
-from ..core.fragments import build_fragment_prompt, parse_fragment_response
+from ..core.fragments import build_fragment_prompt, fabricate_demo_diary, parse_fragment_response
 from ..core.journal import (
     archive_brief,
     fabricate_demo_pages,
@@ -26,13 +26,18 @@ from ..core.journal import (
 )
 from ..core.review import fabricate_demo_reviews, review_due
 from ..core.state import (
+    _CHANNEL_TRANSPORT_DIRECT,
+    _DIARY_MAX_ENTRIES,
     _FRAGMENT_DEFAULT_CONFIDENCE,
     _FRAGMENT_DEFAULT_SLOT,
+    _HOST_LLM_MAX_TOKENS_FRAGMENT,
+    _HOST_LLM_TIMEOUT_FRAGMENT_SEC,
     _JOURNAL_DEFAULT_INTERVAL_DAYS,
     _JOURNAL_MAX_PAGES,
     _TIMED_ACTIONS,
     _TONE_COLD_LABELS,
     _debug_backup_key,
+    _diary_key,
     _journal_archive_key,
     _journal_key,
     _LanlanShard,
@@ -138,7 +143,7 @@ class DebugEntriesMixin:
         (
             "debug_expire_mood",
             "调试：立即让当前限时情绪到期",
-            "把当前限时情绪动作的到期时间拨到过去，下一趟监督循环（面板轮询约 5 秒）即触发到期恢复台词。",
+            "把当前限时情绪动作的到期时间拨到过去，下一趟监督循环结束工具记录并同步内部 read 提醒，不发起回复。",
             {"type": "object", "properties": dict(_DEBUG_LANLAN_PROP)},
         ),
         (
@@ -192,6 +197,25 @@ class DebugEntriesMixin:
             "调试：清空个人日记",
             "单独清空当前角色的个人日记（活架手记与藏书阁合订本一并清）。清空前先走备份通道，误清可用 debug_journal_fill(restore=true) 原样找回。面板无此入口时的调试专用出口。",
             {"type": "object", "properties": dict(_DEBUG_LANLAN_PROP)},
+        ),
+        (
+            "debug_diary_fill",
+            "调试：时光日记示例注入/还原",
+            "替换指定角色的整本时光日记为测试示例。首次注入前备份真实记录；restore=true 整本还原，也会覆盖测试期间新增的记录。仅调试模式可用，不调用模型。",
+            {
+                "type": "object",
+                "properties": {
+                    "entries": {
+                        "type": "integer", "minimum": 1, "maximum": _DIARY_MAX_ENTRIES,
+                        "default": 24, "description": "注入记录数（默认 24，上限 120）",
+                    },
+                    "restore": {
+                        "type": "boolean", "default": False,
+                        "description": "true = 还原首次注入前的真实时光日记；默认 false = 注入示例",
+                    },
+                    **_DEBUG_LANLAN_PROP,
+                },
+            },
         ),
         (
             "debug_capture_fragment",
@@ -334,6 +358,7 @@ class DebugEntriesMixin:
             reason="调试设定",
             timed=timed,
             lanlan=name,
+            origin="user",
         )
         minutes_ago = max(0, int(minutes_ago or 0))
         if minutes_ago:
@@ -346,8 +371,8 @@ class DebugEntriesMixin:
         if timed and shard.mood.expires_at > 0:
             seconds = shard.mood.expires_at - time.time()
             remaining = (
-                f"将在 {max(0, int(seconds))} 秒后到期（下一趟监督循环触发恢复台词）"
-                if seconds > 0 else "已过期，下一趟监督循环即触发恢复台词"
+                f"将在 {max(0, int(seconds))} 秒后记录到期（只同步内部 read 提醒）"
+                if seconds > 0 else "记录已到期，下一趟监督循环结束记录，不发起回复"
             )
         elif action == "seek_harbor":
             limit = self._mood_cfg.get("open_action_timeout_minutes")
@@ -371,7 +396,7 @@ class DebugEntriesMixin:
             "forced": True,
             "action": state.action,
             "lanlan": name,
-            "note": "已把到期时间拨到过去；面板开着时约 5 秒内、否则下一趟 10 秒轮询即触发恢复台词。",
+            "note": "已把到期时间拨到过去；下一趟监督循环结束记录并同步内部 read 提醒，不发起回复。",
         })
 
     async def _debug_journal(self, force: bool = False, lanlan: str = "", **_: Any):
@@ -399,6 +424,65 @@ class DebugEntriesMixin:
                 "空=开关未开，failed=传输拒收）。"
             )
         return Ok(payload)
+
+    async def _debug_diary_fill(
+        self, entries: int = 24, restore: bool = False, lanlan: str = "", **_: Any
+    ):
+        """独占替换时光日记；保存成功后才移除备份，写失败或取消时回退内存。"""
+        if not self._tide_cfg.get("debug_mode", False):
+            return Err(SdkError("调试模式未开启，已中止操作"))
+        if not self._store_ready:
+            return Err(SdkError("persist_failed"))
+        try:
+            count = max(1, min(int(entries), _DIARY_MAX_ENTRIES))
+        except (TypeError, ValueError, OverflowError):
+            return Err(SdkError("entries 必须是整数"))
+        name, shard = await self._debug_target_shard(lanlan)
+        key = _debug_backup_key("diary", name)
+        # 新入口没有旧版备份；不把真实角色名末尾的 |pre-debug 误当作备份。
+        result = await self._store_read(key)
+        if isinstance(result, Err):
+            return Err(SdkError("备份状态读不出来，已中止操作"))
+        backup = result.value
+        if backup is not None and (
+            not isinstance(backup, dict) or not isinstance(backup.get("diary"), list)
+            or any(not isinstance(item, dict) for item in backup["diary"])
+        ):
+            return Err(SdkError("时光日记备份格式无效，已中止操作"))
+        if restore and backup is None:
+            return Ok({"restored": False, "lanlan": name, "note": "没有可还原的备份（从未注入过）。"})
+        if not restore and backup is None:
+            current = await self._store_read(_diary_key(name))
+            if isinstance(current, Err) or (
+                current.value is not None and current.value != shard.diary
+            ):
+                return Err(SdkError("真实时光日记尚未可靠载入，已中止注入；请重启插件后重试"))
+            saved = await self._debug_backup_save("diary", name, {"diary": deepcopy(shard.diary)})
+            if isinstance(saved, Err):
+                return Err(SdkError("备份真实数据失败，已中止注入"))
+        previous = shard.diary
+        shard.diary = deepcopy(backup["diary"]) if restore else fabricate_demo_diary(count)
+        try:
+            saved = await self._save_shard_diary(name, shard)
+        except BaseException:
+            shard.diary = previous
+            raise
+        if isinstance(saved, Err):
+            shard.diary = previous
+            return self._persist_error(saved)
+        if restore:
+            dropped = await self._store_delete(key, f"debug diary backup for {name}")
+            if isinstance(dropped, Err):
+                return self._persist_error(dropped)
+        self.logger.info("debug diary fill: lanlan={} restored={} entries={}", name, restore, len(shard.diary))
+        return Ok({
+            "restored" if restore else "seeded": True,
+            "lanlan": name,
+            "entries_total": len(shard.diary),
+            "fragment_total": sum(1 for item in shard.diary if item.get("source") == "auto"),
+            "note": "真实时光日记已还原，备份已清除。" if restore else
+                    "打开日记页「时光日记」查看示例；测完用 restore=true 还原首次注入前的记录。",
+        })
 
     async def _debug_journal_fill(
         self, restore: bool = False, pages: int = 3, clear: bool = False, lanlan: str = "", **_: Any
@@ -539,10 +623,11 @@ class DebugEntriesMixin:
         if turn is None:
             return Ok({"captured": False, "lanlan": name, "note": "recent.json 里没有可分析的轮次。"})
         user_text, her_text = turn
-        slot = str(self._fragments_cfg.get("slot") or "").strip() or _FRAGMENT_DEFAULT_SLOT
-        # 一趟只取一次：过去这里连读两遍宿主配置（None 分支又读一遍）
-        core_cfg = await self._aload_core_config()
-        resolved = self._resolve_tone_slot(core_cfg, slot)
+        # 与运行时同一条路：按 [fragments].mode 先问宿主管线、拿不到再回落直连。
+        # 调试入口若自己另走一份直连解析，用户在这里看到的结论就和真实 tick 不符
+        resolved, slot, core_cfg = await self._resolve_channel_endpoint(
+            self._fragments_cfg, default_slot=_FRAGMENT_DEFAULT_SLOT
+        )
         if resolved is None:
             return Ok({
                 "captured": False,
@@ -550,15 +635,19 @@ class DebugEntriesMixin:
                 "slot": slot,
                 "note": _slot_dormancy_hint(core_cfg, slot),
             })
-        raw = await asyncio.to_thread(
-            self._post_chat_completion,
-            resolved["base_url"], resolved["api_key"], resolved["model"],
+        raw = await self._channel_chat(
+            resolved,
             build_fragment_prompt(user_text, her_text),
+            timeout_sec=_HOST_LLM_TIMEOUT_FRAGMENT_SEC,
+            max_completion_tokens=_HOST_LLM_MAX_TOKENS_FRAGMENT,
+            call_type="plugin_fragment_capture_debug",
         )
         parsed = parse_fragment_response(raw or "")
         payload: JsonObject = {
             "lanlan": name,
             "slot": slot,
+            "transport": str(resolved.get("transport") or _CHANNEL_TRANSPORT_DIRECT),
+            "model": str(resolved.get("model") or ""),
             "user_text": user_text[:200],
             "raw": (raw or "")[:400],
             "parsed": parsed,

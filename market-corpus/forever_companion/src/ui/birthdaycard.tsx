@@ -103,7 +103,7 @@ export function BirthdaySettingsCard(props: {
   }
 
   return (
-    <Card title={t("panel.birthday.title", { defaultValue: "主人生日" })}>
+    <Card title={t("panel.birthday.title", { defaultValue: "你的生日" })}>
       <div className="tm-bday-row">
         <button
           type="button"
@@ -118,7 +118,7 @@ export function BirthdaySettingsCard(props: {
           disabled={!canSave || busy}
           small
           onChange={onToggleKeep}
-          label={t("panel.birthday.keepDiary", { defaultValue: "当天留一条纪念手记" })}
+          label={t("panel.birthday.keepDiary", { defaultValue: "保存一条生日记录" })}
         />
         {canSave && isSet ? (
           <span className="tm-bday-actions">
