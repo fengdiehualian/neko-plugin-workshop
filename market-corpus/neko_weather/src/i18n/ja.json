@@ -1,0 +1,12 @@
+{
+  "plugin.name": "天気猫娘",
+  "plugin.description": "猫娘に天気を聞いてみよう。現在の天気、時間ごとの降水確率、7 日間予報、服装と傘のアドバイスまで。よく使う都市を設定すれば毎朝お知らせします。Open-Meteo 使用、API キー不要",
+  "entry.get_weather.name": "天気を調べる",
+  "entry.get_weather.description": "現在の天気と、服装・傘・外出のアドバイスを取得します",
+  "entry.get_hourly.name": "時間ごとの天気",
+  "entry.get_hourly.description": "これから数時間の気温と降水確率を表示します",
+  "entry.set_home_city.name": "よく使う都市を設定",
+  "entry.set_home_city.description": "天気の検索と毎朝の配信で使う都市を記憶します",
+  "entry.push_daily_brief.name": "今すぐ天気を配信",
+  "entry.push_daily_brief.description": "今日の天気のお知らせをすぐに生成して配信します"
+}

@@ -1,0 +1,36 @@
+{
+  "modelId": "neko_yui",
+  "textureId": "default",
+  "version": "1.0.0",
+  "ysmTarget": "2.4.1",
+  "files": {
+    "ysm.json": {
+      "bytes": 946,
+      "sha256": "3d3a820530319531619f8f8a6ef9ef4484b9b412f1ebbd9cb283e7788f06aa68"
+    },
+    "models/main.json": {
+      "bytes": 64587,
+      "sha256": "1feb1121e6946a899c75ea020b32d01809672010ac043c410e2d049426e58205"
+    },
+    "models/arm.json": {
+      "bytes": 6297,
+      "sha256": "1ca1332dac123c6c72966660a694b770caea895ea41b95964c6866a27ab6c9e5"
+    },
+    "animations/main.animation.json": {
+      "bytes": 17120,
+      "sha256": "0cbd59d07acfa203438855d678e077da0af88e751d00e6fba713b1e775771ef5"
+    },
+    "animations/arm.animation.json": {
+      "bytes": 1958,
+      "sha256": "b1973bb324b9e4cc805937dcd6d6baa809507814ba522b7424d1da322671c0c6"
+    },
+    "animations/extra.animation.json": {
+      "bytes": 1560,
+      "sha256": "5c39123acf2008ec6682a298086a3096f9a3646acdbfb4e66b7252e4f16ae922"
+    },
+    "textures/default.png": {
+      "bytes": 5610,
+      "sha256": "f8ed6510dec8647895fb633dde7cad0d3338fe7b39f78e2566d389e4ec33709f"
+    }
+  }
+}

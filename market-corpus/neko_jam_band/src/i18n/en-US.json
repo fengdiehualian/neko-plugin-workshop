@@ -1,0 +1,30 @@
+{
+  "plugin.name": "Neko Jam Band",
+  "plugin.description": "You sing, your catgirl accompanies: real-time pitch detection, auto key estimation, I-V-vi-IV arpeggios. Four synth instruments (piano/epiano/music box/ukulele), plus third-harmony on sustained notes.",
+
+  "entry.jam_start.name": "Start Jam",
+  "entry.jam_start.description": "Start listening and accompany the master's singing.",
+
+  "entry.jam_stop.name": "Stop Jam",
+  "entry.jam_stop.description": "Stop accompanying and wrap up.",
+
+  "entry.set_instrument.name": "Set Instrument",
+  "entry.set_instrument.description": "Switch instrument: piano / epiano / music_box / ukulele.",
+  "entry.set_instrument.param.instrument": "Instrument name",
+  "entry.set_instrument.error.invalid": "Unknown instrument",
+
+  "entry.set_key.name": "Set Key",
+  "entry.set_key.description": "Set the key manually (e.g. C, Am) or use auto detection.",
+  "entry.set_key.param.key": "Key like C / G / Am / F#m, or auto",
+  "entry.set_key.error.invalid": "Cannot parse key, e.g. C, G, Am",
+
+  "entry.set_pattern.name": "Set Pattern",
+  "entry.set_pattern.description": "Switch pattern: arpeggio / chord_pad / offbeat.",
+  "entry.set_pattern.param.pattern": "Pattern: arpeggio / chord_pad / offbeat",
+
+  "entry.jam_status.name": "Jam Status",
+  "entry.jam_status.description": "Get jam status: key, master's current note, bars played.",
+
+  "entry.recent_notes.name": "Recent Notes",
+  "entry.recent_notes.description": "Get the master's recent sung note names."
+}

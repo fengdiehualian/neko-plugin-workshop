@@ -1,0 +1,124 @@
+# 给 GitHub Release 补正文（市场发布工作流没配 body，正文默认是空的）
+#
+# 正文来源优先级:
+#   1. release-notes/<tag>.md   —— 手写的详细版（推荐, 随仓库版本化）
+#   2. docs/CHANGELOG.md 里对应版本的小节 —— 兜底
+# 另外会从 release 资产里的 market-evidence.json 抽出版本/提交/包哈希,
+# 追加成"校验信息"表, 方便市场投稿与用户核对。
+name: Release Notes
+
+on:
+  release:
+    types: [created]
+  # 市场发布工作流是用内置 GITHUB_TOKEN 建 release 的, 而 GitHub 规定
+  # "由 GITHUB_TOKEN 触发的事件不会再产生新的 workflow run"(防递归),
+  # 所以 release: created 那条路对市场发布无效 —— 再挂 workflow_run 兜底,
+  # 保证正文一定会被补上, 不依赖手动 dispatch。
+  workflow_run:
+    workflows: ["Release N.E.K.O Plugin"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要补正文的 tag（如 v0.5.7）"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compose and patch release body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const owner = context.repo.owner, repo = context.repo.repo;
+            const payload = context.payload;
+
+            // tag 三个来源: release 事件 / workflow_run(标签推送时 head_branch 就是 tag) / 手动输入
+            const tag = (payload.release && payload.release.tag_name)
+              || (payload.workflow_run && payload.workflow_run.head_branch)
+              || (payload.inputs && payload.inputs.tag);
+            if (!tag || !/^v\d/.test(tag)) {
+              core.warning(`本次事件没有可用的版本 tag（${tag || '空'}），跳过`);
+              return;
+            }
+            const version = tag.replace(/^v/, '');
+            core.info(`目标 tag: ${tag}`);
+
+            // release 可能比 workflow_run 稍晚到位, 带重试地取
+            let release = null;
+            for (let attempt = 0; attempt < 8; attempt += 1) {
+              try {
+                release = (await github.rest.repos.getReleaseByTag({ owner, repo, tag })).data;
+                break;
+              } catch (e) {
+                if (attempt === 7) {
+                  core.warning(`找不到 ${tag} 对应的 release（${e.message}），跳过`);
+                  return;
+                }
+                await new Promise((r) => setTimeout(r, 15000));
+              }
+            }
+
+            // ① 手写正文优先
+            let body = '';
+            const handWritten = `release-notes/${tag}.md`;
+            if (fs.existsSync(handWritten)) {
+              body = fs.readFileSync(handWritten, 'utf8');
+              core.info(`使用 ${handWritten}`);
+            } else {
+              // ② 退回 CHANGELOG 的对应小节
+              const md = fs.readFileSync('docs/CHANGELOG.md', 'utf8');
+              const lines = md.split(/\r?\n/);
+              const start = lines.findIndex(l => l.startsWith(`## ${version}`));
+              if (start >= 0) {
+                const rest = lines.slice(start + 1);
+                const end = rest.findIndex(l => l.startsWith('## '));
+                const section = (end >= 0 ? rest.slice(0, end) : rest).join('\n').trim();
+                body = `# 🎮 猫娘小游戏 ${tag}\n\n${section}\n`;
+                core.info('使用 CHANGELOG 小节');
+              } else {
+                body = `# 🎮 猫娘小游戏 ${tag}\n\n详见 [docs/CHANGELOG.md](docs/CHANGELOG.md)。\n`;
+                core.warning(`CHANGELOG 里没有 ${version} 小节, 用了兜底正文`);
+              }
+            }
+
+            // ③ 追加校验信息（从 release 资产的 market-evidence.json 抽）
+            try {
+              // 重新取一次, 拿到刚上传完的资产列表
+              const fresh = (await github.rest.repos.getReleaseByTag({ owner, repo, tag })).data;
+              const ev = (fresh.assets || []).find(a => a.name === 'market-evidence.json');
+              if (ev) {
+                const asset = await github.rest.repos.getReleaseAsset({
+                  owner, repo, asset_id: ev.id, headers: { accept: 'application/octet-stream' },
+                });
+                const info = JSON.parse(Buffer.from(asset.data).toString('utf8'));
+                body += [
+                  '', '## 🔍 校验信息', '',
+                  '| 项 | 值 |', '|---|---|',
+                  `| 版本 | \`${info.version}\` |`,
+                  `| 源提交 | \`${info.source_commit}\` |`,
+                  `| 包 SHA-256 | \`${info.package && info.package.sha256}\` |`,
+                  `| payload hash | \`${info.package && info.package.payload_hash}\` |`,
+                  `| 包大小 | ${info.package && info.package.size} 字节 |`,
+                  '', '> 由 `neko-plugin check --release --market-release` 校验通过后发布。', '',
+                ].join('\n');
+                core.info('已追加校验信息表');
+              } else {
+                core.warning('release 资产里没有 market-evidence.json, 跳过校验信息表');
+              }
+            } catch (e) {
+              core.warning(`追加校验信息失败(忽略): ${e.message}`);
+            }
+
+            await github.rest.repos.updateRelease({
+              owner, repo, release_id: release.id, body,
+            });
+            core.info(`已更新 ${tag} 的发布正文 (${body.length} 字符)`);

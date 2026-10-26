@@ -1,0 +1,25 @@
+[project]
+name = "minecraft_autonomous"
+version = "0.6.109"
+description = "Thin N.E.K.O adapter for the host-neutral Minecraft autonomy framework"
+requires-python = ">=3.11"
+readme = "README.md"
+license = "Apache-2.0"
+dependencies = [
+  "agent-mc-autonomy @ git+https://github.com/jcs130/minecraft-ai-friend.git@addb016b01c968e56a93931f0812b045bfaccad0#subdirectory=packages/agent-mc-autonomy",
+  "mcp==2.1.1", "httpx>=0.27,<1", "openai>=1,<3"
+]
+
+[project.urls]
+Repository = "https://github.com/jcs130/n.e.k.o_plugin_minecraft_autonomous"
+Issues = "https://github.com/jcs130/n.e.k.o_plugin_minecraft_autonomous/issues"
+
+[tool.neko.build]
+exclude_dirs = ["tests", "test", "_tests", "docs", "tasks", "release_tools", "local", "runtime", "logs", ".superpowers", "vendor/*/benchmarks", "vendor/*/samples", "vendor/*/[dD]emos"]
+exclude_files = ["AGENTS.md", "CONTRIBUTING.md", "ruff.toml", ".git", ".gitignore", ".gitattributes", ".editorconfig"]
+exclude = [".env", ".env.*", "*.key", "*.log", "*.local.toml", "*.bak", "*.orig", "*.rej", "vendor/annotated_types/test_cases.py", "vendor/win32com/servers/test_pycomtest.py", "vendor/win32/scripts/pywin32_testall.py"]
+
+# Official excludes run before includes. These suffix-complement patterns keep
+# every non-PEM path plus exactly Certifi's public CA trust store; arbitrary
+# root/nested PEM credentials remain excluded. Do not use include=["**"].
+include = ["*[!mM]", "*[!eE][mM]", "*[!pP][eE][mM]", "*[!.][pP][eE][mM]", "m", "em", "pem", "vendor/certifi/cacert.pem"]

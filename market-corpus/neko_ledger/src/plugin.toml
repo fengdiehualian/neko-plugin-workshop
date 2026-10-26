@@ -1,0 +1,63 @@
+[plugin]
+id = "neko_ledger"
+name = "记账猫娘"
+type = "plugin"
+description = "让猫娘帮你记账，而且会按花销的离谱程度换语气：日常花销可爱卖萌，离谱价格吐槽乱花钱，猫咪或 AI 相关花销会哈气。插件会读取当前猫娘的人设——如果人设是「绝对不生气 / 温柔」这类设定，哈气会自动降级成温和的念叨。数据存在插件自己的账本里，不会改动你的角色卡。"
+short_description = "A meow bookkeeper: cute for normal spending, snarky for outrageous prices, and hissing at cat or AI expenses — while respecting your persona."
+keywords = ["记账", "账本", "花销", "开销", "支出", "消费", "预算", "理财", "省钱", "ledger", "expense", "bookkeeping", "budget"]
+version = "0.1.0"
+entry = "plugin.plugins.neko_ledger:LedgerPlugin"
+
+[plugin.author]
+name = "yousei1216"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.store]
+enabled = false
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[ledger]
+
+# 账本目录；留空 = %LOCALAPPDATA%\N.E.K.O\plugins\neko_ledger
+data_dir = ""
+
+# 超过这个金额就算「离谱」，会触发吐槽
+absolute_threshold = 200.0
+
+# 或者：超过同类历史均值的这么多倍也算离谱
+category_multiplier = 4.0
+
+# 同类均值至少要有几条样本才用来判定（样本太少不准）
+min_samples = 3
+
+# 吐槽开关（关掉后离谱也只按日常语气）
+snark_enabled = true
+
+# 哈气开关
+hiss_enabled = true
+
+# ★ 是否尊重人设：读当前猫娘的人设，检测到「不生气 / 温柔」这类设定时
+#   把哈气降级成温和念叨。关掉则一律按可以哈气处理。
+respect_persona = true
+
+# 句尾落款；留空则从内置池随机（喵～ / 喵♪ / 呜喵～）
+cat_suffix = ""
+
+# 是否给日常记账配一点表情
+emoji = true
+
+# 指定生效的猫娘；留空 = 当前猫娘
+catgirl = ""
+
+# 角色卡文件位置；留空 = 自动查找
+characters_json = ""

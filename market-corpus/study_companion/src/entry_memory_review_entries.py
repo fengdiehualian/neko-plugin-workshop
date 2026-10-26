@@ -1,0 +1,128 @@
+from __future__ import annotations
+
+from .entry_common import (
+    Ok,
+    _entry_exception_error,
+    asyncio,
+    plugin_entry,
+    tr,
+    ui,
+)
+
+
+class _MemoryReviewEntriesMixin:
+    @ui.action()
+    @plugin_entry(
+        id="study_memory_due_reviews",
+        name=tr("entries.memory_due_reviews.name", default="Study Memory Due Reviews"),
+        description=tr(
+            "entries.memory_due_reviews.description",
+            default="Return due memory reviews sorted by deck and retrievability.",
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "deck_id": {"type": "string", "default": ""},
+                "limit": {"type": "integer", "default": 50},
+                "item_type": {"type": "string", "default": ""},
+            },
+        },
+        llm_result_fields=["due_reviews"],
+    )
+    async def study_memory_due_reviews(
+        self, deck_id: str = "", limit: int = 50, item_type: str = "", **_
+    ):
+        try:
+            reviews = await asyncio.to_thread(
+                self._memory_deck_store.due_reviews,
+                deck_id=deck_id,
+                limit=max(1, min(500, int(limit or 50))),
+                item_type=item_type,
+            )
+            return Ok({"due_reviews": reviews})
+        except Exception as exc:
+            return _entry_exception_error(self, exc, operation="study_memory_due_reviews")
+
+    @ui.action()
+    @plugin_entry(
+        id="study_memory_review_item",
+        name=tr("entries.memory_review_item.name", default="Review Study Memory Item"),
+        description=tr(
+            "entries.memory_review_item.description",
+            default="Record a memory item review and update its dedicated FSRS card.",
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "item_id": {"type": "string", "default": ""},
+                "rating": {
+                    "type": "string",
+                    "enum": ["again", "hard", "good", "easy"],
+                },
+                "correct": {"type": "boolean"},
+                "error_type": {"type": "string", "default": ""},
+                "elapsed_ms": {"type": "integer", "default": 0},
+                "session_id": {"type": "string", "default": ""},
+            },
+            "required": ["item_id"],
+        },
+        llm_result_fields=["item", "rating", "schedule", "review_record"],
+    )
+    async def study_memory_review_item(
+        self,
+        item_id: str = "",
+        rating: str | None = None,
+        correct: bool | None = None,
+        error_type: str = "",
+        elapsed_ms: int = 0,
+        session_id: str = "",
+        **kwargs,
+    ):
+        try:
+            target_lanlan = self._resolve_study_target_lanlan(kwargs)
+            payload, review_completed = await self._run_serialized_review_transition(
+                self._memory_deck_store.review_item,
+                item_id=item_id,
+                rating=rating,
+                correct=correct if isinstance(correct, bool) else None,
+                error_type=error_type,
+                elapsed_ms=int(elapsed_ms or 0) or None,
+                session_id=session_id,
+            )
+            if self._memory_habit_bridge is not None:
+                try:
+                    payload["habit_progress"] = await asyncio.to_thread(
+                        self._memory_habit_bridge.apply_review_progress,
+                        payload,
+                        date=self._today(),
+                    )
+                except Exception as bridge_exc:
+                    self.logger.warning(
+                        f"memory habit review progress degraded: {bridge_exc}"
+                    )
+                    payload["habit_progress"] = {
+                        "applied": 0,
+                        "error": str(bridge_exc),
+                    }
+            try:
+                await self._emit_memory_review_answer_event(
+                    payload, target_lanlan=target_lanlan
+                )
+                if review_completed:
+                    item = payload.get("item") or {}
+                    deck = await asyncio.to_thread(
+                        self._memory_deck_store.get_deck,
+                        str(item.get("deck_id") or ""),
+                    )
+                    await self._emit_review_session_completed_event(
+                        reviewed_count=1,
+                        deck_name=str((deck or {}).get("name") or ""),
+                        target_lanlan=target_lanlan,
+                    )
+            except Exception as emit_exc:
+                self.logger.warning(
+                    "memory review event emission degraded: {}", emit_exc
+                )
+            return Ok(payload)
+        except Exception as exc:
+            return _entry_exception_error(self, exc, operation="study_memory_review_item")

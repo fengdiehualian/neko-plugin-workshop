@@ -1,0 +1,516 @@
+{
+  "schema_version": 1,
+  "source_name": "OneDragon-Anything/StarRailOneDragon",
+  "source_url": "https://github.com/OneDragon-Anything/StarRailOneDragon",
+  "revision": "1ffd7e082c38bcdb559d2c0a194191ae21514ef0",
+  "license_id": "GPL-3.0",
+  "license_url": "https://raw.githubusercontent.com/OneDragon-Anything/StarRailOneDragon/1ffd7e082c38bcdb559d2c0a194191ae21514ef0/LICENSE",
+  "artwork_notice": "Game artwork remains the property of its respective rights holders. This source license is not a separate grant for game artwork.",
+  "scope": "HUD portraits only; no game automation code imported",
+  "templates": [
+    {
+      "entity_id": "character.arlan",
+      "name": "阿兰",
+      "path": "assets/template/character_avatar/arlan/raw.png",
+      "git_blob_sha1": "5b6705a40b3e3dd2483311895ec077c92256a71e",
+      "bytes": 17758
+    },
+    {
+      "entity_id": "character.asta",
+      "name": "艾丝妲",
+      "path": "assets/template/character_avatar/asta/raw.png",
+      "git_blob_sha1": "42231ede3fa9330237b0b8c2188c3c414ff2f6c8",
+      "bytes": 17186
+    },
+    {
+      "entity_id": "character.bailu",
+      "name": "白露",
+      "path": "assets/template/character_avatar/bailu/raw.png",
+      "git_blob_sha1": "1190175c43875bf4f9ef9b7e563688c9452b9f63",
+      "bytes": 19471
+    },
+    {
+      "entity_id": "character.blade",
+      "name": "刃",
+      "path": "assets/template/character_avatar/blade/raw.png",
+      "git_blob_sha1": "e92c7106f3d2a0c479eac11d23086e136bcb661a",
+      "bytes": 16821
+    },
+    {
+      "entity_id": "character.bronya",
+      "name": "布洛妮娅",
+      "path": "assets/template/character_avatar/bronya/raw.png",
+      "git_blob_sha1": "c699f29daa7803201692a1435f2d3a179109c431",
+      "bytes": 19436
+    },
+    {
+      "entity_id": "character.clara",
+      "name": "克拉拉",
+      "path": "assets/template/character_avatar/clara/raw.png",
+      "git_blob_sha1": "9938df9317e7cbd0c9447ed3a5d28176cc3126fa",
+      "bytes": 18979
+    },
+    {
+      "entity_id": "character.danheng",
+      "name": "丹恒",
+      "path": "assets/template/character_avatar/danheng/raw.png",
+      "git_blob_sha1": "c8b3d61883637beed347e89574db6f212362d276",
+      "bytes": 16889
+    },
+    {
+      "entity_id": "character.fuxuan",
+      "name": "符玄",
+      "path": "assets/template/character_avatar/fuxuan/raw.png",
+      "git_blob_sha1": "db503e732bf002cac8eeff43daaee3f81d9badf8",
+      "bytes": 19254
+    },
+    {
+      "entity_id": "character.gepard",
+      "name": "杰帕德",
+      "path": "assets/template/character_avatar/gepard/raw.png",
+      "git_blob_sha1": "22081031d72d43ad0c75be9244b8342b983be3b8",
+      "bytes": 18486
+    },
+    {
+      "entity_id": "character.guinaifen",
+      "name": "桂乃芬",
+      "path": "assets/template/character_avatar/guinaifen/raw.png",
+      "git_blob_sha1": "777b2c3a34d5956aef6d3a898842f25029e3628f",
+      "bytes": 19308
+    },
+    {
+      "entity_id": "character.herta",
+      "name": "黑塔",
+      "path": "assets/template/character_avatar/herta/raw.png",
+      "git_blob_sha1": "6f8a1f8b300325ea71e62244e154d502e8e710e6",
+      "bytes": 17552
+    },
+    {
+      "entity_id": "character.himeko",
+      "name": "姬子",
+      "path": "assets/template/character_avatar/himeko/raw.png",
+      "git_blob_sha1": "67c565b9a0238e8d2a969a697a57586ddafdc2bf",
+      "bytes": 19125
+    },
+    {
+      "entity_id": "character.hook",
+      "name": "虎克",
+      "path": "assets/template/character_avatar/hook/raw.png",
+      "git_blob_sha1": "0c5272a14942d9dc03e56cf4afee50c07baefba1",
+      "bytes": 19884
+    },
+    {
+      "entity_id": "character.huohuo",
+      "name": "藿藿",
+      "path": "assets/template/character_avatar/huohuo/raw.png",
+      "git_blob_sha1": "d62ae8cf81391f0b67869670ba9249a821ffbfc5",
+      "bytes": 19603
+    },
+    {
+      "entity_id": "character.jingliu",
+      "name": "镜流",
+      "path": "assets/template/character_avatar/jingliu/raw.png",
+      "git_blob_sha1": "156543581b5626e78fba6664423c14002e182d63",
+      "bytes": 18525
+    },
+    {
+      "entity_id": "character.jingyuan",
+      "name": "景元",
+      "path": "assets/template/character_avatar/jingyuan/raw.png",
+      "git_blob_sha1": "aa101a7f7e2b18026aaa9815276db3244a67ed06",
+      "bytes": 20642
+    },
+    {
+      "entity_id": "character.kafka",
+      "name": "卡芙卡",
+      "path": "assets/template/character_avatar/kafka/raw.png",
+      "git_blob_sha1": "6cb35cb2629edccd3e2da017baca2d6748e48808",
+      "bytes": 15717
+    },
+    {
+      "entity_id": "character.luka",
+      "name": "卢卡",
+      "path": "assets/template/character_avatar/luka/raw.png",
+      "git_blob_sha1": "9b91a168f2c624f11e7b946d2d641f76334f3b7f",
+      "bytes": 18882
+    },
+    {
+      "entity_id": "character.luocha",
+      "name": "罗刹",
+      "path": "assets/template/character_avatar/luocha/raw.png",
+      "git_blob_sha1": "12dc357ab062ee87cca81d29485d1a18184f7eca",
+      "bytes": 19066
+    },
+    {
+      "entity_id": "character.lynx",
+      "name": "玲可",
+      "path": "assets/template/character_avatar/lynx/raw.png",
+      "git_blob_sha1": "854f10b2a3dec5195d8342573bf6405af0a819b8",
+      "bytes": 19190
+    },
+    {
+      "entity_id": "character.natasha",
+      "name": "娜塔莎",
+      "path": "assets/template/character_avatar/natasha/raw.png",
+      "git_blob_sha1": "71285ab53646e4d9855bbb8cc95c00f6959979aa",
+      "bytes": 17615
+    },
+    {
+      "entity_id": "character.pela",
+      "name": "佩拉",
+      "path": "assets/template/character_avatar/pela/raw.png",
+      "git_blob_sha1": "d6d8e41e1a1136965ae49d87e7725d8b040a7264",
+      "bytes": 19126
+    },
+    {
+      "entity_id": "character.qingque",
+      "name": "青雀",
+      "path": "assets/template/character_avatar/qingque/raw.png",
+      "git_blob_sha1": "c701b0e2e3c720ef2d7d99c5b9c04de1eed14429",
+      "bytes": 17968
+    },
+    {
+      "entity_id": "character.sampo",
+      "name": "桑博",
+      "path": "assets/template/character_avatar/sampo/raw.png",
+      "git_blob_sha1": "5ef62431ec577ff53f3b6250471ae7fec2b2b195",
+      "bytes": 17772
+    },
+    {
+      "entity_id": "character.seele",
+      "name": "希儿",
+      "path": "assets/template/character_avatar/seele/raw.png",
+      "git_blob_sha1": "25bc6f9c583bc6e422e8d4bcd633ededfea3d2ee",
+      "bytes": 18428
+    },
+    {
+      "entity_id": "character.serval",
+      "name": "希露瓦",
+      "path": "assets/template/character_avatar/serval/raw.png",
+      "git_blob_sha1": "e646e8f901b4e31c33e719e5793a167b3f3c3b9f",
+      "bytes": 18421
+    },
+    {
+      "entity_id": "character.silverwolf",
+      "name": "银狼",
+      "path": "assets/template/character_avatar/silverwolf/raw.png",
+      "git_blob_sha1": "9ab2c95c89fd2d518203ea236df43d9ee21b2171",
+      "bytes": 20325
+    },
+    {
+      "entity_id": "character.sushang",
+      "name": "素裳",
+      "path": "assets/template/character_avatar/sushang/raw.png",
+      "git_blob_sha1": "5a4cd0a7380c74c6e00958891f88ef7950fdb0cb",
+      "bytes": 18455
+    },
+    {
+      "entity_id": "character.tingyun",
+      "name": "停云",
+      "path": "assets/template/character_avatar/tingyun/raw.png",
+      "git_blob_sha1": "0eeeb7b01151342a9bb6109fdfb4ece52024515e",
+      "bytes": 19623
+    },
+    {
+      "entity_id": "character.topaz",
+      "name": "托帕&账账",
+      "path": "assets/template/character_avatar/topaznumby/raw.png",
+      "git_blob_sha1": "6313e85a0bcf5fcc4da20dd268c5be5e0e790527",
+      "bytes": 18816
+    },
+    {
+      "entity_id": "character.welt",
+      "name": "瓦尔特",
+      "path": "assets/template/character_avatar/welt/raw.png",
+      "git_blob_sha1": "278aa7d4737b7484e0c7eb4988b313ada050eefc",
+      "bytes": 17637
+    },
+    {
+      "entity_id": "character.yanqing",
+      "name": "彦卿",
+      "path": "assets/template/character_avatar/yanqing/raw.png",
+      "git_blob_sha1": "0f6b765b1ab67a5ca77f7c93d91a672e5174b944",
+      "bytes": 19665
+    },
+    {
+      "entity_id": "character.yukong",
+      "name": "驭空",
+      "path": "assets/template/character_avatar/yukong/raw.png",
+      "git_blob_sha1": "84b697760961e2a71acd08e2328e96be7cb4299a",
+      "bytes": 19173
+    },
+    {
+      "entity_id": "character.argenti",
+      "name": "银枝",
+      "path": "assets/template/character_avatar/argenti/raw.png",
+      "git_blob_sha1": "7f5c8cd1c66d8ea8b13b6018b8ba19324b6147dc",
+      "bytes": 16938
+    },
+    {
+      "entity_id": "character.hanya",
+      "name": "寒鸦",
+      "path": "assets/template/character_avatar/hanya/raw.png",
+      "git_blob_sha1": "9fd41e7680a2eea149ca94ed9b2d48a254b5f830",
+      "bytes": 17053
+    },
+    {
+      "entity_id": "character.xueyi",
+      "name": "雪衣",
+      "path": "assets/template/character_avatar/xueyi/raw.png",
+      "git_blob_sha1": "86a310ae7841ccd795eb0802b630b0b594344f0a",
+      "bytes": 15553
+    },
+    {
+      "entity_id": "character.drratio",
+      "name": "真理医生",
+      "path": "assets/template/character_avatar/drratio/raw.png",
+      "git_blob_sha1": "1383b38a606a22088712497cea46cb917fb2a30c",
+      "bytes": 16887
+    },
+    {
+      "entity_id": "character.misha",
+      "name": "米沙",
+      "path": "assets/template/character_avatar/misha/raw.png",
+      "git_blob_sha1": "d12010ad1847ee380b95854d170bb42e2415b087",
+      "bytes": 17759
+    },
+    {
+      "entity_id": "character.blackswan",
+      "name": "黑天鹅",
+      "path": "assets/template/character_avatar/blackswan/raw.png",
+      "git_blob_sha1": "05778533cc5ae1e4098de67e2da355ed2c08b033",
+      "bytes": 20168
+    },
+    {
+      "entity_id": "character.sparkle",
+      "name": "花火",
+      "path": "assets/template/character_avatar/sparkle/raw.png",
+      "git_blob_sha1": "fc5b3e4c5e5965700009a69472a7b591069aa9b0",
+      "bytes": 18920
+    },
+    {
+      "entity_id": "character.gallagher",
+      "name": "加拉赫",
+      "path": "assets/template/character_avatar/gallagher/raw.png",
+      "git_blob_sha1": "dfea049b370dcc5ad9af727a38c953b3b8ff175e",
+      "bytes": 17962
+    },
+    {
+      "entity_id": "character.acheron",
+      "name": "黄泉",
+      "path": "assets/template/character_avatar/acheron/raw.png",
+      "git_blob_sha1": "291378acd491bf779be56af0a9c47f8d373747e2",
+      "bytes": 19473
+    },
+    {
+      "entity_id": "character.aventurine",
+      "name": "砂金",
+      "path": "assets/template/character_avatar/aventurine/raw.png",
+      "git_blob_sha1": "2e1c1de4585027942473dc0884c8d79e1424c91f",
+      "bytes": 17297
+    },
+    {
+      "entity_id": "character.robin",
+      "name": "知更鸟",
+      "path": "assets/template/character_avatar/robin/raw.png",
+      "git_blob_sha1": "17046c663195a30302bcb2560b5056f309aad7cf",
+      "bytes": 20233
+    },
+    {
+      "entity_id": "character.boothill",
+      "name": "波提欧",
+      "path": "assets/template/character_avatar/boothill/raw.png",
+      "git_blob_sha1": "f8f1b08d13bc3516e3f1460b967cdab45ff3aaad",
+      "bytes": 20354
+    },
+    {
+      "entity_id": "character.sam",
+      "name": "流萤",
+      "path": "assets/template/character_avatar/firefly/raw.png",
+      "git_blob_sha1": "d12aedcee9aa37e55ddbe0224e4207bdcfd301e1",
+      "bytes": 20199
+    },
+    {
+      "entity_id": "character.jade",
+      "name": "翡翠",
+      "path": "assets/template/character_avatar/jade/raw.png",
+      "git_blob_sha1": "00e5ec1c7adbc74c1cfc6cef9e2db149c8d27455",
+      "bytes": 20147
+    },
+    {
+      "entity_id": "character.yunli",
+      "name": "云璃",
+      "path": "assets/template/character_avatar/yunli/raw.png",
+      "git_blob_sha1": "d7318732fdb48a9b0c217e10c499c68df0e8501e",
+      "bytes": 20450
+    },
+    {
+      "entity_id": "character.feixiao",
+      "name": "飞霄",
+      "path": "assets/template/character_avatar/feixiao/raw.png",
+      "git_blob_sha1": "4bf1b51da9d7d7f7a21c249aa945c38ece8017ca",
+      "bytes": 21151
+    },
+    {
+      "entity_id": "character.moze",
+      "name": "貊泽",
+      "path": "assets/template/character_avatar/moze/raw.png",
+      "git_blob_sha1": "c150737affb3c931aeaa9fe590f28f2e02c0df57",
+      "bytes": 18442
+    },
+    {
+      "entity_id": "character.lingsha",
+      "name": "灵砂",
+      "path": "assets/template/character_avatar/lingsha/raw.png",
+      "git_blob_sha1": "14401b8db934993aaec171bfe152ce66cb847223",
+      "bytes": 28309
+    },
+    {
+      "entity_id": "character.jiaoqiu",
+      "name": "椒丘",
+      "path": "assets/template/character_avatar/jiaoqiu/raw.png",
+      "git_blob_sha1": "90e06d778a41306fadb1a7c4e066a5b5bb3d6699",
+      "bytes": 30235
+    },
+    {
+      "entity_id": "character.rappa",
+      "name": "乱破",
+      "path": "assets/template/character_avatar/rappa/raw.png",
+      "git_blob_sha1": "ede6575b54bc8c44328aaaa892a8d41d50158a22",
+      "bytes": 19773
+    },
+    {
+      "entity_id": "character.sunday",
+      "name": "星期日",
+      "path": "assets/template/character_avatar/sunday/raw.png",
+      "git_blob_sha1": "961207fdaa7d6cf341020430f8bf394d58265249",
+      "bytes": 31632
+    },
+    {
+      "entity_id": "character.fugue",
+      "name": "忘归人",
+      "path": "assets/template/character_avatar/fugue/raw.png",
+      "git_blob_sha1": "3ebcd28277a98960b34fc8bad98f6fec6cb611f0",
+      "bytes": 29220
+    },
+    {
+      "entity_id": "character.theherta",
+      "name": "大黑塔",
+      "path": "assets/template/character_avatar/the_herta/raw.png",
+      "git_blob_sha1": "3aa77f9f3854dd8fbcad05a17c8e3033973e1d8c",
+      "bytes": 28440
+    },
+    {
+      "entity_id": "character.aglaea",
+      "name": "阿格莱雅",
+      "path": "assets/template/character_avatar/aglaea/raw.png",
+      "git_blob_sha1": "4fa7a786d05d8e8e1a14f992a7af4c5e04c341b1",
+      "bytes": 30592
+    },
+    {
+      "entity_id": "character.tribbie",
+      "name": "缇宝",
+      "path": "assets/template/character_avatar/tribbie/raw.png",
+      "git_blob_sha1": "edb1abbb58ffc54649c9b932bbc6b3a34c372468",
+      "bytes": 30886
+    },
+    {
+      "entity_id": "character.castorice",
+      "name": "遐蝶",
+      "path": "assets/template/character_avatar/casorice/raw.png",
+      "git_blob_sha1": "a335001dcd3422e7bafe5004f1f30ea41d33b011",
+      "bytes": 29559
+    },
+    {
+      "entity_id": "character.hyacine",
+      "name": "风堇",
+      "path": "assets/template/character_avatar/hyacine/raw.png",
+      "git_blob_sha1": "502793cefb00a4c79b9f8e3cbdb2abc747de22dd",
+      "bytes": 30326
+    },
+    {
+      "entity_id": "character.phainon",
+      "name": "白厄",
+      "path": "assets/template/character_avatar/phainon/raw.png",
+      "git_blob_sha1": "034268a2f1488e3c937a6b9a3106961b484ea8a8",
+      "bytes": 30172
+    },
+    {
+      "entity_id": "character.archer",
+      "name": "Archer",
+      "path": "assets/template/character_avatar/archer/raw.png",
+      "git_blob_sha1": "1db727d992ee84c30d71c1a40b7d5f1cb1b83b29",
+      "bytes": 27889
+    },
+    {
+      "entity_id": "character.saber",
+      "name": "Saber",
+      "path": "assets/template/character_avatar/saber/raw.png",
+      "git_blob_sha1": "c8893c0c02357bc62374396e670fe8319d615ffe",
+      "bytes": 23639
+    },
+    {
+      "entity_id": "character.anaxa",
+      "name": "那刻夏",
+      "path": "assets/template/character_avatar/anaxa/raw.png",
+      "git_blob_sha1": "a40fae84aa8016c7868111364306b0fa15b376c7",
+      "bytes": 26914
+    },
+    {
+      "entity_id": "character.hysilens",
+      "name": "海瑟音",
+      "path": "assets/template/character_avatar/hysilens/raw.png",
+      "git_blob_sha1": "0e1f6fa10b4b719be289e7e91d4f5c984ac18706",
+      "bytes": 23479
+    },
+    {
+      "entity_id": "character.cerydra",
+      "name": "刻律德菈",
+      "path": "assets/template/character_avatar/cerydra/raw.png",
+      "git_blob_sha1": "0d5390ed37b5b51118ac355b48d48a9683a4512e",
+      "bytes": 23925
+    },
+    {
+      "entity_id": "character.mydei",
+      "name": "万敌",
+      "path": "assets/template/character_avatar/mydei/raw.png",
+      "git_blob_sha1": "4ebef9d407dadb3903b3d858a98d3a758d3b06dd",
+      "bytes": 26898
+    },
+    {
+      "entity_id": "character.evernight",
+      "name": "长夜月",
+      "path": "assets/template/character_avatar/evernight/raw.png",
+      "git_blob_sha1": "6749327b300df87781ceb00200459682d9741f58",
+      "bytes": 28979
+    },
+    {
+      "entity_id": "character.cyrene",
+      "name": "昔涟",
+      "path": "assets/template/character_avatar/cyrene/raw.png",
+      "git_blob_sha1": "7e4cd51104721894b51cf1dfec99fddcda64031f",
+      "bytes": 29576
+    },
+    {
+      "entity_id": "character.dahlia",
+      "name": "大丽花",
+      "path": "assets/template/character_avatar/the_dahlia/raw.png",
+      "git_blob_sha1": "7142d34c965411e3f2ae3c5b391fd8d25684bb80",
+      "bytes": 28888
+    },
+    {
+      "entity_id": "character.yaoguang",
+      "name": "爻光",
+      "path": "assets/template/character_avatar/yao_guang/raw.png",
+      "git_blob_sha1": "b2ef0dfccd864b52a26d4e7c6008f3b82572aa01",
+      "bytes": 29291
+    },
+    {
+      "entity_id": "character.sparxie",
+      "name": "火花",
+      "path": "assets/template/character_avatar/sparxie/raw.png",
+      "git_blob_sha1": "3bb3e37245380359732cdcd642b92c1cb56a37b8",
+      "bytes": 30075
+    }
+  ]
+}

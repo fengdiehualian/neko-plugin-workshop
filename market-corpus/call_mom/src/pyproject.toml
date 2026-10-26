@@ -1,0 +1,7 @@
+[project]
+name = "call_mom"
+version = "0.1.3"
+dependencies = []
+
+[tool.neko.build]
+exclude_dirs = ["tools"]

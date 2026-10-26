@@ -1,0 +1,5 @@
+[teach_sister_drive]
+base_url = "http://127.0.0.1:8765"
+neko_url = "http://127.0.0.1:48911"
+cat_name = "悠怡"
+fallback_enabled = false

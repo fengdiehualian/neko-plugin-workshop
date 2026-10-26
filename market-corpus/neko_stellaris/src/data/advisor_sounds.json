@@ -1,0 +1,437 @@
+{
+  "game_version": "Cygnus v4.5.2",
+  "game_version_mod_compat": "4.5",
+  "source": "Extracted from Stellaris sound/soundeffects.asset + sound/*.asset: every sound name reachable by the default (l_english) advisor voice group.",
+  "voice_group": "l_nekko_stellaris",
+  "loc_key": "advisor_nekko_stellaris",
+  "groups": {
+    "notification": [
+      {
+        "sound": "advisor_notification_alien_empire_communication_01",
+        "soundeffect": "advisor_notification_alien_empire_communication_01",
+        "meaning": "收到外星帝国的通讯"
+      },
+      {
+        "sound": "advisor_notification_alien_federation_formed_01",
+        "soundeffect": "advisor_notification_alien_federation_formed",
+        "meaning": "外星联邦成立"
+      },
+      {
+        "sound": "advisor_notification_alien_spaceport_engaged_01",
+        "soundeffect": "advisor_notification_alien_spaceport_engaged",
+        "meaning": "与外星太空港交战"
+      },
+      {
+        "sound": "advisor_notification_alien_vessel_encountered_01",
+        "soundeffect": "advisor_notification_alien_vessel_encountered",
+        "meaning": "遭遇外星舰船"
+      },
+      {
+        "sound": "advisor_notification_building_ruined_01",
+        "soundeffect": "advisor_notification_building_ruined",
+        "meaning": "建筑被摧毁"
+      },
+      {
+        "sound": "advisor_notification_colonization_progress_01",
+        "soundeffect": "advisor_notification_colonization_progress",
+        "meaning": "殖民进程推进"
+      },
+      {
+        "sound": "advisor_notification_colony_established_01",
+        "soundeffect": "advisor_notification_colony_established",
+        "meaning": "殖民地建立"
+      },
+      {
+        "sound": "advisor_notification_colony_ship_destroyed_01",
+        "soundeffect": "advisor_notification_colony_ship_destroyed_01",
+        "meaning": "殖民船被击毁"
+      },
+      {
+        "sound": "advisor_notification_colony_ship_under_attack_01",
+        "soundeffect": "advisor_notification_colony_ship_under_attack",
+        "meaning": "殖民船遭攻击"
+      },
+      {
+        "sound": "advisor_notification_construction_complete_01",
+        "soundeffect": "advisor_notification_construction_complete",
+        "meaning": "建造完成"
+      },
+      {
+        "sound": "advisor_notification_construction_ship_destroyed_01",
+        "soundeffect": "advisor_notification_construction_ship_destroyed",
+        "meaning": "建造船被击毁"
+      },
+      {
+        "sound": "advisor_notification_construction_ship_under_attack_01",
+        "soundeffect": "advisor_notification_construction_ship_under_attack",
+        "meaning": "建造船遭攻击"
+      },
+      {
+        "sound": "advisor_notification_debris_analysed_01",
+        "soundeffect": "advisor_notification_debris_analysed",
+        "meaning": "残骸分析完成"
+      },
+      {
+        "sound": "advisor_notification_discovery_detected_01",
+        "soundeffect": "advisor_notification_discovery_detected",
+        "meaning": "侦测到发现物"
+      },
+      {
+        "sound": "advisor_notification_enemy_declared_war_01",
+        "soundeffect": "advisor_notification_enemy_declared_war",
+        "meaning": "敌方对我宣战"
+      },
+      {
+        "sound": "advisor_notification_enemy_invasion_defeated_01",
+        "soundeffect": "advisor_notification_enemy_invasion_defeated",
+        "meaning": "击退敌方入侵"
+      },
+      {
+        "sound": "advisor_notification_enemy_troops_landing_01",
+        "soundeffect": "advisor_notification_enemy_troops_landing",
+        "meaning": "敌军正在登陆"
+      },
+      {
+        "sound": "advisor_notification_evade_hostile_fleet_01",
+        "soundeffect": "advisor_notification_evade_hostile_fleet",
+        "meaning": "成功规避敌舰队"
+      },
+      {
+        "sound": "advisor_notification_federation_formed_01",
+        "soundeffect": "advisor_notification_federation_formed",
+        "meaning": "联邦成立"
+      },
+      {
+        "sound": "advisor_notification_fleet_destroyed_01",
+        "soundeffect": "advisor_notification_fleet_destroyed",
+        "meaning": "舰队被击毁"
+      },
+      {
+        "sound": "advisor_notification_frontier_outpost_lost_01",
+        "soundeffect": "advisor_notification_frontier_outpost_lost",
+        "meaning": "边境前哨站失守"
+      },
+      {
+        "sound": "advisor_notification_generic_war_declare_01",
+        "soundeffect": "advisor_notification_generic_war_declare",
+        "meaning": "战争爆发（泛用）"
+      },
+      {
+        "sound": "advisor_notification_hostile_fleet_detected_01",
+        "soundeffect": "advisor_notification_hostile_fleet_detected",
+        "meaning": "侦测到敌对舰队"
+      },
+      {
+        "sound": "advisor_notification_hostile_fleet_engaged_01",
+        "soundeffect": "advisor_notification_hostile_fleet_engaged",
+        "meaning": "与敌对舰队交战"
+      },
+      {
+        "sound": "advisor_notification_hostile_station_engaged_01",
+        "soundeffect": "advisor_notification_hostile_station_engaged",
+        "meaning": "与敌对空间站交战"
+      },
+      {
+        "sound": "advisor_notification_incoming_transmission_01",
+        "soundeffect": "advisor_notification_incoming_transmission_01",
+        "meaning": "收到来讯"
+      },
+      {
+        "sound": "advisor_notification_invasion_enemy_won_01",
+        "soundeffect": "advisor_notification_invasion_enemy_won",
+        "meaning": "入侵被敌方打赢"
+      },
+      {
+        "sound": "advisor_notification_invasion_failed_01",
+        "soundeffect": "advisor_notification_invasion_failed",
+        "meaning": "入侵失败"
+      },
+      {
+        "sound": "advisor_notification_invasion_progress_01",
+        "soundeffect": "advisor_notification_invasion_progress",
+        "meaning": "入侵进行中"
+      },
+      {
+        "sound": "advisor_notification_invasion_success_01",
+        "soundeffect": "advisor_notification_invasion_success",
+        "meaning": "入侵成功"
+      },
+      {
+        "sound": "advisor_notification_military_station_lost_01",
+        "soundeffect": "advisor_notification_military_station_lost",
+        "meaning": "军事空间站失守"
+      },
+      {
+        "sound": "advisor_notification_mining_station_lost_01",
+        "soundeffect": "advisor_notification_mining_station_lost",
+        "meaning": "采矿站失守"
+      },
+      {
+        "sound": "advisor_notification_observation_post_lost_01",
+        "soundeffect": "advisor_notification_observation_post_lost",
+        "meaning": "观测站失守"
+      },
+      {
+        "sound": "advisor_notification_outpost_station_lost_01",
+        "soundeffect": "advisor_notification_outpost_station_lost",
+        "meaning": "前哨站失守"
+      },
+      {
+        "sound": "advisor_notification_planet_in_revolt_01",
+        "soundeffect": "advisor_notification_planet_in_revolt",
+        "meaning": "行星发生叛乱"
+      },
+      {
+        "sound": "advisor_notification_player_declare_war_01",
+        "soundeffect": "advisor_notification_player_declare_war",
+        "meaning": "我方宣战"
+      },
+      {
+        "sound": "advisor_notification_pre_sapient_uplifted_01",
+        "soundeffect": "advisor_notification_pre_sapient_uplifted",
+        "meaning": "前智慧物种已提升"
+      },
+      {
+        "sound": "advisor_notification_primitive_enlighted_01",
+        "soundeffect": "advisor_notification_primitive_enlighted",
+        "meaning": "原始文明已启蒙（此处指启蒙行动完成；原版拼写为 enlighted）"
+      },
+      {
+        "sound": "advisor_notification_research_complete_01",
+        "soundeffect": "advisor_notification_research_complete",
+        "meaning": "科研完成"
+      },
+      {
+        "sound": "advisor_notification_research_station_lost_01",
+        "soundeffect": "advisor_notification_research_station_lost",
+        "meaning": "研究站失守"
+      },
+      {
+        "sound": "advisor_notification_science_ship_destroyed_01",
+        "soundeffect": "advisor_notification_science_ship_destroyed",
+        "meaning": "科研船被击毁"
+      },
+      {
+        "sound": "advisor_notification_science_ship_under_attack_01",
+        "soundeffect": "advisor_notification_science_ship_under_attack",
+        "meaning": "科研船遭攻击"
+      },
+      {
+        "sound": "advisor_notification_ships_upgraded_01",
+        "soundeffect": "advisor_notification_ships_upgraded",
+        "meaning": "舰船升级完成"
+      },
+      {
+        "sound": "advisor_notification_situation_log_01",
+        "soundeffect": "advisor_notification_situation_log",
+        "meaning": "局势日志有更新"
+      },
+      {
+        "sound": "advisor_notification_spaceborne_encounter_01",
+        "soundeffect": "advisor_notification_spaceborne_encounter",
+        "meaning": "遭遇太空生物"
+      },
+      {
+        "sound": "advisor_notification_spaceport_lost_01",
+        "soundeffect": "advisor_notification_spaceport_lost",
+        "meaning": "太空港失守"
+      },
+      {
+        "sound": "advisor_notification_spaceport_under_attack_01",
+        "soundeffect": "advisor_notification_spaceport_under_attack",
+        "meaning": "太空港遭攻击"
+      },
+      {
+        "sound": "advisor_notification_special_project_complete_01",
+        "soundeffect": "advisor_notification_special_project_complete",
+        "meaning": "特殊项目完成"
+      },
+      {
+        "sound": "advisor_notification_species_modified_01",
+        "soundeffect": "advisor_notification_species_modified",
+        "meaning": "物种已改造"
+      },
+      {
+        "sound": "advisor_notification_station_under_attack_01",
+        "soundeffect": "advisor_notification_station_under_attack",
+        "meaning": "空间站遭攻击"
+      },
+      {
+        "sound": "advisor_notification_system_survey_complete_01",
+        "soundeffect": "advisor_notification_system_survey_complete",
+        "meaning": "星系勘测完成"
+      },
+      {
+        "sound": "advisor_notification_tile_blocker_clear_01",
+        "soundeffect": "advisor_notification_tile_blocker_clear",
+        "meaning": "地块障碍已清除"
+      },
+      {
+        "sound": "advisor_notification_unidentified_object_01",
+        "soundeffect": "advisor_notification_unidentified_object",
+        "meaning": "发现不明物体"
+      },
+      {
+        "sound": "advisor_notification_wormhole_station_lost_01",
+        "soundeffect": "advisor_notification_wormhole_station_lost",
+        "meaning": "虫洞站失守"
+      }
+    ],
+    "tutorial": [
+      {
+        "sound": "advisor_tutorial_agenda_available_01",
+        "soundeffect": "advisor_tutorial_agenda_available",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_tutorial_agenda_ready_01",
+        "soundeffect": "advisor_tutorial_agenda_ready",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_tutorial_legendary_leader_01",
+        "soundeffect": "advisor_tutorial_legendary_leader",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_tutorial_planetary_governor_01",
+        "soundeffect": "advisor_tutorial_planetary_governor",
+        "meaning": ""
+      }
+    ],
+    "sample": [
+      {
+        "sound": "advisor_sample_vo_01",
+        "soundeffect": "advisor_sample_voice_type",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_sample_vo_02",
+        "soundeffect": "advisor_sample_voice_type",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_sample_vo_03",
+        "soundeffect": "advisor_sample_voice_type",
+        "meaning": ""
+      }
+    ],
+    "click": [
+      {
+        "sound": "advisor_clicking_respons_01",
+        "soundeffect": "advisor_clicking_respons_01",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_02",
+        "soundeffect": "advisor_clicking_respons_01",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_03",
+        "soundeffect": "advisor_clicking_respons_01",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_04",
+        "soundeffect": "advisor_clicking_respons_01",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_05",
+        "soundeffect": "advisor_clicking_respons_05",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_06",
+        "soundeffect": "advisor_clicking_respons_06",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_07",
+        "soundeffect": "advisor_clicking_respons_07",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_08",
+        "soundeffect": "advisor_clicking_respons_08",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_09",
+        "soundeffect": "advisor_clicking_respons_09",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_10",
+        "soundeffect": "advisor_clicking_respons_10",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_11",
+        "soundeffect": "advisor_clicking_respons_11",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_12",
+        "soundeffect": "advisor_clicking_respons_12",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_13",
+        "soundeffect": "advisor_clicking_respons_13",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_14",
+        "soundeffect": "advisor_clicking_respons_14",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_15",
+        "soundeffect": "advisor_clicking_respons_15",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_clicking_respons_16",
+        "soundeffect": "advisor_clicking_respons_16",
+        "meaning": ""
+      }
+    ],
+    "generic": [
+      {
+        "sound": "advisor_generic_phrase_04",
+        "soundeffect": "advisor_generic_phrase",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_generic_phrase_05",
+        "soundeffect": "advisor_generic_phrase",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_generic_phrase_06",
+        "soundeffect": "advisor_generic_phrase",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_generic_phrase_07",
+        "soundeffect": "advisor_generic_phrase",
+        "meaning": ""
+      },
+      {
+        "sound": "advisor_generic_phrase_08",
+        "soundeffect": "advisor_generic_phrase",
+        "meaning": ""
+      }
+    ]
+  },
+  "counts": {
+    "notification": 54,
+    "tutorial": 4,
+    "sample": 3,
+    "click": 16,
+    "generic": 5,
+    "total": 82
+  }
+}

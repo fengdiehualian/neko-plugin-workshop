@@ -1,0 +1,31 @@
+[project]
+name = "plugin_database"
+version = "0.1.0"
+description = "N.E.K.O unified database layer: SQLite/PostgreSQL/MySQL/MongoDB adapters with hot_knowledge table"
+# 收紧到 <3.12：vendor 里的 vec0.dll / 扩展二进制是 cp311-win_amd64，
+# 在 3.12+ 上 ABI 不匹配，vec0 会静默失效（实测 3.14 下 no such module: vec0）。
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "aiosqlite>=0.20",
+    "asyncpg>=0.29",
+    "aiomysql>=0.2",
+    "pymysql>=1.1",
+    "motor>=3.4",
+    "pymongo>=4.6",
+    "sqlite-vec>=0.1.6",
+]
+
+[tool.pytest.ini_options]
+
+# 警告一律按错误处理。两个显式豁免（均为宿主/环境所有，非插件缺陷）：
+# 1. plugin.settings 的 DeprecationWarning：宿主 SDK 导入链自带
+# 2. PytestUnraisableExceptionWarning：Windows Proactor 事件循环 GC 时序，
+#    宿主自带 lifekit 套件在本机同样触发（证据见交付说明）
+filterwarnings = [
+    "error",
+    "ignore:plugin.settings.PLUGIN_CONFIG_ROOT:DeprecationWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
+
+asyncio_mode = "auto"
+testpaths = ["tests"]

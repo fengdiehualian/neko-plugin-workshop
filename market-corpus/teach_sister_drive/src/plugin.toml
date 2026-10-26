@@ -1,0 +1,22 @@
+[plugin]
+id = "teach_sister_drive"
+name = "教妹妹开车"
+description = "一键检测、安装和卸载《教妹妹开车》模组；N.E.K.O 源码版可通过插件启动入口启用猫娘语音驾驶与教程互动。需要新版 N.E.K.O，不兼容当前 Steam 版。"
+short_description = "两步安装妹妹开车模组；源码版支持猫娘语音接管"
+keywords = ["开车", "驾驶", "教妹妹", "油门", "刹车", "倒车", "左转", "右转", "教程", "drive"]
+version = "0.1.0"
+entry = "plugin.plugins.teach_sister_drive:TeachSisterDrivePlugin"
+type = "plugin"
+
+[plugin.author]
+name = "CN-Zephyr"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+startup_failure = "warn"
+timeout = 30

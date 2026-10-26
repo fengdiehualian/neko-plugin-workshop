@@ -1,0 +1,32 @@
+{
+  "schema": "kards.ui-classes",
+  "version": 1,
+  "task": "detect",
+  "model_file": "ui_det.onnx",
+  "input": {
+    "size": [3, 640, 640],
+    "layout": "NCHW",
+    "dtype": "float32",
+    "value_range": "0..1",
+    "preprocess": "letterbox pad 114 RGB"
+  },
+  "output": {
+    "format": "ultralytics_detect_raw",
+    "shape": [1, 4, 8400],
+    "note": "4+num_classes 行；xywh(640系)+各类分数；插件端 NMS(iou=0.45, conf>=0.30) 后映射回原坐标"
+  },
+  "classes": [
+    {"id": 0, "name": "unit_board", "description": "棋盘上的单位区域（不含身份）"},
+    {"id": 1, "name": "card_hand", "description": "我方手牌中的翻开卡面"},
+    {"id": 2, "name": "card_back", "description": "卡背（敌方手牌/系统发牌）"},
+    {"id": 3, "name": "played_card", "description": "放大展示的牌面（打出特写/悬停预览，不等于已打出）"},
+    {"id": 4, "name": "hq", "description": "总部位置框（仅位置，不读血量）"},
+    {"id": 5, "name": "frontline", "description": "前线分隔带"},
+    {"id": 6, "name": "end_turn_button", "description": "结束回合按钮（未激活/不可辨状态）"},
+    {"id": 7, "name": "end_turn_button_active", "description": "处于我方可点击激活态的结束回合按钮"},
+    {"id": 8, "name": "screen_victory", "description": "胜利结算画面标志元素"},
+    {"id": 9, "name": "screen_defeat", "description": "失败结算画面标志元素"}
+  ],
+  "ordering_rule": "编号一次冻结，后续只允许追加或显式迁移版本，禁止静默重排",
+  "support_note": "id 4/7/8/9 若最终无可靠标注样本，保留编号但输出恒为不支持的类，不得作为可信事件来源"
+}

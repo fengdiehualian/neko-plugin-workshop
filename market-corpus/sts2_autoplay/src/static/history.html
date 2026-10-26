@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>尖塔2陪玩 · 自动游玩历史</title>
+<style>
+/* ===== neko-kit:tokens 起
+   主题 token 全部取自 N.E.K.O 本体（只读基准）：
+   frontend/plugin-manager/src/components/plugin/hosted/ui-kit/styles.css:1-32
+   frontend/plugin-manager/src/assets/styles/variables.css:5-11 ===== */
+:root{
+  color-scheme:light dark;
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-xl:20px;
+  --bg:#f7f9fc;--surface:rgba(255,255,255,.84);--surface-strong:rgba(255,255,255,.96);
+  --text:#1f2937;--muted:#667085;--border:rgba(148,163,184,.36);
+  --primary:#409eff;--success:#67c23a;--warning:#e6a23c;--danger:#f56c6c;--info:#14b8a6;
+  --primary-bg:rgba(64,158,255,.12);--primary-border:rgba(64,158,255,.38);
+  --success-bg:rgba(103,194,58,.10);--success-border:rgba(103,194,58,.38);
+  --warning-bg:rgba(230,162,60,.11);--warning-border:rgba(230,162,60,.32);
+  --danger-bg:rgba(245,108,108,.10);--danger-border:rgba(245,108,108,.38);
+  --alert-bg:rgba(64,158,255,.08);--alert-border:rgba(64,158,255,.26);
+  --ghost-bg:rgba(148,163,184,.10);--subtle:rgba(148,163,184,.08);--hover:rgba(64,158,255,.06);
+  --shadow-soft:0 12px 36px rgba(15,23,42,.12);--focus:#40c5f1;
+  --page-max:560px;--page-pad:18px;--gap:12px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f172a;--surface:rgba(15,23,42,.78);--surface-strong:rgba(17,24,39,.94);
+  --text:#e5e7eb;--muted:#94a3b8;--border:rgba(148,163,184,.22);
+  --subtle:rgba(148,163,184,.12);--shadow-soft:0 18px 48px rgba(0,0,0,.22);
+}}
+/* ===== neko-kit:tokens 止 ===== */
+/* ===== neko-kit:base 起（骨架：reset / body / .wrap / 顶栏三件套 / 焦点环）===== */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);font-size:14px;line-height:1.65;background:var(--bg);color:var(--text);padding:var(--page-pad) var(--page-pad) 40px;-webkit-font-smoothing:antialiased}
+.wrap{width:100%;max-width:var(--page-max);margin:0 auto}
+.top{margin-bottom:var(--gap)}
+.back-btn{display:inline-flex;align-items:center;min-height:32px;padding:6px 12px;background:var(--surface-strong);color:var(--muted);border:1px solid var(--border);border-radius:var(--radius-md);font-size:12px;font-weight:650;text-decoration:none;transition:background-color .14s ease,border-color .14s ease,color .14s ease}
+.back-btn:hover{color:var(--primary);border-color:var(--primary-border)}
+h1{font-size:22px;font-weight:760;letter-spacing:.3px;line-height:1.35;margin:0 0 4px}
+.sub{color:var(--muted);font-size:12px;line-height:1.6;margin:0 0 18px}
+a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:not([tabindex="-1"]):focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.muted{color:var(--muted)}
+.loss{color:var(--danger)}
+.safe{color:var(--success)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--subtle);border-radius:999px}
+@media (max-width:520px){body{padding:16px 12px 40px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+/* ===== neko-kit:base 止 ===== */
+
+/* ===== neko-kit:ui 起（组件：面板卡 / 统计卡 / 徽标 / 按钮三档 / 表格 / 提示 / 空态 / 折叠 / 结果框）===== */
+.card,.run{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 14px 14px;margin-bottom:var(--gap)}
+.card>h3,.run>h2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px;font-weight:720;color:var(--text);line-height:1.4;margin:0 0 10px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:var(--gap);margin-bottom:var(--gap)}
+.cards>.card{display:grid;gap:6px;padding:14px;border-radius:var(--radius-lg);margin-bottom:0}
+.cards>.card .k{color:var(--muted);font-size:12px;font-weight:650}
+.cards>.card .v{color:var(--text);font-size:24px;font-weight:780;line-height:1.1;font-variant-numeric:tabular-nums}
+.k{color:var(--muted);font-size:12px;font-weight:650}
+.box .k{margin-bottom:6px}
+.reflect .k{margin-bottom:4px}
+.grp-title{color:var(--text);font-size:12px;font-weight:720;margin-bottom:6px}
+.grp+.grp{margin-top:var(--gap)}
+.note{color:var(--muted);font-size:12px;line-height:1.6;margin-top:6px}
+button{min-height:36px;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--ghost-bg);color:var(--text);font:inherit;font-size:13px;font-weight:650;cursor:pointer;transition:transform .14s ease,background-color .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease}
+button:hover{transform:translateY(-1px);background:var(--hover);border-color:var(--primary-border);color:var(--primary)}
+button:active:not(:disabled){transform:none}
+button:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+button.primary{background:var(--primary-bg);border-color:var(--primary-border);color:var(--primary)}
+button.primary:hover{background:rgba(64,158,255,.18);border-color:var(--primary-border);color:var(--primary);box-shadow:0 8px 18px rgba(64,158,255,.14)}
+button.ghost{background:var(--ghost-bg);border-color:var(--border);color:var(--text)}
+button.ghost:hover{background:var(--hover);border-color:var(--primary-border);color:var(--primary);box-shadow:none}
+button.danger{background:var(--danger-bg);border-color:var(--danger-border);color:var(--danger)}
+button.danger:hover{background:rgba(245,108,108,.16);border-color:var(--danger-border);color:var(--danger);box-shadow:0 8px 18px rgba(245,108,108,.16)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.tag{display:inline-flex;align-items:center;gap:6px;width:fit-content;padding:4px 9px;border:1px solid var(--border);border-radius:999px;background:var(--surface-strong);color:var(--muted);font-size:12px;font-weight:650;line-height:1.6;white-space:nowrap}
+.tag::before{content:"";width:7px;height:7px;border-radius:999px;background:var(--primary)}
+.tag.victory{border-color:var(--success-border);background:var(--success-bg);color:var(--success)}
+.tag.victory::before{background:var(--success)}
+.tag.defeat{border-color:var(--danger-border);background:var(--danger-bg);color:var(--danger)}
+.tag.defeat::before{background:var(--danger)}
+.toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:var(--gap)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--gap);margin-top:10px}
+.box{background:var(--subtle);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;overflow-x:auto}
+ul{margin:0;padding-left:17px}
+li{margin:3px 0}
+table{border-collapse:separate;border-spacing:0;width:100%;margin-top:10px;font-size:12px;overflow:hidden;background:var(--surface-strong);border:1px solid var(--border);border-radius:var(--radius-lg)}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--muted);font-weight:650;background:var(--subtle);white-space:nowrap}
+tbody tr{transition:background-color .14s ease}
+tbody tr:hover{background:var(--hover)}
+tbody tr:last-child td{border-bottom:none}
+.rooms td:nth-child(1),.rooms td:nth-child(3),.rooms td:nth-child(5){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rooms th:nth-child(1),.rooms th:nth-child(3),.rooms th:nth-child(5){text-align:right}
+.route{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px}
+.route .step{background:var(--subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px 9px;font-size:12px;white-space:nowrap}
+.route .step.safe{border-color:var(--success-border);color:var(--success)}
+.route .arrow{color:var(--muted);font-size:12px}
+.reflect,.alert{border:1px solid var(--alert-border);border-radius:var(--radius-lg);padding:12px 14px;background:var(--alert-bg);color:var(--text);line-height:1.65;margin-top:var(--gap)}
+.empty{display:grid;gap:8px;place-items:center;padding:26px;color:var(--muted);text-align:center;border:1px dashed var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+code{background:var(--subtle);border:1px solid var(--border);color:var(--primary);padding:1px 6px;border-radius:var(--radius-sm);font-size:12px;font-family:var(--mono)}
+details{margin-top:var(--gap)}
+details summary{cursor:pointer;display:inline-flex;align-items:center;min-height:36px;padding:8px 14px;background:var(--ghost-bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-size:13px;font-weight:700;transition:background-color .14s ease,border-color .14s ease,color .14s ease}
+details summary:hover{background:var(--hover);border-color:var(--primary-border);color:var(--primary)}
+#result{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:var(--radius-md);padding:12px 14px;margin-top:14px;font-family:var(--mono);font-size:12px;line-height:1.65;color:var(--muted);white-space:pre-wrap;max-height:200px;overflow:auto}
+@media (max-width:520px){.cards{grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:9px}.cards>.card{padding:12px}.cards>.card .v{font-size:20px}.card,.run{padding:12px 12px 14px}th,td{padding:8px 10px}.btn-row button,.toolbar button{flex:1 1 auto}}
+/* ===== neko-kit:ui 止 ===== */
+</style>
+</head>
+<body>
+<div class="wrap">
+    <div class="top"><a class="back-btn" href="index.html">← 返回</a></div>
+    <h1>自动游玩历史</h1>
+    <p class="sub">每一局的选择、损血归因与结束状态。数据来自插件落盘的猫娘记忆。</p>
+
+    <div class="cards" id="cards"></div>
+    <div class="toolbar">
+        <button id="refresh">刷新</button>
+        <span class="muted" id="status">加载中…</span>
+    </div>
+    <div id="runs"></div>
+</div>
+
+<script>
+function fmtTime(ts) {
+  if (!ts) return "—";
+  try { return new Date(ts * 1000).toLocaleString(); } catch (e) { return "—"; }
+}
+function esc(text) {
+  return String(text == null ? "" : text)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function outcomeTag(outcome) {
+  const label = outcome === "victory" ? "通关" : (outcome === "defeat" ? "阵亡" : (outcome || "未知"));
+  const cls = outcome === "victory" ? "victory" : (outcome === "defeat" ? "defeat" : "");
+  return '<span class="tag ' + cls + '">' + esc(label) + '</span>';
+}
+
+function renderRoute(run) {
+  const route = run.route || [];
+  if (!route.length) return "";
+  // 一行式路线：房间(损血) → 房间(损血) …，让"哪几段掉血"一眼可见。
+  const strip = route.map(function (step) {
+    const label = step.room || step.screen || "?";
+    const lost = Number(step.hp_lost || 0);
+    return '<span class="step' + (lost ? "" : " safe") + '">' + esc(label) +
+      (lost ? ' <span class="loss">-' + lost + "</span>" : "") + "</span>";
+  }).join('<span class="arrow">→</span>');
+
+  const rows = route.map(function (step, i) {
+    const gains = [];
+    if (step.gold_gained) gains.push("金币+" + esc(step.gold_gained));
+    if ((step.cards_gained || []).length) gains.push("卡:" + esc((step.cards_gained || []).join("/")));
+    if ((step.relics_gained || []).length) gains.push("遗物:" + esc((step.relics_gained || []).join("/")));
+    if ((step.potions_gained || []).length) gains.push("药水:" + esc((step.potions_gained || []).join("/")));
+    return "<tr><td>" + (i + 1) + "</td><td>" + esc(step.room || "—") + "</td><td>" + esc(step.floor) +
+      "</td><td>" + esc(step.hp_start) + "→" + esc(step.hp_end) +
+      "</td><td>" + (step.hp_lost ? '<span class="loss">-' + esc(step.hp_lost) + "</span>" : '<span class="safe">0</span>') +
+      "</td><td>" + (gains.length ? gains.join("，") : '<span class="muted">—</span>') + "</td></tr>";
+  }).join("");
+
+  return '<div class="box" style="margin-top:10px"><div class="k">路线图（每个房间的损血与收获）</div>' +
+    '<div class="route">' + strip + "</div>" +
+    '<table class="rooms"><thead><tr><th>#</th><th>房间</th><th>层</th><th>血</th><th>损血</th><th>收获</th></tr></thead><tbody>' +
+    rows + "</tbody></table></div>";
+}
+
+function renderRun(run) {
+  const hp = run.hp || {};
+  const heaviest = (run.heaviest || []).map(function (item) {
+    // 优先显示房间标识（敌人组合 / 事件 id）：地图随机，"第 N 层"跨局不可复用。
+    const where = item.room ? item.room : (esc(item.screen) + " 第" + esc(item.floor) + "层");
+    return "<li>" + esc(where) + "：<span class='loss'>-" +
+      esc(item.lost) + "</span> (" + esc(item.hp_before) + "→" + esc(item.hp_after) + ")</li>";
+  }).join("");
+  const lessons = (run.lessons || []).map(function (item) { return "<li>" + esc(item) + "</li>"; }).join("");
+  const decisions = (run.decisions || []).map(function (item) {
+    return "<tr><td>" + esc(item.step_count) + "</td><td>" + esc(item.screen) + "</td><td><code>" +
+      esc(item.action_type) + "</code></td><td>" + esc(item.reason) + "</td></tr>";
+  }).join("");
+
+  return '<div class="run">' +
+    "<h2>" + outcomeTag(run.outcome) +
+      '<span class="tag">' + esc(run.character || "?") + "</span>" +
+      '<span class="tag">第' + esc(run.floor) + '层</span>' +
+      '<span class="muted">' + esc(fmtTime(run.ended_at)) + "</span>" +
+      '<span class="muted">' + esc(run.run_id) + "</span></h2>" +
+    '<div class="grid">' +
+      '<div class="box"><div class="k">损血合计</div><div class="' + (hp.total_lost === 0 ? "safe" : "") + '">' + esc(hp.total_lost == null ? "—" : hp.total_lost) +
+        " 点 / " + esc(hp.loss_events == null ? "—" : hp.loss_events) + " 次</div></div>" +
+      '<div class="box"><div class="k">生命</div><div>最低 ' + esc(hp.min_hp == null ? "—" : hp.min_hp) +
+        " / " + esc(hp.max_hp == null ? "—" : hp.max_hp) + "，结束 " + esc(hp.final_hp == null ? "—" : hp.final_hp) + "</div></div>" +
+      '<div class="box"><div class="k">最痛的几处</div>' + (heaviest ? "<ul>" + heaviest + "</ul>" : '<span class="muted">无记录</span>') + "</div>" +
+      '<div class="box"><div class="k">教训</div>' + (lessons ? "<ul>" + lessons + "</ul>" : '<span class="muted">无</span>') + "</div>" +
+    "</div>" +
+    (run.reflection ? '<div class="reflect"><div class="k muted">复盘反思</div>' + esc(run.reflection) + "</div>" : "") +
+    renderRoute(run) +
+    (decisions
+      ? "<details><summary>做出的选择（" + (run.decisions || []).length + " 步）</summary>" +
+        "<table><thead><tr><th>步</th><th>界面</th><th>动作</th><th>理由</th></tr></thead><tbody>" +
+        decisions + "</tbody></table></details>"
+      : "") +
+    "</div>";
+}
+
+function render(payload) {
+  const summary = payload.summary || {};
+  document.getElementById("cards").innerHTML =
+    '<div class="card"><div class="k">总局数</div><div class="v">' + esc(summary.runs || 0) + "</div></div>" +
+    '<div class="card"><div class="k">通关</div><div class="v">' + esc(summary.victories || 0) + "</div></div>" +
+    '<div class="card"><div class="k">阵亡</div><div class="v">' + esc(summary.defeats || 0) + "</div></div>" +
+    '<div class="card"><div class="k">最深层级</div><div class="v">' + esc(summary.best_floor || 0) + "</div></div>" +
+    '<div class="card"><div class="k">累计损血</div><div class="v">' + esc(summary.total_hp_lost || 0) + "</div></div>";
+
+  const runs = payload.runs || [];
+  document.getElementById("runs").innerHTML = runs.length
+    ? runs.map(renderRun).join("")
+    : '<div class="empty">还没有打完的局。猫娘每结束一局（阵亡或通关）就会在这里留一条记录。</div>';
+  document.getElementById("status").textContent = "共 " + runs.length + " 局 · " + fmtTime(Date.now() / 1000);
+}
+
+async function load() {
+  const status = document.getElementById("status");
+  status.textContent = "加载中…";
+  try {
+    const res = await fetch("autoplay_history.json?t=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    render(await res.json());
+  } catch (err) {
+    document.getElementById("runs").innerHTML =
+      '<div class="empty">读不到历史快照：' + esc(err.message) +
+      "<br /><span class='muted'>插件还没写过历史（每局结束才写一次），或者快照文件被插件升级清掉了。</span></div>";
+    status.textContent = "读取失败";
+  }
+}
+
+document.getElementById("refresh").addEventListener("click", load);
+load();
+</script>
+</body>
+</html>

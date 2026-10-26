@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict');
+const {present}=require('../static/quota-display.js');
+let s={config:{source:'deepseek',model:'DeepSeek'},selected:{currency:'CNY',balance:'9.5'},estimated_tokens:950000};
+assert.equal(present(s).amount,'¥ 9.50');
+assert.equal(present({...s,selected:{currency:'CNY',balance:'0'}}).amount,'¥ 0.00');
+assert.equal(present({...s,selected:{currency:'CNY',balance:'0.0042'}}).amount,'¥ 0.0042');
+assert.equal(present({...s,selected:null}).amount,'≈ 95万 token');
+assert.equal(present({...s,selected:null,stale:true,configured:true}).amount,'待查询');
+for(const balance of [null,'',false,{},'NaN'])assert.equal(present({...s,selected:{balance},estimated_tokens:null}).amount,'未连接');
+assert.equal(present({config:{source:'desktop_quota'},account_quota:{remaining:0}}).amount,'0 积分');
+assert.equal(present({config:{source:'manual_quota',quota_unit:'token',quota_remaining:12000}}).amount,'1.2万 token');
+assert.equal(present({config:{source:'manual_quota',quota_unit:'次',quota_remaining:null}}).amount,'未填写');
+s={config:{source:'codex',model:'Codex'},codex_quota:{windows:[{label:'周额度',remaining:70},{label:'5小时',remaining:12},{label:'invalid',remaining:-1}]}};
+assert.equal(present(s).amount,'12%');assert.equal(present(s).detail,'Codex 5小时剩余');
+s=present({config:{source:'jev',model:'JEV'},reported_usage:{input_tokens:1000,output_tokens:20}});
+assert.equal(s.amount,'1,020 token');assert.match(s.detail,/已上报用量/);assert.doesNotMatch(s.detail,/剩余/);
+console.log('PASS: native balance/credits/tokens/percentage, zero and missing values, real-balance priority, stale-estimate exclusion and usage semantics.');

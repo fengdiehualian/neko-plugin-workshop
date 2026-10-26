@@ -1,0 +1,48 @@
+[project]
+name = "neko_terraria"
+version = "0.6.0"
+description = "AI cat-girl as independent player in Terraria via headful tModLoader client."
+requires-python = ">=3.11"
+
+[project.optional-dependencies]
+vision = ["pillow>=10.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0,<9.0",
+]
+
+[tool.neko.build]
+exclude_dirs = [
+    ".github",
+    ".vscode",
+    ".venv",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "tests",
+    "tools",
+    "archive",
+    # C# mod 工程整个不进发布包（.tmod 已编译好放在 mod/tModLoader/Mods；源码在 git 供开发者构建）
+    "mod/NekoTerrariaLink",
+    "mod/tModLoader/Worlds",
+    "mod/tModLoader/Logs",
+    "mod/tModLoader/ResourcePacks",
+]
+exclude_files = [
+    ".gitignore",
+    "README.md",
+    "uv.lock",
+    "ruff.toml",
+    "LICENSE",
+    # 个人运行时数据不进发布包（默认模板 default_config.json 随 data/ 分发）
+    "data/config/user_config.json",
+    "data/config/settings.json",
+    "data/bond.json",
+    "mod/tModLoader/favorites.json",
+    "mod/tModLoader/achievements.dat",
+    "mod/tModLoader/servers.dat",
+    "mod/tModLoader/LastLaunchedMods.txt",
+    "mod/tModLoader/input profiles.json",
+    "*.lnk",
+]

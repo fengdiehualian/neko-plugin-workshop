@@ -1,0 +1,8790 @@
+{
+ "schema": "kards.card-classes",
+ "version": 1,
+ "task": "classify",
+ "model_file": "card_cls.onnx",
+ "classes": [
+  {
+   "id": 0,
+   "card_id": "101st_airborne",
+   "name": "第 101 空降师",
+   "import_id": "cp",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1,
+   "card_id": "101st_bezhitsa",
+   "name": "别日察第 101 团",
+   "import_id": "pw",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 2,
+   "card_id": "102_grenadier",
+   "name": "第 102 掷弹兵团",
+   "import_id": "zc",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 3,
+   "card_id": "102_grenadier_vet",
+   "name": "第 102 掷弹兵团",
+   "import_id": "Cj",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 4,
+   "card_id": "102nd_rifles",
+   "name": "步兵第 102 团",
+   "import_id": "DX",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 5,
+   "card_id": "102nd_rifles_vet",
+   "name": "步兵第 102 团",
+   "import_id": "DY",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 6,
+   "card_id": "104th_infantry_regiment",
+   "name": "第 104 步兵团",
+   "import_id": "ob",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 7,
+   "card_id": "106th_infantry_regiment",
+   "name": "步兵第百六联队",
+   "import_id": "x0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 8,
+   "card_id": "106th_quartermasters",
+   "name": "第 106 军需连",
+   "import_id": "cq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 9,
+   "card_id": "1081st_smolensk",
+   "name": "斯摩棱斯克第 1081 团",
+   "import_id": "yZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 10,
+   "card_id": "108_panzergrenadier",
+   "name": "第 108 装甲掷弹兵团",
+   "import_id": "tv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 11,
+   "card_id": "1097_volksgrenadier",
+   "name": "第 1097 国民掷弹兵团",
+   "import_id": "i8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 12,
+   "card_id": "109th_combat_engineers",
+   "name": "第 109 战斗工兵营",
+   "import_id": "cr",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 13,
+   "card_id": "10_5_cm_lefh",
+   "name": "105 毫米轻型榴弹炮",
+   "import_id": "3L",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 14,
+   "card_id": "10th_para_battalion",
+   "name": "第 10 伞兵营",
+   "import_id": "oB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 15,
+   "card_id": "10th_recon",
+   "name": "搜索第十联队",
+   "import_id": "tC",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 16,
+   "card_id": "110_panzergrenadier",
+   "name": "第 110 装甲掷弹兵团",
+   "import_id": "ql",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 17,
+   "card_id": "110e_rgiment_motoris",
+   "name": "第 110 摩托化步兵团",
+   "import_id": "t1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 18,
+   "card_id": "113_schtzen",
+   "name": "第 113 步枪兵团",
+   "import_id": "qh",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 19,
+   "card_id": "114th_infantry_regiment",
+   "name": "步兵第百十四联队",
+   "import_id": "jQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 20,
+   "card_id": "115th_separate_btn",
+   "name": "独立第 115 营",
+   "import_id": "pv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 21,
+   "card_id": "116th_infantry_regiment",
+   "name": "第 116 步兵团",
+   "import_id": "Eb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 22,
+   "card_id": "119_grenadier_vet",
+   "name": "第 119 掷弹兵团",
+   "import_id": "Ct",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 23,
+   "card_id": "11th_infantry_regiment",
+   "name": "第 11 流浪者步兵团",
+   "import_id": "ct",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 24,
+   "card_id": "121st_infantry_regiment",
+   "name": "第 121 步兵团",
+   "import_id": "pJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 25,
+   "card_id": "123s",
+   "name": "第 123 步兵团",
+   "import_id": "u3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 26,
+   "card_id": "125th_la_spezia",
+   "name": "拉斯佩齐亚第 125 团",
+   "import_id": "s7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 27,
+   "card_id": "12th_guards_mechanised",
+   "name": "近卫机械化第 12 旅",
+   "import_id": "rg",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 28,
+   "card_id": "12th_guards_mechanised_vet",
+   "name": "近卫机械化第 12 旅",
+   "import_id": "Bg",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 29,
+   "card_id": "12th_infantry_regiment",
+   "name": "第 12 步兵团",
+   "import_id": "cu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 30,
+   "card_id": "12th_uan",
+   "name": "第 12 乌兰骑兵团",
+   "import_id": "xt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 31,
+   "card_id": "132nd_omsk",
+   "name": "鄂木斯克第 132 团",
+   "import_id": "xl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 32,
+   "card_id": "133rd_ironman",
+   "name": "第 133 铁人步兵团",
+   "import_id": "pI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 33,
+   "card_id": "136_gebirgsjger",
+   "name": "第 136 山地猎兵团",
+   "import_id": "i5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 34,
+   "card_id": "13e_dragons",
+   "name": "第 13 龙骑兵团",
+   "import_id": "rV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 35,
+   "card_id": "141_gebirgsjger",
+   "name": "第 141 山地猎兵团",
+   "import_id": "3M",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 36,
+   "card_id": "142nd_infantry_regiment",
+   "name": "第 142 步兵团",
+   "import_id": "o9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 37,
+   "card_id": "144th_infantry_regiment",
+   "name": "步兵第百四十四联队",
+   "import_id": "6w",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 38,
+   "card_id": "14_panzergrenadier",
+   "name": "第 14 装甲掷弹兵团",
+   "import_id": "E3",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 39,
+   "card_id": "14_panzergrenadier_vet",
+   "name": "第 14 装甲掷弹兵团",
+   "import_id": "E2",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 40,
+   "card_id": "14th_brigade_nz",
+   "name": "新西兰第 14 旅",
+   "import_id": "y6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 41,
+   "card_id": "14th_guard_rifles_vet",
+   "name": "近卫步兵第 14 团",
+   "import_id": "Bh",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 42,
+   "card_id": "151st_infantry_regiment",
+   "name": "步兵第百五十一联队",
+   "import_id": "x5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 43,
+   "card_id": "152e_rgiment",
+   "name": "第 152 团",
+   "import_id": "q5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 44,
+   "card_id": "152mm_howitzer_gun",
+   "name": "152 毫米榴弹炮",
+   "import_id": "iV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 45,
+   "card_id": "158_nachschub",
+   "name": "第 158 补给营",
+   "import_id": "3N",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 46,
+   "card_id": "15th_cavalry_regiment",
+   "name": "骑兵第十五联队",
+   "import_id": "6x",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 47,
+   "card_id": "15th_engineers",
+   "name": "第 15 工兵营",
+   "import_id": "xA",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 48,
+   "card_id": "15th_motor_rifles",
+   "name": "摩托化步兵第 15 团",
+   "import_id": "8P",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 49,
+   "card_id": "15th_wolves_regiment",
+   "name": "第 15 狼步兵团",
+   "import_id": "ty",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 50,
+   "card_id": "162nd_regiment",
+   "name": "第 162 步兵团",
+   "import_id": "yz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 51,
+   "card_id": "169_grenadiers",
+   "name": "第 169 掷弹兵团",
+   "import_id": "wL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 52,
+   "card_id": "16th_infantry_brigade",
+   "name": "第 16 步兵旅",
+   "import_id": "y5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 53,
+   "card_id": "16th_infantry_brigade_vet",
+   "name": "第 16 步兵旅",
+   "import_id": "zJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 54,
+   "card_id": "16th_rifles",
+   "name": "步兵第 16 团",
+   "import_id": "8F",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 55,
+   "card_id": "16th_tarnow_regiment",
+   "name": "塔尔努夫第 16 步兵团",
+   "import_id": "iD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 56,
+   "card_id": "174th_independent",
+   "name": "独立步兵第百七十四大队",
+   "import_id": "pf",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 57,
+   "card_id": "175th_infantry_regiment",
+   "name": "第 175 步兵团",
+   "import_id": "st",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 58,
+   "card_id": "178th_guard_rifles",
+   "name": "近卫步兵第 178 团",
+   "import_id": "wo",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 59,
+   "card_id": "179th_tomahawks_vet",
+   "name": "第 179 战斧步兵团",
+   "import_id": "Af",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 60,
+   "card_id": "17_pounder",
+   "name": "17 磅炮",
+   "import_id": "0Z",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 61,
+   "card_id": "17th_infantry_brigade",
+   "name": "第 17 步兵旅",
+   "import_id": "y4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 62,
+   "card_id": "17th_infantry_regiment",
+   "name": "第 17 步兵团",
+   "import_id": "cv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 63,
+   "card_id": "182_landwehr",
+   "name": "第 182 国土防卫团",
+   "import_id": "zb",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 64,
+   "card_id": "182_landwehr_vet",
+   "name": "第 182 国土防卫团",
+   "import_id": "Dz",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 65,
+   "card_id": "185th_folgore",
+   "name": "第 185 雷电伞兵团",
+   "import_id": "p0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 66,
+   "card_id": "186th_recon_company",
+   "name": "侦察第 186 连",
+   "import_id": "pu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 67,
+   "card_id": "18_infantry_regiment",
+   "name": "第 18 步兵团",
+   "import_id": "xq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 68,
+   "card_id": "18e_rgiment",
+   "name": "第 18 团",
+   "import_id": "rU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 69,
+   "card_id": "18th_bersaglieri",
+   "name": "第 18 神射手团",
+   "import_id": "Cw",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 70,
+   "card_id": "190th_guard_rifles",
+   "name": "近卫步兵第 190 团",
+   "import_id": "qU",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 71,
+   "card_id": "190th_guard_rifles_vet",
+   "name": "近卫步兵第 190 团",
+   "import_id": "Bi",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 72,
+   "card_id": "199th_rifle_regiment",
+   "name": "步兵第 199 团",
+   "import_id": "wp",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 73,
+   "card_id": "1_infantry_regiment",
+   "name": "第 1 步兵团",
+   "import_id": "3P",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 74,
+   "card_id": "1er_bcp",
+   "name": "第 1 猎兵营",
+   "import_id": "wi",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 75,
+   "card_id": "1er_rgiment_tranger",
+   "name": "外籍第 1 步兵团",
+   "import_id": "2H",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 76,
+   "card_id": "1st_cavalry_troop",
+   "name": "第 1 骑兵侦察小队",
+   "import_id": "r7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 77,
+   "card_id": "1st_defense_battalion",
+   "name": "第 1 防卫营",
+   "import_id": "xc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 78,
+   "card_id": "1st_florida",
+   "name": "第 1 佛罗里达州步兵团",
+   "import_id": "vM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 79,
+   "card_id": "1st_grenadier_regiment",
+   "name": "第 1 掷弹兵团",
+   "import_id": "qF",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 80,
+   "card_id": "1st_gurkha_rifles",
+   "name": "第 1 廓尔喀团",
+   "import_id": "hR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 81,
+   "card_id": "1st_infantry_regiment",
+   "name": "永先者团",
+   "import_id": "DO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 82,
+   "card_id": "1st_london_brigade",
+   "name": "第 1 伦敦旅",
+   "import_id": "jB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 83,
+   "card_id": "1st_marines",
+   "name": "第 1 陆战团",
+   "import_id": "cx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 84,
+   "card_id": "1st_san_marco",
+   "name": "圣马可第 1 团",
+   "import_id": "tz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 85,
+   "card_id": "1st_signal_regiment",
+   "name": "电信第一联队",
+   "import_id": "6y",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 86,
+   "card_id": "204th_guards",
+   "name": "近卫步兵第 204 团",
+   "import_id": "qV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 87,
+   "card_id": "20th_infantry_regiment",
+   "name": "塞班混成守备队",
+   "import_id": "nL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 88,
+   "card_id": "211th_tokyo",
+   "name": "步兵第二百一十一联队",
+   "import_id": "x1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 89,
+   "card_id": "214th_amur",
+   "name": "阿穆尔第 214 团",
+   "import_id": "iZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 90,
+   "card_id": "216th_guards",
+   "name": "近卫步兵第 216 团",
+   "import_id": "z0",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 91,
+   "card_id": "216th_guards_vet",
+   "name": "近卫步兵第 216 团",
+   "import_id": "Bv",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 92,
+   "card_id": "220th_rifles",
+   "name": "步兵第 220 团",
+   "import_id": "t2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 93,
+   "card_id": "22_infantry_regiment",
+   "name": "第 22 步兵团",
+   "import_id": "3Q",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 94,
+   "card_id": "22nd_guards_brigade",
+   "name": "第 22 卫队旅",
+   "import_id": "12",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 95,
+   "card_id": "22nd_guards_brigade_vet",
+   "name": "第 22 卫队旅",
+   "import_id": "Ba",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 96,
+   "card_id": "22nd_marines",
+   "name": "第 22 陆战团",
+   "import_id": "su",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 97,
+   "card_id": "22nd_marines_vet",
+   "name": "第 22 陆战团",
+   "import_id": "Ag",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 98,
+   "card_id": "22nd_pioneers",
+   "name": "第 2/2 先锋营",
+   "import_id": "y2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 99,
+   "card_id": "238th_regiment",
+   "name": "步兵第二百三十八联队",
+   "import_id": "zs",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 100,
+   "card_id": "24th_uan",
+   "name": "第 24 乌兰骑兵团",
+   "import_id": "rX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 101,
+   "card_id": "252nd_rifles_vet",
+   "name": "步兵第 252 团",
+   "import_id": "Bj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 102,
+   "card_id": "25_pounder_mk_i",
+   "name": "25 磅炮 Mk I",
+   "import_id": "xg",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 103,
+   "card_id": "25th_infantry_regiment",
+   "name": "步兵第 25 团",
+   "import_id": "g9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 104,
+   "card_id": "266th_guard_rifles_vet",
+   "name": "近卫步兵第 266 团",
+   "import_id": "Bk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 105,
+   "card_id": "269th_rifles",
+   "name": "步兵第 269 团",
+   "import_id": "qR",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 106,
+   "card_id": "269th_rifles_vet",
+   "name": "步兵第 269 团",
+   "import_id": "Bl",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 107,
+   "card_id": "27_fsiliers",
+   "name": "第 27 燧发枪兵团",
+   "import_id": "wK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 108,
+   "card_id": "27e_dia",
+   "name": "阿尔卑斯第 27 师",
+   "import_id": "wh",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 109,
+   "card_id": "27th_mg_battalion",
+   "name": "第 27 机枪营",
+   "import_id": "y3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 110,
+   "card_id": "289th_gatchina",
+   "name": "加特契纳第 289 团",
+   "import_id": "wq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 111,
+   "card_id": "28th_infantry_regiment",
+   "name": "第 28 步兵团",
+   "import_id": "E5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 112,
+   "card_id": "2_marine_division",
+   "name": "第 2 海军步兵师",
+   "import_id": "tu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 113,
+   "card_id": "2e_rmt",
+   "name": "乍得行进团",
+   "import_id": "2E",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 114,
+   "card_id": "2e_zouaves",
+   "name": "第 2 佐阿夫团",
+   "import_id": "yS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 115,
+   "card_id": "2nd_alpini_regiment",
+   "name": "第 2 山地团",
+   "import_id": "5e",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 116,
+   "card_id": "2nd_infantry_regiment",
+   "name": "步兵第 2 团",
+   "import_id": "wQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 117,
+   "card_id": "2nd_marines_battalion",
+   "name": "海军陆战队第 2 营",
+   "import_id": "iX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 118,
+   "card_id": "2nd_michigan",
+   "name": "第 2 密歇根州步兵团",
+   "import_id": "r6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 119,
+   "card_id": "2nd_parachute",
+   "name": "第 2 伞兵旅",
+   "import_id": "gy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 120,
+   "card_id": "2nd_raiding_brigade",
+   "name": "第二挺进团",
+   "import_id": "6B",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 121,
+   "card_id": "2nd_west_africa",
+   "name": "第 2 西非旅",
+   "import_id": "DR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 122,
+   "card_id": "304_panzergrenadier",
+   "name": "第 304 装甲掷弹兵团",
+   "import_id": "qg",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 123,
+   "card_id": "306th_regiment",
+   "name": "第 306 步兵团",
+   "import_id": "r5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 124,
+   "card_id": "30_infantry_regiment",
+   "name": "第 30 步兵团",
+   "import_id": "xp",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 125,
+   "card_id": "312th_novgorod",
+   "name": "诺夫哥罗德第 312 团",
+   "import_id": "t5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 126,
+   "card_id": "31e_algriens",
+   "name": "阿尔及利亚第 31 散兵团",
+   "import_id": "lI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 127,
+   "card_id": "327th_pathfinders",
+   "name": "第 327 探路者步兵团",
+   "import_id": "mP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 128,
+   "card_id": "327th_pathfinders_vet",
+   "name": "第 327 探路者步兵团",
+   "import_id": "Ah",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 129,
+   "card_id": "329th_engineer_battalion",
+   "name": "工兵第 329 营",
+   "import_id": "8C",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 130,
+   "card_id": "32nd_infantry_regiment",
+   "name": "第 32 步兵团",
+   "import_id": "gl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 131,
+   "card_id": "336th_guards_naval",
+   "name": "近卫海军步兵第 336 旅",
+   "import_id": "t3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 132,
+   "card_id": "33rd_recon",
+   "name": "搜索第三十三联队",
+   "import_id": "6C",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 133,
+   "card_id": "342_fsiliers",
+   "name": "第 342 燧发枪兵营",
+   "import_id": "oV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 134,
+   "card_id": "34th_guards",
+   "name": "近卫步兵第 34 团",
+   "import_id": "8I",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 135,
+   "card_id": "34th_infantry_regiment",
+   "name": "橘联队",
+   "import_id": "6D",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 136,
+   "card_id": "35_grenadier_vet",
+   "name": "第 35 掷弹兵团",
+   "import_id": "Cs",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 137,
+   "card_id": "35th_infantry_regiment",
+   "name": "第 35 步兵团",
+   "import_id": "ml",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 138,
+   "card_id": "361_afrika_regiment",
+   "name": "第 361 非洲兵团",
+   "import_id": "4H",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 139,
+   "card_id": "36_kradschtzen",
+   "name": "第 36 摩托化步兵营",
+   "import_id": "xy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 140,
+   "card_id": "36th_cavalry",
+   "name": "骑兵第 36 师",
+   "import_id": "pq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 141,
+   "card_id": "37_mm_antiaircraft_gun",
+   "name": "37 毫米高射炮",
+   "import_id": "9e",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 142,
+   "card_id": "388th_independent",
+   "name": "独立步兵第三百八十八大队",
+   "import_id": "qz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 143,
+   "card_id": "38th_guard_rifles",
+   "name": "近卫步兵第 38 团",
+   "import_id": "ps",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 144,
+   "card_id": "38th_independent",
+   "name": "独立混成第三十八旅团",
+   "import_id": "zt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 145,
+   "card_id": "392nd_rifles_vet",
+   "name": "步兵第 392 团",
+   "import_id": "Bm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 146,
+   "card_id": "394th_infantry_regiment",
+   "name": "第 394 步兵团",
+   "import_id": "pH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 147,
+   "card_id": "3_7_antiair_gun",
+   "name": "3.7 英寸高射炮",
+   "import_id": "15",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 148,
+   "card_id": "3_7_inch_mountain_howitzer",
+   "name": "3.7 英寸山地榴弹炮",
+   "import_id": "DI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 149,
+   "card_id": "3_panzergrenadier",
+   "name": "第 3 装甲掷弹兵团",
+   "import_id": "za",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 150,
+   "card_id": "3rd_alpini_regiment",
+   "name": "第 3 山地团",
+   "import_id": "5h",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 151,
+   "card_id": "3rd_carpathian",
+   "name": "喀尔巴阡第 3 步兵营",
+   "import_id": "u5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 152,
+   "card_id": "3rd_kure_snlf",
+   "name": "吴镇第三特别陆战队",
+   "import_id": "tD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 153,
+   "card_id": "3rd_mixed_regiment",
+   "name": "混成第三联队",
+   "import_id": "tE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 154,
+   "card_id": "3rd_morskoi_pekhoty",
+   "name": "海军步兵第 3 旅",
+   "import_id": "zC",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 155,
+   "card_id": "3rd_yokosuka",
+   "name": "横镇第三特别陆战队",
+   "import_id": "lk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 156,
+   "card_id": "40_panzergrenadier",
+   "name": "第 40 装甲掷弹兵团",
+   "import_id": "wJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 157,
+   "card_id": "40_royal_marine",
+   "name": "第 40 突击队",
+   "import_id": "sV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 158,
+   "card_id": "40th_cavalry_regiment",
+   "name": "骑兵第四十联队",
+   "import_id": "pe",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 159,
+   "card_id": "414th_rifles",
+   "name": "步兵第 414 团",
+   "import_id": "Bn",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 160,
+   "card_id": "41st_infantry_regiment",
+   "name": "第 41 步兵团",
+   "import_id": "vU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 161,
+   "card_id": "42nd_rifles",
+   "name": "步兵第 42 团",
+   "import_id": "8L",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 162,
+   "card_id": "432_infantry_regiment",
+   "name": "第 432 步兵团",
+   "import_id": "nv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 163,
+   "card_id": "43_infantry_regiment",
+   "name": "第 43 步兵团",
+   "import_id": "wI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 164,
+   "card_id": "44th_silesia",
+   "name": "西里西亚第 44 团",
+   "import_id": "ww",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 165,
+   "card_id": "456th_rifle_regiment",
+   "name": "步兵第 456 团",
+   "import_id": "gb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 166,
+   "card_id": "45_mm_antitank_gun",
+   "name": "45 毫米反坦克炮",
+   "import_id": "8M",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 167,
+   "card_id": "46th_indian_brigade",
+   "name": "第 46 印度旅",
+   "import_id": "yL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 168,
+   "card_id": "47th_infantry_regiment_vet",
+   "name": "第 47 步兵团",
+   "import_id": "Ai",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 169,
+   "card_id": "49th_infantry_regiment",
+   "name": "第 49 步兵团",
+   "import_id": "qo",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 170,
+   "card_id": "4_fallschirmjger",
+   "name": "第 4 空降猎兵团",
+   "import_id": "tt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 171,
+   "card_id": "4e_brigade",
+   "name": "第 4 旅",
+   "import_id": "hY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 172,
+   "card_id": "4th_alabama",
+   "name": "第 4 阿拉巴马州步兵团",
+   "import_id": "sv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 173,
+   "card_id": "4th_alpini_regiment",
+   "name": "第 4 山地团",
+   "import_id": "E6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 174,
+   "card_id": "4th_brigade_nz",
+   "name": "新西兰第 4 旅",
+   "import_id": "DH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 175,
+   "card_id": "4th_guards_rifles",
+   "name": "近卫步兵第 4 团",
+   "import_id": "qT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 176,
+   "card_id": "4th_kuban_cossacks",
+   "name": "库班哥萨克第 4 团",
+   "import_id": "94",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 177,
+   "card_id": "4th_marines",
+   "name": "第 4 陆战团",
+   "import_id": "fK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 178,
+   "card_id": "4tp",
+   "name": "4TP",
+   "import_id": "rZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 179,
+   "card_id": "503rd_motors",
+   "name": "摩托化步兵第 503 团",
+   "import_id": "9A",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 180,
+   "card_id": "506th_airborne",
+   "name": "第 506 空降步兵团",
+   "import_id": "cB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 181,
+   "card_id": "507th_pir",
+   "name": "第 507 空降步兵团",
+   "import_id": "j8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 182,
+   "card_id": "50_infantry_regiment",
+   "name": "第 50 步兵团",
+   "import_id": "lV",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 183,
+   "card_id": "50_infantry_regiment_vet",
+   "name": "第 50 步兵团",
+   "import_id": "Cr",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 184,
+   "card_id": "511th_airborne",
+   "name": "第 511 空降步兵团",
+   "import_id": "ra",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 185,
+   "card_id": "511th_regiment",
+   "name": "步兵第 511 团",
+   "import_id": "z1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 186,
+   "card_id": "511th_regiment_vet",
+   "name": "步兵第 511 团",
+   "import_id": "Bw",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 187,
+   "card_id": "51e_rgiment",
+   "name": "第 51 团",
+   "import_id": "oI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 188,
+   "card_id": "51st_rifle_brigade",
+   "name": "步兵第 51 旅",
+   "import_id": "t6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 189,
+   "card_id": "554th_rifle_regiment",
+   "name": "步兵第 554 团",
+   "import_id": "8N",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 190,
+   "card_id": "55th_rifles",
+   "name": "步兵第 55 团",
+   "import_id": "xm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 191,
+   "card_id": "573rd_rifles",
+   "name": "步兵第 573 团",
+   "import_id": "wr",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 192,
+   "card_id": "57th_rifles",
+   "name": "步兵第 57 旅",
+   "import_id": "qS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 193,
+   "card_id": "58th_infantry_regiment",
+   "name": "步兵第五十八联队",
+   "import_id": "qC",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 194,
+   "card_id": "593rd_jasco",
+   "name": "第 593 联合通信连",
+   "import_id": "dk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 195,
+   "card_id": "59_panzergrenadier",
+   "name": "第 59 装甲掷弹兵团",
+   "import_id": "4n",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 196,
+   "card_id": "5e_chasseurs",
+   "name": "第 5 猎兵营",
+   "import_id": "oH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 197,
+   "card_id": "5e_cuirassiers",
+   "name": "第 5 胸甲骑兵团",
+   "import_id": "rT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 198,
+   "card_id": "5th_bersaglieri",
+   "name": "第 5 神射手团",
+   "import_id": "wT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 199,
+   "card_id": "5th_brigade",
+   "name": "第 5 步兵旅",
+   "import_id": "17",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 200,
+   "card_id": "5th_infantry_regiment",
+   "name": "第 5 步兵团",
+   "import_id": "da",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 201,
+   "card_id": "5th_legions_regiment",
+   "name": "第 5 军团步兵团",
+   "import_id": "iz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 202,
+   "card_id": "5th_rangers",
+   "name": "第 5 游骑兵营",
+   "import_id": "lg",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 203,
+   "card_id": "5th_regiment",
+   "name": "步兵第五联队",
+   "import_id": "pc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 204,
+   "card_id": "5th_sasebo_snlf",
+   "name": "佐镇第五特别陆战队",
+   "import_id": "tF",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 205,
+   "card_id": "5th_wilno_brigade",
+   "name": "维尔纽斯第 5 步兵旅",
+   "import_id": "wR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 206,
+   "card_id": "60th_cavalry_regiment",
+   "name": "骑兵第 60 团",
+   "import_id": "jZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 207,
+   "card_id": "60th_infantry_regiment",
+   "name": "第 60 步兵团",
+   "import_id": "h8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 208,
+   "card_id": "61st_infantry_regiment",
+   "name": "步兵第六十一联队",
+   "import_id": "7s",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 209,
+   "card_id": "61st_kirkenes",
+   "name": "希尔克内斯第 61 团",
+   "import_id": "wx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 210,
+   "card_id": "62_infantry_regiment",
+   "name": "第 62 步兵团",
+   "import_id": "qk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 211,
+   "card_id": "62nd_armored_infantry",
+   "name": "第 62 装甲步兵团",
+   "import_id": "r4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 212,
+   "card_id": "641st_rifles",
+   "name": "步兵第 641 团",
+   "import_id": "z2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 213,
+   "card_id": "641st_rifles_vet",
+   "name": "步兵第 641 团",
+   "import_id": "Bx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 214,
+   "card_id": "64_panzergrenadier_vet",
+   "name": "第 64 装甲掷弹兵团",
+   "import_id": "Cq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 215,
+   "card_id": "654th_rifles",
+   "name": "步兵第 654 团",
+   "import_id": "rh",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 216,
+   "card_id": "676th_regiment",
+   "name": "步兵第 676 团",
+   "import_id": "t7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 217,
+   "card_id": "6_pounder",
+   "name": "6 磅炮",
+   "import_id": "18",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 218,
+   "card_id": "6th_brigade_nz",
+   "name": "新西兰第 6 旅",
+   "import_id": "y1",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 219,
+   "card_id": "6th_brigade_nz_vet",
+   "name": "新西兰第 6 旅",
+   "import_id": "zI",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 220,
+   "card_id": "6th_infantry_brigade",
+   "name": "第 6 步兵旅",
+   "import_id": "zj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 221,
+   "card_id": "6th_marine_regiment",
+   "name": "第 6 陆战团",
+   "import_id": "yB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 222,
+   "card_id": "6th_motor_rifles",
+   "name": "摩托化步兵第 6 团",
+   "import_id": "t8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 223,
+   "card_id": "6th_naval_brigade",
+   "name": "海军步兵第 6 旅",
+   "import_id": "8Q",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 224,
+   "card_id": "7075_aluminium",
+   "name": "7075 铝",
+   "import_id": "CN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 225,
+   "card_id": "70th_brigade",
+   "name": "第 70 步兵旅",
+   "import_id": "pW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 226,
+   "card_id": "71st_zhytomyr",
+   "name": "日托米尔第 71 团",
+   "import_id": "h4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 227,
+   "card_id": "738_jger_regiment",
+   "name": "第 738 猎兵团",
+   "import_id": "oU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 228,
+   "card_id": "73rd_infantry_regiment",
+   "name": "步兵第七十三联队",
+   "import_id": "xv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 229,
+   "card_id": "740th_rifle_regiment",
+   "name": "步兵第 740 团",
+   "import_id": "wy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 230,
+   "card_id": "74_panzergrenadier",
+   "name": "第 74 装甲掷弹兵团",
+   "import_id": "wH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 231,
+   "card_id": "74th_silesian_regiment",
+   "name": "西里西亚第 74 步兵团",
+   "import_id": "jp",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 232,
+   "card_id": "75mm_mountain_gun",
+   "name": "四一式山炮",
+   "import_id": "6H",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 233,
+   "card_id": "75th_rifle_regiment",
+   "name": "步兵第 75 团",
+   "import_id": "DZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 234,
+   "card_id": "76_mm_howitzer_1939",
+   "name": "76 毫米榴弹炮 1939",
+   "import_id": "8S",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 235,
+   "card_id": "77th_guards",
+   "name": "近卫步兵第 77 团",
+   "import_id": "wz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 236,
+   "card_id": "77th_regiment",
+   "name": "步兵第七十七联队",
+   "import_id": "qD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 237,
+   "card_id": "78th_yongsan",
+   "name": "步兵第七十八联队",
+   "import_id": "zu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 238,
+   "card_id": "79th_infantry_regiment",
+   "name": "步兵第七十九联队",
+   "import_id": "Dw",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 239,
+   "card_id": "7_schtzen",
+   "name": "第 7 步枪兵团",
+   "import_id": "lU",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 240,
+   "card_id": "7_schtzen_vet",
+   "name": "第 7 步枪兵团",
+   "import_id": "Cp",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 241,
+   "card_id": "7th_brigade",
+   "name": "第 7 旅",
+   "import_id": "DG",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 242,
+   "card_id": "7th_brigade_vet",
+   "name": "第 7 旅",
+   "import_id": "DF",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 243,
+   "card_id": "7th_recon",
+   "name": "搜索第七联队",
+   "import_id": "E9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 244,
+   "card_id": "7th_regiment",
+   "name": "第 7 步兵团",
+   "import_id": "cD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 245,
+   "card_id": "7th_scottish_borderers",
+   "name": "苏格兰边民团第 7 营",
+   "import_id": "oA",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 246,
+   "card_id": "845th_rifles",
+   "name": "步兵第 845 团",
+   "import_id": "8U",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 247,
+   "card_id": "84th_infantry_regiment",
+   "name": "步兵第 84 团",
+   "import_id": "8V",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 248,
+   "card_id": "85_pioneer_company",
+   "name": "第 85 先锋连",
+   "import_id": "19",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 249,
+   "card_id": "866th_rifles",
+   "name": "步兵第 866 团",
+   "import_id": "z4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 250,
+   "card_id": "88_mm_flak",
+   "name": "88 毫米高射炮",
+   "import_id": "3V",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 251,
+   "card_id": "89th_infantry_regiment",
+   "name": "步兵第 89 团",
+   "import_id": "8X",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 252,
+   "card_id": "8e_marocains",
+   "name": "摩洛哥第 8 散兵团",
+   "import_id": "q6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 253,
+   "card_id": "909th_roslavl",
+   "name": "罗斯拉夫尔第 909 团",
+   "import_id": "z5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 254,
+   "card_id": "92_infantry_regiment",
+   "name": "第 92 步兵团",
+   "import_id": "wG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 255,
+   "card_id": "92nd_naval_brigade",
+   "name": "海军步兵第 92 旅",
+   "import_id": "pt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 256,
+   "card_id": "93rd_messina",
+   "name": "墨西拿第 93 团",
+   "import_id": "zk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 257,
+   "card_id": "957_volksgrenadier",
+   "name": "第 957 国民掷弹兵团",
+   "import_id": "ts",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 258,
+   "card_id": "96_infantry_regiment",
+   "name": "第 96 步兵团",
+   "import_id": "oT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 259,
+   "card_id": "97th_rifles",
+   "name": "步兵第 97 团",
+   "import_id": "pp",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 260,
+   "card_id": "980_volksgrenadier",
+   "name": "第 980 国民掷弹兵团",
+   "import_id": "44",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 261,
+   "card_id": "99th_kholm",
+   "name": "霍尔姆第 99 团",
+   "import_id": "t9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 262,
+   "card_id": "9_2_coastal_gun",
+   "name": "9.2 英寸岸防炮",
+   "import_id": "1h",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 263,
+   "card_id": "9th_bersaglieri",
+   "name": "第 9 神射手团",
+   "import_id": "wS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 264,
+   "card_id": "9th_guards_regiment",
+   "name": "近卫步兵第九联队",
+   "import_id": "x2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 265,
+   "card_id": "a20_havoc",
+   "name": "A-20 浩劫",
+   "import_id": "cG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 266,
+   "card_id": "a24_banshee",
+   "name": "A-24 女妖",
+   "import_id": "cI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 267,
+   "card_id": "a26_invader",
+   "name": "A-26 入侵者",
+   "import_id": "cH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 268,
+   "card_id": "a36_apache",
+   "name": "A-36 阿帕齐",
+   "import_id": "cJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 269,
+   "card_id": "a6m2_zero",
+   "name": "A6M2 零战",
+   "import_id": "7q",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 270,
+   "card_id": "a_bridge_too_far",
+   "name": "遥远的桥",
+   "import_id": "oO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 271,
+   "card_id": "a_few_good_men",
+   "name": "好人寥寥",
+   "import_id": "bR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 272,
+   "card_id": "ace_of_spades",
+   "name": "黑桃 A 师",
+   "import_id": "wF",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 273,
+   "card_id": "ace_of_spades_vet",
+   "name": "黑桃 A 师",
+   "import_id": "Co",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 274,
+   "card_id": "active_sonar",
+   "name": "主动声呐",
+   "import_id": "fy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 275,
+   "card_id": "admiral_yamamoto",
+   "name": "山本五十六",
+   "import_id": "64",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 276,
+   "card_id": "advanced_imperial_rd",
+   "name": "高级帝国研发",
+   "import_id": "CO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 277,
+   "card_id": "advanced_reich_rd",
+   "name": "高级德意志帝国研发",
+   "import_id": "eP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 278,
+   "card_id": "advanced_royal_research",
+   "name": "高级皇家研发",
+   "import_id": "go",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 279,
+   "card_id": "advanced_soviet_research",
+   "name": "高级苏联研发",
+   "import_id": "Bp",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 280,
+   "card_id": "advanced_us_research",
+   "name": "高级美国研发",
+   "import_id": "fz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 281,
+   "card_id": "aerial_reconnaissance",
+   "name": "空中侦察",
+   "import_id": "03",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 282,
+   "card_id": "aerosani",
+   "name": "气动雪橇",
+   "import_id": "Bq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 283,
+   "card_id": "afrika_korps",
+   "name": "非洲军团",
+   "import_id": "3m",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 284,
+   "card_id": "aichi_d3a1",
+   "name": "D3A1 九九舰爆",
+   "import_id": "7c",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 285,
+   "card_id": "aichi_d3a2",
+   "name": "D3A2 九九舰爆",
+   "import_id": "6K",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 286,
+   "card_id": "aid_to_the_front",
+   "name": "如虎添翼",
+   "import_id": "wl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 287,
+   "card_id": "air_blitz",
+   "name": "空中闪击",
+   "import_id": "2O",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 288,
+   "card_id": "air_corps_ferrying",
+   "name": "航空兵团运输",
+   "import_id": "r1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 289,
+   "card_id": "air_cover",
+   "name": "空中掩护",
+   "import_id": "sG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 290,
+   "card_id": "air_defense",
+   "name": "防空",
+   "import_id": "bi",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 291,
+   "card_id": "air_escort",
+   "name": "空中护航",
+   "import_id": "rY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 292,
+   "card_id": "air_land_sea",
+   "name": "海陆空",
+   "import_id": "p6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 293,
+   "card_id": "air_strips",
+   "name": "跑道",
+   "import_id": "vj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 294,
+   "card_id": "air_superiority",
+   "name": "空中优势",
+   "import_id": "5t",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 295,
+   "card_id": "air_support",
+   "name": "空中支援",
+   "import_id": "BO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 296,
+   "card_id": "akita_regiment",
+   "name": "秋田联队",
+   "import_id": "6L",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 297,
+   "card_id": "albacore_mk_i",
+   "name": "青花鱼 Mk I",
+   "import_id": "1a",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 298,
+   "card_id": "amphibious_assault",
+   "name": "两栖进攻",
+   "import_id": "5u",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 299,
+   "card_id": "anders_army",
+   "name": "安德斯军团",
+   "import_id": "zi",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 300,
+   "card_id": "arado_ar_196",
+   "name": "Ar 196",
+   "import_id": "3X",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 301,
+   "card_id": "arctic_convoy",
+   "name": "北极护航队",
+   "import_id": "7E",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 302,
+   "card_id": "area_bombardment",
+   "name": "区域轰炸",
+   "import_id": "yP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 303,
+   "card_id": "argyllshire_highlanders",
+   "name": "阿盖尔和萨瑟兰高地人团",
+   "import_id": "1b",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 304,
+   "card_id": "armaments",
+   "name": "军备",
+   "import_id": "Bc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 305,
+   "card_id": "arming_the_resistance",
+   "name": "武装抵抗",
+   "import_id": "2h",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 306,
+   "card_id": "atlantic_command",
+   "name": "大西洋航空指挥部",
+   "import_id": "tf",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 307,
+   "card_id": "atlantic_convoy",
+   "name": "大西洋护航队",
+   "import_id": "04",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 308,
+   "card_id": "attack_in_the_colonies",
+   "name": "进攻殖民地",
+   "import_id": "jM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 309,
+   "card_id": "aunt_frieda",
+   "name": "弗里达阿姨手册",
+   "import_id": "qb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 310,
+   "card_id": "b17_flying_fortress",
+   "name": "B-17 飞行堡垒",
+   "import_id": "cK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 311,
+   "card_id": "b24d",
+   "name": "B-24D",
+   "import_id": "Al",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 312,
+   "card_id": "b24j",
+   "name": "B-24J",
+   "import_id": "Am",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 313,
+   "card_id": "b25_mitchell",
+   "name": "B-25 米切尔",
+   "import_id": "cN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 314,
+   "card_id": "b26_marauder",
+   "name": "B-26 掠夺者",
+   "import_id": "cO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 315,
+   "card_id": "b29_superfortress",
+   "name": "B-29 超级堡垒",
+   "import_id": "cP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 316,
+   "card_id": "b6n_tenzan",
+   "name": "B6N 天山舰攻",
+   "import_id": "7t",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 317,
+   "card_id": "b7a2_ryusei",
+   "name": "B7A2 流星改",
+   "import_id": "il",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 318,
+   "card_id": "balloon_bombs",
+   "name": "气球炸弹",
+   "import_id": "CP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 319,
+   "card_id": "baltimore_mk_iii",
+   "name": "巴尔的摩 Mk III",
+   "import_id": "w4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 320,
+   "card_id": "baluch_regiment",
+   "name": "俾路支团",
+   "import_id": "1c",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 321,
+   "card_id": "banzai",
+   "name": "万岁冲锋",
+   "import_id": "jj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 322,
+   "card_id": "barracuda",
+   "name": "梭鱼",
+   "import_id": "hW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 323,
+   "card_id": "beaufighter_vi_f",
+   "name": "英俊战士 Mk VI F",
+   "import_id": "oz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 324,
+   "card_id": "bergmann_battalion",
+   "name": "山地人营",
+   "import_id": "tr",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 325,
+   "card_id": "betasom",
+   "name": "波尔多潜艇指挥部",
+   "import_id": "tx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 326,
+   "card_id": "bf_109e7_trop",
+   "name": "Bf 109 E-7 热带型",
+   "import_id": "i7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 327,
+   "card_id": "big_red_one",
+   "name": "大红一师",
+   "import_id": "r3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 328,
+   "card_id": "black_prince",
+   "name": "A43 黑王子",
+   "import_id": "q0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 329,
+   "card_id": "black_watch",
+   "name": "黑卫士兵团",
+   "import_id": "1d",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 330,
+   "card_id": "blackout",
+   "name": "灯火管制",
+   "import_id": "2R",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 331,
+   "card_id": "blade_of_the_samurai",
+   "name": "武士之刃",
+   "import_id": "5w",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 332,
+   "card_id": "blast",
+   "name": "爆破",
+   "import_id": "Cv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 333,
+   "card_id": "bletchley_park",
+   "name": "布莱切利庄园",
+   "import_id": "gq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 334,
+   "card_id": "blitzkrieg",
+   "name": "闪电战",
+   "import_id": "2S",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 335,
+   "card_id": "bloch_mb_152",
+   "name": "布洛克 MB.152",
+   "import_id": "ha",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 336,
+   "card_id": "blockade",
+   "name": "封锁",
+   "import_id": "05",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 337,
+   "card_id": "bloody_eleventh",
+   "name": "血腥第十一团",
+   "import_id": "re",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 338,
+   "card_id": "bloody_sickle",
+   "name": "血红镰刀",
+   "import_id": "7H",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 339,
+   "card_id": "blue_legion",
+   "name": "蓝色军团",
+   "import_id": "zd",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 340,
+   "card_id": "blue_sky",
+   "name": "蓝天",
+   "import_id": "CF",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 341,
+   "card_id": "bm13n_us6",
+   "name": "BM-13N US6",
+   "import_id": "mt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 342,
+   "card_id": "bocage_warfare",
+   "name": "篱墙之战",
+   "import_id": "qZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 343,
+   "card_id": "bolster_the_ranks",
+   "name": "激励部队",
+   "import_id": "gL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 344,
+   "card_id": "bombing_raid",
+   "name": "轰炸突袭",
+   "import_id": "5x",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 345,
+   "card_id": "bp43_armored_train",
+   "name": "BP-43 装甲列车",
+   "import_id": "91",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 346,
+   "card_id": "bpf",
+   "name": "英国太平洋舰队",
+   "import_id": "tX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 347,
+   "card_id": "breakout",
+   "name": "突围",
+   "import_id": "pR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 348,
+   "card_id": "breakthrough",
+   "name": "突破",
+   "import_id": "2T",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 349,
+   "card_id": "breda_ba_65",
+   "name": "布雷达 Ba.65",
+   "import_id": "sl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 350,
+   "card_id": "brewster_f2a",
+   "name": "F2A 水牛",
+   "import_id": "Ak",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 351,
+   "card_id": "bryansk_irregulars",
+   "name": "布良斯克游击队",
+   "import_id": "k0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 352,
+   "card_id": "bt7_1937_vet",
+   "name": "BT-7 1937",
+   "import_id": "Bo",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 353,
+   "card_id": "buffs",
+   "name": "米色团",
+   "import_id": "sU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 354,
+   "card_id": "burning_sky",
+   "name": "燃烧的天空",
+   "import_id": "7J",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 355,
+   "card_id": "burning_sun",
+   "name": "烈日",
+   "import_id": "5y",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 356,
+   "card_id": "buzz_bomb",
+   "name": "嗡嗡炸弹",
+   "import_id": "q8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 357,
+   "card_id": "by_the_sword",
+   "name": "以剑之名",
+   "import_id": "fr",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 358,
+   "card_id": "c47_skytrain",
+   "name": "C-47 空中列车",
+   "import_id": "fL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 359,
+   "card_id": "cadet_nurse_corps",
+   "name": "军校护士团",
+   "import_id": "bk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 360,
+   "card_id": "call_to_the_colonies",
+   "name": "呼叫殖民地",
+   "import_id": "2i",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 361,
+   "card_id": "calliope",
+   "name": "T34 风琴",
+   "import_id": "rc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 362,
+   "card_id": "calm_before_the_storm",
+   "name": "暴风雨前的宁静",
+   "import_id": "ij",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 363,
+   "card_id": "cameronians",
+   "name": "卡梅伦团",
+   "import_id": "oy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 364,
+   "card_id": "cannone_da_47",
+   "name": "47 毫米反坦克炮",
+   "import_id": "id",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 365,
+   "card_id": "capitulation",
+   "name": "一触即溃",
+   "import_id": "tg",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 366,
+   "card_id": "caproni_ca_133",
+   "name": "卡普罗尼 Ca.133",
+   "import_id": "xS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 367,
+   "card_id": "careless_talk",
+   "name": "无心漫谈",
+   "import_id": "2U",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 368,
+   "card_id": "carpet_bombing",
+   "name": "地毯式轰炸",
+   "import_id": "06",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 369,
+   "card_id": "carrier_battle",
+   "name": "航母战",
+   "import_id": "p5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 370,
+   "card_id": "carrier_cover",
+   "name": "航母掩护",
+   "import_id": "bl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 371,
+   "card_id": "case_blue",
+   "name": "蓝色方案",
+   "import_id": "qa",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 372,
+   "card_id": "cedar_division",
+   "name": "杉兵团",
+   "import_id": "qy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 373,
+   "card_id": "cedar_division_vet",
+   "name": "杉兵团",
+   "import_id": "CL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 374,
+   "card_id": "chain_home",
+   "name": "本土链",
+   "import_id": "sD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 375,
+   "card_id": "char_b1_bis",
+   "name": "B1 重型坦克 II 型",
+   "import_id": "2y",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 376,
+   "card_id": "cheshire_regiment",
+   "name": "柴郡团",
+   "import_id": "pV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 377,
+   "card_id": "churchill_mk_iv",
+   "name": "丘吉尔 Mk IV",
+   "import_id": "1g",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 378,
+   "card_id": "claim_objective",
+   "name": "夺取目标",
+   "import_id": "zh",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 379,
+   "card_id": "close_air_support",
+   "name": "近距离空中支援",
+   "import_id": "07",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 380,
+   "card_id": "close_combat",
+   "name": "短兵相接",
+   "import_id": "7K",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 381,
+   "card_id": "coastal_battalion_7",
+   "name": "第 7 海岸步兵营",
+   "import_id": "wf",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 382,
+   "card_id": "coastwatchers",
+   "name": "海岸观察员",
+   "import_id": "xY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 383,
+   "card_id": "cold_trap",
+   "name": "极寒陷阱",
+   "import_id": "no",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 384,
+   "card_id": "coldstream_guards",
+   "name": "冷溪卫队",
+   "import_id": "1i",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 385,
+   "card_id": "colossus",
+   "name": "巨人计算机",
+   "import_id": "yO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 386,
+   "card_id": "combined_arms",
+   "name": "协同作战",
+   "import_id": "2V",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 387,
+   "card_id": "combined_chiefs_of_staff",
+   "name": "参谋长联席会议",
+   "import_id": "wd",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 388,
+   "card_id": "command_failure",
+   "name": "指挥不当",
+   "import_id": "qq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 389,
+   "card_id": "commit_the_reserves",
+   "name": "穷兵黩武",
+   "import_id": "p4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 390,
+   "card_id": "confusion",
+   "name": "混乱",
+   "import_id": "8r",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 391,
+   "card_id": "conquest",
+   "name": "征服",
+   "import_id": "xr",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 392,
+   "card_id": "contest_doctrine",
+   "name": "竞争战法",
+   "import_id": "BP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 393,
+   "card_id": "convoy_attack",
+   "name": "护航攻击",
+   "import_id": "oZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 394,
+   "card_id": "convoy_hx_175",
+   "name": "HX 175 护航队",
+   "import_id": "08",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 395,
+   "card_id": "corps_command",
+   "name": "军司令部",
+   "import_id": "DL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 396,
+   "card_id": "corsair_f4u1c",
+   "name": "F4U-1C 海盗",
+   "import_id": "cQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 397,
+   "card_id": "counter_offensive",
+   "name": "反击攻势",
+   "import_id": "7M",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 398,
+   "card_id": "counter_strike",
+   "name": "反袭",
+   "import_id": "bm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 399,
+   "card_id": "counterattack",
+   "name": "反击",
+   "import_id": "zf",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 400,
+   "card_id": "creeping_barrage",
+   "name": "徐进弹幕",
+   "import_id": "pQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 401,
+   "card_id": "critical_hit",
+   "name": "致命一击",
+   "import_id": "7N",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 402,
+   "card_id": "cromwell_mk_iv",
+   "name": "克伦威尔 Mk IV",
+   "import_id": "1l",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 403,
+   "card_id": "cross_of_lorraine",
+   "name": "洛林十字",
+   "import_id": "hX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 404,
+   "card_id": "crossfire",
+   "name": "交叉火力",
+   "import_id": "q9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 405,
+   "card_id": "cruiser_scouts",
+   "name": "巡洋舰侦察机",
+   "import_id": "zm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 406,
+   "card_id": "cup_of_tea",
+   "name": "一杯茶",
+   "import_id": "09",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 407,
+   "card_id": "cyclone",
+   "name": "旋风",
+   "import_id": "CE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 408,
+   "card_id": "cyclone_division",
+   "name": "龙卷师",
+   "import_id": "r9",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 409,
+   "card_id": "cyclone_division_vet",
+   "name": "龙卷师",
+   "import_id": "An",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 410,
+   "card_id": "danuta",
+   "name": "达努塔装甲列车",
+   "import_id": "s0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 411,
+   "card_id": "dark_deeds",
+   "name": "阴谋",
+   "import_id": "rM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 412,
+   "card_id": "deadly_duty",
+   "name": "极限使命",
+   "import_id": "5B",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 413,
+   "card_id": "death_from_above",
+   "name": "死神降临",
+   "import_id": "bn",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 414,
+   "card_id": "decoy_tactics",
+   "name": "诱饵战术",
+   "import_id": "wg",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 415,
+   "card_id": "deep_operation",
+   "name": "大纵深作战",
+   "import_id": "iR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 416,
+   "card_id": "defeat_in_detail",
+   "name": "逐个击破",
+   "import_id": "qu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 417,
+   "card_id": "defend_in_depth",
+   "name": "纵深防御",
+   "import_id": "gQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 418,
+   "card_id": "defend_the_nation",
+   "name": "保家卫国",
+   "import_id": "sZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 419,
+   "card_id": "defiant_mk_i",
+   "name": "无畏 Mk I",
+   "import_id": "xf",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 420,
+   "card_id": "deluge",
+   "name": "暴雨",
+   "import_id": "Cy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 421,
+   "card_id": "depot_raid",
+   "name": "劫营",
+   "import_id": "oE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 422,
+   "card_id": "depth_charges",
+   "name": "深水炸弹",
+   "import_id": "gf",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 423,
+   "card_id": "desert_dust",
+   "name": "沙尘满目",
+   "import_id": "pO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 424,
+   "card_id": "desperate_measures",
+   "name": "亡命之计",
+   "import_id": "5C",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 425,
+   "card_id": "detailed_recon",
+   "name": "周密侦察",
+   "import_id": "zg",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 426,
+   "card_id": "dewoitine_d_520",
+   "name": "地瓦丁 D.520",
+   "import_id": "2z",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 427,
+   "card_id": "dilemma",
+   "name": "两难困境",
+   "import_id": "sC",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 428,
+   "card_id": "dingo",
+   "name": "丁格犬侦察车",
+   "import_id": "xX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 429,
+   "card_id": "dive_bombing",
+   "name": "俯冲轰炸",
+   "import_id": "2W",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 430,
+   "card_id": "do_or_die",
+   "name": "拼死一搏",
+   "import_id": "yU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 431,
+   "card_id": "dornier_do_17z",
+   "name": "Do 17 Z",
+   "import_id": "wA",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 432,
+   "card_id": "dornier_do_18g",
+   "name": "Do 18 G",
+   "import_id": "oS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 433,
+   "card_id": "dowding_system",
+   "name": "道丁系统",
+   "import_id": "hD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 434,
+   "card_id": "drive_into_the_sea",
+   "name": "驱敌入海",
+   "import_id": "wV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 435,
+   "card_id": "duck",
+   "name": "J2F 鸭式",
+   "import_id": "yt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 436,
+   "card_id": "dug_in",
+   "name": "深挖",
+   "import_id": "tQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 437,
+   "card_id": "duress",
+   "name": "胁迫",
+   "import_id": "oh",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 438,
+   "card_id": "duty_bound",
+   "name": "责无旁贷",
+   "import_id": "qp",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 439,
+   "card_id": "e13a_jake",
+   "name": "E13A 零式水侦",
+   "import_id": "pb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 440,
+   "card_id": "eagle_claws",
+   "name": "鹰爪",
+   "import_id": "2X",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 441,
+   "card_id": "eagle_day",
+   "name": "鹰日计划",
+   "import_id": "jH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 442,
+   "card_id": "echelon",
+   "name": "梯队",
+   "import_id": "pP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 443,
+   "card_id": "edge_of_the_empire",
+   "name": "帝国边境",
+   "import_id": "jN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 444,
+   "card_id": "empire_of_the_sun",
+   "name": "太阳帝国",
+   "import_id": "5F",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 445,
+   "card_id": "encirclement",
+   "name": "包围",
+   "import_id": "2Y",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 446,
+   "card_id": "enemy_contact",
+   "name": "逢敌",
+   "import_id": "n3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 447,
+   "card_id": "enemy_spotted",
+   "name": "发现敌人",
+   "import_id": "bp",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 448,
+   "card_id": "engage_at_range",
+   "name": "远距离交战",
+   "import_id": "uE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 449,
+   "card_id": "engage_up_close",
+   "name": "近距离交战",
+   "import_id": "CT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 450,
+   "card_id": "enigma",
+   "name": "恩尼格玛",
+   "import_id": "2Z",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 451,
+   "card_id": "entanglement",
+   "name": "障碍",
+   "import_id": "pN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 452,
+   "card_id": "entrapment",
+   "name": "圈套",
+   "import_id": "fT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 453,
+   "card_id": "escaut_plan",
+   "name": "埃斯科计划",
+   "import_id": "rR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 454,
+   "card_id": "evasive_action",
+   "name": "规避动作",
+   "import_id": "gs",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 455,
+   "card_id": "exhaust_all_options",
+   "name": "竭尽全力",
+   "import_id": "qt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 456,
+   "card_id": "exiled_forces",
+   "name": "流亡部队",
+   "import_id": "wP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 457,
+   "card_id": "expanded_imperial_rd",
+   "name": "扩展帝国研发",
+   "import_id": "CQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 458,
+   "card_id": "expanded_reich_rd",
+   "name": "扩展德意志帝国研发",
+   "import_id": "eR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 459,
+   "card_id": "expanded_royal_research",
+   "name": "扩展皇家研发",
+   "import_id": "gt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 460,
+   "card_id": "expanded_soviet_research",
+   "name": "扩展苏联研发",
+   "import_id": "Br",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 461,
+   "card_id": "expanded_us_research",
+   "name": "扩展美国研发",
+   "import_id": "fB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 462,
+   "card_id": "expansion",
+   "name": "扩张",
+   "import_id": "5Z",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 463,
+   "card_id": "expeditionary_corps",
+   "name": "远征军",
+   "import_id": "2B",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 464,
+   "card_id": "exposed",
+   "name": "暴露无遗",
+   "import_id": "wm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 465,
+   "card_id": "extended_barrage",
+   "name": "持续弹幕",
+   "import_id": "th",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 466,
+   "card_id": "f4f4_wildcat",
+   "name": "F4F-4 野猫",
+   "import_id": "cT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 467,
+   "card_id": "f6f5_hellcat",
+   "name": "F6F-5 地狱猫",
+   "import_id": "vV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 468,
+   "card_id": "fast_heinz",
+   "name": "古德里安",
+   "import_id": "30",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 469,
+   "card_id": "feldherrnhalle_rifles",
+   "name": "统帅堂装甲掷弹兵师",
+   "import_id": "qj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 470,
+   "card_id": "ferocious_assault",
+   "name": "猛袭",
+   "import_id": "E7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 471,
+   "card_id": "fiat_c_r_42",
+   "name": "菲亚特 C.R.42",
+   "import_id": "5i",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 472,
+   "card_id": "fiat_g_50",
+   "name": "菲亚特 G.50",
+   "import_id": "fX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 473,
+   "card_id": "fiat_g_55",
+   "name": "菲亚特 G.55",
+   "import_id": "5j",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 474,
+   "card_id": "fifth_ohio",
+   "name": "俄亥俄州第 5 步兵团",
+   "import_id": "DB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 475,
+   "card_id": "final_push",
+   "name": "最后一击",
+   "import_id": "7O",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 476,
+   "card_id": "finest_hour",
+   "name": "最光辉的时刻",
+   "import_id": "0c",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 477,
+   "card_id": "finnish_boys",
+   "name": "芬兰男孩步兵团",
+   "import_id": "rP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 478,
+   "card_id": "first_responders",
+   "name": "第一响应",
+   "import_id": "ot",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 479,
+   "card_id": "five_year_plan",
+   "name": "五年计划",
+   "import_id": "iS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 480,
+   "card_id": "flammpanzer",
+   "name": "喷火坦克",
+   "import_id": "42",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 481,
+   "card_id": "flight_to_oblivion",
+   "name": "终焉之行",
+   "import_id": "vl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 482,
+   "card_id": "fog_of_war",
+   "name": "战争迷雾",
+   "import_id": "eF",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 483,
+   "card_id": "foiled_plans",
+   "name": "轻虑浅谋",
+   "import_id": "oN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 484,
+   "card_id": "fokker_d_xxi",
+   "name": "福克 D.XXI",
+   "import_id": "vb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 485,
+   "card_id": "for_freedom",
+   "name": "为了自由",
+   "import_id": "bq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 486,
+   "card_id": "for_glory",
+   "name": "为了荣耀",
+   "import_id": "5G",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 487,
+   "card_id": "for_prosperity",
+   "name": "为了繁荣",
+   "import_id": "5H",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 488,
+   "card_id": "for_the_emperor",
+   "name": "为了帝国",
+   "import_id": "5I",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 489,
+   "card_id": "for_the_king",
+   "name": "为了国王",
+   "import_id": "0f",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 490,
+   "card_id": "forged_in_fire",
+   "name": "千锤百炼",
+   "import_id": "wu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 491,
+   "card_id": "form_battle_line",
+   "name": "形成战线",
+   "import_id": "yV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 492,
+   "card_id": "fortification",
+   "name": "防御工事",
+   "import_id": "0d",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 493,
+   "card_id": "forward_base",
+   "name": "前沿基地",
+   "import_id": "DK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 494,
+   "card_id": "forward_observers",
+   "name": "前进观察员",
+   "import_id": "qY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 495,
+   "card_id": "frappe",
+   "name": "攻击",
+   "import_id": "kt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 496,
+   "card_id": "free_french_navy",
+   "name": "自由法国海军",
+   "import_id": "q4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 497,
+   "card_id": "french_75",
+   "name": "75 毫米野战炮",
+   "import_id": "2A",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 498,
+   "card_id": "friendly_fire",
+   "name": "误伤",
+   "import_id": "oD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 499,
+   "card_id": "from_the_deep",
+   "name": "来自深处",
+   "import_id": "31",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 500,
+   "card_id": "from_the_people",
+   "name": "来自人民",
+   "import_id": "7P",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 501,
+   "card_id": "front_and_homeland",
+   "name": "前线与家乡",
+   "import_id": "wC",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 502,
+   "card_id": "front_formation",
+   "name": "方面军",
+   "import_id": "qL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 503,
+   "card_id": "frontal_assault",
+   "name": "正面突击",
+   "import_id": "7F",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 504,
+   "card_id": "frontal_defense",
+   "name": "正面防御",
+   "import_id": "s2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 505,
+   "card_id": "frontier_force",
+   "name": "边防团",
+   "import_id": "pU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 506,
+   "card_id": "fukuoka_regiment",
+   "name": "福冈联队",
+   "import_id": "qB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 507,
+   "card_id": "fw_189",
+   "name": "Fw 189 鸮鹰",
+   "import_id": "tq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 508,
+   "card_id": "fw_190_a",
+   "name": "Fw 190 A 百舌鸟",
+   "import_id": "43",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 509,
+   "card_id": "fw_190_f9",
+   "name": "Fw 190 F-9",
+   "import_id": "tp",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 510,
+   "card_id": "fw_190_jagdbomber",
+   "name": "Fw 190 A-3/U3",
+   "import_id": "gU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 511,
+   "card_id": "fw_200_condor",
+   "name": "Fw 200 秃鹰",
+   "import_id": "f5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 512,
+   "card_id": "fw_ta_152",
+   "name": "Ta 152",
+   "import_id": "z9",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 513,
+   "card_id": "fw_ta_152_vet",
+   "name": "Ta 152",
+   "import_id": "Ci",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 514,
+   "card_id": "gale",
+   "name": "狂风",
+   "import_id": "CB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 515,
+   "card_id": "garrison",
+   "name": "卫戍",
+   "import_id": "AS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 516,
+   "card_id": "gathering_storm",
+   "name": "风暴前夕",
+   "import_id": "hZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 517,
+   "card_id": "gifu_regiment",
+   "name": "岐阜联队",
+   "import_id": "tH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 518,
+   "card_id": "gladiator_escort",
+   "name": "角斗士护航机",
+   "import_id": "1p",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 519,
+   "card_id": "gladiator_mk_i",
+   "name": "角斗士 Mk I",
+   "import_id": "1o",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 520,
+   "card_id": "glide_bombing",
+   "name": "滑翔轰炸",
+   "import_id": "qc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 521,
+   "card_id": "gordon_highlanders",
+   "name": "戈登高地人团",
+   "import_id": "sT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 522,
+   "card_id": "greater_purpose",
+   "name": "远大目标",
+   "import_id": "fY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 523,
+   "card_id": "grenadier_guards",
+   "name": "掷弹兵卫队",
+   "import_id": "1q",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 524,
+   "card_id": "grounded",
+   "name": "停飞",
+   "import_id": "0g",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 525,
+   "card_id": "grumman_goose",
+   "name": "G-21 鹅式",
+   "import_id": "pa",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 526,
+   "card_id": "guerilla_warfare_school",
+   "name": "游击战学校",
+   "import_id": "yb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 527,
+   "card_id": "gunboat_hit",
+   "name": "炮艇命中",
+   "import_id": "5J",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 528,
+   "card_id": "gunboat_run",
+   "name": "炮艇出击",
+   "import_id": "5L",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 529,
+   "card_id": "gunship_mission",
+   "name": "炮艇任务",
+   "import_id": "br",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 530,
+   "card_id": "halifax_b_mk_i",
+   "name": "哈利法克斯 B Mk I",
+   "import_id": "mX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 531,
+   "card_id": "hampden_mk_i",
+   "name": "汉普敦 Mk I",
+   "import_id": "1r",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 532,
+   "card_id": "hampshire_regiment",
+   "name": "汉普郡团",
+   "import_id": "w2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 533,
+   "card_id": "happy_time",
+   "name": "美好时光",
+   "import_id": "td",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 534,
+   "card_id": "harass",
+   "name": "侵扰",
+   "import_id": "vi",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 535,
+   "card_id": "heartland_defense",
+   "name": "腹地防御",
+   "import_id": "sW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 536,
+   "card_id": "heatwave",
+   "name": "热浪",
+   "import_id": "CG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 537,
+   "card_id": "heinkel_he_111",
+   "name": "He 111",
+   "import_id": "jJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 538,
+   "card_id": "heinkel_he_115",
+   "name": "He 115",
+   "import_id": "ia",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 539,
+   "card_id": "heinkel_he_219",
+   "name": "He 219 夜枭",
+   "import_id": "45",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 540,
+   "card_id": "heinkel_he_59",
+   "name": "He 59",
+   "import_id": "z8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 541,
+   "card_id": "hel",
+   "name": "海尔要塞",
+   "import_id": "jm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 542,
+   "card_id": "hell_on_wheels",
+   "name": "地狱之轮",
+   "import_id": "rn",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 543,
+   "card_id": "henschel_hs_129",
+   "name": "Hs 129",
+   "import_id": "vh",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 544,
+   "card_id": "heroes_of_the_soviet_union",
+   "name": "苏联英雄",
+   "import_id": "8g",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 545,
+   "card_id": "himeji_regiment",
+   "name": "姬路联队",
+   "import_id": "6R",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 546,
+   "card_id": "hirosaki_brigade",
+   "name": "弘前旅团",
+   "import_id": "qx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 547,
+   "card_id": "his_majestys_chosen",
+   "name": "皇家旨意",
+   "import_id": "0F",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 548,
+   "card_id": "hmas_warramunga",
+   "name": "HMAS 瓦拉孟加号",
+   "import_id": "ya",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 549,
+   "card_id": "hms_belfast",
+   "name": "HMS 贝尔法斯特号",
+   "import_id": "tW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 550,
+   "card_id": "hms_formidable",
+   "name": "HMS 可畏号",
+   "import_id": "tV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 551,
+   "card_id": "hms_illustrious",
+   "name": "HMS 光辉号",
+   "import_id": "0h",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 552,
+   "card_id": "hms_sceptre",
+   "name": "HMS 权杖号",
+   "import_id": "tU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 553,
+   "card_id": "home_defense",
+   "name": "本土决战",
+   "import_id": "5M",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 554,
+   "card_id": "home_guard",
+   "name": "国土警卫队",
+   "import_id": "wc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 555,
+   "card_id": "honor",
+   "name": "玉碎",
+   "import_id": "5N",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 556,
+   "card_id": "honorifics",
+   "name": "荣誉称号",
+   "import_id": "tj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 557,
+   "card_id": "hotchkiss_h35",
+   "name": "哈奇开斯 H35",
+   "import_id": "2D",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 558,
+   "card_id": "hull_down",
+   "name": "车体隐蔽",
+   "import_id": "qK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 559,
+   "card_id": "human_torpedo",
+   "name": "人控鱼雷",
+   "import_id": "57",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 560,
+   "card_id": "humber_mk_ii",
+   "name": "亨伯 Mk II",
+   "import_id": "1n",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 561,
+   "card_id": "humber_mk_iv",
+   "name": "亨伯 Mk IV",
+   "import_id": "pZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 562,
+   "card_id": "hurricane_mk_i",
+   "name": "飓风 Mk I",
+   "import_id": "1t",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 563,
+   "card_id": "hurricane_mk_iia",
+   "name": "飓风 Mk IIa",
+   "import_id": "1u",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 564,
+   "card_id": "hurricane_mk_iic_trop_vet",
+   "name": "飓风 Mk IIc 热带型",
+   "import_id": "B9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 565,
+   "card_id": "hurricane_pl",
+   "name": "飓风 PL",
+   "import_id": "jq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 566,
+   "card_id": "i15_chaika",
+   "name": "伊-15 海鸥",
+   "import_id": "97",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 567,
+   "card_id": "i16_ishak",
+   "name": "伊-16 毛驴",
+   "import_id": "98",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 568,
+   "card_id": "ijn_akagi",
+   "name": "IJN 赤城号",
+   "import_id": "tO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 569,
+   "card_id": "ijn_mikura",
+   "name": "IJN 御藏号",
+   "import_id": "uz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 570,
+   "card_id": "ijn_shinano",
+   "name": "IJN 信浓号",
+   "import_id": "m6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 571,
+   "card_id": "ijn_shirakumo",
+   "name": "IJN 白云号",
+   "import_id": "wW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 572,
+   "card_id": "il2m_pl",
+   "name": "伊尔-2M PL",
+   "import_id": "iJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 573,
+   "card_id": "ilyushin_il10",
+   "name": "伊尔-10",
+   "import_id": "ve",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 574,
+   "card_id": "ilyushin_il2",
+   "name": "伊尔-2",
+   "import_id": "t4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 575,
+   "card_id": "imperial_decree",
+   "name": "诏令",
+   "import_id": "5P",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 576,
+   "card_id": "imperial_order",
+   "name": "帝国指令",
+   "import_id": "5Q",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 577,
+   "card_id": "imperial_research",
+   "name": "帝国研发",
+   "import_id": "zn",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 578,
+   "card_id": "imperial_weapon_no_2",
+   "name": "皇国二号兵器",
+   "import_id": "CR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 579,
+   "card_id": "infantry_regiment_13",
+   "name": "第 13 步兵团",
+   "import_id": "nc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 580,
+   "card_id": "infantry_regiment_2",
+   "name": "第 2 步兵团",
+   "import_id": "oF",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 581,
+   "card_id": "infantry_regiment_25",
+   "name": "第 25 步兵团",
+   "import_id": "we",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 582,
+   "card_id": "infantry_regiment_36",
+   "name": "第 36 步兵团",
+   "import_id": "rN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 583,
+   "card_id": "infantry_regiment_56",
+   "name": "第 56 步兵团",
+   "import_id": "q2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 584,
+   "card_id": "interception",
+   "name": "拦截",
+   "import_id": "0i",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 585,
+   "card_id": "iosef_stalin_ii",
+   "name": "IS-2",
+   "import_id": "96",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 586,
+   "card_id": "iron_division",
+   "name": "钢铁师",
+   "import_id": "s1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 587,
+   "card_id": "iron_victory",
+   "name": "百炼成钢",
+   "import_id": "qJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 588,
+   "card_id": "irregular_recruits",
+   "name": "非常规兵员",
+   "import_id": "yW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 589,
+   "card_id": "is_ii_1944_early",
+   "name": "IS-2 1944 早期型",
+   "import_id": "ws",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 590,
+   "card_id": "island_defense",
+   "name": "岛屿防御",
+   "import_id": "ma",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 591,
+   "card_id": "ita_regiment",
+   "name": "大分联队",
+   "import_id": "xz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 592,
+   "card_id": "j1n1_gekko",
+   "name": "J1N1 月光夜战",
+   "import_id": "6S",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 593,
+   "card_id": "j2m_raiden",
+   "name": "J2M 雷电局地战",
+   "import_id": "Ea",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 594,
+   "card_id": "jagdpanzer_iv",
+   "name": "四号坦克歼击车",
+   "import_id": "to",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 595,
+   "card_id": "jger_battalion_2",
+   "name": "第 2 猎兵营",
+   "import_id": "n8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 596,
+   "card_id": "joint_operation",
+   "name": "联合行动",
+   "import_id": "33",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 597,
+   "card_id": "ju_87_b_stuka",
+   "name": "Ju 87 B 斯图卡",
+   "import_id": "4d",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 598,
+   "card_id": "jungle_fever",
+   "name": "丛林热",
+   "import_id": "CH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 599,
+   "card_id": "jungle_warfare",
+   "name": "丛林战",
+   "import_id": "m8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 600,
+   "card_id": "kagoshima_regiment",
+   "name": "布干维尔守备队",
+   "import_id": "6U",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 601,
+   "card_id": "kamikaze",
+   "name": "神风特攻队",
+   "import_id": "5T",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 602,
+   "card_id": "kanazawa_regiment",
+   "name": "金泽联队",
+   "import_id": "x8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 603,
+   "card_id": "kangaroo_transport",
+   "name": "袋鼠运输",
+   "import_id": "pM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 604,
+   "card_id": "katalina",
+   "name": "卡特琳娜",
+   "import_id": "po",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 605,
+   "card_id": "katyusha",
+   "name": "喀秋莎",
+   "import_id": "99",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 606,
+   "card_id": "katzmann_regiment",
+   "name": "卡茨曼团",
+   "import_id": "z7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 607,
+   "card_id": "kawanishi_h8k",
+   "name": "H8K 二式大艇",
+   "import_id": "zv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 608,
+   "card_id": "kawasaki_ki10",
+   "name": "Ki-10 九五战",
+   "import_id": "xx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 609,
+   "card_id": "kettenkrad",
+   "name": "轻型履带摩托车",
+   "import_id": "wO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 610,
+   "card_id": "kfu_regiment",
+   "name": "甲府联队",
+   "import_id": "x4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 611,
+   "card_id": "ki100_goshikisen",
+   "name": "Ki-100 五式战",
+   "import_id": "fl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 612,
+   "card_id": "ki30_ann",
+   "name": "Ki-30 九七轻爆",
+   "import_id": "rk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 613,
+   "card_id": "ki43_hayabusa",
+   "name": "Ki-43 一式战 隼",
+   "import_id": "6Q",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 614,
+   "card_id": "ki43iib_otsu",
+   "name": "Ki-43 一式战二型乙",
+   "import_id": "in",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 615,
+   "card_id": "ki44_tojo",
+   "name": "Ki-44 二式战 钟馗",
+   "import_id": "6W",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 616,
+   "card_id": "ki45_dragon_slayer_vet",
+   "name": "Ki-45 二式复战 屠龙",
+   "import_id": "CM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 617,
+   "card_id": "ki46_dinah_iii",
+   "name": "Ki-46 百式司侦",
+   "import_id": "hH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 618,
+   "card_id": "ki61_hien",
+   "name": "Ki-61 三式战 飞燕",
+   "import_id": "6Y",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 619,
+   "card_id": "ki61ii_tony",
+   "name": "Ki-61 三式战改 飞燕",
+   "import_id": "6Z",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 620,
+   "card_id": "ki61itei",
+   "name": "Ki-61-I 三式战一型丁 飞燕",
+   "import_id": "x3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 621,
+   "card_id": "ki67_peggy",
+   "name": "Ki-67 四式重爆 飞龙",
+   "import_id": "x7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 622,
+   "card_id": "ki84_frank",
+   "name": "Ki-84 四式战 疾风",
+   "import_id": "70",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 623,
+   "card_id": "kikka",
+   "name": "试制橘花",
+   "import_id": "im",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 624,
+   "card_id": "king_tiger",
+   "name": "虎王坦克",
+   "import_id": "jK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 625,
+   "card_id": "kingfisher",
+   "name": "OS2U 翠鸟",
+   "import_id": "yu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 626,
+   "card_id": "kings_african_rifles",
+   "name": "英王非洲步枪兵团",
+   "import_id": "wa",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 627,
+   "card_id": "km_bismarck",
+   "name": "KM 俾斯麦号",
+   "import_id": "2Q",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 628,
+   "card_id": "km_prinz_eugen",
+   "name": "KM 欧根亲王号",
+   "import_id": "u1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 629,
+   "card_id": "km_tirpitz",
+   "name": "KM 提尔皮茨号",
+   "import_id": "u0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 630,
+   "card_id": "kriegsmarine",
+   "name": "战争海军",
+   "import_id": "34",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 631,
+   "card_id": "kumamoto_regiment",
+   "name": "所罗门守备队",
+   "import_id": "71",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 632,
+   "card_id": "kurume_regiment",
+   "name": "久留米联队",
+   "import_id": "p9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 633,
+   "card_id": "kv1_1939",
+   "name": "KV-1 1939",
+   "import_id": "9a",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 634,
+   "card_id": "kv1_1941",
+   "name": "KV-1 1941",
+   "import_id": "9b",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 635,
+   "card_id": "kv1s",
+   "name": "KV-1S",
+   "import_id": "wt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 636,
+   "card_id": "kv2",
+   "name": "KV-2",
+   "import_id": "9c",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 637,
+   "card_id": "kv85",
+   "name": "KV-85",
+   "import_id": "ta",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 638,
+   "card_id": "kyoto_regiment",
+   "name": "京都联队",
+   "import_id": "tG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 639,
+   "card_id": "kyushu_j7w3",
+   "name": "J7W3 震电局地战",
+   "import_id": "vn",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 640,
+   "card_id": "l4_grasshopper",
+   "name": "L-4 蚱蜢",
+   "import_id": "rb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 641,
+   "card_id": "la_decima",
+   "name": "第 10 快艇支队",
+   "import_id": "hG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 642,
+   "card_id": "la_division_leclerc",
+   "name": "勒克莱尔师",
+   "import_id": "t0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 643,
+   "card_id": "lancashire_fusiliers",
+   "name": "兰开夏燧发枪兵团",
+   "import_id": "1v",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 644,
+   "card_id": "lancaster_b_iii",
+   "name": "兰开斯特 B.III",
+   "import_id": "1x",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 645,
+   "card_id": "lancaster_mk_i",
+   "name": "兰开斯特 Mk I",
+   "import_id": "1w",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 646,
+   "card_id": "land_of_the_free",
+   "name": "自由之地",
+   "import_id": "bu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 647,
+   "card_id": "last_ditch_force",
+   "name": "最后一搏",
+   "import_id": "E8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 648,
+   "card_id": "last_rites",
+   "name": "最后的仪式",
+   "import_id": "5U",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 649,
+   "card_id": "layforce",
+   "name": "莱福斯突击队",
+   "import_id": "w6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 650,
+   "card_id": "legions",
+   "name": "军团",
+   "import_id": "iG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 651,
+   "card_id": "leopold",
+   "name": "利奥波德",
+   "import_id": "4z",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 652,
+   "card_id": "les_terribles",
+   "name": "骇人步兵团",
+   "import_id": "o7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 653,
+   "card_id": "lesser_of_two_evils",
+   "name": "权衡",
+   "import_id": "g5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 654,
+   "card_id": "liberation",
+   "name": "解放",
+   "import_id": "2l",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 655,
+   "card_id": "light_detachment_15",
+   "name": "第 15 轻步兵支队",
+   "import_id": "sY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 656,
+   "card_id": "light_infantry",
+   "name": "轻步兵",
+   "import_id": "9f",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 657,
+   "card_id": "lightning_strike",
+   "name": "闪电袭击",
+   "import_id": "eW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 658,
+   "card_id": "line_of_engagement",
+   "name": "交战线",
+   "import_id": "o1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 659,
+   "card_id": "little_cobra",
+   "name": "P-39 小蛇",
+   "import_id": "vf",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 660,
+   "card_id": "london_irish_rifles",
+   "name": "伦敦爱尔兰步枪兵团",
+   "import_id": "w9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 661,
+   "card_id": "long_lance",
+   "name": "氧气鱼雷",
+   "import_id": "CS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 662,
+   "card_id": "lotta_svrd",
+   "name": "洛塔组织",
+   "import_id": "nl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 663,
+   "card_id": "lovat_scouts",
+   "name": "洛瓦特侦察兵团",
+   "import_id": "sS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 664,
+   "card_id": "lublin_rxiii",
+   "name": "卢布林 R-XIII",
+   "import_id": "pi",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 665,
+   "card_id": "m1340",
+   "name": "M13/40",
+   "import_id": "5s",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 666,
+   "card_id": "m16_halftrack",
+   "name": "M16 半履带防空车",
+   "import_id": "cV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 667,
+   "card_id": "m18_hellcat",
+   "name": "M18 地狱猫",
+   "import_id": "cW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 668,
+   "card_id": "m20_scout_car",
+   "name": "M20 侦察车",
+   "import_id": "pG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 669,
+   "card_id": "m26_pershing",
+   "name": "M26 潘兴",
+   "import_id": "cZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 670,
+   "card_id": "m2a4",
+   "name": "M2A4",
+   "import_id": "dv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 671,
+   "card_id": "m3_grant",
+   "name": "M3 格兰特",
+   "import_id": "hV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 672,
+   "card_id": "m3_lee",
+   "name": "M3 李",
+   "import_id": "vW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 673,
+   "card_id": "m3a3_honey",
+   "name": "M3A3 甜心",
+   "import_id": "1V",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 674,
+   "card_id": "m4_firefly",
+   "name": "M4 萤火虫",
+   "import_id": "1f",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 675,
+   "card_id": "m4_firefly_pl",
+   "name": "M4 萤火虫 PL",
+   "import_id": "qG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 676,
+   "card_id": "m4_sherman",
+   "name": "M4 谢尔曼",
+   "import_id": "d4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 677,
+   "card_id": "m4a1",
+   "name": "M4A1",
+   "import_id": "d3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 678,
+   "card_id": "m4a2",
+   "name": "M4A2",
+   "import_id": "k5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 679,
+   "card_id": "m5_stuart",
+   "name": "M5 斯图亚特",
+   "import_id": "d2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 680,
+   "card_id": "m6",
+   "name": "M6",
+   "import_id": "r8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 681,
+   "card_id": "m7_priest",
+   "name": "M7 牧师",
+   "import_id": "d6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 682,
+   "card_id": "m8_greyhound",
+   "name": "M8 灰狗",
+   "import_id": "d7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 683,
+   "card_id": "m8_howitzer",
+   "name": "M8 榴弹炮",
+   "import_id": "d8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 684,
+   "card_id": "macchi_c_200",
+   "name": "马基 C.200",
+   "import_id": "s5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 685,
+   "card_id": "macchi_c_202",
+   "name": "马基 C.202",
+   "import_id": "5m",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 686,
+   "card_id": "macchi_c_205",
+   "name": "马基 C.205",
+   "import_id": "mT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 687,
+   "card_id": "maginot_line",
+   "name": "马奇诺防线",
+   "import_id": "xj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 688,
+   "card_id": "magnificent_seventh",
+   "name": "第 7 陆战团",
+   "import_id": "vN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 689,
+   "card_id": "manchester_ia",
+   "name": "曼彻斯特 Mk Ia",
+   "import_id": "1y",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 690,
+   "card_id": "manhattan_project",
+   "name": "曼哈顿计划",
+   "import_id": "fC",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 691,
+   "card_id": "maori_battalion",
+   "name": "毛利营",
+   "import_id": "xV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 692,
+   "card_id": "materials",
+   "name": "原料",
+   "import_id": "Bb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 693,
+   "card_id": "matilda_frog",
+   "name": "玛蒂尔达 蛙式",
+   "import_id": "xW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 694,
+   "card_id": "matilda_mk_iv",
+   "name": "玛蒂尔达 Mk IV",
+   "import_id": "rf",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 695,
+   "card_id": "matilda_mk_iv_vet",
+   "name": "玛蒂尔达 Mk IV",
+   "import_id": "B8",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 696,
+   "card_id": "matsumoto_regiment",
+   "name": "松本联队",
+   "import_id": "me",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 697,
+   "card_id": "maus",
+   "name": "鼠式坦克",
+   "import_id": "qf",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 698,
+   "card_id": "mayhem",
+   "name": "骚乱",
+   "import_id": "pz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 699,
+   "card_id": "me_262a_schwalbe",
+   "name": "Me 262 A 飞燕",
+   "import_id": "4f",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 700,
+   "card_id": "me_bf_109_e",
+   "name": "Bf 109 E",
+   "import_id": "4g",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 701,
+   "card_id": "me_bf_109_g_fi",
+   "name": "Bf 109 G FI",
+   "import_id": "sj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 702,
+   "card_id": "men_of_steel",
+   "name": "钢铁之躯",
+   "import_id": "7R",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 703,
+   "card_id": "meteor",
+   "name": "流星",
+   "import_id": "yJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 704,
+   "card_id": "mi5",
+   "name": "军情五处",
+   "import_id": "0l",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 705,
+   "card_id": "middlesex_regiment",
+   "name": "米德尔塞克斯团",
+   "import_id": "w8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 706,
+   "card_id": "mig_3",
+   "name": "米格-3",
+   "import_id": "9g",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 707,
+   "card_id": "minority_recruits",
+   "name": "小国成员",
+   "import_id": "g6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 708,
+   "card_id": "mist",
+   "name": "薄雾",
+   "import_id": "Cx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 709,
+   "card_id": "mito_regiment",
+   "name": "水户联队",
+   "import_id": "72",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 710,
+   "card_id": "mobile_defense",
+   "name": "机动防御",
+   "import_id": "7S",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 711,
+   "card_id": "molotov_cocktail",
+   "name": "莫洛托夫鸡尾酒",
+   "import_id": "rL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 712,
+   "card_id": "monastyr",
+   "name": "修道院行动",
+   "import_id": "jW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 713,
+   "card_id": "monsoon_rain",
+   "name": "季风雨",
+   "import_id": "CA",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 714,
+   "card_id": "monty",
+   "name": "蒙哥马利",
+   "import_id": "0m",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 715,
+   "card_id": "mosquito_b_mk_iv",
+   "name": "蚊式 B Mk IV",
+   "import_id": "sR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 716,
+   "card_id": "mosquito_f_mk_ii",
+   "name": "蚊式 F Mk II",
+   "import_id": "B7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 717,
+   "card_id": "mosquito_fb_mk_vi",
+   "name": "蚊式 FB Mk VI",
+   "import_id": "1A",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 718,
+   "card_id": "motherland_calls",
+   "name": "祖国在召唤！",
+   "import_id": "wn",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 719,
+   "card_id": "motti_tactic",
+   "name": "柴堆战术",
+   "import_id": "nj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 720,
+   "card_id": "murase_battalion",
+   "name": "村濑大队",
+   "import_id": "zw",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 721,
+   "card_id": "n1k1_kyofu",
+   "name": "N1K1 强风一一型",
+   "import_id": "vm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 722,
+   "card_id": "nakajima_b5n2",
+   "name": "B5N2 九七舰攻",
+   "import_id": "u9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 723,
+   "card_id": "nara_regiment",
+   "name": "关岛守备队",
+   "import_id": "io",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 724,
+   "card_id": "national_fire_service",
+   "name": "国家消防局",
+   "import_id": "0n",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 725,
+   "card_id": "national_service",
+   "name": "国民服役",
+   "import_id": "w5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 726,
+   "card_id": "naval_battle",
+   "name": "海战",
+   "import_id": "yv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 727,
+   "card_id": "naval_power",
+   "name": "海军力量",
+   "import_id": "0o",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 728,
+   "card_id": "naval_support",
+   "name": "海军支援",
+   "import_id": "0p",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 729,
+   "card_id": "nebelwerfer_42",
+   "name": "喷烟者 42 型",
+   "import_id": "4i",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 730,
+   "card_id": "night_attack",
+   "name": "夜间攻击",
+   "import_id": "wN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 731,
+   "card_id": "night_hunters",
+   "name": "暗夜猎手",
+   "import_id": "eZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 732,
+   "card_id": "night_patrol",
+   "name": "黑夜巡视",
+   "import_id": "sI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 733,
+   "card_id": "night_raid",
+   "name": "夜袭",
+   "import_id": "0q",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 734,
+   "card_id": "no_10_commando",
+   "name": "第 10 突击队",
+   "import_id": "1k",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 735,
+   "card_id": "no_1_commando",
+   "name": "第 1 突击队",
+   "import_id": "1W",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 736,
+   "card_id": "no_3_commando",
+   "name": "第 3 突击队",
+   "import_id": "hE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 737,
+   "card_id": "no_46_commando",
+   "name": "第 46 突击队",
+   "import_id": "yH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 738,
+   "card_id": "nzans",
+   "name": "新西兰陆军护理队",
+   "import_id": "yd",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 739,
+   "card_id": "observer_corps",
+   "name": "观察团",
+   "import_id": "jA",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 740,
+   "card_id": "old_hares",
+   "name": "老兔子",
+   "import_id": "tc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 741,
+   "card_id": "one_roof",
+   "name": "虚妄之梦",
+   "import_id": "p1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 742,
+   "card_id": "order_227",
+   "name": "第 227 号命令",
+   "import_id": "7Y",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 743,
+   "card_id": "order_of_the_day",
+   "name": "动员令",
+   "import_id": "q1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 744,
+   "card_id": "orders_from_above",
+   "name": "上级指令",
+   "import_id": "tk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 745,
+   "card_id": "orp_general_haller",
+   "name": "ORP 哈勒将军号",
+   "import_id": "u2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 746,
+   "card_id": "orp_orze",
+   "name": "ORP 鹰号",
+   "import_id": "jn",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 747,
+   "card_id": "osaka_regiment",
+   "name": "大阪联队",
+   "import_id": "75",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 748,
+   "card_id": "ot34",
+   "name": "OT-34",
+   "import_id": "9s",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 749,
+   "card_id": "out_of_the_sun",
+   "name": "逆光攻击",
+   "import_id": "zo",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 750,
+   "card_id": "out_with_the_old",
+   "name": "推陈出新",
+   "import_id": "vd",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 751,
+   "card_id": "outmaneuver",
+   "name": "以智取胜",
+   "import_id": "fb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 752,
+   "card_id": "outrage",
+   "name": "激怒",
+   "import_id": "AT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 753,
+   "card_id": "overcast",
+   "name": "阴云密布",
+   "import_id": "gg",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 754,
+   "card_id": "overpower",
+   "name": "摧枯拉朽",
+   "import_id": "wX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 755,
+   "card_id": "overwhelming_force",
+   "name": "势不可挡",
+   "import_id": "bz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 756,
+   "card_id": "oxford",
+   "name": "牛津",
+   "import_id": "ld",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 757,
+   "card_id": "p38d_lightning",
+   "name": "P-38D 闪电",
+   "import_id": "db",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 758,
+   "card_id": "p38h_lightning",
+   "name": "P-38H 闪电",
+   "import_id": "vO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 759,
+   "card_id": "p40_kittyhawk",
+   "name": "P-40 小鹰",
+   "import_id": "1D",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 760,
+   "card_id": "p40_warhawk",
+   "name": "P-40 战鹰",
+   "import_id": "dd",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 761,
+   "card_id": "p40b_tomahawk",
+   "name": "P-40B 战斧",
+   "import_id": "9j",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 762,
+   "card_id": "p47d_thunderbolt",
+   "name": "P-47D 雷电",
+   "import_id": "de",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 763,
+   "card_id": "p51_mustang",
+   "name": "P-51 野马",
+   "import_id": "df",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 764,
+   "card_id": "pak_36",
+   "name": "Pak 36 反坦克炮",
+   "import_id": "4j",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 765,
+   "card_id": "pak_36_fi",
+   "name": "Pak 36 反坦克炮 FI",
+   "import_id": "ne",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 766,
+   "card_id": "pak_40",
+   "name": "Pak 40 反坦克炮",
+   "import_id": "fQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 767,
+   "card_id": "pams",
+   "name": "警察辅助信使队",
+   "import_id": "DT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 768,
+   "card_id": "panther_a",
+   "name": "豹式坦克 A 型",
+   "import_id": "4m",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 769,
+   "card_id": "panther_a_zimmerit",
+   "name": "豹式坦克 A 型 防磁装甲型",
+   "import_id": "E1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 770,
+   "card_id": "panzer_35t",
+   "name": "35(t) 坦克",
+   "import_id": "4p",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 771,
+   "card_id": "panzer_38t",
+   "name": "38(t) 坦克",
+   "import_id": "4q",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 772,
+   "card_id": "panzer_i_dak",
+   "name": "一号坦克 DAK",
+   "import_id": "qi",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 773,
+   "card_id": "panzer_ia",
+   "name": "一号坦克 A 型",
+   "import_id": "xo",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 774,
+   "card_id": "panzer_ib_vet",
+   "name": "一号坦克 B 型",
+   "import_id": "Cl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 775,
+   "card_id": "panzer_iia",
+   "name": "二号坦克 A 型",
+   "import_id": "4v",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 776,
+   "card_id": "panzer_iic",
+   "name": "二号坦克 C 型",
+   "import_id": "4w",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 777,
+   "card_id": "panzer_iiif",
+   "name": "三号坦克 F 型",
+   "import_id": "gV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 778,
+   "card_id": "panzer_iiih",
+   "name": "三号坦克 H 型",
+   "import_id": "4s",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 779,
+   "card_id": "panzer_iiij",
+   "name": "三号坦克 J 型",
+   "import_id": "4t",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 780,
+   "card_id": "panzer_iiij_late",
+   "name": "三号坦克 J 型 晚期型",
+   "import_id": "qe",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 781,
+   "card_id": "panzer_iiij_late_vet",
+   "name": "三号坦克 J 型 晚期型",
+   "import_id": "Cn",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 782,
+   "card_id": "panzer_iiil",
+   "name": "三号坦克 L 型",
+   "import_id": "4r",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 783,
+   "card_id": "panzer_ivh",
+   "name": "四号坦克 H 型",
+   "import_id": "qd",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 784,
+   "card_id": "panzer_ivh_vet",
+   "name": "四号坦克 H 型",
+   "import_id": "Cm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 785,
+   "card_id": "panzer_ivj",
+   "name": "四号坦克 J 型",
+   "import_id": "wD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 786,
+   "card_id": "parachute_assault",
+   "name": "伞降突袭",
+   "import_id": "DM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 787,
+   "card_id": "partisans",
+   "name": "游击队",
+   "import_id": "iT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 788,
+   "card_id": "patriotic_zeal",
+   "name": "爱国热忱",
+   "import_id": "bA",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 789,
+   "card_id": "patton",
+   "name": "巴顿",
+   "import_id": "bB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 790,
+   "card_id": "pb2y_coronado",
+   "name": "PB2Y 科罗纳多",
+   "import_id": "u6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 791,
+   "card_id": "pb4y2_privateer",
+   "name": "PB4Y-2 私掠船",
+   "import_id": "j9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 792,
+   "card_id": "penicillin",
+   "name": "青霉素",
+   "import_id": "fE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 793,
+   "card_id": "persian_corridor",
+   "name": "波斯走廊",
+   "import_id": "wv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 794,
+   "card_id": "petlyakov_pe2ft",
+   "name": "佩-2 FT",
+   "import_id": "gd",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 795,
+   "card_id": "pilot_escape",
+   "name": "异乡之翼",
+   "import_id": "vk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 796,
+   "card_id": "plan",
+   "name": "计划",
+   "import_id": "CJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 797,
+   "card_id": "plan_d",
+   "name": "迪勒计划",
+   "import_id": "lF",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 798,
+   "card_id": "plan_west",
+   "name": "西线计划",
+   "import_id": "it",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 799,
+   "card_id": "planned_attack",
+   "name": "预定攻势",
+   "import_id": "yN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 800,
+   "card_id": "polikarpov_po2",
+   "name": "波-2",
+   "import_id": "9i",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 801,
+   "card_id": "polikarpov_po2ii",
+   "name": "波-2-II",
+   "import_id": "jc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 802,
+   "card_id": "pontoon_bridge",
+   "name": "浮桥",
+   "import_id": "qW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 803,
+   "card_id": "pound",
+   "name": "重击",
+   "import_id": "va",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 804,
+   "card_id": "precision_bombing",
+   "name": "精准轰炸",
+   "import_id": "0e",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 805,
+   "card_id": "pressurized_cabin",
+   "name": "加压舱",
+   "import_id": "gh",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 806,
+   "card_id": "production",
+   "name": "生产",
+   "import_id": "CK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 807,
+   "card_id": "prolonged_siege",
+   "name": "长久围困",
+   "import_id": "rK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 808,
+   "card_id": "protected_convoy",
+   "name": "护送航运",
+   "import_id": "tT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 809,
+   "card_id": "provence_landing",
+   "name": "普罗旺斯登陆",
+   "import_id": "yT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 810,
+   "card_id": "punish",
+   "name": "严惩",
+   "import_id": "ph",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 811,
+   "card_id": "queens_own",
+   "name": "女王直属卡梅伦高地人团",
+   "import_id": "sQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 812,
+   "card_id": "quinine",
+   "name": "奎宁",
+   "import_id": "yw",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 813,
+   "card_id": "raaf_hurricane_trop",
+   "name": "RAAF 飓风 热带型",
+   "import_id": "y0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 814,
+   "card_id": "raaf_lightning_f4",
+   "name": "RAAF 闪电 F-4",
+   "import_id": "1C",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 815,
+   "card_id": "raaf_walrus",
+   "name": "RAAF 海象",
+   "import_id": "zx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 816,
+   "card_id": "raaf_walrus_vet",
+   "name": "RAAF 海象",
+   "import_id": "zH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 817,
+   "card_id": "radar",
+   "name": "雷达",
+   "import_id": "gu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 818,
+   "card_id": "radar_alert",
+   "name": "雷达警报",
+   "import_id": "0r",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 819,
+   "card_id": "raf_ground_crew",
+   "name": "皇家空军地勤",
+   "import_id": "gC",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 820,
+   "card_id": "raf_mustang",
+   "name": "RAF 野马",
+   "import_id": "w7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 821,
+   "card_id": "rally",
+   "name": "重整旗鼓",
+   "import_id": "gS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 822,
+   "card_id": "rally_caledonia",
+   "name": "喀里多尼亚归附",
+   "import_id": "DV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 823,
+   "card_id": "rasputitsa",
+   "name": "泥泞季",
+   "import_id": "DW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 824,
+   "card_id": "rationing",
+   "name": "配给制",
+   "import_id": "vQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 825,
+   "card_id": "red_banner",
+   "name": "红色旗帜",
+   "import_id": "82",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 826,
+   "card_id": "red_bull",
+   "name": "红牛师",
+   "import_id": "vL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 827,
+   "card_id": "red_devils",
+   "name": "红魔空降步兵团",
+   "import_id": "jy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 828,
+   "card_id": "redeployment",
+   "name": "重新部署",
+   "import_id": "ih",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 829,
+   "card_id": "regia_aeronautica",
+   "name": "意大利皇家空军",
+   "import_id": "rW",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 830,
+   "card_id": "regia_marina",
+   "name": "意大利皇家海军",
+   "import_id": "zl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 831,
+   "card_id": "reich_research",
+   "name": "德意志帝国研发",
+   "import_id": "eY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 832,
+   "card_id": "repel_the_attack",
+   "name": "击退进攻",
+   "import_id": "DJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 833,
+   "card_id": "rescue_mission",
+   "name": "营救任务",
+   "import_id": "0t",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 834,
+   "card_id": "reserves",
+   "name": "预备役",
+   "import_id": "84",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 835,
+   "card_id": "resistance_b",
+   "name": "抵抗",
+   "import_id": "Be",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 836,
+   "card_id": "resistance_council",
+   "name": "全国抵抗委员会",
+   "import_id": "wj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 837,
+   "card_id": "respite",
+   "name": "喘息之机",
+   "import_id": "pl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 838,
+   "card_id": "retaliation",
+   "name": "复仇",
+   "import_id": "39",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 839,
+   "card_id": "retribution",
+   "name": "惩戒",
+   "import_id": "zR",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 840,
+   "card_id": "retribution_b",
+   "name": "惩戒",
+   "import_id": "zS",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 841,
+   "card_id": "retribution_c",
+   "name": "惩戒",
+   "import_id": "zT",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 842,
+   "card_id": "retribution_d",
+   "name": "惩戒",
+   "import_id": "zU",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 843,
+   "card_id": "retribution_e",
+   "name": "惩戒",
+   "import_id": "zV",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 844,
+   "card_id": "retribution_f",
+   "name": "惩戒",
+   "import_id": "zW",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 845,
+   "card_id": "retribution_g",
+   "name": "惩戒",
+   "import_id": "zX",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 846,
+   "card_id": "retribution_h",
+   "name": "惩戒",
+   "import_id": "zY",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 847,
+   "card_id": "retribution_i",
+   "name": "惩戒",
+   "import_id": "zZ",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 848,
+   "card_id": "retribution_j",
+   "name": "惩戒",
+   "import_id": "z",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 849,
+   "card_id": "retribution_k",
+   "name": "惩戒",
+   "import_id": "A0",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 850,
+   "card_id": "retribution_l",
+   "name": "惩戒",
+   "import_id": "A1",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 851,
+   "card_id": "rm_bersagliere",
+   "name": "RM 神射手号",
+   "import_id": "wU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 852,
+   "card_id": "rm_roma",
+   "name": "RM 罗马号",
+   "import_id": "uD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 853,
+   "card_id": "rnzaf_kittyhawk",
+   "name": "RNZAF 小鹰",
+   "import_id": "jD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 854,
+   "card_id": "romanian_bridgehead",
+   "name": "罗马尼亚桥头堡",
+   "import_id": "s3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 855,
+   "card_id": "rout",
+   "name": "溃敌",
+   "import_id": "lK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 856,
+   "card_id": "routed_troops",
+   "name": "溃军",
+   "import_id": "Cu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 857,
+   "card_id": "royal_fusiliers",
+   "name": "皇家燧发枪兵团",
+   "import_id": "sP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 858,
+   "card_id": "royal_research",
+   "name": "皇家研发",
+   "import_id": "gv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 859,
+   "card_id": "royal_sussex_regiment",
+   "name": "皇家萨塞克斯团",
+   "import_id": "yG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 860,
+   "card_id": "royal_ulster_rifles",
+   "name": "皇家阿尔斯特步枪兵团",
+   "import_id": "1G",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 861,
+   "card_id": "royal_west_kents",
+   "name": "皇家西肯特郡团",
+   "import_id": "1H",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 862,
+   "card_id": "ruffians",
+   "name": "恶汉团",
+   "import_id": "Dy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 863,
+   "card_id": "rule_britannia",
+   "name": "统治吧！不列颠尼亚！",
+   "import_id": "0G",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 864,
+   "card_id": "run_the_battlefield",
+   "name": "掌控战场",
+   "import_id": "q7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 865,
+   "card_id": "rush",
+   "name": "强袭",
+   "import_id": "tl",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 866,
+   "card_id": "ryhm_susi",
+   "name": "苏西战斗群",
+   "import_id": "sX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 867,
+   "card_id": "saar_offensive",
+   "name": "萨尔攻势",
+   "import_id": "rQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 868,
+   "card_id": "sabae_regiment",
+   "name": "鲭江联队",
+   "import_id": "tJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 869,
+   "card_id": "sabotage",
+   "name": "毁坏",
+   "import_id": "2n",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 870,
+   "card_id": "salamander",
+   "name": "He 162 蝾螈",
+   "import_id": "vg",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 871,
+   "card_id": "sally",
+   "name": "出动",
+   "import_id": "vc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 872,
+   "card_id": "salpa_line",
+   "name": "萨尔帕防线",
+   "import_id": "yR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 873,
+   "card_id": "sapporo_regiment",
+   "name": "札幌联队",
+   "import_id": "x6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 874,
+   "card_id": "savoia_cavalleria",
+   "name": "萨沃亚骑兵团",
+   "import_id": "5k",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 875,
+   "card_id": "sbd_3_dauntless",
+   "name": "SBD 3 无畏",
+   "import_id": "dh",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 876,
+   "card_id": "scorching_sun",
+   "name": "骄阳",
+   "import_id": "CI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 877,
+   "card_id": "scouting_party",
+   "name": "侦察队",
+   "import_id": "66",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 878,
+   "card_id": "screening_force",
+   "name": "掩护部队",
+   "import_id": "v5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 879,
+   "card_id": "sd_kfz_10_pak_38",
+   "name": "Sd Kfz 10 PaK 38",
+   "import_id": "ux",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 880,
+   "card_id": "sd_kfz_222",
+   "name": "Sd KFz 222",
+   "import_id": "4A",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 881,
+   "card_id": "sd_kfz_2509",
+   "name": "Sd Kfz 250/9",
+   "import_id": "wE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 882,
+   "card_id": "seaborne_invasion",
+   "name": "海上入侵",
+   "import_id": "bC",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 883,
+   "card_id": "seac",
+   "name": "东南亚司令部",
+   "import_id": "yM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 884,
+   "card_id": "seaforth_highlanders",
+   "name": "锡福斯高地人团",
+   "import_id": "eL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 885,
+   "card_id": "seahawk",
+   "name": "SC 海鹰",
+   "import_id": "v7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 886,
+   "card_id": "second_front",
+   "name": "第二战线",
+   "import_id": "wB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 887,
+   "card_id": "seek_and_destroy",
+   "name": "穷追猛打",
+   "import_id": "qs",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 888,
+   "card_id": "semovente_da_7518",
+   "name": "75/18 式自走炮",
+   "import_id": "5o",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 889,
+   "card_id": "semper_fi",
+   "name": "永远忠诚",
+   "import_id": "sJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 890,
+   "card_id": "sendai_regiment",
+   "name": "仙台联队",
+   "import_id": "79",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 891,
+   "card_id": "shadow_strike",
+   "name": "暗影袭击",
+   "import_id": "qr",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 892,
+   "card_id": "shark_mk_iii",
+   "name": "鲨鱼 Mk III",
+   "import_id": "ow",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 893,
+   "card_id": "sherwood_foresters",
+   "name": "舍伍德森林人团",
+   "import_id": "sO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 894,
+   "card_id": "shibata_regiment",
+   "name": "新发田联队",
+   "import_id": "7a",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 895,
+   "card_id": "shifting_attack",
+   "name": "转变攻击",
+   "import_id": "oK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 896,
+   "card_id": "shifting_doctrine",
+   "name": "转变战法",
+   "import_id": "tM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 897,
+   "card_id": "shinyo_motorboats",
+   "name": "震洋特攻摩托艇",
+   "import_id": "zp",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 898,
+   "card_id": "shock_tactics",
+   "name": "突击战术",
+   "import_id": "qM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 899,
+   "card_id": "shoge_detachment",
+   "name": "庄下支队",
+   "import_id": "p8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 900,
+   "card_id": "shturmovik_il2m",
+   "name": "伊尔-2M",
+   "import_id": "9k",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 901,
+   "card_id": "siberian_transfer",
+   "name": "西伯利亚转移",
+   "import_id": "86",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 902,
+   "card_id": "sissi",
+   "name": "游击队员",
+   "import_id": "Bd",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 903,
+   "card_id": "sisu",
+   "name": "西苏精神",
+   "import_id": "nm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 904,
+   "card_id": "ski_troops",
+   "name": "滑雪部队",
+   "import_id": "DU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 905,
+   "card_id": "sky_barons",
+   "name": "空中男爵",
+   "import_id": "3b",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 906,
+   "card_id": "slashers",
+   "name": "砍杀者团",
+   "import_id": "rd",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 907,
+   "card_id": "sloped_armor",
+   "name": "倾斜装甲",
+   "import_id": "Bs",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 908,
+   "card_id": "sniped",
+   "name": "阻击",
+   "import_id": "gi",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 909,
+   "card_id": "somua_s35",
+   "name": "索玛 S35",
+   "import_id": "rS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 910,
+   "card_id": "soul_of_old_japan",
+   "name": "苇原之魂",
+   "import_id": "67",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 911,
+   "card_id": "soviet_military_research",
+   "name": "苏联军事研发",
+   "import_id": "yX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 912,
+   "card_id": "spars",
+   "name": "妇女预备队",
+   "import_id": "vP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 913,
+   "card_id": "special_attack",
+   "name": "特攻",
+   "import_id": "zq",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 914,
+   "card_id": "special_reinforcements",
+   "name": "特殊增援",
+   "import_id": "o4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 915,
+   "card_id": "spirit_of_rome",
+   "name": "罗马精神",
+   "import_id": "5a",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 916,
+   "card_id": "spitfire_mk_ia",
+   "name": "喷火 Mk Ia",
+   "import_id": "1L",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 917,
+   "card_id": "spitfire_mk_v",
+   "name": "喷火 Mk V",
+   "import_id": "1M",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 918,
+   "card_id": "spitfire_mk_v_pl",
+   "name": "喷火 Mk V PL",
+   "import_id": "iI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 919,
+   "card_id": "spoils_of_war",
+   "name": "战利品",
+   "import_id": "3c",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 920,
+   "card_id": "spring_offensive",
+   "name": "春季攻势",
+   "import_id": "qm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 921,
+   "card_id": "stalins_organ",
+   "name": "斯大林管风琴",
+   "import_id": "Bt",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 922,
+   "card_id": "stand_fast",
+   "name": "坚守不退",
+   "import_id": "8h",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 923,
+   "card_id": "standard_ammo",
+   "name": "标准弹药",
+   "import_id": "Bu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 924,
+   "card_id": "stars_stripes",
+   "name": "星条旗",
+   "import_id": "j4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 925,
+   "card_id": "stirling_mk_iii",
+   "name": "斯特林 Mk III",
+   "import_id": "yF",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 926,
+   "card_id": "storm_division",
+   "name": "岚兵团",
+   "import_id": "x9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 927,
+   "card_id": "strategic_bombing",
+   "name": "战略轰炸",
+   "import_id": "bE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 928,
+   "card_id": "strategic_focus",
+   "name": "战略重心",
+   "import_id": "pk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 929,
+   "card_id": "stretch_the_line",
+   "name": "延长战线",
+   "import_id": "pg",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 930,
+   "card_id": "strike_group",
+   "name": "航母打击群",
+   "import_id": "sH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 931,
+   "card_id": "stug_iiif",
+   "name": "三号突击炮 F 型",
+   "import_id": "4B",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 932,
+   "card_id": "stuka_87g_vet",
+   "name": "Ju 87 G 斯图卡",
+   "import_id": "Ck",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 933,
+   "card_id": "sturmi",
+   "name": "三号突击炮 FI",
+   "import_id": "q3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 934,
+   "card_id": "stz5_katyusha",
+   "name": "STZ-5 喀秋莎",
+   "import_id": "E0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 935,
+   "card_id": "su100",
+   "name": "SU-100",
+   "import_id": "px",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 936,
+   "card_id": "su76m",
+   "name": "SU-76M",
+   "import_id": "9m",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 937,
+   "card_id": "su85",
+   "name": "SU-85",
+   "import_id": "9n",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 938,
+   "card_id": "su_152",
+   "name": "SU-152",
+   "import_id": "9l",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 939,
+   "card_id": "sudden_strike",
+   "name": "突然袭击",
+   "import_id": "3e",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 940,
+   "card_id": "sunderland_mk_v",
+   "name": "桑德兰 Mk V",
+   "import_id": "gE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 941,
+   "card_id": "sunrise_division",
+   "name": "旭兵团",
+   "import_id": "jS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 942,
+   "card_id": "supply_shipment",
+   "name": "运输补给",
+   "import_id": "bI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 943,
+   "card_id": "suppression",
+   "name": "抑制",
+   "import_id": "3f",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 944,
+   "card_id": "surging_power",
+   "name": "澎湃力量",
+   "import_id": "xb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 945,
+   "card_id": "surprise_attack",
+   "name": "偷袭",
+   "import_id": "61",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 946,
+   "card_id": "surprise_engagement",
+   "name": "突发交战",
+   "import_id": "yx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 947,
+   "card_id": "surveil",
+   "name": "监视",
+   "import_id": "u4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 948,
+   "card_id": "sustained_pressure",
+   "name": "持续施压",
+   "import_id": "ze",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 949,
+   "card_id": "swift_response",
+   "name": "快速响应",
+   "import_id": "vK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 950,
+   "card_id": "swift_victory",
+   "name": "快速胜利",
+   "import_id": "xu",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 951,
+   "card_id": "swordfish_mk_i",
+   "name": "剑鱼 Mk I",
+   "import_id": "1O",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 952,
+   "card_id": "sykes_regulars",
+   "name": "赛克斯正规军",
+   "import_id": "sx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 953,
+   "card_id": "synthetic_oil",
+   "name": "合成机油",
+   "import_id": "f0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 954,
+   "card_id": "synthetic_rubber",
+   "name": "合成橡胶",
+   "import_id": "gx",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 955,
+   "card_id": "t19_howitzer",
+   "name": "T19 榴弹炮",
+   "import_id": "di",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 956,
+   "card_id": "t26_fi",
+   "name": "T-26 FI",
+   "import_id": "nb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 957,
+   "card_id": "t3476d",
+   "name": "T-34-76D",
+   "import_id": "ri",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 958,
+   "card_id": "t3485_1944",
+   "name": "T-34-85 1944",
+   "import_id": "nV",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 959,
+   "card_id": "t3485_1945",
+   "name": "T-34-85 1945",
+   "import_id": "rj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 960,
+   "card_id": "t34_1942",
+   "name": "T-34 1942",
+   "import_id": "9p",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 961,
+   "card_id": "t34_1942_b",
+   "name": "T-34 1942",
+   "import_id": "9q",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 962,
+   "card_id": "t34_76_pl",
+   "name": "T-34-76 PL",
+   "import_id": "iL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 963,
+   "card_id": "t60",
+   "name": "T-60",
+   "import_id": "h5",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 964,
+   "card_id": "t70",
+   "name": "T-70",
+   "import_id": "9t",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 965,
+   "card_id": "t70_b",
+   "name": "T-70",
+   "import_id": "9u",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 966,
+   "card_id": "t80",
+   "name": "T-80",
+   "import_id": "9v",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 967,
+   "card_id": "tactical_retreat",
+   "name": "暂避锋芒",
+   "import_id": "wM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 968,
+   "card_id": "tactical_strike",
+   "name": "战术打击",
+   "import_id": "3g",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 969,
+   "card_id": "tactical_withdrawal",
+   "name": "战术撤退",
+   "import_id": "0y",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 970,
+   "card_id": "takasaki_regiment",
+   "name": "高崎联队",
+   "import_id": "7d",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 971,
+   "card_id": "tank_maneuver",
+   "name": "坦克机动",
+   "import_id": "BN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 972,
+   "card_id": "tank_wedge",
+   "name": "装甲楔形阵",
+   "import_id": "E4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 973,
+   "card_id": "task_force_44",
+   "name": "第 44 特混舰队",
+   "import_id": "y9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 974,
+   "card_id": "the_alliance",
+   "name": "同盟国",
+   "import_id": "bJ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 975,
+   "card_id": "the_american_guard",
+   "name": "美国人卫队",
+   "import_id": "sy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 976,
+   "card_id": "the_anzac_spirit",
+   "name": "澳新军团精神",
+   "import_id": "yc",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 977,
+   "card_id": "the_big_three",
+   "name": "三巨头",
+   "import_id": "vR",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 978,
+   "card_id": "the_biscuit_boys",
+   "name": "饼干男孩步兵团",
+   "import_id": "zB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 979,
+   "card_id": "the_bleeders",
+   "name": "流血者团",
+   "import_id": "xe",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 980,
+   "card_id": "the_dagger_strikes",
+   "name": "单刀直入",
+   "import_id": "oY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 981,
+   "card_id": "the_desert_rats",
+   "name": "沙漠之鼠",
+   "import_id": "0b",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 982,
+   "card_id": "the_double_sunrise",
+   "name": "双日出航线",
+   "import_id": "y8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 983,
+   "card_id": "the_great_expanse",
+   "name": "阔土",
+   "import_id": "p2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 984,
+   "card_id": "the_hammer",
+   "name": "铁锤",
+   "import_id": "88",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 985,
+   "card_id": "the_holy_boys",
+   "name": "神圣男孩步兵团",
+   "import_id": "DQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 986,
+   "card_id": "the_land_girls",
+   "name": "土地女孩",
+   "import_id": "wb",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 987,
+   "card_id": "the_peoples_army",
+   "name": "人民军",
+   "import_id": "xk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 988,
+   "card_id": "the_polar_bears",
+   "name": "北极熊师",
+   "import_id": "w3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 989,
+   "card_id": "the_pompadours",
+   "name": "蓬帕杜团",
+   "import_id": "w1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 990,
+   "card_id": "the_professionals",
+   "name": "专家步兵团",
+   "import_id": "vX",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 991,
+   "card_id": "the_rangers",
+   "name": "游骑兵营",
+   "import_id": "pS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 992,
+   "card_id": "the_regulars_vet",
+   "name": "正规军装甲步兵团",
+   "import_id": "Aj",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 993,
+   "card_id": "the_rock_of_gibraltar",
+   "name": "直布罗陀巨岩",
+   "import_id": "DS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 994,
+   "card_id": "the_silent_seventh",
+   "name": "沉默七师",
+   "import_id": "xU",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 995,
+   "card_id": "the_silent_seventh_vet",
+   "name": "沉默七师",
+   "import_id": "zG",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 996,
+   "card_id": "the_tide_turns",
+   "name": "潮起潮落",
+   "import_id": "tL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 997,
+   "card_id": "the_tigers",
+   "name": "老虎团",
+   "import_id": "DD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 998,
+   "card_id": "the_war_machine",
+   "name": "战争机器",
+   "import_id": "bK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 999,
+   "card_id": "the_white_death",
+   "name": "白色死神",
+   "import_id": "ng",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1000,
+   "card_id": "thunder_division",
+   "name": "雷兵团",
+   "import_id": "uy",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1001,
+   "card_id": "thunderbolt",
+   "name": "霹雳师",
+   "import_id": "vY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1002,
+   "card_id": "thunderstorm",
+   "name": "雷暴",
+   "import_id": "CC",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1003,
+   "card_id": "tiger_ie",
+   "name": "虎式坦克 E 型",
+   "import_id": "4F",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1004,
+   "card_id": "tiger_ih",
+   "name": "虎式坦克 H 型",
+   "import_id": "4E",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1005,
+   "card_id": "tiger_moth",
+   "name": "虎蛾",
+   "import_id": "v9",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1006,
+   "card_id": "tigercat",
+   "name": "F7F 虎猫",
+   "import_id": "v6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1007,
+   "card_id": "to_the_last_man",
+   "name": "至死方休",
+   "import_id": "63",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1008,
+   "card_id": "tora_tora_tora",
+   "name": "虎！虎！虎！",
+   "import_id": "62",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1009,
+   "card_id": "torpedo_attack",
+   "name": "鱼雷攻击",
+   "import_id": "bL",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1010,
+   "card_id": "torrential_rain",
+   "name": "骤雨",
+   "import_id": "Cz",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1011,
+   "card_id": "trento_division",
+   "name": "特伦托师",
+   "import_id": "qn",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1012,
+   "card_id": "tropic_lightning",
+   "name": "热带闪电师",
+   "import_id": "DC",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1013,
+   "card_id": "tropic_lightning_vet",
+   "name": "热带闪电师",
+   "import_id": "DA",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1014,
+   "card_id": "tropical_storm",
+   "name": "热带风暴",
+   "import_id": "CD",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1015,
+   "card_id": "tupolev_tb3",
+   "name": "特勃-3",
+   "import_id": "xn",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1016,
+   "card_id": "tupolev_tu2",
+   "name": "图-2",
+   "import_id": "By",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1017,
+   "card_id": "turning_point",
+   "name": "转折点",
+   "import_id": "qI",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1018,
+   "card_id": "type_3_chinu",
+   "name": "三式中战车",
+   "import_id": "7h",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1019,
+   "card_id": "type_4_chito",
+   "name": "四式中战车",
+   "import_id": "qA",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1020,
+   "card_id": "type_4_horo",
+   "name": "四式自走炮",
+   "import_id": "7i",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1021,
+   "card_id": "type_88_aa_gun",
+   "name": "八八式高射炮",
+   "import_id": "7j",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1022,
+   "card_id": "type_92_jyushokosha",
+   "name": "九二式重装甲车",
+   "import_id": "qv",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1023,
+   "card_id": "type_93",
+   "name": "九三式装甲车",
+   "import_id": "7l",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1024,
+   "card_id": "type_94_tk",
+   "name": "九四式轻装甲车",
+   "import_id": "7e",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1025,
+   "card_id": "type_95_hago",
+   "name": "九五式轻战车",
+   "import_id": "7m",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1026,
+   "card_id": "type_97_chiha",
+   "name": "九七式中战车",
+   "import_id": "7o",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1027,
+   "card_id": "type_97_shinhoto",
+   "name": "九七式改中战车",
+   "import_id": "g2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1028,
+   "card_id": "type_xxi_uboat",
+   "name": "XXI 级 U 型潜艇",
+   "import_id": "f1",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1029,
+   "card_id": "u16",
+   "name": "U-16",
+   "import_id": "fU",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1030,
+   "card_id": "u375",
+   "name": "U-375",
+   "import_id": "3h",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1031,
+   "card_id": "u48",
+   "name": "U-48",
+   "import_id": "3i",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1032,
+   "card_id": "ultra",
+   "name": "ULTRA",
+   "import_id": "0B",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1033,
+   "card_id": "underground_state",
+   "name": "地下国",
+   "import_id": "iw",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1034,
+   "card_id": "unity_is_strength",
+   "name": "团结就是力量",
+   "import_id": "bN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1035,
+   "card_id": "universal_carrier",
+   "name": "通用载具",
+   "import_id": "yE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1036,
+   "card_id": "uprising",
+   "name": "起义",
+   "import_id": "jo",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1037,
+   "card_id": "ural_factories",
+   "name": "乌拉尔工厂",
+   "import_id": "89",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1038,
+   "card_id": "uranprojekt",
+   "name": "铀工程",
+   "import_id": "f2",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1039,
+   "card_id": "us_military_research",
+   "name": "美国军事研发",
+   "import_id": "fG",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1040,
+   "card_id": "us_weather_bureau",
+   "name": "美国气象局",
+   "import_id": "ys",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1041,
+   "card_id": "usaaf",
+   "name": "美国陆军航空队",
+   "import_id": "DN",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1042,
+   "card_id": "usace",
+   "name": "陆军工程兵团",
+   "import_id": "bO",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1043,
+   "card_id": "uss_archerfish",
+   "name": "USS 射水鱼号",
+   "import_id": "sK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1044,
+   "card_id": "uss_fitch",
+   "name": "USS 菲奇号",
+   "import_id": "u7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1045,
+   "card_id": "uss_missouri",
+   "name": "USS 密苏里号",
+   "import_id": "tY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1046,
+   "card_id": "uss_the_sullivans",
+   "name": "USS 沙利文兄弟号",
+   "import_id": "vS",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1047,
+   "card_id": "uss_yorktown",
+   "name": "USS 约克城号",
+   "import_id": "u8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1048,
+   "card_id": "utsunomiya_regiment",
+   "name": "宇都宫联队",
+   "import_id": "g3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1049,
+   "card_id": "uusimaa_regiment",
+   "name": "新地团",
+   "import_id": "yQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1050,
+   "card_id": "v1_flying_bomb",
+   "name": "V-1 飞行炸弹",
+   "import_id": "f3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1051,
+   "card_id": "valentine_mk_ii",
+   "name": "瓦伦丁 Mk II",
+   "import_id": "w0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1052,
+   "card_id": "valentine_mk_iii",
+   "name": "瓦伦丁 Mk III",
+   "import_id": "1S",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1053,
+   "card_id": "victory_banners",
+   "name": "胜利旗帜",
+   "import_id": "tm",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1054,
+   "card_id": "victory_garden",
+   "name": "胜利花园",
+   "import_id": "vT",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1055,
+   "card_id": "vive_la_resistance",
+   "name": "抵抗万岁！",
+   "import_id": "2p",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1056,
+   "card_id": "volunteer_corps",
+   "name": "国民义勇队",
+   "import_id": "wY",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1057,
+   "card_id": "vystrel_course",
+   "name": "高级步兵战术进修",
+   "import_id": "qH",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1058,
+   "card_id": "war_bonds",
+   "name": "战争债券",
+   "import_id": "bP",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1059,
+   "card_id": "wave_after_wave",
+   "name": "高潮迭起",
+   "import_id": "oo",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1060,
+   "card_id": "way_of_subjects",
+   "name": "臣民之道",
+   "import_id": "wZ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1061,
+   "card_id": "we_can_do_it",
+   "name": "我们能做到！",
+   "import_id": "bQ",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1062,
+   "card_id": "welsh_guards",
+   "name": "威尔士卫队",
+   "import_id": "1T",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1063,
+   "card_id": "wespe",
+   "name": "黄蜂式自行火炮",
+   "import_id": "4J",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1064,
+   "card_id": "whirlwind",
+   "name": "旋风",
+   "import_id": "v8",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1065,
+   "card_id": "white_guard",
+   "name": "白卫队",
+   "import_id": "xi",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1066,
+   "card_id": "windhund_division",
+   "name": "灰猎犬师",
+   "import_id": "z6",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1067,
+   "card_id": "winter_offensive",
+   "name": "冬季攻势",
+   "import_id": "h3",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1068,
+   "card_id": "winter_warfare",
+   "name": "冬季战争",
+   "import_id": "8c",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1069,
+   "card_id": "wirbelwind",
+   "name": "旋风防空坦克",
+   "import_id": "4G",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1070,
+   "card_id": "wolfhounds",
+   "name": "猎狼犬团",
+   "import_id": "yD",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 1071,
+   "card_id": "wolfhounds_vet",
+   "name": "猎狼犬团",
+   "import_id": "Ao",
+   "asset_status": "ok",
+   "conflict": true
+  },
+  {
+   "id": 1072,
+   "card_id": "wolfpack",
+   "name": "狼群战术",
+   "import_id": "3j",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1073,
+   "card_id": "wolves_of_tuscany",
+   "name": "托斯卡纳之狼步兵师",
+   "import_id": "s4",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1074,
+   "card_id": "women_at_work",
+   "name": "半边天",
+   "import_id": "r0",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1075,
+   "card_id": "yak_9",
+   "name": "雅克-9",
+   "import_id": "9x",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1076,
+   "card_id": "yak_9_pl",
+   "name": "雅克-9 PL",
+   "import_id": "mk",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1077,
+   "card_id": "yokosuka_e14y",
+   "name": "E14Y 零式小型水侦",
+   "import_id": "tK",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1078,
+   "card_id": "your_courage",
+   "name": "你的勇气",
+   "import_id": "xB",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1079,
+   "card_id": "z_special_unit",
+   "name": "Z 队",
+   "import_id": "y7",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1080,
+   "card_id": "zamo_uprising",
+   "name": "扎莫希奇起义",
+   "import_id": "qE",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1081,
+   "card_id": "zaza_division",
+   "name": "扎扎师",
+   "import_id": "iM",
+   "asset_status": "ok",
+   "conflict": false
+  },
+  {
+   "id": 1082,
+   "card_id": "zhukov",
+   "name": "朱可夫",
+   "import_id": "8e",
+   "asset_status": "ok",
+   "conflict": false
+  }
+ ],
+ "ordering_rule": "card_id UTF-8 字典序，一次生成永久冻结，只允许追加",
+ "generation_note": "initial generation (all cards, sorted by card_id UTF-8)",
+ "asset_status_rule": "ok = downloaded & validated (non-flat); missing = download/validation failed or flat image; missing classes are skipped in training and always output unknown at runtime; conflict:true classes (identical images, different card_id) also always output unknown",
+ "generated_at": "2026-10-25T03:29:48",
+ "conflict_policy": "dHash<=3 且逐像素差>12 的改变占比<10% 的卡归为同一家族；家族内卡在运行时恒输出 unknown，训练导出时其概率置零（不参与竞争）。家族清单见 conflict_families。",
+ "conflict_families": [
+  [
+   "6th_brigade_nz",
+   "6th_brigade_nz_vet"
+  ],
+  [
+   "269th_rifles",
+   "269th_rifles_vet"
+  ],
+  [
+   "the_silent_seventh",
+   "the_silent_seventh_vet"
+  ],
+  [
+   "22nd_marines",
+   "22nd_marines_vet"
+  ],
+  [
+   "t34_1942",
+   "t34_1942_b"
+  ],
+  [
+   "panzer_iiij_late",
+   "panzer_iiij_late_vet"
+  ],
+  [
+   "retribution",
+   "retribution_b",
+   "retribution_c",
+   "retribution_d",
+   "retribution_e",
+   "retribution_f",
+   "retribution_g",
+   "retribution_h",
+   "retribution_i",
+   "retribution_j",
+   "retribution_k",
+   "retribution_l"
+  ],
+  [
+   "182_landwehr",
+   "182_landwehr_vet"
+  ],
+  [
+   "t70",
+   "t70_b"
+  ],
+  [
+   "wolfhounds",
+   "wolfhounds_vet"
+  ],
+  [
+   "ace_of_spades",
+   "ace_of_spades_vet"
+  ],
+  [
+   "50_infantry_regiment",
+   "50_infantry_regiment_vet"
+  ],
+  [
+   "102nd_rifles",
+   "102nd_rifles_vet"
+  ],
+  [
+   "cyclone_division",
+   "cyclone_division_vet"
+  ],
+  [
+   "matilda_mk_iv",
+   "matilda_mk_iv_vet"
+  ],
+  [
+   "190th_guard_rifles",
+   "190th_guard_rifles_vet"
+  ],
+  [
+   "12th_guards_mechanised",
+   "12th_guards_mechanised_vet"
+  ],
+  [
+   "gunboat_hit",
+   "gunboat_run"
+  ],
+  [
+   "fw_ta_152",
+   "fw_ta_152_vet"
+  ],
+  [
+   "102_grenadier",
+   "102_grenadier_vet"
+  ],
+  [
+   "14_panzergrenadier",
+   "14_panzergrenadier_vet"
+  ],
+  [
+   "7th_brigade",
+   "7th_brigade_vet"
+  ],
+  [
+   "216th_guards",
+   "216th_guards_vet"
+  ],
+  [
+   "22nd_guards_brigade",
+   "22nd_guards_brigade_vet"
+  ],
+  [
+   "7_schtzen",
+   "7_schtzen_vet"
+  ]
+ ],
+ "conflict_count": 60
+}

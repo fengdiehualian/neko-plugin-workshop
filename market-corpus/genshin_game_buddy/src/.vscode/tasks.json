@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check genshin_game_buddy",
+      "type": "shell",
+      "command": "uv run neko-plugin check genshin_game_buddy",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync genshin_game_buddy",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync genshin_game_buddy --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r genshin_game_buddy",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r genshin_game_buddy",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build genshin_game_buddy",
+      "type": "shell",
+      "command": "uv run neko-plugin build genshin_game_buddy",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

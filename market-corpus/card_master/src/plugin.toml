@@ -1,0 +1,46 @@
+[plugin]
+id = "card_master"
+name = "卡牌大师"
+description = """
+让 YUI 自主学习和练习各类卡牌游戏（德州扑克、掼蛋、Kards、斗地主）。提供完整牌局模拟、牌型评估、胜率计算（蒙特卡洛）、出牌建议、自我对弈训练、实时打牌模式，以及内置斗地主小游戏：与两个 YUI 人机对战、欢乐斗地主风格浏览器面板（叫地主流程：发牌后依次叫分不叫/1/2/3分、叫3分直接当地主、AI 按手牌强度自动叫分；出牌阶段显示手牌/底牌/AI手牌数/上一手，AI 自动出牌，点击选牌后按出牌/不要）。AI 出牌策略：先手优先出组合牌型（顺子/连对/飞机/三带/对子）清牌、单张留后面，压牌用最小能压的组合。对话模式也可叫分/手动推进 AI 回合，记录战绩。何时用：用户说'德州扑克怎么玩/这手牌什么牌型/我这手胜率多少/该不该跟注/出什么牌/开一局牌/练练打牌/斗地主'等卡牌相关请求时。回复纪律：直接给出规则、牌型、胜率或建议结论，可附简要依据，不加多余话术，不编造牌局结果。
+
+■ Kards 自动对局（自己打牌，v0.6.0 新增）
+• kards_auto_play：YUI 在 Kards 真实对局中自动打——定位并前置游戏窗口→读屏/读内存识别局面（指挥点/双方总部/手牌/战线）→按官方规则决策→真实操作（出牌/攻击/结束回合）→等待对手→继续下回合，每步截图验证，识别不到就停下如实汇报，绝不盲点
+• 双通道：优先探测本地 KARDS_API（UE4SS 内存读取，127.0.0.1:8765）拿卡名/费用/攻防真数据并纯代码操作；未装则自动回退读屏+键鼠（真人等价拖拽/点击）
+• kards_auto_status：只读当前局面；kards_calibrate：首次使用前截图标定布局与数字模板
+• 使用前提：Kards 游戏已启动并进入一局对局（训练/AI 对局均可）；未标定前数值显示为未识别，不会乱猜
+"""
+short_description = "让 YUI 自主学习打牌：规则查询、牌型评估、胜率计算、出牌建议、自我对弈、内置斗地主小游戏；Kards 自动对局（读屏/读内存真局面→真实操作打完整局，不瞎点不挂机）"
+keywords = ["扑克", "poker", "卡牌", "掼蛋", "kards", "德州扑克", "打牌", "训练", "self-play", "card game", "live", "实时打牌", "斗地主", "小游戏", "doudizhu", "游戏", "浏览器面板", "hosted-ui", "胜率", "牌型", "出牌建议", "规则", "叫地主", "叫分", "抢地主", "自动对局", "auto play", "读屏", "OCR", "KARDS_API", "内存读取", "键鼠", "回合循环", "不瞎点"]
+version = "0.6.0"
+type = "plugin"
+entry = "plugin.plugins.card_master:CardMasterPlugin"
+
+[plugin.author]
+name = "起诉人"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "dd_game"
+title = "斗地主"
+entry = "static/index.html"
+context = "dd_game"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "怎么玩"
+entry = "docs/guide.md"

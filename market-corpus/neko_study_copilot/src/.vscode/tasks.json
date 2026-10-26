@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check neko_study_copilot",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check neko_study_copilot",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync neko_study_copilot",
+      "type": "shell",
+      "command": "uv run --with pip python -m plugin.neko_plugin_cli.cli sync neko_study_copilot --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r neko_study_copilot",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r neko_study_copilot",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build neko_study_copilot",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build neko_study_copilot",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

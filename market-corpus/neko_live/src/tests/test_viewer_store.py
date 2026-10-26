@@ -1,0 +1,687 @@
+"""ViewerStore（本地 JSON 持久化）单测：落盘往返、自定义目录、计数、audit=None 容错。"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from plugin.plugins.neko_live.core.contracts import ViewerIdentity
+from plugin.plugins.neko_live.stores.viewer_store import ViewerStore
+
+
+class _FakePlugin:
+    def __init__(self, data_dir):
+        self._data_dir = data_dir
+
+    def data_path(self, *parts):
+        return self._data_dir.joinpath(*parts) if parts else self._data_dir
+
+
+@pytest.mark.asyncio
+async def test_persists_to_json_in_default_dir(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    await store.upsert_identity(ViewerIdentity(uid="1001", nickname="桃子"))
+
+    file = tmp_path / "viewer_profiles.json"
+    assert file.exists()
+    data = json.loads(file.read_text(encoding="utf-8"))
+    assert data["1001"]["nickname"] == "桃子"
+
+    # 新实例从盘上读回 → 持久化生效（重启不丢）
+    store2 = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    recent = await store2.recent_profiles()
+    assert any(p["uid"] == "1001" for p in recent)
+
+
+@pytest.mark.asyncio
+async def test_recent_profile_projection_cache_avoids_unchanged_dashboard_reload(
+    tmp_path,
+    monkeypatch,
+):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    await store.record_live_danmaku(
+        ViewerIdentity(uid="1001", nickname="viewer"),
+        "hello",
+    )
+
+    async def fail_reload(*_args, **_kwargs):
+        raise AssertionError("unchanged dashboard projection must not reload JSON")
+
+    monkeypatch.setattr(store, "_load_all", fail_reload)
+    first = await store.recent_profiles(30)
+    first[0]["nickname"] = "mutated"
+    first[0]["preference_tags"]["question"] = 999
+    second = await store.recent_profiles(30)
+
+    assert second[0]["nickname"] == "viewer"
+    assert second[0]["preference_tags"].get("question") != 999
+    assert len(store._recent_cache) <= 200
+
+
+@pytest.mark.asyncio
+async def test_recent_profile_cache_rebuild_holds_writer_lock(tmp_path, monkeypatch):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    original_load_all = store._load_all
+
+    async def load_while_locked():
+        assert store._lock.locked() is True
+        return await original_load_all()
+
+    monkeypatch.setattr(store, "_load_all", load_while_locked)
+
+    assert await store.recent_profiles() == []
+
+
+@pytest.mark.asyncio
+async def test_recent_profile_projection_cache_reloads_external_file_change(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    await store.upsert_identity(ViewerIdentity(uid="1", nickname="first"))
+    assert [item["uid"] for item in await store.recent_profiles()] == ["1"]
+
+    file = tmp_path / "viewer_profiles.json"
+    data = json.loads(file.read_text(encoding="utf-8"))
+    data["222222"] = {
+        "uid": "222222",
+        "nickname": "external",
+        "first_seen_at": "2099-01-01T00:00:00+00:00",
+        "last_seen_at": "2099-01-01T00:00:00+00:00",
+    }
+    file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    recent = await store.recent_profiles()
+
+    assert recent[0]["uid"] == "222222"
+
+
+@pytest.mark.asyncio
+async def test_custom_dir_is_used(tmp_path):
+    custom = tmp_path / "custom_here"
+    store = ViewerStore(_FakePlugin(tmp_path / "default"), audit=None, dir_provider=lambda: str(custom))
+    await store.upsert_identity(ViewerIdentity(uid="42", nickname="阿四二"))
+
+    assert (custom / "viewer_profiles.json").exists()
+    assert not (tmp_path / "default" / "viewer_profiles.json").exists()
+    status = store.storage_status()
+    assert status["using_custom"] is True
+    assert status["writable"] is True
+    assert status["path"] == str(custom / "viewer_profiles.json")
+
+
+@pytest.mark.asyncio
+async def test_empty_custom_dir_falls_back_to_default(tmp_path):
+    # dir_provider 返回空串 → 用默认目录（等价于未配置）
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None, dir_provider=lambda: "  ")
+    await store.upsert_identity(ViewerIdentity(uid="9", nickname="九"))
+    assert (tmp_path / "viewer_profiles.json").exists()
+    assert store.storage_status()["using_custom"] is False
+
+
+@pytest.mark.asyncio
+async def test_custom_write_fallback_is_used_for_followup_reads(tmp_path, monkeypatch):
+    custom = tmp_path / "custom_here"
+    default = tmp_path / "default"
+    store = ViewerStore(_FakePlugin(default), audit=None, dir_provider=lambda: str(custom))
+    original_write_json = store._write_json
+
+    def _fail_custom(file, profiles):
+        if file.parent == custom:
+            return False
+        return original_write_json(file, profiles)
+
+    monkeypatch.setattr(store, "_write_json", _fail_custom)
+
+    await store.upsert_identity(ViewerIdentity(uid="8", nickname="八"))
+    await store.mark_roasted("8", "fallback result")
+
+    assert not (custom / "viewer_profiles.json").exists()
+    assert store._fallback_file(custom / "viewer_profiles.json").exists()
+    assert await store.has_roasted("8") is True
+    status = store.storage_status()
+    assert status["path"] == str(store._fallback_file(custom / "viewer_profiles.json"))
+    assert status["dir"] == str(default)
+    assert status["using_custom"] is False
+    assert status["fallback_active"] is True
+    assert status["writable"] is True
+
+    restarted = ViewerStore(_FakePlugin(default), audit=None, dir_provider=lambda: str(custom))
+    assert await restarted.has_roasted("8") is True
+    assert restarted.storage_status()["fallback_active"] is True
+
+
+def test_storage_status_accepts_creatable_nested_directory(tmp_path):
+    custom = tmp_path / "not-created" / "nested"
+    store = ViewerStore(
+        _FakePlugin(tmp_path / "default"),
+        audit=None,
+        dir_provider=lambda: str(custom),
+    )
+
+    status = store.storage_status()
+
+    assert status["writable"] is True
+    assert status["exists"] is False
+    assert not custom.exists()
+
+
+def test_storage_status_rejects_file_used_as_directory(tmp_path):
+    custom = tmp_path / "not-a-directory"
+    custom.write_text("occupied", encoding="utf-8")
+    store = ViewerStore(
+        _FakePlugin(tmp_path / "default"),
+        audit=None,
+        dir_provider=lambda: str(custom),
+    )
+
+    assert store.storage_status()["writable"] is False
+
+
+def test_failed_atomic_replace_removes_temporary_file(tmp_path, monkeypatch):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    target = tmp_path / "viewer_profiles.json"
+
+    def _fail_replace(_source, _target):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr("plugin.plugins.neko_live.stores.viewer_store.os.replace", _fail_replace)
+
+    assert store._write_json(target, {"42": {"uid": "42"}}) is False
+    assert not target.exists()
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_atomic_write_fsyncs_unique_temp_before_replace(tmp_path, monkeypatch):
+    import os
+
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    target = tmp_path / "viewer_profiles.json"
+    # 残留的旧式固定名 tmp 不能被当成本次写入的临时文件复用或误删。
+    stale = tmp_path / "viewer_profiles.json.tmp"
+    stale.write_text("stale", encoding="utf-8")
+    calls: list[str] = []
+    real_fsync = os.fsync
+    real_replace = os.replace
+
+    def _fsync(fd):
+        calls.append("fsync")
+        return real_fsync(fd)
+
+    def _replace(src, dst):
+        calls.append("replace")
+        assert Path(src) != stale
+        assert Path(src).parent == tmp_path
+        return real_replace(src, dst)
+
+    monkeypatch.setattr("plugin.plugins.neko_live.stores.viewer_store.os.fsync", _fsync)
+    monkeypatch.setattr("plugin.plugins.neko_live.stores.viewer_store.os.replace", _replace)
+
+    assert store._write_json(target, {"42": {"uid": "42"}}) is True
+    assert calls == ["fsync", "replace"]
+    assert json.loads(target.read_text(encoding="utf-8")) == {"42": {"uid": "42"}}
+    assert stale.read_text(encoding="utf-8") == "stale"
+    assert [p for p in tmp_path.glob("*.tmp") if p != stale] == []
+
+
+def test_failed_fsync_keeps_previous_file_intact(tmp_path, monkeypatch):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    target = tmp_path / "viewer_profiles.json"
+    target.write_text('{"1": {"uid": "1"}}', encoding="utf-8")
+
+    def _fail_fsync(_fd):
+        raise OSError("disk gone")
+
+    monkeypatch.setattr("plugin.plugins.neko_live.stores.viewer_store.os.fsync", _fail_fsync)
+
+    assert store._write_json(target, {"42": {"uid": "42"}}) is False
+    assert target.read_text(encoding="utf-8") == '{"1": {"uid": "1"}}'
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
+@pytest.mark.asyncio
+async def test_mark_roasted_roundtrip(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    await store.upsert_identity(ViewerIdentity(uid="7", nickname="七"))
+    assert await store.has_roasted("7") is False
+
+    assert await store.mark_roasted("7", "锐评内容") is True
+
+    assert await store.has_roasted("7") is True
+    recent = await store.recent_profiles()
+    item = next(p for p in recent if p["uid"] == "7")
+    assert item["roast_count"] == 1
+    assert item["last_result"] == "锐评内容"
+
+
+@pytest.mark.asyncio
+async def test_record_live_danmaku_persists_count_and_preferences(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    identity = ViewerIdentity(uid="42", nickname="提问观众")
+
+    first = await store.record_live_danmaku(identity, "这个插件怎么配置？")
+    second = await store.record_live_danmaku(identity, "还有教程吗？")
+    await store.upsert_identity(ViewerIdentity(uid="42", nickname="新昵称"))
+
+    assert first.danmaku_count == 1
+    assert second.danmaku_count == 2
+    restarted = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    item = next(profile for profile in await restarted.recent_profiles() if profile["uid"] == "42")
+    assert item["nickname"] == "新昵称"
+    assert item["danmaku_count"] == 2
+    assert item["preference_tags"].get("question", 0) >= 2
+
+
+@pytest.mark.asyncio
+async def test_upsert_identity_without_nickname_preserves_existing_nickname(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    await store.upsert_identity(ViewerIdentity(uid="42", nickname="known viewer"))
+
+    profile = await store.upsert_identity(ViewerIdentity(uid="42", nickname=""))
+
+    assert profile.nickname == "known viewer"
+
+
+@pytest.mark.asyncio
+async def test_record_live_danmaku_without_nickname_preserves_existing_nickname(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    await store.upsert_identity(ViewerIdentity(uid="42", nickname="known viewer"))
+
+    profile = await store.record_live_danmaku(ViewerIdentity(uid="42", nickname=""), "hello")
+
+    assert profile.nickname == "known viewer"
+
+
+@pytest.mark.asyncio
+async def test_profile_management_preserves_identity_and_supports_deletion(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    identity = ViewerIdentity(uid="42", nickname="viewer")
+    await store.record_live_danmaku(identity, "question tutorial")
+    await store.mark_roasted("42", "result")
+
+    reset = await store.reset_profile_impression("42")
+    profile = (await store.recent_profiles())[0]
+
+    assert reset["reset"] is True
+    assert reset["preserved_first_appearance"] is True
+    assert profile["nickname"] == "viewer"
+    assert profile["roast_count"] == 1
+    assert profile["preference_tags"] == {}
+
+    deleted = await store.delete_profile("42")
+    assert deleted["deleted"] is True
+    assert await store.recent_profiles() == []
+
+
+@pytest.mark.asyncio
+async def test_clear_profiles_reports_count(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    await store.upsert_identity(ViewerIdentity(uid="1", nickname="one"))
+    await store.upsert_identity(ViewerIdentity(uid="2", nickname="two"))
+
+    cleared = await store.clear_profiles()
+
+    assert cleared["cleared"] == 2
+    assert cleared["applied"] is True
+    assert await store.recent_profiles() == []
+
+
+@pytest.mark.asyncio
+async def test_profile_management_reports_failed_persistence(tmp_path, monkeypatch):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    identity = ViewerIdentity(uid="42", nickname="viewer")
+    await store.record_live_danmaku(identity, "question tutorial")
+
+    monkeypatch.setattr(store, "_write_json", lambda _file, _profiles: False)
+
+    cleared = await store.clear_profiles()
+    deleted = await store.delete_profile("42")
+    reset = await store.reset_profile_impression("42")
+
+    assert cleared["cleared"] == 0
+    assert cleared["applied"] is False
+    assert deleted["deleted"] is False
+    assert deleted["applied"] is False
+    assert reset["reset"] is False
+    assert reset["applied"] is False
+    restarted = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    assert (await restarted.recent_profiles())[0]["uid"] == "42"
+
+
+@pytest.mark.asyncio
+async def test_records_viewer_preferences_without_persisting_raw_danmaku(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    identity = ViewerIdentity(uid="1001", nickname="技术姥爷")
+
+    profile = await store.record_live_danmaku(
+        identity, "这个 AI 插件怎么配置？token=must-not-leak"
+    )
+
+    assert profile.danmaku_count == 1
+    assert profile.preference_tags["tech_ai"] == 1
+    assert profile.preference_tags["questions"] == 1
+    assert profile.favorite_topics["tech_ai"] == 1
+    assert profile.running_jokes["short_helper_mode"] == 1
+    assert profile.interaction_style == "question"
+    assert "answer first" in profile.response_preference
+    assert "answer before teasing" in profile.avoid_guidance
+    assert "likes tech/AI" in profile.impression_summary
+
+    raw = (tmp_path / "viewer_profiles.json").read_text(encoding="utf-8")
+    assert "这个 AI 插件怎么配置" not in raw
+    assert "must-not-leak" not in raw
+
+    recent = await store.recent_profiles()
+    item = next(p for p in recent if p["uid"] == "1001")
+    assert item["danmaku_count"] == 1
+    assert item["preference_tags"]["tech_ai"] == 1
+    assert item["favorite_topics"]["tech_ai"] == 1
+    assert item["running_jokes"]["short_helper_mode"] == 1
+    assert item["last_interaction_summary"] == "likes tech/AI, often asks questions"
+    assert item["impression_summary"]
+    assert item["avoid_guidance"] == "answer before teasing; do not dodge the question"
+
+
+@pytest.mark.asyncio
+async def test_viewer_memory_keeps_concrete_facts_across_restart(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    identity = ViewerIdentity(uid="7", nickname="晚陪")
+
+    await store.record_live_danmaku(identity, "哈哈")
+    await store.record_live_danmaku(identity, "我身高一米六，今晚在写作业")
+    await store.record_live_danmaku(identity, "哈哈")
+
+    restarted = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    profile = (await restarted.recent_profiles())[0]
+
+    assert profile["last_interaction_summary"] == "我身高一米六，今晚在写作业"
+    assert "一米六" in profile["impression_summary"]
+    assert "写作业" in profile["impression_summary"]
+    assert profile["impression_summary"] != "likes light chat"
+
+
+@pytest.mark.asyncio
+async def test_entry_lines_are_not_stored_as_viewer_facts(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    identity = ViewerIdentity(uid="11", nickname="茶杯里的鸟")
+
+    await store.record_live_danmaku(identity, "我身高一米六，今晚在写作业")
+    await store.record_live_danmaku(identity, "茶杯里的鸟 进入直播间")
+    await store.record_live_danmaku(identity, "点赞了 6 次")
+
+    profile = (await store.recent_profiles())[0]
+    assert "一米六" in profile["impression_summary"]
+    assert "进入直播间" not in profile["impression_summary"]
+    assert "点赞了" not in profile["impression_summary"]
+
+
+@pytest.mark.asyncio
+async def test_search_profiles_finds_viewers_outside_the_recent_page(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    await store.record_live_danmaku(ViewerIdentity(uid="1", nickname="新观众"), "今天来听歌")
+    await store.record_live_danmaku(ViewerIdentity(uid="2", nickname="老观众阿茶"), "我喜欢洛天依")
+
+    found = await store.search_profiles("阿茶")
+
+    assert [item["uid"] for item in found] == ["2"]
+
+
+@pytest.mark.asyncio
+async def test_recent_profiles_include_derived_viewer_profile_guidance(tmp_path):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    identity = ViewerIdentity(uid="1001", nickname="技术姥爷")
+
+    await store.record_live_danmaku(identity, "这个 AI 插件怎么配置？")
+    await store.record_live_danmaku(identity, "AI 模型和插件还能怎么调？")
+    await store.record_live_danmaku(identity, "有没有代码示例？")
+    await store.record_live_danmaku(identity, "这个配置为什么不生效？")
+
+    recent = await store.recent_profiles()
+    item = next(p for p in recent if p["uid"] == "1001")
+
+    assert item["viewer_stage"] == "returning_viewer"
+    assert item["profile_confidence"] == "medium"
+    assert item["reply_guidance"] == "answer first, then add one light follow-up"
+    assert "这个配置为什么不生效" in item["profile_summary"]
+    assert "这个 AI 插件怎么配置" in item["impression_summary"]
+    assert "这个配置为什么不生效" in item["impression_summary"]
+    assert item["avoid_guidance"] == "answer before teasing; do not dodge the question"
+    tags = {tag["tag"]: tag["count"] for tag in item["top_preference_tags"]}
+    assert tags["question"] == 4
+    assert tags["questions"] == 3
+    assert tags["tech_ai"] == 4
+    favorite_topics = {tag["tag"]: tag["count"] for tag in item["top_favorite_topics"]}
+    assert favorite_topics["tech_ai"] == 4
+    running_jokes = {tag["tag"]: tag["count"] for tag in item["top_running_jokes"]}
+    assert running_jokes["short_helper_mode"] == 4
+
+    raw = json.loads((tmp_path / "viewer_profiles.json").read_text(encoding="utf-8"))
+    stored = raw["1001"]
+    assert stored["favorite_topics"]["tech_ai"] == 4
+    assert stored["running_jokes"]["short_helper_mode"] == 4
+    assert "这个配置为什么不生效" in stored["impression_summary"]
+    assert stored["last_interaction_summary"] == "这个配置为什么不生效？"
+    assert stored["avoid_guidance"] == "answer before teasing; do not dodge the question"
+    assert "viewer_stage" not in stored
+    assert "profile_confidence" not in stored
+    assert "top_preference_tags" not in stored
+    assert "top_favorite_topics" not in stored
+    assert "top_running_jokes" not in stored
+    assert "reply_guidance" not in stored
+    assert "profile_summary" not in stored
+
+
+@pytest.mark.asyncio
+async def test_profile_management_rejects_fallback_only_persistence(
+    tmp_path, monkeypatch
+):
+    custom = tmp_path / "custom"
+    default = tmp_path / "default"
+    custom.mkdir()
+    configured_file = custom / "viewer_profiles.json"
+    configured_file.write_text(
+        json.dumps(
+            {
+                "42": {
+                    "uid": "42",
+                    "nickname": "viewer",
+                    "roast_count": 1,
+                    "preference_tags": {"question": 1},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    store = ViewerStore(
+        _FakePlugin(default), audit=None, dir_provider=lambda: str(custom)
+    )
+    original_write_json = store._write_json
+
+    def _fail_custom(file, profiles):
+        if file.parent == custom:
+            return False
+        return original_write_json(file, profiles)
+
+    monkeypatch.setattr(store, "_write_json", _fail_custom)
+
+    cleared = await store.clear_profiles()
+    deleted = await store.delete_profile("42")
+    reset = await store.reset_profile_impression("42")
+
+    assert cleared["applied"] is False
+    assert deleted["applied"] is False
+    assert reset["applied"] is False
+    assert not (default / "viewer_profiles.json").exists()
+    restarted = ViewerStore(
+        _FakePlugin(default), audit=None, dir_provider=lambda: str(custom)
+    )
+    profile = (await restarted.recent_profiles())[0]
+    assert profile["uid"] == "42"
+    assert profile["preference_tags"] == {"question": 1}
+
+
+@pytest.mark.asyncio
+async def test_mark_roasted_reports_failed_persistence(tmp_path, monkeypatch):
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    await store.upsert_identity(ViewerIdentity(uid="42", nickname="viewer"))
+    monkeypatch.setattr(store, "_write_json", lambda _file, _profiles: False)
+
+    assert await store.mark_roasted("42", "result") is False
+
+    restarted = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    profile = (await restarted.recent_profiles())[0]
+    assert profile["roast_count"] == 0
+
+
+class _RecordingAudit:
+    def __init__(self):
+        self.events = []
+
+    def record(self, op, message, **_kwargs):
+        self.events.append((op, message))
+
+
+def _seed_two_profiles(tmp_path):
+    file = tmp_path / "viewer_profiles.json"
+    file.write_text(
+        json.dumps(
+            {
+                "1001": {"uid": "1001", "nickname": "a"},
+                "1002": {"uid": "1002", "nickname": "b"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    return file
+
+
+def _fail_read_bytes(monkeypatch, file):
+    original = type(file).read_bytes
+
+    def flaky_read_bytes(self):
+        if self == file:
+            raise PermissionError("locked by another process")
+        return original(self)
+
+    monkeypatch.setattr(type(file), "read_bytes", flaky_read_bytes)
+
+
+@pytest.mark.asyncio
+async def test_unreadable_file_is_never_overwritten_by_mutations(tmp_path, monkeypatch):
+    file = _seed_two_profiles(tmp_path)
+    before = file.read_bytes()
+    audit = _RecordingAudit()
+    store = ViewerStore(_FakePlugin(tmp_path), audit=audit)
+    _fail_read_bytes(monkeypatch, file)
+
+    profile = await store.upsert_identity(ViewerIdentity(uid="2001", nickname="new"))
+    assert profile.uid == "2001"
+    with pytest.raises(OSError):
+        await store.record_live_danmaku(ViewerIdentity(uid="2001", nickname="new"), "hi")
+    assert await store.mark_roasted("1001", "roast") is False
+    assert (await store.delete_profile("1001"))["applied"] is False
+    assert (await store.clear_profiles())["applied"] is False
+    with pytest.raises(OSError):
+        await store.reset_profile_impression("1001")
+    assert (await store.prune_expired_profiles())["applied"] is False
+
+    monkeypatch.undo()
+    assert file.read_bytes() == before
+    load_failures = [op for op, _ in audit.events if op == "viewer_store_load_failed"]
+    assert len(load_failures) == 1
+
+
+@pytest.mark.asyncio
+async def test_unreadable_file_recovers_once_readable_again(tmp_path, monkeypatch):
+    file = _seed_two_profiles(tmp_path)
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    _fail_read_bytes(monkeypatch, file)
+    assert await store.recent_profiles() == []
+    monkeypatch.undo()
+
+    await store.upsert_identity(ViewerIdentity(uid="2001", nickname="new"))
+    data = json.loads(file.read_text(encoding="utf-8"))
+    assert set(data) == {"1001", "1002", "2001"}
+
+
+@pytest.mark.asyncio
+async def test_corrupt_file_is_quarantined_before_new_writes(tmp_path):
+    file = tmp_path / "viewer_profiles.json"
+    file.write_bytes(b'{"1001": {"uid": "10')
+    audit = _RecordingAudit()
+    store = ViewerStore(_FakePlugin(tmp_path), audit=audit)
+
+    await store.upsert_identity(ViewerIdentity(uid="2001", nickname="new"))
+
+    backups = list(tmp_path.glob("viewer_profiles.json.corrupt-*"))
+    assert len(backups) == 1
+    assert backups[0].read_bytes() == b'{"1001": {"uid": "10'
+    assert set(json.loads(file.read_text(encoding="utf-8"))) == {"2001"}
+    assert any(op == "viewer_store_corrupt_quarantined" for op, _ in audit.events)
+
+
+@pytest.mark.asyncio
+async def test_corrupt_file_that_cannot_be_quarantined_is_not_overwritten(
+    tmp_path, monkeypatch
+):
+    import os
+
+    file = tmp_path / "viewer_profiles.json"
+    file.write_text("[1, 2, 3]", encoding="utf-8")
+    store = ViewerStore(_FakePlugin(tmp_path), audit=None)
+    real_replace = os.replace
+
+    def refuse_quarantine(src, dst):
+        if ".corrupt-" in str(dst):
+            raise PermissionError("locked")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", refuse_quarantine)
+    assert await store.mark_roasted("1001", "roast") is False
+    assert file.read_text(encoding="utf-8") == "[1, 2, 3]"
+
+
+@pytest.mark.asyncio
+async def test_custom_store_fallback_survives_restart(tmp_path, monkeypatch):
+    custom, default = tmp_path / "custom", tmp_path / "default"
+    store = ViewerStore(_FakePlugin(default), None, lambda: str(custom))
+    await store.upsert_identity(ViewerIdentity(uid="1", nickname="first"))
+    original = store._write_json
+    monkeypatch.setattr(store, "_write_json", lambda file, data: False if file.parent == custom else original(file, data))
+    await store.upsert_identity(ViewerIdentity(uid="2", nickname="second"))
+    restarted = ViewerStore(_FakePlugin(default), None, lambda: str(custom))
+    assert {p["uid"] for p in await restarted.recent_profiles()} == {"1", "2"}
+    await restarted.upsert_identity(ViewerIdentity(uid="3", nickname="third"))
+    again = ViewerStore(_FakePlugin(default), None, lambda: str(custom))
+    assert {p["uid"] for p in await again.recent_profiles()} == {"1", "2", "3"}
+
+
+@pytest.mark.asyncio
+async def test_custom_fallbacks_do_not_overwrite_default_or_other_sources(tmp_path, monkeypatch):
+    default = tmp_path / "default"
+    default_store = ViewerStore(_FakePlugin(default), None)
+    await default_store.upsert_identity(ViewerIdentity(uid="default", nickname="default"))
+    stores = []
+    for name in ("A", "B"):
+        custom = tmp_path / name
+        store = ViewerStore(_FakePlugin(default), None, lambda custom=custom: str(custom))
+        await store.upsert_identity(ViewerIdentity(uid=name, nickname=name))
+        original = store._write_json
+        monkeypatch.setattr(store, "_write_json", lambda file, data, custom=custom, original=original: False if file.parent == custom else original(file, data))
+        await store.upsert_identity(ViewerIdentity(uid=name+"2", nickname=name+"2"))
+        stores.append((custom, name))
+    assert {p["uid"] for p in await ViewerStore(_FakePlugin(default), None).recent_profiles()} == {"default"}
+    for custom, name in stores:
+        restarted = ViewerStore(_FakePlugin(default), None, lambda custom=custom: str(custom))
+        assert {p["uid"] for p in await restarted.recent_profiles()} == {name, name+"2"}
+
+
+@pytest.mark.asyncio
+async def test_legacy_fallback_marker_migrates_without_overwriting_shared_file(tmp_path):
+    custom, default = tmp_path / "custom", tmp_path / "default"
+    store = ViewerStore(_FakePlugin(default), None, lambda: str(custom))
+    legacy = default / "viewer_profiles.json"
+    store._write_json(legacy, {"old": {"uid": "old", "nickname": "old"}})
+    store._write_json(store._fallback_marker(custom / "viewer_profiles.json"), {"source": str((custom / "viewer_profiles.json").resolve()), "active": True})
+    await store.upsert_identity(ViewerIdentity(uid="new", nickname="new"))
+    assert set(json.loads(legacy.read_text(encoding="utf-8"))) == {"old"}
+    restarted = ViewerStore(_FakePlugin(default), None, lambda: str(custom))
+    assert {p["uid"] for p in await restarted.recent_profiles()} == {"old", "new"}

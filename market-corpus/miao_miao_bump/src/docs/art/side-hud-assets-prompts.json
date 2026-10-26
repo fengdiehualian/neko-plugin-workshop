@@ -1,0 +1,71 @@
+{
+  "created_on": "2026-10-21",
+  "tool": "image_gen.imagegen",
+  "mode": "builtin",
+  "note": "Prompts below are the exact strings submitted to the builtin tool. Generated files were copied unchanged; alpha bounds were measured without image editing.",
+  "assets": [
+    {
+      "id": "side-capsule-v1",
+      "mode": "builtin-imagegen",
+      "transparent_background": true,
+      "referenced_image_paths": [
+        "C:/Users/cai/.codex/generated_images/01a153e2-1374-7980-9636-3fd499abe0be/exec-839d6f83-180b-48ea-b537-b05a8856f1e5.png"
+      ],
+      "generated_path": "C:/Users/cai/.codex/generated_images/01a15cf4-9ee1-7ce1-9d44-366dd53dce09/exec-f01b67d8-6c1e-4a0d-8f5a-3a514fde928b.png",
+      "workspace_path": "static/assets/ui/side-capsule-v1.png",
+      "dimensions": {
+        "width": 1983,
+        "height": 793,
+        "mode": "RGBA"
+      },
+      "solid_alpha_bounds": {
+        "threshold": 127,
+        "left": 113,
+        "top": 251,
+        "right": 1870,
+        "bottom": 537
+      },
+      "prompt": "Use case: ui-mockup. Generate ONE standalone BLANK reusable game UI capsule background asset, not a whole screen. Input reference is a selected game interface; match ONLY the light cream capsule backing underneath left-side health/attack/skill labels. NO screenshot, NO characters, NO pool, NO text, NO symbols, NO icons.\nCanvas 1536x1024 with genuine RGBA transparent background. ONE horizontal capsule centered, flat front view, body about1260pixels wide and312pixels tall (aspect4:1), generous transparent margin around. Shape is long pill with round semicircular ends, pale warm cream fill (#fff8e8 approximately), thin softly golden rim (#f1d6a1), very thin white inside highlight, very subtle small pixel edge steps matching the cheerful pixel game reference. Edges are clean and symmetrical; central interior mostly flat blank cream so native UI text is readable. Very restrained gentle shading, no noisy paper texture. No thick brown outline. No flowers, pawprints, glitter, ornate corners, decorative tabs, drop shadow, holes or strokes outside the capsule. Keep capsule perfectly horizontally aligned. Entire capsule visible with transparent margin, separate alpha from background. Designed for CSS nine-slice resizing into210x52px stat chips; corner caps must be symmetrical and middle blank and stretchable. Only ONE capsule asset."
+    },
+    {
+      "id": "side-circle-v1",
+      "mode": "builtin-imagegen",
+      "transparent_background": true,
+      "referenced_image_paths": [
+        "C:/Users/cai/.codex/generated_images/01a153e2-1374-7980-9636-3fd499abe0be/exec-839d6f83-180b-48ea-b537-b05a8856f1e5.png"
+      ],
+      "generated_path": "C:/Users/cai/.codex/generated_images/01a15cf4-9ee1-7ce1-9d44-366dd53dce09/exec-b2c8938a-ce84-454e-a903-186063926f2a.png",
+      "workspace_path": "static/assets/ui/side-circle-v1.png",
+      "dimensions": {
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA"
+      },
+      "solid_alpha_bounds": {
+        "threshold": 127,
+        "left": 124,
+        "top": 128,
+        "right": 1126,
+        "bottom": 1122
+      },
+      "prompt": "Use case: ui-mockup. Generate ONE standalone BLANK circular game UI button surface. Match the palecream circular backgrounds behind right-side sound/settings/restart buttons in the attached reference screenshot. The screenshot is STYLE reference ONLY, never recreate the screen. True symmetrical geometric circle, front-on flatview, no perspective. Canvas1024x1024 RGBA transparent, circle centered about768px diameter, leave transparent margin. Cream-white fill approximately#fffaf0, thin pale warmgold edge approximately#f2d6a1, subtle white innerhighlight, restrained softlywarm creamedge shading. Crisp clean edge with subtle pixelsteps matching cheerful pixelgame, not fuzzy. Designed to be displayed76x76px. NOtext, icons, symbols, cat, flowers, pawprints, stars, ornaments, holes, darkoutline, drop shadow, screenshot, browserframe or multipleobjects. Exactly ONE full visible circle asset on genuine transparency."
+    },
+    {
+      "id": "beach-surround-side-v1",
+      "mode": "builtin-imagegen",
+      "transparent_background": false,
+      "referenced_image_paths": [
+        "E:/code/neko1/N.E.K.O/plugin/plugins/miao_miao_bump/static/assets/ui/beach-surround-v1.png",
+        "C:/Users/cai/.codex/generated_images/01a153e2-1374-7980-9636-3fd499abe0be/exec-839d6f83-180b-48ea-b537-b05a8856f1e5.png"
+      ],
+      "generated_path": "C:/Users/cai/.codex/generated_images/01a15cf4-9ee1-7ce1-9d44-366dd53dce09/exec-7d31491c-9465-40a6-8d54-63c8924523e5.png",
+      "workspace_path": "static/assets/ui/beach-surround-side-v1.png",
+      "dimensions": {
+        "width": 1536,
+        "height": 1024,
+        "mode": "RGB"
+      },
+      "prompt": "Use case: precise-object-edit. Edit Image1, the existing EMPTY beach-resort background ONLY. Image2 is layout reference for where side HUD needs quiet space; DO NOT copy its pool, characters, UI, text or controls. Preserve Image1 canvas size1536x1024, aspect3:2, pixelart style, bright cream/yellow deck, sunny pastelresort palette. Output OPAQUE full background.\nTarget change: CLEAR THE TWO SIDE DECK ZONES BEHIND FUTURE UI. On Image1 coordinates, left zone x20..245,y250..810 must become unobstructed palecream deck with very subtle tile/plank seams, samecoloras center. Remove the left sleepingcatlounger/chair and any flowers, pottedplant, drinks, slippers or foregroundobject intruding in that selectedinfozone. Retain leftyellowparasolin uppercorner above zone, retain greeneryonly at extremeleft x0..35 or topcorner. Onright, clear zone x1295..1515,y330..790 of drinktable/glass, slippers, towel, looseflowers andforegroundfoliage, replacewith plain matchingcreamdeck. Keep the TOPRIGHT pinkumbrella and sleeping graywhitecat onpinklounger as original, localizedabove y310 as much as possible, not extending into rightcontrolzone. Keep bottomleft andbottomright corner tropicalflowers/plants, keeping them below y830 or at outermostedge. Keep top plants/sky/flowers unchanged. The large centralblankbackdrop MUST remain blankandunchanged, do not insert or paint a pool, UI, text, new characters orfigures, logos, decoration or labels. This is a clean empty scene BACKGROUND withquietsideareas for independentlyrendered interactiveHUD. Preserve atmosphereandartstyle, don't redesign entirebackground. Genuinepixelclusters, not smoothvector. Opaque image, onebackgroundonly."
+    }
+  ]
+}

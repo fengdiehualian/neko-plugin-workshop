@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kards.invalid/schemas/card-assets-manifest-v1.json",
+  "title": "KARDS offline card asset manifest",
+  "description": "Metadata-only manifest for package-local KARDS card images. It contains paths, sha256 digests, byte counts and source URLs, but never image bytes, base64 payloads or secrets. Runtime validation in knowledge/assets.py is authoritative and also checks local files, AVIF magic and filesystem links.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "distribution_status", "cards"],
+  "properties": {
+    "schema": {
+      "const": "kards.card-assets"
+    },
+    "version": {
+      "const": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "catalog_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "distribution_status": {
+      "enum": ["blocked_unlicensed", "licensed_public_release"],
+      "description": "Public redistribution gate. licensed_public_release additionally requires a verified license object."
+    },
+    "self_use_candidate": {
+      "type": "boolean",
+      "description": "Separate local/self-use marker. It never satisfies the public distribution gate."
+    },
+    "license": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/license"}
+      ]
+    },
+    "cards": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5000,
+      "items": {"$ref": "#/$defs/card"}
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes", "format"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?(?:/[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)*\\.avif$",
+          "description": "POSIX-style path relative to assets/cards; no absolute path, traversal, backslash, drive letter or ADS."
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 33554432
+        },
+        "format": {
+          "const": "avif"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image_url", "thumb_url"],
+      "description": "Provenance metadata only. Implementations must never download these URLs.",
+      "properties": {
+        "image_url": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048,
+          "pattern": "^https://"
+        },
+        "thumb_url": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048,
+          "pattern": "^https://"
+        }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "verified", "redistribution_allowed", "evidence"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "redistribution_allowed": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "description": "Operator-provided review note or reference. This is an explicit declaration, not automatic legal verification."
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      }
+    },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["card_id", "full", "thumb", "source"],
+      "properties": {
+        "card_id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
+          "description": "Catalog card_id (not import_id)."
+        },
+        "full": {
+          "$ref": "#/$defs/variant"
+        },
+        "thumb": {
+          "$ref": "#/$defs/variant"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        }
+      }
+    }
+  }
+}

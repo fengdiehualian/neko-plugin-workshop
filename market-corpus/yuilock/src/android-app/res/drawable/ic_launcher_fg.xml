@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 白色挂锁前景图（自适应图标用） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 锁梁 -->
+    <path
+        android:pathData="M39,56 L39,46 C39,37.2 45.7,30 54,30 C62.3,30 69,37.2 69,46 L69,56"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <!-- 锁体 -->
+    <path
+        android:pathData="M34,54 L74,54 C76.2,54 78,55.8 78,58 L78,74 C78,76.2 76.2,78 74,78 L34,78 C31.8,78 30,76.2 30,74 L30,58 C30,55.8 31.8,54 34,54 Z"
+        android:fillColor="#FFFFFF" />
+    <!-- 锁孔 -->
+    <path
+        android:pathData="M54,60 C56.2,60 58,61.8 58,64 C58,65.5 57.2,66.8 56,67.5 L56,72 C56,73.1 55.1,74 54,74 C52.9,74 52,73.1 52,72 L52,67.5 C50.8,66.8 50,65.5 50,64 C50,61.8 51.8,60 54,60 Z"
+        android:fillColor="#E8536B" />
+</vector>

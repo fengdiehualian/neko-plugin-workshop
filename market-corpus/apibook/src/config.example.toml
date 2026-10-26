@@ -1,0 +1,7 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[apibook]
+# 0 uses config.MAIN_SERVER_PORT. Requests stay on loopback.
+main_server_port = 0

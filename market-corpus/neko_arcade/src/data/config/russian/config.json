@@ -1,0 +1,11 @@
+{
+  "initial_food": 500,
+  "sign_food_min": 1,
+  "sign_food_max": 100,
+  "default_bet": 200,
+  "max_bet": 1000,
+  "max_bullets": 6,
+  "fee_max_percent": 5,
+  "duel_timeout": 300,
+  "note": "经济单位为猫粮：轮盘签到领取，装弹下注。LLM 配置属于主插件全局，不在这里配"
+}

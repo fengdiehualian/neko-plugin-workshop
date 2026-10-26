@@ -1,0 +1,10 @@
+[project]
+name = "neko_survivors"
+version = "0.3.15"
+description = "猫娘姐妹：幸存者 —— 自带完整游戏的弹幕生存肉鸽"
+requires-python = ">=3.11"
+# 游戏本体是纯静态 HTML/JS，Python 端零依赖
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,168 @@
+[sts2]
+base_url = "http://127.0.0.1:18080"
+connect_timeout_seconds = 5
+request_timeout_seconds = 15
+poll_interval_idle_seconds = 3
+poll_interval_active_seconds = 1
+# ★★★ 内存自检周期（秒）。<=0 = 关掉。每 N 秒打一行 `[sts2_mem]`：
+#   rss=插件宿主进程的常驻内存 / tasks=asyncio 任务数 / gc_objs=gc 对象数 /
+#   recent{...}=我方几个环形队列的长度 / snapshot_keys / plan_steps / solver_status。
+#   为什么要有：玩家反馈"玩尖塔时 NEKO 占用越来越大"，而 NEKO 是 13 个进程
+#   （Electron 壳 + 主 server + 每个插件一个宿主进程 + renderer/gpu）——
+#   只有把"本进程 RSS"和"我方容器长度"放进同一条时间序列，才能判断是我们在涨，
+#   还是主 server / renderer 在涨（后者与插件无关）。排查时可临时调到 60。
+memory_report_interval_seconds = 300
+# 自动玩的 tick 间隔（秒）。★ 这是**基准值**，不是恒定节拍：
+#   loop_runner.adaptive_tick_interval 拿它当**下限**，再用"上次 /solver/plan 的实测耗时"抬上去
+#   （上限 3s，见 _SOLVER_PACING_CAP_SECONDS），避免搜索刚落就又去重算。
+#   实际生效 = min(3.0, max(本值, 上次求解耗时 × 1.0))。
+# 2026-10-25（玩家口径「每次行动的间隔调低，改成1秒先」）：1.5 → 1。
+action_interval_seconds = 1
+# ★★★ 战斗里「按整回合快照续行」时的出牌间隔（秒）。与上面的基准值是两回事：
+#   `/solver/plan` 一次返回**整回合**的出牌顺序（line[0].steps），tick 只按 solver_step_index
+#   逐步执行、**不会重算**（日志 `[sts2_plan] 复用快照 step=k/M`）。这种 tick 与"上次搜索花了多久"
+#   无关，却被 t45 自适应节拍按搜索耗时定价（顶 3s 上限）⇒ 整回合每张牌白等 3 秒。
+#   现在：需要重算的 tick → 走 action_interval_seconds（安全）；纯回放的 tick → 用本值（快）。
+#   生效值 = min(action_interval_seconds, 本值)；上一张牌还是 pending 时会自动退回正常节拍。
+#   0.5 ≈ 实机卡牌动画量级；再小多半只会换来 mod 的 `pending` 与退避重试。想更快就往下调。
+combat_replay_interval_seconds = 0.5
+# ⚠️ 本项在插件代码里**没有任何读取点**（全仓 grep `post_action_delay` 只命中这里）。
+#   真正决定节奏的是上面的 action_interval_seconds（经 adaptive_tick_interval）。
+#   保留只为不破坏既有配置文件形状，改它不会有效果。
+post_action_delay_seconds = 0.5
+autoplay_on_start = false
+character_strategy = "defect"
+max_consecutive_errors = 3
+llm_frontend_output_enabled = true
+llm_frontend_output_probability = 1.0
+autoplay_push_probability = 0.3
+neko_reporting_enabled = true
+neko_report_interval_steps = 1
+neko_report_hud_enabled = true
+neko_commentary_enabled = true
+neko_commentary_probability = 0.65
+companion_push_probability = 0.5
+neko_commentary_min_interval_seconds = 4
+neko_critical_commentary_always = true
+# ★★★ 弹幕关着时，点评改走宿主（`push_message`，猫娘在聊天窗口里用自己的口吻说）。
+#   玩家口径（2026-10-26）：「关闭弹幕，但是可以用 push_message 让猫娘点评一下」。
+#   背景：游戏内弹幕在 autoplay 期间是**故意关掉**的（2026-10-19 指令：代打时没人盯屏幕，
+#   弹幕刷出去没收益还挤占 LLM 与日志 —— 优先级 coop>autoplay>陪玩，见 danmaku_enabled）。
+#   但"没人盯弹幕"不等于"不用说话"：这条开关让同一段点评换一条通道说出去。
+#   · 只在**弹幕关着**时生效（弹幕开着还推宿主 = 同一句说两遍）；
+#   · 默认 true（与「尖塔速报」host_digest_enabled 同一个取向）；
+#   · 每次推送都会让本体**立刻开一次口**（一次完整 AI 回合，有 token 成本）⇒ 默认 45 秒一次。
+#   设 false = 回到"代打全程静音"的老行为。
+host_commentary_when_danmaku_off = true
+host_commentary_min_interval_seconds = 45
+neko_guidance_max_queue = 50
+neko_auto_low_hp_threshold = 0.3
+neko_auto_safe_hp_threshold = 0.5
+neko_auto_dangerous_attack_threshold = 20
+neko_auto_resume_after_low_hp = true
+neko_desperate_enabled = true
+neko_desperate_hp_threshold = 0.2
+neko_maximize_enabled = true
+catgirl_llm_enabled = true
+catgirl_llm_min_interval_seconds = 10
+# 游戏内弹幕总开关：false = 完全不向 mod 推 POST /danmaku（连 LLM 生成与头像请求都不发生）。
+# 注意与 catgirl_llm_enabled 的区别：catgirl_llm_enabled=false 只是"LLM 点评降级为启发式文本"，
+# 弹幕照旧会推；要真正关掉弹幕必须用 danmaku_enabled=false 或运行时动作 sts2_set_danmaku。
+danmaku_enabled = true
+# 地图投票策略，决定猫娘会不会自己抢路线：
+#   "wait"（默认）= 多人局里彻底等待：不投票、也不自动跟票，路线完全留给玩家，直到玩家通过
+#                   NEKO 说话下令（sts2_set_route）。单机局没有队友可等，仍会自己选。
+#   "follow"      = 队友先投了就跟着投同一个；无人投票时等 map_vote_wait_seconds 再自己选。
+#   "auto"        = 不等，立即按自己的偏好选。
+# 旧的布尔配置 map_follow_player 仍被识别（true -> follow，false -> auto），但建议改用本项。
+map_policy = "wait"
+map_vote_wait_seconds = 20
+# 游玩模式：serious（默认，认真打，与之前逐字相同）/ mischievous（20% 概率换成次优）/
+# silly（60% 概率换成最差）。运行时等价动作：sts2_set_play_style。
+# 注意：插件不做任何 LLM 决策，事件房也早已是纯启发式（原 event_llm_* 配置项已移除）。
+play_style = "serious"
+
+# 「尖塔速报」开关：false = 不把局势悄悄交给本体，本体也就不会主动讲局势。
+# 只影响这一路；游戏内弹幕、自动游玩、历史记录都不受影响。运行时等价动作：sts2_set_host_digest。
+host_digest_enabled = true
+# 「尖塔复盘」开关：false = 局末不生成反思、不推给本体；结构化记录（损血归因/路线图/历史页）照旧。
+# 运行时等价动作：sts2_set_run_reflection。
+run_reflection_enabled = true
+
+[plugin]
+id = "sts2_autoplay"
+name = "尖塔2陪玩"
+description = "陪伴你在杀戮尖塔2（Slay the Spire 2）中游玩：自动出牌、局势点评与猫娘 LLM 实时解说（游戏内弹幕）。"
+short_description = "Slay the Spire 2 companion: autoplay, situation commentary, and live AI catgirl danmaku in-game."
+keywords = ["slay the spire", "杀戮尖塔", "陪玩", "autoplay", "companion", "sts2", "肉鸽", "卡牌"]
+version = "0.7.10"
+entry = "plugin.plugins.sts2_autoplay:STS2AutoplayPlugin"
+
+# 默认语区**必须显式指定**。SDK 的 PluginI18n.t() 在不传 locale 时只按 default_locale 查表，
+# 而 default_locale 的默认值是 "en"（plugin/sdk/shared/i18n.py 的 DEFAULT_LOCALE）——
+# 于是**凡是 en.json 里存在的键，无论玩家用什么语言都说英文**；只有 en 里没有的键才会退回
+# 代码里写的中文 default（所以同一屏里会半中半英）。实测：奖励屏弹幕直接念出
+# "Prefer rewards that patch the weaknesses of the current deck."
+# 插件侧没有"取运行时语区"的接口（SDK context 不暴露 locale），所以这里把默认语区钉成简体中文。
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "尖塔2陪玩"
+entry = "static/index.html"
+# ⚠️ 这里**不要**写 `context = "sts2_autoplay"`。
+#
+# 原值把它自己插件的 id 当成了"UI context 提供者"的名字，但本插件
+# **从未注册**任何 context provider，于是宿主的每次查询都失败：
+#
+#     GET /plugin/sts2_autoplay/hosted-ui/context?kind=panel&id=main
+#     -> warnings: [{"code":"ui_context_failed",
+#                    "message":"UI context 'sts2_autoplay' not found"}]
+#     -> actions = []   entries = []
+#
+# 连锁后果：`call_surface_action` 在 `_resolve_authorized_action_entry_id`
+# 拿不到任何 action ⇒ 从外部调用 entry（例如 sts2_start_autoplay）一律失败。
+#
+# 留空则走 `ui_query_service.py:1563-1564` 的回退：
+#     context_id = surface.get("context") or surface.get("id")  ->  "main"
+# 这与 `app_launcher`（同样是 static panel，context 为空）实际能列出
+# 12 个 entry 的行为一致。
+#
+# ★ 教训：**声明一个不存在的 context 比不声明更糟** —— 不声明会回退，
+#   声明错了会让整次查询失败，且只在 warnings 里留一行，很难注意到。
+permissions = [
+    "state:read",
+    "action:call",
+]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "快速开始"
+entry = "README.md"
+permissions = ["state:read"]
+
+# 自动游玩历史：每局的选择、损血归因与结束状态。
+# 数据由插件在每次局末（以及启动时）写成 static/autoplay_history.json，页面 fetch 同目录下的它。
+#
+# 注意：**真正的入口做在 static/index.html 里**（一张跳转卡片）。宿主打开的就是
+# `/plugin/{id}/ui/`（= index.html），而它并不消费这里额外的 [[plugin.ui.panel]]
+# ——plugin server 里没有任何 panels 处理逻辑。这条声明留着是给会用清单的消费者看的，
+# 别以为加了面板玩家的界面上就会冒出入口。index.html 要保持干净（只放跳转、不内联取数），
+# 页面一变重就会出现刷新延迟。
+[[plugin.ui.panel]]
+id = "history"
+title = "自动游玩历史"
+entry = "static/history.html"
+# 同上：不要声明未注册的 context（reasoning 见上一条 panel）。
+permissions = [
+    "state:read",
+]
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"

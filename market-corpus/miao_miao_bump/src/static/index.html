@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- Preserve the game artwork: opt this document out of automatic recolouring. -->
+  <meta name="darkreader-lock">
+  <meta name="color-scheme" content="only light">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meow Meow Bump Battle</title>
+  <link rel="icon" href="data:,">
+  <script>
+    if (/\/plugin\/miao_miao_bump\/ui$/.test(location.pathname)) {
+      const base = document.createElement('base');
+      base.href = location.pathname + '/';
+      document.head.append(base);
+    }
+  </script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="skin.css">
+  <link rel="stylesheet" href="layout.css?v=side-hud-4">
+  <script defer src="vendor/matter-0.20.0.min.js"></script>
+  <script defer src="maps.js?v=formation-1"></script>
+  <script defer src="physics.js"></script>
+  <script defer src="battle.js"></script>
+  <script defer src="art.js?v=water-2"></script>
+  <script defer src="sound.js"></script>
+  <script defer src="i18n.js"></script>
+  <script defer src="game.js?v=water-2"></script>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand"><img id="title-art" src="assets/ui/concept-title-zh-v2.png" alt=""><h1 data-t="plugin.name"></h1></div>
+      <label class="language"><span data-t="ui.language"></span><select id="language" aria-label="Language"><option value="zh-CN">简体中文</option><option value="zh-TW">繁體中文</option><option value="en">English</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="ru">Русский</option><option value="es">Español</option><option value="pt">Português</option></select></label>
+    </header>
+    <div id="load-error" role="alert" hidden></div>
+    <div class="workspace" id="workspace" hidden>
+      <section class="pool-section">
+        <div class="pool-heading scoreboard" id="scoreboard" data-mode="battle" data-aria="hud.scoreboard">
+          <section class="team-panel" id="ally-panel" data-team="0">
+            <div class="team-heading"><img src="assets/ui/icons/fa-solid/paw.svg" alt=""><strong data-t="hud.ally"></strong><span id="ally-actions" class="sr-only"></span></div>
+            <div class="team-content"><div class="roster" id="ally-roster"></div><div class="team-score"><strong id="ally-score">0</strong><span class="score-target"></span></div></div>
+          </section>
+          <div class="match-summary">
+            <span id="round-status" class="round-status"></span>
+            <strong class="state-pill" id="state" aria-live="polite"></strong>
+            <span id="target-status"></span><span id="first-status"></span>
+          </div>
+          <section class="team-panel" id="enemy-panel" data-team="1">
+            <div class="team-heading"><img src="assets/ui/icons/fa-solid/paw.svg" alt=""><strong data-t="hud.enemy"></strong><span id="enemy-actions" class="sr-only"></span></div>
+            <div class="team-content"><div class="roster" id="enemy-roster"></div><div class="team-score"><strong id="enemy-score">0</strong><span class="score-target"></span></div></div>
+          </section>
+          <span id="score-status" class="sr-only"></span><span id="team-status" class="sr-only"></span>
+        </div>
+        <div class="stage-slot"><div class="canvas-wrap"><canvas id="pool" width="960" height="600" tabindex="0" data-aria="ui.canvas"></canvas><div class="pause-cover" id="pause-cover" hidden><span data-t="ui.paused"></span></div></div></div>
+        <div class="pool-footer"><p id="play-hint" data-t="ui.hint"></p><p id="map-note" role="status" data-t="map.fallback" hidden></p></div>
+      </section>
+      <section class="controls" data-aria="ui.tuning">
+        <div class="side-info">
+          <section class="selection">
+            <button type="button" id="show-art" class="selected-picture" data-aria="ui.expression"><canvas id="selected-portrait" width="48" height="48" aria-hidden="true"></canvas><span id="selected-fallback" hidden></span></button>
+            <div class="selection-copy">
+              <div class="selection-title"><span class="eyebrow" data-t="ui.selected"></span><h2 id="selected-name"></h2></div>
+              <div class="selection-details">
+                <div class="stat-chip health-stat" id="selected-health-wrap"><div class="stat-line"><img src="assets/ui/icons/fa-solid/heart.svg" alt=""><span id="selected-health"></span></div><progress id="selected-healthbar" max="120" value="120" aria-label="HP"></progress></div>
+                <div class="stat-chip attack-stat" id="selected-attack-wrap"><img src="assets/ui/icons/swords.svg" alt=""><span id="selected-attack"></span></div>
+                <span class="stat-chip skill-chip"><img src="assets/ui/icons/fa-solid/paw.svg" alt=""><span id="selected-skill"></span></span>
+              </div>
+              <span id="selected-stats" class="sr-only" aria-hidden="true"></span><span id="selected-turn" class="sr-only"></span>
+            </div>
+          </section>
+          <p class="launch-tip"><img class="tip-hand" src="assets/ui/icons/fa-regular/hand-pointer.svg" alt=""><span data-t="ui.launchHint"></span></p>
+        </div>
+        <div class="control-actions"><button id="sound-toggle" class="secondary" type="button" aria-pressed="true"><img id="sound-icon" src="assets/ui/icons/fa-solid/volume-high.svg" alt=""><span id="sound-label"></span></button><button id="show-tuning" type="button" class="secondary" data-aria="skin.settings"><img src="assets/ui/icons/fa-solid/gear.svg" alt=""><span data-t="skin.settings"></span></button><button id="reset" class="primary"><img src="assets/ui/icons/fa-solid/rotate-right.svg" alt=""><span id="reset-label" data-t="skin.restart"></span></button></div>
+      </section>
+    </div>
+    <dialog id="art-dialog" aria-labelledby="art-title">
+      <header class="dialog-heading"><h2 id="art-title" data-t="ui.artStudy"></h2><button type="button" data-close="art-dialog" data-t="ui.close"></button></header>
+          <div id="character-card">
+            <canvas id="character-preview" width="192" height="192" data-aria="ui.artStudy"></canvas>
+            <p id="character-stats"></p><p id="skill-description" class="muted"></p>
+            <div class="pose-buttons" role="group" data-aria="ui.expression"><button type="button" data-pose="0" aria-pressed="true" data-t="pose.idle"></button><button type="button" data-pose="1" aria-pressed="false" data-t="pose.impact"></button><button type="button" data-pose="2" aria-pressed="false" data-t="pose.rebound"></button></div>
+            <p class="muted" id="art-note" data-t="ui.artNote"></p>
+          </div>
+      <p class="muted" data-t="ui.placeholder"></p>
+    </dialog>
+    <dialog id="tuning-dialog" aria-labelledby="tuning-title">
+      <header class="dialog-heading"><h2 id="tuning-title" data-t="skin.settings"></h2><button type="button" data-close="tuning-dialog" data-t="ui.close"></button></header>
+        <div class="match-options">
+        <section class="setup"><label for="game-mode" data-t="ui.mode"></label><select id="game-mode"><option value="battle" data-t="mode.battle"></option><option value="practice" data-t="mode.practice"></option></select></section>
+        <section class="setup" id="layout-wrap"><label for="layout" data-t="ui.layout"></label><select id="layout" aria-describedby="layout-note"><option value="free" data-t="layout.free"></option><option value="wall" data-t="layout.wall"></option><option value="duel" data-t="layout.duel"></option><option value="chain" data-t="layout.chain"></option><option value="corner" data-t="layout.corner"></option></select><p id="layout-note" hidden></p></section>
+        </div>
+        <section id="tuning"><p class="muted" id="tuning-note" data-t="ui.tuningHint"></p><fieldset id="tuning-fields">
+          <label><span data-t="param.drag"></span><output id="drag-value"></output><input type="range" id="drag" min="0.35" max="1.6" step="0.05"></label>
+          <label><span data-t="param.bounce"></span><output id="bounce-value"></output><input type="range" id="bounce" min="0.55" max="0.99" step="0.01"></label>
+          <label><span data-t="param.wallBounce"></span><output id="wallBounce-value"></output><input type="range" id="wallBounce" min="0.55" max="0.99" step="0.01"></label>
+          <label><span data-t="param.maxSpeed"></span><output id="maxSpeed-value"></output><input type="range" id="maxSpeed" min="800" max="2200" step="50"></label>
+          <label><span data-t="param.mass"></span><output id="mass-value"></output><input type="range" id="mass" min="0.5" max="3.5" step="0.25"></label>
+          <button id="defaults" type="button" class="secondary" data-t="ui.defaults"></button>
+        </fieldset><label class="boundary-control"><input id="show-hitboxes" type="checkbox"><span data-t="ui.boundaries"></span></label></section>
+    </dialog>
+    <dialog id="result-dialog" aria-labelledby="result-title">
+      <h2 id="result-title"></h2><p id="result-note" class="muted"></p>
+      <button type="button" id="play-again" class="primary" data-t="battle.restart"></button>
+      <button type="button" class="secondary" data-close="result-dialog" data-t="ui.close"></button>
+    </dialog>
+  </main>
+</body>
+</html>

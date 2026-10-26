@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check sp2_copilot",
+      "type": "shell",
+      "command": "uv run neko-plugin check sp2_copilot",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync sp2_copilot",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync sp2_copilot --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r sp2_copilot",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r sp2_copilot",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build sp2_copilot",
+      "type": "shell",
+      "command": "uv run neko-plugin build sp2_copilot",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

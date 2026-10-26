@@ -1,0 +1,48 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[space_launch]
+# Launch Library 2 API 基础地址（带尾部斜杠）
+api_base_url = "https://ll.thespacedevs.com/2.3.0/"
+# NASA 技术报告库（NTRS）基础地址（带尾部斜杠）
+ntrs_base_url = "https://ntrs.nasa.gov/"
+# 百度百科基础地址（中文航天资料）
+baike_base_url = "https://baike.baidu.com/"
+# 网页兜底搜索基础地址
+bing_base_url = "https://cn.bing.com/"
+# 国内卫星百科基础地址（灰机wiki / sat.huijiwiki.com，中文航天资料）
+#
+# 用途：sat_wiki_search / lookup_satellite_wiki 以及 lookup_space_info 的
+#       「百度百科之后、网页兜底之前」那一环，都会请求这个地址下的 api.php
+#       （MediaWiki 的 list=search 接口）来检索中文航天条目。
+#
+# 可替换性：填任意 MediaWiki 站点的根地址即可，插件只依赖 api.php 的
+#       action=query&list=search 标准接口，不依赖灰机wiki 的私有接口。
+#       因此换成其它灰机wiki 子站（如 https://sat.huijiwiki.com/ 之外的
+#       同类站点）或自建 MediaWiki 镜像同样可用，路径末尾的斜杠可有可无。
+#
+# 注意：灰机wiki 启用了 Cloudflare 风控，机房 / 代理 IP 常被拦截为
+#       HTTP 403 挑战页。插件会识别这种情况并如实返回「暂时无法访问」，
+#       不会把它当成「没有收录」，更不会编造内容。
+huijiwiki_base_url = "https://sat.huijiwiki.com/"
+# 单次请求超时（秒）
+timeout_seconds = 15
+# 默认返回的即将发射数量
+default_limit = 5
+# 是否在下次发射/列表中附带任务描述
+include_descriptions = true
+# API 响应的内存缓存时间（秒）。Launch Library 2 免费额度约每小时 15 次请求，
+# 建议不要设置得过小。
+cache_ttl_seconds = 300
+
+# ── 自动播报 ──────────────────────────────────────────────────────
+# 开启后，插件会在后台定期查一次「下一次发射」，把结果写进角色的上下文。
+# 用的是「只读不打断」的方式：不会突然插话，但主人下次开口时，
+# 角色已经知道下一次发射是什么、什么时候、在哪儿。
+# 关掉就退回旧的问答式行为：你问了才去查。
+auto_brief_enabled = true
+# 自动播报的轮询间隔（秒），范围 30-3600。
+# 默认 180 秒：LL2 免费额度约每小时 15 次请求（插件内另有 300 秒缓存兜底），
+# 发射计划本身也变化很慢。想更实时可以调小到 30 秒。
+auto_brief_interval_seconds = 180

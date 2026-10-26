@@ -1,0 +1,157 @@
+export type ConnectionState = {
+  connection_epoch?: string
+  mod_version?: string
+  game_version?: string
+  capabilities?: string[]
+  authenticated_at?: string
+}
+
+export type SessionState = {
+  colony_id?: string
+  load_epoch?: string
+  game_tick?: number
+  snapshot_sequence?: number
+  stale?: boolean
+}
+
+export type ProtocolState = {
+  version?: number
+  rx_frames?: number
+  tx_frames?: number
+  auth_failures?: number
+  invalid_frames?: number
+  last_rx_at?: string
+  last_tx_at?: string
+}
+
+export type QueryState = {
+  status?: string
+  latency_ms?: number
+  error_code?: string | null
+  completed_at?: string
+}
+
+export type IncidentState = {
+  incident_id?: string
+  category?: string
+  message?: string
+  timestamp?: string
+}
+
+export type DiagnosticEvent = {
+  sequence?: number
+  timestamp?: string
+  level?: string
+  category?: string
+  message?: string
+  incident_id?: string
+}
+
+export type AgentAuditEvent = {
+  event_seq?: number
+  timestamp?: string
+  elapsed_ms?: number
+  event?: string
+  cycle?: number
+  state_before?: string | null
+  state_after?: string
+  data?: Record<string, any>
+}
+
+export type UsageTotals = {
+  prompt_tokens?: number | null
+  completion_tokens?: number | null
+  total_tokens?: number | null
+  cached_tokens?: number | null
+  reasoning_tokens?: number | null
+  reported_requests?: number
+  unreported_requests?: number
+  complete?: boolean
+  coverage?: Record<string, number>
+}
+
+export type AgentRun = {
+  workspace_id?: string | null
+  turn_id?: string | null
+  draft?: Record<string, any> | null
+  run_id?: string
+  question?: string
+  result_status?: string | null
+  result_summary?: unknown
+  events_page?: { offset: number; limit: number; total: number; has_more: boolean }
+  state?: string
+  cycle?: number
+  duration_ms?: number
+  event_count?: number
+  revision?: number
+  terminal?: boolean
+  stage?: string
+  latest_event?: AgentAuditEvent | null
+  latest_event_summary?: string | null
+  model_calls?: number
+  model_responses?: number
+  model_failures?: number
+  model_cancellations?: number
+  usage?: UsageTotals
+  latest_request?: Record<string, any> | null
+  failure_summary?: Record<string, any> | null
+  tool_calls?: number
+  tool_failures?: number
+  events?: AgentAuditEvent[]
+  result?: Record<string, any> | null
+}
+
+export type AgentRuntimeState = {
+  totals?: AgentRun & { runs?: number }
+  retained_run_limit?: number
+  active_count?: number
+  recent_count?: number
+  active_runs?: AgentRun[]
+  recent_runs?: AgentRun[]
+  latest_run?: AgentRun | null
+}
+
+export type DashboardState = {
+  settings_saves?: SettingsReceipt[]
+  consultations_in_progress?: number
+  workspaces?: { revision?: number; active_count?: number }
+  action_nonce?: string
+  status?: string
+  endpoint?: string | null
+  port?: number | null
+  worker_alive?: boolean
+  runtime?: { phase?: string; worker_alive?: boolean; started_at?: string }
+  configuration?: {
+    token_configured?: boolean
+    agent_configured?: boolean
+    agent_api_key_configured?: boolean
+    agent_base_url?: string
+    agent_model?: string
+    agent_budgets?: Record<string, number>
+  }
+  agent?: AgentRuntimeState
+  connection?: ConnectionState | null
+  session?: SessionState | null
+  metrics?: { pending_requests?: number; outbound_depth?: number }
+  protocol?: ProtocolState
+  last_query?: QueryState | null
+  last_incident?: IncidentState | null
+  panel_error?: IncidentState | null
+  diagnostics?: DiagnosticEvent[]
+  updated_at?: string
+}
+
+export type PageId = "work" | "history" | "diagnostics" | "settings"
+export type RunView = "result" | "events" | "observations" | "model"
+export type BudgetValues = Record<string, number | "">
+export const BUDGET_FIELDS = [
+  { key: "connect_timeout_seconds", min: 1, max: 30, initial: 10 },
+  { key: "first_response_timeout_seconds", min: 1, max: 60, initial: 45 },
+  { key: "stream_idle_timeout_seconds", min: 1, max: 60, initial: 20 },
+  { key: "request_timeout_seconds", min: 3, max: 60, initial: 60 },
+  { key: "run_budget_seconds", min: 10, max: 90, initial: 90 },
+  { key: "finalization_reserve_seconds", min: 0, max: 30, initial: 15 },
+  { key: "max_output_tokens", min: 64, max: 131072, initial: 32768 },
+]
+
+export type SettingsReceipt = { operation_id: string; kind: "bridge" | "agent"; state: "saving" | "saved" | "failed" | "unconfirmed"; persisted?: boolean | null; applied?: boolean | null; error_code?: string }

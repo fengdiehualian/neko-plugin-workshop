@@ -1,0 +1,20 @@
+# 运行配置模板：N.E.K.O 首次需要运行配置时会把它复制到
+#   <用户数据根目录>/plugins/neko_translate/config/plugin.toml
+# 已存在的用户配置不会被这个模板覆盖。
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[translate]
+default_target = "zh-CN"
+default_source = "auto"
+providers = ["mymemory", "gtrans"]
+lingva_base = "https://lingva.ml"
+timeout_seconds = 15
+push_to_chat = true
+max_input_chars = 3000
+# 猫娘语气：译文是中文时结尾加「喵」
+cute = true
+# 自定义语气后缀；留空用默认的「喵～」
+cat_suffix = ""

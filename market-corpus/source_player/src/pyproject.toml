@@ -1,0 +1,17 @@
+[project]
+name = "source_player"
+version = "1.0.0"
+description = "Let N.E.K.O play Half-Life / Portal: screen capture, scan-code input injection, reactive policy and LLM narration."
+requires-python = ">=3.11"
+authors = [{ name = "呆萌貔貅" }]
+
+# Runtime dependencies are deliberately empty: the plugin is built on the
+# standard library plus what the N.E.K.O host already ships (numpy, Pillow).
+# capture.py degrades dxgi -> gdi -> pil and the GDI path is pure ctypes, so a
+# missing optional import cannot make the plugin unimportable.  It never needs
+# cv2/opencv-python; installing packages into the frozen host interpreter is
+# forbidden by the plugin format.
+dependencies = []
+
+[tool.neko.build]
+exclude_files = []

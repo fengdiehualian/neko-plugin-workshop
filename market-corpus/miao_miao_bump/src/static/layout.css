@@ -1,0 +1,162 @@
+/* Selected side-HUD concept. Keep composition separate from art and combat. */
+body { background-image: url("assets/ui/beach-surround-side-v1.png"); }
+.app .controls::before { display: none; }
+.app .stat-chip { min-width: 0; }
+.stat-line { display: flex; align-items: center; gap: 7px; }
+.stat-chip img { width: 24px; height: 24px; flex-shrink: 0; }
+.health-stat .stat-line img { filter: invert(58%) sepia(78%) saturate(1152%) hue-rotate(305deg); }
+#selected-healthbar {
+  appearance: none; display: block; width: 100%; height: 15px; margin: 4px 0 0;
+  border: 2px solid #355b66; border-radius: 12px; overflow: hidden;
+  background: #e6f3e6; color: #5ae9b3; accent-color: #5ae9b3;
+}
+#selected-healthbar::-webkit-progress-bar { background: #e6f3e6; }
+#selected-healthbar::-webkit-progress-value { background: #5ae9b3; border-radius: 8px; }
+#selected-healthbar::-moz-progress-bar { background: #5ae9b3; border-radius: 8px; }
+.app .selection-details { align-content: start; }
+.app .launch-tip .tip-paw { display: none; }
+.app .launch-tip span { text-wrap: balance; }
+.app .skill-chip img { filter: brightness(0) saturate(100%) invert(69%) sepia(99%) saturate(824%) hue-rotate(345deg) brightness(102%); }
+
+@media (min-width: 741px) {
+  body { display: grid; place-items: center; min-height: 100dvh; }
+  .app {
+    --u: min(.052083333vw, .104166667dvh);
+    width: calc(1920 * var(--u)); height: calc(960 * var(--u));
+    position: relative; display: block; max-width: none; margin: 0; padding: 0;
+  }
+  .app .topbar { height: calc(72 * var(--u)); }
+  .app .brand { width: calc(450 * var(--u)); height: calc(72 * var(--u)); }
+  .app .language { right: calc(32 * var(--u)); top: calc(16 * var(--u)); }
+  .app .workspace { position: absolute; inset: 0; display: block; }
+  .app .pool-section { display: contents; }
+  .app .scoreboard {
+    left: calc(312 * var(--u)); top: calc(48 * var(--u));
+    width: calc(1296 * var(--u)); height: calc(140 * var(--u));
+    grid-template-columns: minmax(0, 1fr) calc(220 * var(--u)) minmax(0, 1fr);
+    gap: calc(18 * var(--u)); padding: calc(17 * var(--u)) calc(25 * var(--u)) calc(12 * var(--u));
+  }
+  .app .team-panel, .app .team-panel[data-team="1"] { gap: calc(17 * var(--u)); }
+  .app .team-heading, html:not(:lang(zh)) .app .team-heading {
+    flex-basis: calc(70 * var(--u)); min-height: calc(80 * var(--u));
+    gap: calc(4 * var(--u)); padding: calc(6 * var(--u)) calc(2 * var(--u));
+  }
+  .app .team-heading img { width: calc(30 * var(--u)); height: calc(30 * var(--u)); }
+  .app .team-heading strong { font-size: calc(20 * var(--u)); }
+  .app [data-team="1"] .team-heading strong { font-size: calc(16 * var(--u)); }
+  .app .team-content, .app [data-team="1"] .team-content { gap: calc(14 * var(--u)); }
+  .app .roster { gap: calc(12 * var(--u)); }
+  .app .cat-portrait, html:not(:lang(zh)) .app .cat-portrait { width: calc(84 * var(--u)); gap: calc(5 * var(--u)); }
+  .app .portrait-frame { width: calc(66 * var(--u)); border-radius: calc(12 * var(--u)); }
+  .app .portrait-label { font-size: calc(20 * var(--u)); min-height: calc(23 * var(--u)); }
+  .app .team-score { flex-basis: calc(60 * var(--u)); transform: translateY(calc(5 * var(--u))); }
+  .app .team-score > strong { font-size: calc(54 * var(--u)); }
+  .app .score-target { font-size: calc(21 * var(--u)); }
+  .app .match-summary { gap: calc(4 * var(--u)); transform: none; }
+  .app .round-status { font-size: calc(24 * var(--u)); }
+  .app .match-summary .state-pill { height: calc(38 * var(--u)); font-size: calc(24 * var(--u)); }
+  .app #target-status { font-size: calc(19 * var(--u)); }
+  .app .stage-slot {
+    left: calc(312 * var(--u)); top: calc(194 * var(--u));
+    width: calc(1296 * var(--u)); height: calc(687 * var(--u));
+  }
+  .app .canvas-wrap { width: min(100cqw, var(--pool-height-width)); border-radius: calc(24 * var(--u)); }
+  .app .pool-footer { left: calc(312 * var(--u)); top: calc(890 * var(--u)); width: calc(1296 * var(--u)); }
+  .app .controls, html:not(:lang(zh)) .app .controls {
+    display: contents; position: static; width: auto; height: auto; min-height: 0;
+    padding: 0; margin: 0; border: 0; background: none; box-shadow: none; container-type: normal;
+  }
+  .side-info {
+    position: absolute; left: calc(56 * var(--u)); top: calc(272 * var(--u));
+    width: calc(208 * var(--u)); display: grid; justify-items: center; gap: calc(16 * var(--u));
+  }
+  .app .controls .selection, html:not(:lang(zh)) .app .controls .selection {
+    display: grid; width: 100%; justify-items: center; align-items: start; gap: calc(7 * var(--u));
+  }
+  .app .selected-picture {
+    width: calc(136 * var(--u)); height: calc(136 * var(--u));
+    border-radius: calc(18 * var(--u)); border-width: calc(3 * var(--u));
+  }
+  .app #selected-portrait { width: calc(100% - 6 * var(--u)); }
+  .selection-copy { width: 100%; }
+  .app .selection-title { text-align: center; }
+  .app .selection h2 { margin: 0 0 calc(10 * var(--u)); font-size: calc(29 * var(--u)); }
+  .app .selection-details, html:not(:lang(zh)) .app .selection-details {
+    display: grid; width: 100%; gap: calc(7 * var(--u)); min-height: 0;
+    font-size: calc(22 * var(--u)); line-height: 1.2;
+  }
+  .app .stat-chip, .app .launch-tip, .app .selection-title {
+    border: calc(14 * var(--u)) solid transparent;
+    border-image: var(--hud-capsule) 142 143 142 143 fill / calc(22 * var(--u)) / 0 stretch;
+    background: #fff9ea; box-shadow: none; border-radius: calc(22 * var(--u));
+  }
+  .app .stat-chip {
+    border-width: calc(10 * var(--u));
+    display: flex; align-items: center; gap: calc(8 * var(--u));
+    min-height: calc(46 * var(--u)); padding: calc(1 * var(--u)) calc(1 * var(--u));
+    font-weight: 900; color: var(--ink); white-space: normal;
+  }
+  .app .stat-chip img { width: calc(26 * var(--u)); height: calc(26 * var(--u)); opacity: 1; }
+  .app .health-stat { display: block; }
+  .app .selection-title { width: calc(160 * var(--u)); margin: 0 auto calc(5 * var(--u)); border-width: 0; }
+  .app .selection-title h2 { margin: 0; font-size: calc(27 * var(--u)); }
+  .app .stat-line { gap: calc(7 * var(--u)); white-space: nowrap; }
+  .app #selected-healthbar { height: calc(15 * var(--u)); margin-top: calc(4 * var(--u)); border-width: calc(2 * var(--u)); }
+  .app .launch-tip, html:not(:lang(zh)) .app .launch-tip {
+    width: 100%; height: auto; min-height: calc(70 * var(--u)); margin: 0;
+    padding: calc(1 * var(--u)); gap: calc(10 * var(--u)); font-size: calc(20 * var(--u)); line-height: 1.3;
+    text-align: left; justify-content: center;
+  }
+  .app .launch-tip .tip-hand { display: block; width: calc(32 * var(--u)); height: calc(40 * var(--u)); }
+  .app .controls .control-actions {
+    position: absolute; left: calc(1680 * var(--u)); top: calc(332 * var(--u)); width: calc(150 * var(--u));
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: calc(18 * var(--u));
+    margin: 0; justify-items: center;
+  }
+  .app .control-actions button, html:not(:lang(zh)) .app .control-actions button {
+    display: flex; flex-direction: column; justify-content: flex-start; gap: calc(8 * var(--u));
+    position: relative; isolation: isolate; width: 100%; height: auto; min-height: calc(100 * var(--u));
+    padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none;
+    font-size: calc(23 * var(--u)); line-height: 1.15; color: var(--ink);
+  }
+  .app .control-actions button::before {
+    content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: -1;
+    width: calc(76 * var(--u)); height: calc(76 * var(--u));
+    background: var(--hud-circle, none) center / 100% 100% no-repeat #fff9ea; border-radius: 50%;
+  }
+  .app .control-actions button img { width: calc(36 * var(--u)); height: calc(36 * var(--u)); margin: calc(20 * var(--u)) 0; }
+  .app .control-actions button span { white-space: normal; overflow-wrap: anywhere; }
+  .app .control-actions button:hover::before { filter: brightness(.96); }
+  .app .scoreboard[data-mode="practice"] { top: calc(100 * var(--u)); height: calc(70 * var(--u)); padding: calc(10 * var(--u)); }
+  html:not(:lang(zh)) .app .portrait-label { font-size: calc(16 * var(--u)); }
+  html:lang(ja) .app .portrait-label { font-size: calc(11 * var(--u)); }
+  html:lang(pt) .app .portrait-label { font-size: calc(14 * var(--u)); }
+  html:not(:lang(zh)) .app .team-heading strong { font-size: calc(16 * var(--u)); }
+  html:not(:lang(zh)) .app .selection-details { font-size: calc(20 * var(--u)); }
+  html:not(:lang(zh)) .app .launch-tip { font-size: calc(18 * var(--u)); }
+  .app:has(.scoreboard[data-mode="practice"]) #reset { font-size: calc(20 * var(--u)); padding: 0; }
+  html:not(:lang(zh)) .app:has(.scoreboard[data-mode="practice"]) #reset { font-size: calc(18 * var(--u)); }
+}
+
+/* Narrow portrait screens retain every control, without a full-width frame. */
+@media (max-width: 740px) {
+  .app .controls {
+    display: grid; grid-template-columns: minmax(0, 1fr) 74px; width: 100%; height: auto;
+    min-height: 0; border: 0; border-image: none; background: none; padding: 4px; gap: 12px;
+  }
+  .side-info { min-width: 0; display: grid; gap: 8px; }
+  .app .controls .selection { display: flex; gap: 12px; align-items: start; }
+  .app .selected-picture { flex: 0 0 64px; width: 64px; height: 64px; }
+  .app #selected-portrait { width: 58px; }
+  .app .selection-copy { min-width: 0; flex: 1; }
+  .app .selection-details { display: grid; gap: 4px; font-size: 12px; }
+  .app .stat-chip { gap: 5px; padding: 2px 6px; border-radius: 12px; background: #fff9eaf0; }
+  .app .stat-chip img { width: 16px; height: 16px; }
+  .app .attack-stat { display: flex; align-items: center; }
+  .app #selected-healthbar { height: 11px; }
+  .app .controls .launch-tip { grid-column: auto; grid-row: auto; min-height: 30px; height: auto; max-width: none; margin: 0; font-size: 12px; background: #fff9eaf0; }
+  .app .controls .control-actions { grid-column: 2; grid-row: 1; width: 100%; margin: 0; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .app .control-actions button { min-height: 38px; font-size: 11px; }
+  .app .stage-slot { height: min(calc((100vw - 16px) / var(--map-aspect, 1.887)), max(80px, calc(100dvh - 370px))); }
+  .app .workspace { gap: 8px; }
+}

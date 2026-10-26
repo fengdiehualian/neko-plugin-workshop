@@ -1,0 +1,94 @@
+[plugin]
+id = "kards_companion"
+name = "KARDS 猫娘陪玩"
+description = "被动读取 KARDS 游戏画面，得到结构化对局状态与单位履历，按事件优先级与可调节奏做陪伴解说。读屏观战，不读内存、不抓包、不代操作。测试版：当前只验证卡背与结束回合按钮定位，具体卡牌识别白名单为空，卡名与单位身份仍显示未知。"
+short_description = "KARDS screen-reading companion (test build): card-back and end-turn-button detection; card identity not yet enabled."
+keywords = ["KARDS", "卡牌游戏", "游戏陪玩", "观战", "二战"]
+version = "6.1.0"
+type = "plugin"
+entry = "plugin.plugins.kards_companion:KardsCompanionPlugin"
+passive = true
+
+[plugin.author]
+name = "MIKU"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "KARDS 陪玩"
+entry = "ui/panel.tsx"
+context = "dashboard"
+permissions = ["state:read", "config:read", "action:call"]
+
+[kards]
+# 运行模式：companion（陪伴）| coach（教练）| silent（静默）
+mode = "companion"
+# 性能档：realtime | power_saver（旧档位；无显式预设时 power_saver=low_cost）
+# tick_ms 仅作主循环上限；实际消费节奏由下方采样预设/四项 FPS 决定
+perf_mode = "realtime"
+tick_ms = 333
+# 采样预设：low_cost / balanced / quality / custom（custom 时才以四项单项值为准）
+# 预设值依次为 采集 / 变化检测 / 单位跟踪 / 卡牌分类 FPS：
+#   low_cost=15/8/2/3  balanced=20/10/4/6  quality=30/12/6/10
+# 旧键 hud_fps / roi_auto_calibrate / recording_* 已随 OCR 与录像功能移除，出现时忽略并告警
+perception_preset = "balanced"
+capture_fps = 20
+change_fps = 10
+unit_fps = 4
+card_fps = 6
+# 兼容旧字段；新预设/单项设置优先生效
+capture_fps_power_saver = 4
+# 启动后自动开始监控（显式保留旧习惯；设 false 则需面板手动开始）
+auto_start_monitoring = true
+# 事件解说节流
+min_priority = 4
+cooldown_seconds = 25.0
+critical_cooldown_seconds = 5.0
+# 平稳期主动闲聊节流（秒，0 = 关闭闲聊）
+chatter_interval_seconds = 60.0
+# 免打扰：只静默主动发言，read 通道不受影响
+do_not_disturb = false
+# 数据同意：允许把结构化局势交给宿主 LLM 生成解说；false 时所有宿主 push（含 expire/test）为 0
+llm_data_consent = true
+# dry-run：完整模拟仲裁/安全链，但 gate 最终 no-op，只记录事件到 data/events.jsonl
+dry_run = false
+# 可选联网更新；内置卡牌库始终离线加载
+catalog_enabled = false
+# 自定义数据源 URL（留空 = 内置候选：官方社区 API + CORS 中转）
+catalog_url = ""
+catalog_refresh_hours = 24
+# 可选 VLM 兜底（默认关；密钥只从环境变量读，绝不写入本文件）
+vlm_enabled = false
+vlm_api_key_env = "KARDS_VLM_API_KEY"
+vlm_base_url = ""
+vlm_model = ""
+# 已导入卡组（import_deck 写入）
+imported_deck_code = ""
+# ---- War Thunder 风格播报 / 角色路由 ----
+# 目标猫娘：空 = 跟随当前角色；填值 = 固定投递目标（空值绝不伪造角色名）
+target_lanlan = ""
+# false = 由宿主 LLM 生成自然短回复；true = 允许插件自有输出
+plugin_owned_output_enabled = false
+# 用户刚聊天时普通播报安静窗（秒，0 = 关闭）；critical/match_end 可抢占
+user_chat_quiet_window_seconds = 60.0
+# 普通战斗播报安静窗（秒，0 = 关闭）
+battle_output_quiet_window_seconds = 30.0
+# 普通播报背压窗（秒，0 = 关闭；KARDS 短播报默认不额外压制）
+battle_output_backpressure_seconds = 20.0
+# 猫娘短 TTS 台词字数上限
+reply_max_chars = 28
+# 战斗事件最大年龄（秒）；过期事件在 drain 前丢弃
+battle_event_ttl_seconds = 12.0

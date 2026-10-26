@@ -1,0 +1,22 @@
+[project]
+name = "agent_bridge"
+version = "0.1.0"
+description = "N.E.K.O local coding-agent bridge: dispatch tasks to CodeBuddy / Claude Code / dsh / omp / EvoX / OpenCode / OpenClaw / AtomCode / QwenPaw as entries and LLM tools"
+requires-python = ">=3.11"
+# 纯标准库 + 宿主自带 SDK；无第三方依赖。
+dependencies = []
+
+[tool.pytest.ini_options]
+
+# 警告一律按错误处理。两个显式豁免（均为宿主/环境所有，非插件缺陷）：
+# 1. plugin.settings 的 DeprecationWarning：宿主 SDK 导入链自带
+# 2. PytestUnraisableExceptionWarning：Windows Proactor 事件循环 GC 时序，
+#    宿主自带 lifekit 套件在本机同样触发
+filterwarnings = [
+    "error",
+    "ignore:plugin.settings.PLUGIN_CONFIG_ROOT:DeprecationWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
+
+asyncio_mode = "auto"
+testpaths = ["tests"]

@@ -1,0 +1,30 @@
+{
+  "plugin.name": "猫娘伴奏团",
+  "plugin.description": "你唱歌，猫娘用乐器伴奏：实时音高检测 → 自动定调 → I-V-vi-IV 和弦琶音。四种合成乐器（钢琴/电钢琴/八音盒/尤克里里），唱长音时猫娘叠三度和声。Web UI：http://127.0.0.1:48918/plugin/neko_jam_band/ui/",
+
+  "entry.jam_start.name": "开始伴奏",
+  "entry.jam_start.description": "开始听主人唱歌并用乐器伴奏。当主人说「给我伴奏」「弹起来」「一起玩音乐」时调用。",
+
+  "entry.jam_stop.name": "停止伴奏",
+  "entry.jam_stop.description": "停止伴奏并总结刚才的合奏。当主人说「停」「别弹了」时调用。",
+
+  "entry.set_instrument.name": "切换乐器",
+  "entry.set_instrument.description": "切换伴奏乐器：piano / epiano / music_box / ukulele。",
+  "entry.set_instrument.param.instrument": "乐器名：piano / epiano / music_box / ukulele",
+  "entry.set_instrument.error.invalid": "未知的乐器",
+
+  "entry.set_key.name": "定调",
+  "entry.set_key.description": "手动指定调性（如 C、Am）或 auto 自动听调。",
+  "entry.set_key.param.key": "调性：C / G / Am / F#m … 或 auto",
+  "entry.set_key.error.invalid": "无法解析调性，示例：C、G、Am",
+
+  "entry.set_pattern.name": "切换伴奏型",
+  "entry.set_pattern.description": "切换伴奏型：arpeggio 琶音 / chord_pad 铺底 / offbeat 反拍。",
+  "entry.set_pattern.param.pattern": "伴奏型：arpeggio / chord_pad / offbeat",
+
+  "entry.jam_status.name": "伴奏状态",
+  "entry.jam_status.description": "获取当前伴奏状态：调性、主人正在唱的音、已伴奏小节数。",
+
+  "entry.recent_notes.name": "最近唱的音",
+  "entry.recent_notes.description": "获取主人最近唱的音名序列。"
+}

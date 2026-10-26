@@ -1,0 +1,10 @@
+{
+  "plugin.name": "Video Watch Catgirl",
+  "plugin.description": "Let the catgirl actually know what the Bilibili video is about, not just read its title.",
+  "entry.video_status.name": "Video watch status",
+  "entry.video_status.description": "Check whether the plugin is ready and which videos it has seen.",
+  "entry.check_now.name": "Check what's playing now",
+  "entry.check_now.description": "Immediately detect the current window and push if needed (debug).",
+  "entry.set_bvid.name": "Set video BV id",
+  "entry.set_bvid.description": "Manually let the catgirl learn about a video (fallback)."
+}

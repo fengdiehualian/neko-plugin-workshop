@@ -1,0 +1,4951 @@
+{
+  "selection_contract": {
+    "version": "schema_conditions.v1",
+    "max_depth": 12,
+    "max_nodes": 512,
+    "rules": "All supplied clauses are AND. all/any accept nonempty condition arrays; not accepts one condition. Object: fields:{nativeField:condition}, is_null, match, types:{publicConcreteType:condition}. Field arguments go in arguments and use its existing schema/defaults. Boolean:eq/ne. Number:eq/ne/in/gt/gte/lt/lte. String/ID:eq/ne/in/contains/starts_with/ends_with, ordinal case-sensitive (case_sensitive:false opts into ordinal ignore-case). Enum:eq/ne/in over all declared values. Native flags also support has_all/has_any over comma-separated declared names. Nullable:is_null; null differs from failed read. Collection:some/every/none over its complete source before display paging. Empty every/none are true; a null collection does not satisfy a quantifier. Unknown reads use three-valued logic; undecidable membership makes the collection unavailable, never an observed empty set. reach:{field, some/every/none, include_self?, arguments?} traverses any public same-type reference/collection with shared cycle/depth/node limits; use parent for ancestors or a declared child collection for descendants. Wrapper items/nodes are display windows: apply where at their source field, not to a returned page. Exact selectors and where intersect. No purpose/category defaults."
+  },
+  "world_observation": {
+    "version": "world_observation.v2.3",
+    "capability_meanings": {
+      "bill_giver": "Native IBillGiver: an owner of bills, including Pawn surgery orders as well as worktable production. Not proof of manufacturing capability or executable work."
+    },
+    "spatial_object_state": "spatial_object_state.v1",
+    "visibility": "Visible spawned objects/cells and real contents of visible holders. Hidden objects are not evidence of absence.",
+    "tools": [
+      {
+        "name": "survey_space",
+        "operation": "survey_space",
+        "description": "Discover a spatial footprint, scoped object counts and current environment together. Resolve names directly. Objects include spatial condition/passage/hazard facets, not full health/work/bed/reservation state; use object inspection for those. Inspect returned coverage; not a safety guarantee.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "detail": {
+              "type": "string",
+              "enum": [
+                "summary",
+                "details"
+              ],
+              "default": "summary"
+            },
+            "region": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "map": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "near": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "map": {
+                      "type": "string",
+                      "default": "current"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "pawn",
+                        "thing",
+                        "cell"
+                      ]
+                    },
+                    "x": {
+                      "type": "integer",
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
+                    },
+                    "z": {
+                      "type": "integer",
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
+                    }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "kind": {
+                            "const": "cell"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      "then": {
+                        "required": [
+                          "x",
+                          "z"
+                        ]
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "pawn",
+                              "thing"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      "then": {
+                        "not": {
+                          "anyOf": [
+                            {
+                              "required": [
+                                "x"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "z"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ],
+                  "oneOf": [
+                    {
+                      "required": [
+                        "id"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "name"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "x"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "z"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "name"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "id"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "x"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "z"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "x",
+                        "z"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "id"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "name"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "radius": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 128,
+                  "default": 20
+                },
+                "room_of": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "map": {
+                      "type": "string",
+                      "default": "current"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "pawn",
+                        "thing",
+                        "cell"
+                      ]
+                    },
+                    "x": {
+                      "type": "integer",
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
+                    },
+                    "z": {
+                      "type": "integer",
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
+                    }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "kind": {
+                            "const": "cell"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      "then": {
+                        "required": [
+                          "x",
+                          "z"
+                        ]
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "pawn",
+                              "thing"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      "then": {
+                        "not": {
+                          "anyOf": [
+                            {
+                              "required": [
+                                "x"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "z"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ],
+                  "oneOf": [
+                    {
+                      "required": [
+                        "id"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "name"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "x"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "z"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "name"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "id"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "x"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "z"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "x",
+                        "z"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "id"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "name"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "rect": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "min_x",
+                    "min_z",
+                    "max_x",
+                    "max_z"
+                  ],
+                  "properties": {
+                    "min_x": {
+                      "type": "integer"
+                    },
+                    "min_z": {
+                      "type": "integer"
+                    },
+                    "max_x": {
+                      "type": "integer"
+                    },
+                    "max_z": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "area": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "area",
+                        "zone"
+                      ]
+                    }
+                  },
+                  "oneOf": [
+                    {
+                      "required": [
+                        "id"
+                      ],
+                      "not": {
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "name"
+                      ],
+                      "not": {
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "allOf": [
+                {
+                  "oneOf": [
+                    {
+                      "required": [
+                        "near"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "rect"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "room_of"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "area"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "rect"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "near"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "room_of"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "area"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "room_of"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "near"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "rect"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "area"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "area"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "near"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "rect"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "room_of"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "required": [
+                        "map"
+                      ],
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "near"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "rect"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "room_of"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "area"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "if": {
+                    "required": [
+                      "radius"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "near"
+                    ]
+                  }
+                }
+              ],
+              "description": "Exactly one footprint: near (+radius), rect, room_of, area/zone, or map alone. All boundaries inclusive; nearby is a Euclidean circle, not a square or path distance. Multi-cell Things match any occupied cell."
+            },
+            "actor": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "map": {
+                  "type": "string",
+                  "default": "current"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "pawn",
+                    "thing",
+                    "cell"
+                  ]
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                },
+                "z": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "cell"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "x",
+                      "z"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "pawn",
+                          "thing"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "x"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "z"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "name"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "x",
+                    "z"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "objects": {
+              "type": "boolean",
+              "default": true,
+              "description": "false skips generating the incidental object listing and per-object spatial detail for this read. Environment, gases, hazards, coverage and route segments are always computed. Not-requested objects are not evidence of absence."
+            },
+            "select": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "definitions": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 32,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "capabilities": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "pawn",
+                      "building",
+                      "item",
+                      "plant",
+                      "medicine",
+                      "sleeping_place",
+                      "openable",
+                      "powered",
+                      "refuelable",
+                      "storage",
+                      "bill_giver",
+                      "hazard"
+                    ]
+                  }
+                }
+              },
+              "description": "Exact definition names and/or native capabilities. OR within each list, AND between lists. Selection filters objects, never suppresses environmental hazards. {\"bill_giver\":\"Native IBillGiver: an owner of bills, including Pawn surgery orders as well as worktable production. Not proof of manufacturing capability or executable work.\"}"
+            }
+          },
+          "required": [
+            "region"
+          ]
+        }
+      },
+      {
+        "name": "inspect_route",
+        "operation": "inspect_route",
+        "description": "Compute a path for actor from its current position or optional start to a destination, together with path and surrounding environment. No preliminary inspect_space/route ID. Objects include spatial condition/passage/hazard facets, not full object state. For a later journey leg, keep actor as the traveller and set start to that leg origin; do not substitute another Pawn as actor to move the origin. Path costs are not ETA; current hazards are not a future combat simulation.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "detail": {
+              "type": "string",
+              "enum": [
+                "summary",
+                "details"
+              ],
+              "default": "summary",
+              "description": "Always computes a path. summary/details controls object detail, not path availability. Use summary unless object detail is needed."
+            },
+            "actor": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "map": {
+                  "type": "string",
+                  "default": "current"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "pawn",
+                    "thing",
+                    "cell"
+                  ]
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                },
+                "z": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "cell"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "x",
+                      "z"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "pawn",
+                          "thing"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "x"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "z"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "name"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "x",
+                    "z"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "description": "Travelling Pawn; path traversal rules and costs use this Pawn, regardless of start. Not the recipient."
+            },
+            "user": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "map": {
+                  "type": "string",
+                  "default": "current"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "pawn",
+                    "thing",
+                    "cell"
+                  ]
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                },
+                "z": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "cell"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "x",
+                      "z"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "pawn",
+                          "thing"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "x"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "z"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "name"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "x",
+                    "z"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "description": "Optional recipient Pawn for environmental tolerances, not a replacement for actor and not a carrying simulation."
+            },
+            "to": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "map": {
+                  "type": "string",
+                  "default": "current"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "pawn",
+                    "thing",
+                    "cell"
+                  ]
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                },
+                "z": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "cell"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "x",
+                      "z"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "pawn",
+                          "thing"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "x"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "z"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "name"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "x",
+                    "z"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "description": "Destination object or cell. Object paths use the resolved touch endpoint; inspect returned end_mode and stopping cell."
+            },
+            "start": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "map": {
+                  "type": "string",
+                  "default": "current"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "pawn",
+                    "thing",
+                    "cell"
+                  ]
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                },
+                "z": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "cell"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "x",
+                      "z"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "pawn",
+                          "thing"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "x"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "z"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "name"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "x",
+                    "z"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "description": "Optional hypothetical origin: use the referenced object position or cell instead of actor current position. actor remains the traveller. Does not simulate carrying or a Job."
+            },
+            "margin": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 12,
+              "default": 2
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "objects": {
+              "type": "boolean",
+              "default": true,
+              "description": "false skips generating the incidental object listing and per-object spatial detail for this read. Environment, gases, hazards, coverage and route segments are always computed. Not-requested objects are not evidence of absence."
+            }
+          },
+          "required": [
+            "actor",
+            "to"
+          ]
+        }
+      },
+      {
+        "name": "inspect_state",
+        "operation": "inspect_state",
+        "description": "Read all supported state facets of 1..8 objects or cells. user is the intended user/recipient; actor is the interacting/travelling Pawn (defaults to user). Returns occupancy, reservation sources, native contextual checks and coverage separately, never universal can_use.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "detail": {
+              "type": "string",
+              "enum": [
+                "summary",
+                "details"
+              ],
+              "default": "summary"
+            },
+            "targets": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "map": {
+                    "type": "string",
+                    "default": "current"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "pawn",
+                      "thing",
+                      "cell"
+                    ]
+                  },
+                  "x": {
+                    "type": "integer",
+                    "minimum": -2147483648,
+                    "maximum": 2147483647
+                  },
+                  "z": {
+                    "type": "integer",
+                    "minimum": -2147483648,
+                    "maximum": 2147483647
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "kind": {
+                          "const": "cell"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    },
+                    "then": {
+                      "required": [
+                        "x",
+                        "z"
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "pawn",
+                            "thing"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    },
+                    "then": {
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "x"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "z"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ],
+                "oneOf": [
+                  {
+                    "required": [
+                      "id"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "name"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "x"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "z"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "name"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "x"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "z"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "x",
+                      "z"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "name"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "actor": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "map": {
+                  "type": "string",
+                  "default": "current"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "pawn",
+                    "thing",
+                    "cell"
+                  ]
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                },
+                "z": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "cell"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "x",
+                      "z"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "pawn",
+                          "thing"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "x"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "z"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "name"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "x",
+                    "z"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "user": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "map": {
+                  "type": "string",
+                  "default": "current"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "pawn",
+                    "thing",
+                    "cell"
+                  ]
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                },
+                "z": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "cell"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "x",
+                      "z"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "pawn",
+                          "thing"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "x"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "z"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "name"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "x"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "z"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "x",
+                    "z"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "exact_lookup": {
+              "type": "boolean",
+              "default": false,
+              "description": "Resolve object targets by exact case-sensitive Pawn.LabelShort / Thing.Label. Search loaded maps when map is omitted; actor/user and cells retain current-map defaults."
+            },
+            "detail_limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "include_fogged": {
+              "type": "boolean",
+              "default": false,
+              "description": "Explicit visibility policy for object-state reads; default excludes hidden targets."
+            },
+            "sections": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "identity",
+                  "health",
+                  "skills",
+                  "gear",
+                  "work",
+                  "state"
+                ]
+              },
+              "description": "Selected current-state sections; omitted means all native facets. Selection does not claim omitted facets absent."
+            },
+            "facets": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 22,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "condition",
+                  "reservations",
+                  "containment",
+                  "bed",
+                  "door",
+                  "production",
+                  "plant",
+                  "turret",
+                  "trap",
+                  "storage",
+                  "construction",
+                  "power",
+                  "fuel",
+                  "battery",
+                  "temperature_control",
+                  "ammunition",
+                  "breakdown",
+                  "switch",
+                  "rot",
+                  "manning",
+                  "explosive",
+                  "environment"
+                ]
+              },
+              "description": "Select physical state facets before reading. Requires state section; omitted retains the full state. Pawn health/skills/work/gear remain independently selected sections. Unselected facets are not observed; environment here is cell state only."
+            },
+            "stats": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "description": "Exact StatDef names, evaluated by the game. No formula reconstruction."
+            }
+          },
+          "required": [
+            "targets"
+          ]
+        }
+      }
+    ]
+  },
+  "public_query": {
+    "version": "public_query.v2",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "requests": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "enum": [
+                  "game",
+                  "maps",
+                  "pawn",
+                  "spawned_free_colonists",
+                  "colony",
+                  "thing",
+                  "things",
+                  "thing_def",
+                  "thing_defs",
+                  "map",
+                  "pawns"
+                ]
+              },
+              "args": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 50,
+                    "description": "Exact IDs; at most 50. Empty list matches nothing."
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Exact identifier, or case-insensitive substring for name."
+                  },
+                  "map_id": {
+                    "type": "string",
+                    "description": "Loaded map ID; omitted means all loaded maps."
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Exact identifier, or case-insensitive substring for name."
+                  },
+                  "include_held": {
+                    "type": "boolean",
+                    "description": "Traverse nested holder contents in addition to spawned map Things. false retains spawned map Things, including storage-cell contents. This selects current containment, not player ownership or movement history."
+                  },
+                  "include_unreal": {
+                    "type": "boolean",
+                    "description": "When including held Things, false excludes a Thing whose immediate holder has unreal contents. Descendant holders are still traversed and their Things checked separately. Spawned map Things are unaffected."
+                  },
+                  "visible_only": {
+                    "type": "boolean",
+                    "description": "Exclude Things whose root held position is fogged."
+                  },
+                  "def_names": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 50,
+                    "description": "Exact IDs; at most 50. Empty list matches nothing."
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "enum": [
+                        "pawn",
+                        "building",
+                        "item",
+                        "plant",
+                        "medicine",
+                        "sleeping_place",
+                        "openable",
+                        "powered",
+                        "refuelable",
+                        "storage",
+                        "bill_giver",
+                        "hazard"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "description": "Match any native capability before projection/aggregation; intersects other selectors."
+                  },
+                  "def_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Exact identifier, or case-insensitive substring for name."
+                  },
+                  "category_def_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Exact identifier, or case-insensitive substring for name."
+                  },
+                  "exact_names": {
+                    "type": "array",
+                    "items": {
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "description": "Exact canonical defName OR current localized label, case-insensitive. Retains every matching definition (including ambiguities); duplicates do not duplicate rows. Does not assert any physical instance exists."
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Root arguments go ONLY here. Each root accepts the subset in its directory; map_id/current (map root id/current) avoids a preliminary map lookup."
+              },
+              "where": {
+                "type": "object"
+              },
+              "select": {
+                "description": "Select string field paths, true for defaults, or an object mapping fields to true, child arrays or options. Examples: {\"definition\":[\"def_name\",\"label\"]} or {\"definition\":{\"select\":[\"def_name\",\"label\"]}}. Child fields go inside select, not directly inside an options object. Selection arrays can combine string paths and field maps when their fields do not overlap. A bare child-field map is accepted only when all keys are known fields and none is a relation option. Collections do not need items/nodes wrappers.",
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "object"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "type": "object"
+                  },
+                  {
+                    "const": true
+                  }
+                ]
+              },
+              "aggregate": {
+                "type": "object",
+                "description": "Named measures, e.g. {quantity:{op:sum,field:stack_count},records:{op:count}}. Operates on all matches before output limits; sum only for declared additive fields."
+              },
+              "group_by": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 12
+              },
+              "order_by": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "direction": {
+                      "type": "string",
+                      "enum": [
+                        "asc",
+                        "desc"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "field"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "offset": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8192
+              }
+            },
+            "required": [
+              "from"
+            ],
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "oneOf": [
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "game"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "from"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "maps"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "maxItems": 50,
+                            "description": "Exact IDs; at most 50. Empty list matches nothing."
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "from"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "pawn"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Exact pawn ID."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "from",
+                      "args"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "spawned_free_colonists"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "maxItems": 50,
+                            "description": "Exact IDs; at most 50. Empty list matches nothing."
+                          },
+                          "map_id": {
+                            "type": "string",
+                            "description": "Restrict to one loaded map."
+                          },
+                          "name": {
+                            "type": "string",
+                            "maxLength": 128,
+                            "description": "Case-insensitive display-name substring, at most 128 characters."
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "from"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "colony"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "from"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "thing"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "description": "Exact identifier, or case-insensitive substring for name."
+                          },
+                          "map_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "description": "Exact identifier, or case-insensitive substring for name."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "from",
+                      "args"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "things"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {
+                          "map_id": {
+                            "type": "string",
+                            "description": "Loaded map ID; omitted means all loaded maps."
+                          },
+                          "include_held": {
+                            "type": "boolean",
+                            "description": "Traverse nested holder contents in addition to spawned map Things. false retains spawned map Things, including storage-cell contents. This selects current containment, not player ownership or movement history."
+                          },
+                          "include_unreal": {
+                            "type": "boolean",
+                            "description": "When including held Things, false excludes a Thing whose immediate holder has unreal contents. Descendant holders are still traversed and their Things checked separately. Spawned map Things are unaffected."
+                          },
+                          "visible_only": {
+                            "type": "boolean",
+                            "description": "Exclude Things whose root held position is fogged."
+                          },
+                          "def_names": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "maxItems": 50,
+                            "description": "Exact IDs; at most 50. Empty list matches nothing."
+                          },
+                          "capabilities": {
+                            "type": "array",
+                            "items": {
+                              "enum": [
+                                "pawn",
+                                "building",
+                                "item",
+                                "plant",
+                                "medicine",
+                                "sleeping_place",
+                                "openable",
+                                "powered",
+                                "refuelable",
+                                "storage",
+                                "bill_giver",
+                                "hazard"
+                              ]
+                            },
+                            "minItems": 1,
+                            "maxItems": 12,
+                            "description": "Match any native capability before projection/aggregation; intersects other selectors."
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "from"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "thing_def"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {
+                          "def_name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "description": "Exact identifier, or case-insensitive substring for name."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "def_name"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "from",
+                      "args"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "thing_defs"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "description": "Exact identifier, or case-insensitive substring for name."
+                          },
+                          "category_def_name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "description": "Exact identifier, or case-insensitive substring for name."
+                          },
+                          "exact_names": {
+                            "type": "array",
+                            "items": {
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "minItems": 1,
+                            "maxItems": 64,
+                            "description": "Exact canonical defName OR current localized label, case-insensitive. Retains every matching definition (including ambiguities); duplicates do not duplicate rows. Does not assert any physical instance exists."
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "from"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "map"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "description": "Exact identifier, or case-insensitive substring for name."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "from",
+                      "args"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "from": {
+                        "const": "pawns"
+                      },
+                      "args": {
+                        "type": "object",
+                        "properties": {
+                          "map_id": {
+                            "type": "string",
+                            "description": "Loaded map ID; omitted means all loaded maps."
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "from"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "from": {
+          "type": "string",
+          "enum": [
+            "game",
+            "maps",
+            "pawn",
+            "spawned_free_colonists",
+            "colony",
+            "thing",
+            "things",
+            "thing_def",
+            "thing_defs",
+            "map",
+            "pawns"
+          ]
+        },
+        "args": {
+          "type": "object",
+          "properties": {
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 50,
+              "description": "Exact IDs; at most 50. Empty list matches nothing."
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Exact identifier, or case-insensitive substring for name."
+            },
+            "map_id": {
+              "type": "string",
+              "description": "Loaded map ID; omitted means all loaded maps."
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Exact identifier, or case-insensitive substring for name."
+            },
+            "include_held": {
+              "type": "boolean",
+              "description": "Traverse nested holder contents in addition to spawned map Things. false retains spawned map Things, including storage-cell contents. This selects current containment, not player ownership or movement history."
+            },
+            "include_unreal": {
+              "type": "boolean",
+              "description": "When including held Things, false excludes a Thing whose immediate holder has unreal contents. Descendant holders are still traversed and their Things checked separately. Spawned map Things are unaffected."
+            },
+            "visible_only": {
+              "type": "boolean",
+              "description": "Exclude Things whose root held position is fogged."
+            },
+            "def_names": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 50,
+              "description": "Exact IDs; at most 50. Empty list matches nothing."
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "pawn",
+                  "building",
+                  "item",
+                  "plant",
+                  "medicine",
+                  "sleeping_place",
+                  "openable",
+                  "powered",
+                  "refuelable",
+                  "storage",
+                  "bill_giver",
+                  "hazard"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 12,
+              "description": "Match any native capability before projection/aggregation; intersects other selectors."
+            },
+            "def_name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Exact identifier, or case-insensitive substring for name."
+            },
+            "category_def_name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Exact identifier, or case-insensitive substring for name."
+            },
+            "exact_names": {
+              "type": "array",
+              "items": {
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "minItems": 1,
+              "maxItems": 64,
+              "description": "Exact canonical defName OR current localized label, case-insensitive. Retains every matching definition (including ambiguities); duplicates do not duplicate rows. Does not assert any physical instance exists."
+            }
+          },
+          "additionalProperties": false,
+          "description": "Root arguments go ONLY here. Each root accepts the subset in its directory; map_id/current (map root id/current) avoids a preliminary map lookup."
+        },
+        "where": {
+          "type": "object"
+        },
+        "select": {
+          "description": "Select string field paths, true for defaults, or an object mapping fields to true, child arrays or options. Examples: {\"definition\":[\"def_name\",\"label\"]} or {\"definition\":{\"select\":[\"def_name\",\"label\"]}}. Child fields go inside select, not directly inside an options object. Selection arrays can combine string paths and field maps when their fields do not overlap. A bare child-field map is accepted only when all keys are known fields and none is a relation option. Collections do not need items/nodes wrappers.",
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "object"
+            },
+            {
+              "const": true
+            }
+          ]
+        },
+        "aggregate": {
+          "type": "object",
+          "description": "Named measures, e.g. {quantity:{op:sum,field:stack_count},records:{op:count}}. Operates on all matches before output limits; sum only for declared additive fields."
+        },
+        "group_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 12
+        },
+        "order_by": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              }
+            },
+            "required": [
+              "field"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8192
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "from"
+          ],
+          "not": {
+            "required": [
+              "requests"
+            ]
+          }
+        },
+        {
+          "required": [
+            "requests"
+          ],
+          "not": {
+            "required": [
+              "from"
+            ]
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "required": [
+                "requests"
+              ]
+            },
+            {
+              "oneOf": [
+                {
+                  "properties": {
+                    "from": {
+                      "const": "game"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "from"
+                  ]
+                },
+                {
+                  "properties": {
+                    "from": {
+                      "const": "maps"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {
+                        "ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "maxItems": 50,
+                          "description": "Exact IDs; at most 50. Empty list matches nothing."
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "from"
+                  ]
+                },
+                {
+                  "properties": {
+                    "from": {
+                      "const": "pawn"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Exact pawn ID."
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "id"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "args"
+                  ]
+                },
+                {
+                  "properties": {
+                    "from": {
+                      "const": "spawned_free_colonists"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {
+                        "ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "maxItems": 50,
+                          "description": "Exact IDs; at most 50. Empty list matches nothing."
+                        },
+                        "map_id": {
+                          "type": "string",
+                          "description": "Restrict to one loaded map."
+                        },
+                        "name": {
+                          "type": "string",
+                          "maxLength": 128,
+                          "description": "Case-insensitive display-name substring, at most 128 characters."
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "from"
+                  ]
+                },
+                {
+                  "properties": {
+                    "from": {
+                      "const": "colony"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "from"
+                  ]
+                },
+                {
+                  "properties": {
+                    "from": {
+                      "const": "thing"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "Exact identifier, or case-insensitive substring for name."
+                        },
+                        "map_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "Exact identifier, or case-insensitive substring for name."
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "id"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "args"
+                  ]
+                },
+                {
+                  "properties": {
+                    "from": {
+                      "const": "things"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {
+                        "map_id": {
+                          "type": "string",
+                          "description": "Loaded map ID; omitted means all loaded maps."
+                        },
+                        "include_held": {
+                          "type": "boolean",
+                          "description": "Traverse nested holder contents in addition to spawned map Things. false retains spawned map Things, including storage-cell contents. This selects current containment, not player ownership or movement history."
+                        },
+                        "include_unreal": {
+                          "type": "boolean",
+                          "description": "When including held Things, false excludes a Thing whose immediate holder has unreal contents. Descendant holders are still traversed and their Things checked separately. Spawned map Things are unaffected."
+                        },
+                        "visible_only": {
+                          "type": "boolean",
+                          "description": "Exclude Things whose root held position is fogged."
+                        },
+                        "def_names": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "maxItems": 50,
+                          "description": "Exact IDs; at most 50. Empty list matches nothing."
+                        },
+                        "capabilities": {
+                          "type": "array",
+                          "items": {
+                            "enum": [
+                              "pawn",
+                              "building",
+                              "item",
+                              "plant",
+                              "medicine",
+                              "sleeping_place",
+                              "openable",
+                              "powered",
+                              "refuelable",
+                              "storage",
+                              "bill_giver",
+                              "hazard"
+                            ]
+                          },
+                          "minItems": 1,
+                          "maxItems": 12,
+                          "description": "Match any native capability before projection/aggregation; intersects other selectors."
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "from"
+                  ]
+                },
+                {
+                  "properties": {
+                    "from": {
+                      "const": "thing_def"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {
+                        "def_name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "Exact identifier, or case-insensitive substring for name."
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "def_name"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "args"
+                  ]
+                },
+                {
+                  "properties": {
+                    "from": {
+                      "const": "thing_defs"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "Exact identifier, or case-insensitive substring for name."
+                        },
+                        "category_def_name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "Exact identifier, or case-insensitive substring for name."
+                        },
+                        "exact_names": {
+                          "type": "array",
+                          "items": {
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "minItems": 1,
+                          "maxItems": 64,
+                          "description": "Exact canonical defName OR current localized label, case-insensitive. Retains every matching definition (including ambiguities); duplicates do not duplicate rows. Does not assert any physical instance exists."
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "from"
+                  ]
+                },
+                {
+                  "properties": {
+                    "from": {
+                      "const": "map"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "description": "Exact identifier, or case-insensitive substring for name."
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "id"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "args"
+                  ]
+                },
+                {
+                  "properties": {
+                    "from": {
+                      "const": "pawns"
+                    },
+                    "args": {
+                      "type": "object",
+                      "properties": {
+                        "map_id": {
+                          "type": "string",
+                          "description": "Loaded map ID; omitted means all loaded maps."
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "from"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "Send one query directly with from/args/where/select, or send requests:[...] for a shared-sample batch. The query shape is identical; do not mix envelope and query fields."
+    },
+    "roots": [
+      {
+        "from": "game",
+        "type": "Game",
+        "description": "Current game/session state, not a map-object population.",
+        "args": []
+      },
+      {
+        "from": "maps",
+        "type": "Map",
+        "description": "Loaded map instances; conditions select maps, not their Things or Pawns.",
+        "args": [
+          {
+            "name": "ids",
+            "required": false,
+            "default": null
+          }
+        ]
+      },
+      {
+        "from": "pawn",
+        "type": "Pawn",
+        "description": "One Pawn found by stable ID in the loaded-map and holder enumeration, including humans, animals and mechanoids; no fog filter. Not a free-colonist identity check.",
+        "args": [
+          {
+            "name": "id",
+            "required": true,
+            "default": null
+          }
+        ]
+      },
+      {
+        "from": "spawned_free_colonists",
+        "type": "Pawn",
+        "description": "Free colonists currently spawned on selected loaded maps, using the native FreeColonistsSpawned collection. A missing match establishes only nonmembership in this filtered population, not absence of colonist identity.",
+        "args": [
+          {
+            "name": "ids",
+            "required": false,
+            "default": null
+          },
+          {
+            "name": "map_id",
+            "required": false,
+            "default": null
+          },
+          {
+            "name": "name",
+            "required": false,
+            "default": null
+          }
+        ]
+      },
+      {
+        "from": "colony",
+        "type": "Colony",
+        "description": "Existing public colony root; exact identifiers use args, conditions use where.",
+        "args": []
+      },
+      {
+        "from": "thing",
+        "type": "Thing",
+        "description": "One native Thing instance selected by ID, including held instances; its definition and containment relations are separate selected facts.",
+        "args": [
+          {
+            "name": "id",
+            "required": true,
+            "default": null
+          },
+          {
+            "name": "map_id",
+            "required": false,
+            "default": null
+          }
+        ]
+      },
+      {
+        "from": "things",
+        "type": "Thing",
+        "description": "Things on the selected loaded maps, with holder contents only when include_held is true. Spawned storage-cell items remain map things when include_held is false. Includes buildings/pawns/items; no caravans or off-map world objects.",
+        "args": [
+          {
+            "name": "map_id",
+            "required": false,
+            "default": null
+          },
+          {
+            "name": "include_held",
+            "required": false,
+            "default": true
+          },
+          {
+            "name": "include_unreal",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "visible_only",
+            "required": false,
+            "default": true
+          },
+          {
+            "name": "def_names",
+            "required": false,
+            "default": null
+          },
+          {
+            "name": "capabilities",
+            "required": false,
+            "default": null
+          }
+        ]
+      },
+      {
+        "from": "thing_def",
+        "type": "ThingDef",
+        "description": "One loaded ThingDef selected by exact name. A definition existing does not establish any physical instance or quantity.",
+        "args": [
+          {
+            "name": "def_name",
+            "required": true,
+            "default": null
+          }
+        ]
+      },
+      {
+        "from": "thing_defs",
+        "type": "ThingDef",
+        "description": "Loaded ThingDef definitions, not physical quantities. Filter on declared native properties, not label substring alone.",
+        "args": [
+          {
+            "name": "name",
+            "required": false,
+            "default": null
+          },
+          {
+            "name": "category_def_name",
+            "required": false,
+            "default": null
+          },
+          {
+            "name": "exact_names",
+            "required": false,
+            "default": null
+          }
+        ]
+      },
+      {
+        "from": "map",
+        "type": "NativeMap",
+        "description": "One loaded map selected by args.id, with storage and resource-counter relations. This is a map, not a collection of its contents.",
+        "args": [
+          {
+            "name": "id",
+            "required": true,
+            "default": null
+          }
+        ]
+      },
+      {
+        "from": "pawns",
+        "type": "Pawn",
+        "description": "Pawn instances enumerated from selected loaded maps and their nested holders, including humans, animals and mechanoids regardless of faction. No fog filter. This is object enumeration, not pathfinding access; excludes world caravans.",
+        "args": [
+          {
+            "name": "map_id",
+            "required": false,
+            "default": null
+          }
+        ]
+      }
+    ],
+    "rules": "Selection: use the canonical fields of the current type. A field on a related type is not a field on its parent. select arrays may combine string field paths and field-selection objects; duplicate or overlapping selections are rejected. String paths include, for example [\"definition.def_name\",\"stack_count\"]. An object maps each field to true, a child field array, or an options object. Equivalent child selections are {\"definition\":[\"def_name\",\"label\"]} and {\"definition\":{\"select\":[\"def_name\",\"label\"]}}. Use explicit select when configuring relation options. A nonempty object containing only known child field names, with no option keywords, is also a child selection. Do not mix child fields and relation options at the same level; unknown names are rejected rather than guessed. Single related objects accept select/args/on; collections also accept where/aggregate/group_by/order_by/limit/offset. Use on as an object keyed by supported concrete component types, never a type-name string. Each value accepts a field array, a pure field map, or explicit select/on options, using the same selection syntax as related objects. Collection selections do not need items/nodes transport wrappers.\nConditions: where is {field.path:{eq:value}}; clauses AND, with all/any/not for composition. Scalar ops: eq/ne/in/gt/gte/lt/lte/contains/starts_with/ends_with/is_null; case_sensitive:false for text. A condition path cannot cross a collection: use some/every/none with a nested where condition. Single-object conditions accept a child-field map or where:{...}; do not mix child fields and condition options. For example definition:{category:{eq:Item}} and definition.category:{eq:Item} select the same membership. reach:{field:parent,some:{...},include_self:true} traverses a declared same-type relation with cycle/depth limits. Do not infer condition paths from selection paths.\nDefaults: selected objects return readable scalars and parameter-free collections; objects without scalars expose related fields. Long descriptions, explicit contents and argument-dependent scans require selection. Collections default to limit20. Pawn inventory/equipment/apparel/carried are direct Thing collections; contents reads a Thing container. Their populations remain distinct, with the same collection operations; tracker traversal is internal. Map selectors accept map_id:current (map root id:current), resolved to the actual ID in scope without a preliminary map lookup. Native visible-record defaults remain in effect.\nMeasurements: group_by names scalar grouping fields. aggregate defines result aliases, not new source fields: quantity in {quantity:{op:sum,field:stack_count}} is not Thing.quantity. Count measures matching records, not automatically humans, stacks or distinct definitions; sum(stack_count) measures stack units. Aggregates cover all matches before display limits. With aggregate and limit:0, rows/page are omitted because no detail was requested; aggregate completeness is unchanged. Grouped select returns only shared values in rows.values. A varying instance field is null with group_field_varies; selecting stack_count is not a substitute for summing it. Keep overlapping query totals separate; never add the ResourceCounter readout to physical counts.\nValidation: a failed batch executes no requests and reports one primary error per invalid request plus the indices that passed validation; passing validation is not a game observation. Evidence: assess each required fact using its effective scope and own completeness. Top-level partial does not invalidate a complete aggregate when only unrelated display fields failed. An incomplete aggregate is not an exact total. Complete aggregates do not prove every detail/group row was displayed: check that collection's page.has_more before claiming a complete list. An unselected field was not read. A returned null must be interpreted using its field semantics and issue path, not treated as zero. A complete zero-match collection is empty only under its own scope and predicate. rows=[] alone can be an undisplayed page with a nonzero complete aggregate. scan_complete describes source coverage; fields_complete describes selected reads; page describes display coverage. Empty results establish no matches for the actual predicate, not the absence of a broader user concept; verify uncertain predicate semantics, without routinely requerying every empty set. Continue only for an unmet requested fact, a relevant unknown or conflicting evidence; preserve known facts when a different field is unavailable. Every request/continuation is a fresh observation. Native capability flags, content categories and cached readout membership have different meanings; no task/category presets are applied. Fields with a value domain follow its operators and declared names; invalid names fail before reads, not as zero matches. Native flags accept comma-separated names and has_all/has_any; case_sensitive:false permits ordinal case folding. describe_query also accepts the listed domain names.",
+    "common_fields": [
+      {
+        "type": "Thing",
+        "description": "Verse.Thing instance: may be an item, building, plant, Pawn or other native object, not necessarily an inventory item. id identifies the instance; relations describe containment, not ownership or usability.",
+        "fields": [
+          {
+            "name": "capabilities",
+            "type": "String",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native capability membership shared with spatial surveys. Filter with some/in before aggregation and paging; overlapping capabilities do not imply usability.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "id",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Transport metadata; not a native gameplay member.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "runtime_type",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Actual CLR class name from GetType().FullName; an exact type, not its base-class hierarchy, faction or construction history.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "label",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.Label; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "stack_count",
+            "type": "Int",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.stackCount: units in this instance. count measures records; sum(stack_count) measures units. Non-item Things can also have stack_count.",
+            "aggregate": [
+              "sum",
+              "min",
+              "max"
+            ],
+            "args": []
+          },
+          {
+            "name": "hit_points",
+            "type": "Int",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.HitPoints; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [
+              "min",
+              "max"
+            ],
+            "args": []
+          },
+          {
+            "name": "max_hit_points",
+            "type": "Int",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.MaxHitPoints; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [
+              "min",
+              "max"
+            ],
+            "args": []
+          },
+          {
+            "name": "spawned",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.Spawned: this instance itself is spawned on a map. false does not establish that it is outside loaded maps; a containing holder can be on a map.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "destroyed",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.Destroyed; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "ingestible_now",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.IngestibleNow; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "faction",
+            "type": "Faction",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.Faction: the faction that owns this instance, null when it has none. This is the native membership fact. Container membership, position and definition do not establish faction.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "held_by",
+            "type": "ThingReference",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Nearest containing Pawn along Thing.ParentHolder, so \"whose pocket is this in\" is a read fact rather than an inference. Not ownership; a loose ground item has no such holder.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "held_by_faction",
+            "type": "Faction",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Faction of the pawn returned by HeldBy. When both are null the instance is simply not carried, which is different from a faction that could not be read.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "definition",
+            "type": "ThingDef",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.def reference; only selected child members are read.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "stuff",
+            "type": "ThingDef",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.Stuff reference; only selected child members are read.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "map",
+            "type": "NativeMap",
+            "collection": false,
+            "default_reference": true,
+            "value_domain": null,
+            "description": "Native Thing.Map: map on which this instance itself is spawned; null when not spawned. For a held instance, map_held may still identify its containing map.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "map_held",
+            "type": "NativeMap",
+            "collection": false,
+            "default_reference": true,
+            "value_domain": null,
+            "description": "Native Thing.MapHeld: map of this instance or its containing holder chain. A non-null value does not imply this instance is spawned; null supplies no map reference, not a caravan identity.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "position",
+            "type": "IntVec3",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.Position, exposed only when this instance is spawned; otherwise null. x/z are map coordinates, y is vertical.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "position_held",
+            "type": "IntVec3",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Thing.PositionHeld, exposed when this instance or an ancestor is spawned; otherwise null. Describes the instance/holder location, not walking access.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "holding_owner",
+            "type": "ThingOwner",
+            "collection": false,
+            "default_reference": true,
+            "value_domain": null,
+            "description": "Immediate ThingOwner containing this instance, if any. Container membership is not faction, property ownership or hauling status.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "parent_holder",
+            "type": "ThingHolder",
+            "collection": false,
+            "default_reference": true,
+            "value_domain": null,
+            "description": "Native Thing.ParentHolder containment link. Follow actual holder relations to identify a container; the reference alone does not classify a Pawn's faction or identity.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "inner_thing",
+            "type": "ThingReference",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "RimWorld.MinifiedThing.InnerThing; null for other runtime types. Outer and inner identity are not interchangeable.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "inner_pawn",
+            "type": "ThingReference",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Verse.Corpse.InnerPawn; reference only, null for other runtime types.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "contents",
+            "type": "Thing",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Contents in the contents relation. Read directly as a Thing collection with the same selection, conditions and aggregation as other collections. Preserves this relation's population; an absent container is not an empty collection.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "stats",
+            "type": "NativeStat",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": [
+              {
+                "name": "def_names",
+                "type": "[String!]!",
+                "default": null,
+                "required": true
+              }
+            ]
+          },
+          {
+            "name": "all_comps",
+            "type": "ThingComp",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "storage_group",
+            "type": "SlotGroup",
+            "collection": false,
+            "default_reference": true,
+            "value_domain": null,
+            "description": "Membership in a storage cell for an EverStorable spawned Thing. Overlaps map membership; not acceptance by current storage settings. Null for held/non-storable objects.",
+            "aggregate": [],
+            "args": []
+          }
+        ]
+      },
+      {
+        "type": "ThingDef",
+        "description": "Verse.ThingDef definition, not an instance. Native category, content category tree and query groups are distinct.",
+        "fields": [
+          {
+            "name": "def_name",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native ThingDef.defName; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "label",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native ThingDef.label; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "thing_class",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native ThingDef.thingClass; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "category",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": {
+              "native_type": "Verse.ThingCategory",
+              "kind": "enum",
+              "values": [
+                "Attachment",
+                "Building",
+                "Ethereal",
+                "Filth",
+                "Gas",
+                "Item",
+                "Mote",
+                "None",
+                "Pawn",
+                "Plant",
+                "Projectile",
+                "PsychicEmitter"
+              ],
+              "operators": [
+                "eq",
+                "ne",
+                "in",
+                "is_null"
+              ],
+              "flags_separator": null
+            },
+            "description": "Native Verse.ThingCategory enum: broad definition kind. Building includes natural objects; it is distinct from IsBuildingArtificial, faction ownership and construction history. Content-category memberships are in thing_categories.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "stack_limit",
+            "type": "Int",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native ThingDef.stackLimit; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [
+              "min",
+              "max"
+            ],
+            "args": []
+          },
+          {
+            "name": "always_haulable",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native ThingDef.alwaysHaulable; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "designate_haulable",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native ThingDef.designateHaulable; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "ever_haulable",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native alwaysHaulable || designateHaulable; not current pawn-specific reachability, reservation or permission.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "is_medicine",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native definition contains a MedicalPotency base stat; not current treatment eligibility.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "is_weapon",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native attack-capable Item with verbs/tools, excluding apparel. Includes improvised weapons; not an exclusive content category.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "is_ingestible",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native ingestible properties exist; includes plants and non-human food. Not a human-food inventory category. Combine with native Item category when counting food items.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "count_as_resource",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native resourceReadoutPriority != Uncounted. Readout classification, not all possessions or all useful items.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "thing_categories",
+            "type": "ThingCategoryDef",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native ThingDef.thingCategories content-category memberships. Each ThingCategoryDef has its own defName, label and parent ancestry; these names are not values of ThingDef.category or capability flags.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "comps",
+            "type": "CompProperties",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "ingestible",
+            "type": "IngestibleProperties",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native ThingDef.ingestible reference; only selected child members are read.",
+            "aggregate": [],
+            "args": []
+          }
+        ]
+      },
+      {
+        "type": "Pawn",
+        "description": "Native Verse.Pawn instance, including humans, animals, mechanoids and other Pawn kinds; Pawn does not mean human or colonist. The selected root determines the population; id joins the same instance.",
+        "fields": [
+          {
+            "name": "is_free_colonist",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Pawn.IsFreeColonist: this pawn is a free member of the player faction. This is the native membership test, not an inference from kind, name or carried items.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "is_colonist",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Pawn.IsColonist: player-faction colonist. Distinct from IsFreeColonist (a colonist can be a slave or prisoner).",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "is_prisoner_of_colony",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Pawn.IsPrisonerOfColony.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "is_slave_of_colony",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Native Pawn.IsSlaveOfColony.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "guest_status",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": {
+              "native_type": "RimWorld.GuestStatus",
+              "kind": "enum",
+              "values": [
+                "Guest",
+                "Prisoner",
+                "Slave"
+              ],
+              "operators": [
+                "eq",
+                "ne",
+                "in",
+                "is_null"
+              ],
+              "flags_separator": null
+            },
+            "description": "Native Pawn.GuestStatus (Guest/Prisoner/Slave); null when the pawn has no such status.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "id",
+            "type": "ID",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "name",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "map_id",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Map ID attached to this Pawn by the selected root. The general pawns root includes held Pawns using their containing map (native MapHeld); this field alone does not establish spawned status. The spawnedFreeColonists root selects only FreeColonistsSpawned; that root membership already establishes spawned free-colonist status. status.position uses the Pawn's own spawned position.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "status",
+            "type": "Status",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "mood",
+            "type": "Mood",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "health",
+            "type": "Health",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "profile",
+            "type": "Profile",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "faction",
+            "type": "Faction",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "inventory",
+            "type": "Thing",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Items in this Pawn's inventory, distinct from worn apparel, equipped items and the currently carried Thing. Inventory is a containment relation, not current hauling or faction ownership.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "equipment",
+            "type": "Thing",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Items equipped through this Pawn's equipment tracker, distinct from inventory and worn apparel. Read their definitions to identify weapons.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "apparel",
+            "type": "Thing",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Apparel currently worn by this Pawn, distinct from equipment, inventory and the currently carried Thing.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "carried",
+            "type": "Thing",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "The current Pawn_CarryTracker.CarriedThing as a zero/one collection. An empty complete result means no currently carried Thing, not an empty inventory or proof about past/future hauling.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "stat_definitions",
+            "type": "StatDefinition",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": [
+              {
+                "name": "search",
+                "type": "String",
+                "default": null,
+                "required": false
+              }
+            ]
+          },
+          {
+            "name": "stats",
+            "type": "Stat",
+            "collection": true,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": [
+              {
+                "name": "def_names",
+                "type": "[String!]!",
+                "default": null,
+                "required": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Map",
+        "description": "An active, loaded map.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "ID",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Stable map ID within the save.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "name",
+            "type": "String",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Display name; not a unique identifier.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "is_current",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Whether this is the currently viewed map.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "is_player_home",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Game's player-home map flag.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "colonist_count",
+            "type": "Int",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Number of spawned free colonists; excludes caravans/prisoners.",
+            "aggregate": [
+              "min",
+              "max"
+            ],
+            "args": []
+          },
+          {
+            "name": "has_visible_threat",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Game-provided active visible hostile threat signal, not an overall safety assessment.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "haul_destination_manager",
+            "type": "HaulDestinationManager",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "resource_counter",
+            "type": "ResourceCounter",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": null,
+            "aggregate": [],
+            "args": []
+          }
+        ]
+      },
+      {
+        "type": "Game",
+        "description": "Active game's directly observed state.",
+        "fields": [
+          {
+            "name": "paused",
+            "type": "Boolean",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Simulation ticks are paused. The player can still inspect, place plans and issue orders while paused; pause does not disable consultation or establish Pawn task incapability. Recommendations can be planned now and run when simulation resumes.",
+            "aggregate": [],
+            "args": []
+          },
+          {
+            "name": "current_map_id",
+            "type": "ID",
+            "collection": false,
+            "default_reference": false,
+            "value_domain": null,
+            "description": "Current viewed map; null if none.",
+            "aggregate": [],
+            "args": []
+          }
+        ]
+      }
+    ],
+    "field_index": {
+      "Game": {
+        "paused": "Boolean",
+        "current_map_id": "ID"
+      },
+      "Map": {
+        "id": "ID",
+        "name": "String",
+        "is_current": "Boolean",
+        "is_player_home": "Boolean",
+        "colonist_count": "Int",
+        "has_visible_threat": "Boolean",
+        "haul_destination_manager": "HaulDestinationManager",
+        "resource_counter": "ResourceCounter"
+      },
+      "Pawn": {
+        "is_free_colonist": "Boolean",
+        "is_colonist": "Boolean",
+        "is_prisoner_of_colony": "Boolean",
+        "is_slave_of_colony": "Boolean",
+        "guest_status": "String domain:RimWorld.GuestStatus",
+        "id": "ID",
+        "name": "String",
+        "map_id": "String",
+        "status": "Status",
+        "mood": "Mood",
+        "health": "Health",
+        "profile": "Profile",
+        "faction": "Faction",
+        "inventory": "[Thing]",
+        "equipment": "[Thing]",
+        "apparel": "[Thing]",
+        "carried": "[Thing]",
+        "stat_definitions": "[StatDefinition] args:search",
+        "stats": "[Stat] args:def_names!"
+      },
+      "Colony": {
+        "game": "Game",
+        "maps": "[Map]"
+      },
+      "Thing": {
+        "capabilities": "[String]",
+        "id": "String",
+        "runtime_type": "String",
+        "label": "String",
+        "stack_count": "Int",
+        "hit_points": "Int",
+        "max_hit_points": "Int",
+        "spawned": "Boolean",
+        "destroyed": "Boolean",
+        "ingestible_now": "Boolean",
+        "faction": "Faction",
+        "held_by": "ThingReference",
+        "held_by_faction": "Faction",
+        "definition": "ThingDef",
+        "stuff": "ThingDef",
+        "map": "NativeMap",
+        "map_held": "NativeMap",
+        "position": "IntVec3",
+        "position_held": "IntVec3",
+        "holding_owner": "ThingOwner",
+        "parent_holder": "ThingHolder",
+        "inner_thing": "ThingReference",
+        "inner_pawn": "ThingReference",
+        "contents": "[Thing]",
+        "stats": "[NativeStat] args:def_names!",
+        "all_comps": "[ThingComp]",
+        "storage_group": "SlotGroup"
+      },
+      "ThingDef": {
+        "def_name": "String",
+        "label": "String",
+        "thing_class": "String",
+        "category": "String domain:Verse.ThingCategory",
+        "stack_limit": "Int",
+        "always_haulable": "Boolean",
+        "designate_haulable": "Boolean",
+        "ever_haulable": "Boolean",
+        "is_medicine": "Boolean",
+        "is_weapon": "Boolean",
+        "is_ingestible": "Boolean",
+        "count_as_resource": "Boolean",
+        "thing_categories": "[ThingCategoryDef]",
+        "comps": "[CompProperties]",
+        "ingestible": "IngestibleProperties"
+      },
+      "NativeMap": {
+        "id": "ID",
+        "name": "String",
+        "is_current": "Boolean",
+        "is_player_home": "Boolean",
+        "colonist_count": "Int",
+        "has_visible_threat": "Boolean",
+        "haul_destination_manager": "HaulDestinationManager",
+        "resource_counter": "ResourceCounter"
+      },
+      "HaulDestinationManager": {
+        "all_groups_list_for_reading": "[SlotGroup]"
+      },
+      "ResourceCounter": {
+        "all_counted_amounts": "[ResourceCountEntry]",
+        "total_human_edible_nutrition": "Float"
+      },
+      "Status": {
+        "downed": "Boolean",
+        "drafted": "Boolean",
+        "dead": "Boolean",
+        "in_mental_state": "Boolean",
+        "mental_state": "String",
+        "position": "Position",
+        "current_job": "Job",
+        "needs": "[Need]"
+      },
+      "Mood": {
+        "level": "Float",
+        "instant": "Float",
+        "break_thresholds": "Thresholds",
+        "thought_groups": "[ThoughtGroup] args:visible_only",
+        "memories": "[Thought] args:visible_only"
+      },
+      "Health": {
+        "summary": "HealthSummary",
+        "capacities": "[Capacity]",
+        "conditions": "[Condition] args:visible_only",
+        "body_parts": "[BodyPart]"
+      },
+      "Profile": {
+        "gender": "String domain:Verse.Gender",
+        "race_def_name": "String",
+        "kind_def_name": "String",
+        "age": "Age",
+        "backstories": "[Backstory]",
+        "traits": "[Trait]",
+        "skills": "[Skill]"
+      },
+      "Faction": {
+        "def_name": "String",
+        "name": "String",
+        "is_player": "Boolean",
+        "player_relation": "String domain:RimWorld.FactionRelationKind"
+      },
+      "StatDefinition": {
+        "def_name": "String",
+        "label": "String",
+        "description": "String"
+      },
+      "Stat": {
+        "def_name": "String",
+        "label": "String",
+        "value": "Float",
+        "value_text": "String"
+      },
+      "ThingReference": {
+        "id": "String",
+        "runtime_type": "String",
+        "definition": "ThingDef"
+      },
+      "IntVec3": {
+        "x": "Int",
+        "y": "Int",
+        "z": "Int"
+      },
+      "ThingOwner": {
+        "owner": "ThingHolder",
+        "count": "Int",
+        "total_stack_count": "Int",
+        "items": "[Thing]"
+      },
+      "ThingHolder": {
+        "ref": "String",
+        "runtime_type": "String",
+        "thing_id": "String",
+        "parent": "ThingHolder"
+      },
+      "NativeStat": {
+        "def_name": "String",
+        "label": "String",
+        "value": "Float",
+        "value_text": "String"
+      },
+      "ThingComp": {
+        "ref": "String",
+        "runtime_type": "String",
+        "supported_type": "String",
+        "supported": "Boolean"
+      },
+      "SlotGroup": {
+        "ref": "String",
+        "grouping_label": "String",
+        "held_things_count": "Int",
+        "parent": "StorageParent",
+        "cells_list": "[IntVec3]",
+        "held_things": "[Thing]",
+        "settings": "StorageSettings"
+      },
+      "ThingCategoryDef": {
+        "def_name": "String",
+        "label": "String",
+        "parent": "ThingCategoryDef"
+      },
+      "CompProperties": {
+        "runtime_type": "String",
+        "comp_class": "String"
+      },
+      "IngestibleProperties": {
+        "food_type": "String domain:RimWorld.FoodTypeFlags",
+        "drug_category": "String domain:RimWorld.DrugCategory",
+        "human_edible": "Boolean",
+        "is_meal": "Boolean",
+        "cached_nutrition": "Float",
+        "max_num_to_ingest_at_once": "Int"
+      },
+      "ResourceCountEntry": {
+        "key": "ThingDef",
+        "value": "Int"
+      },
+      "Position": {
+        "x": "Int",
+        "y": "Int",
+        "z": "Int",
+        "map_id": "String"
+      },
+      "Job": {
+        "id": "String",
+        "def_name": "String",
+        "report": "String",
+        "targets": "[JobTarget]"
+      },
+      "Need": {
+        "def_name": "String",
+        "label": "String",
+        "level": "Float",
+        "max_level": "Float",
+        "percentage": "Float"
+      },
+      "Thresholds": {
+        "minor": "Float",
+        "major": "Float",
+        "extreme": "Float"
+      },
+      "ThoughtGroup": {
+        "def_name": "String",
+        "label": "String",
+        "stage_index": "Int",
+        "mood_offset": "Float",
+        "member_count": "Int",
+        "members": "[Thought]"
+      },
+      "Thought": {
+        "ref": "String",
+        "reference_scope": "String",
+        "def_name": "String",
+        "label": "String",
+        "description": "String",
+        "stage_index": "Int",
+        "mood_offset": "Float",
+        "kind": "String",
+        "other_pawn_id": "String",
+        "age_ticks": "Int",
+        "duration_ticks": "Int"
+      },
+      "HealthSummary": {
+        "health_percent": "Float",
+        "pain": "Float",
+        "bleed_rate": "Float",
+        "downed": "Boolean",
+        "in_pain_shock": "Boolean"
+      },
+      "Capacity": {
+        "def_name": "String",
+        "label": "String",
+        "level": "Float"
+      },
+      "Condition": {
+        "id": "String",
+        "def_name": "String",
+        "label": "String",
+        "description": "String",
+        "severity": "Float",
+        "severity_label": "String",
+        "visible": "Boolean",
+        "part": "BodyPart",
+        "tending": "Tending",
+        "immunity": "Immunity"
+      },
+      "BodyPart": {
+        "key": "String",
+        "def_name": "String",
+        "label": "String",
+        "index": "Int",
+        "parent_key": "String",
+        "health": "Float",
+        "max_health": "Float"
+      },
+      "Age": {
+        "biological_years": "Float",
+        "chronological_years": "Float",
+        "life_stage": "String"
+      },
+      "Backstory": {
+        "slot": "String domain:RimWorld.BackstorySlot",
+        "def_name": "String",
+        "title": "String",
+        "description": "String"
+      },
+      "Trait": {
+        "def_name": "String",
+        "label": "String",
+        "description": "String",
+        "degree": "Int",
+        "suppressed": "Boolean",
+        "source_gene_def_name": "String",
+        "suppressed_by_gene_def_name": "String"
+      },
+      "Skill": {
+        "def_name": "String",
+        "label": "String",
+        "level": "Int",
+        "passion": "String domain:RimWorld.Passion",
+        "aptitude": "Int",
+        "totally_disabled": "Boolean",
+        "permanently_disabled": "Boolean",
+        "xp_since_last_level": "Float",
+        "xp_required_for_level_up": "Float"
+      },
+      "CompQuality": {
+        "ref": "String",
+        "runtime_type": "String",
+        "supported_type": "String",
+        "supported": "Boolean",
+        "quality": "String domain:RimWorld.QualityCategory"
+      },
+      "CompRottable": {
+        "ref": "String",
+        "runtime_type": "String",
+        "supported_type": "String",
+        "supported": "Boolean",
+        "rot_progress": "Float",
+        "rot_progress_pct": "Float",
+        "stage": "String domain:RimWorld.RotStage",
+        "ticks_until_rot_at_current_temp": "Int"
+      },
+      "CompForbiddable": {
+        "ref": "String",
+        "runtime_type": "String",
+        "supported_type": "String",
+        "supported": "Boolean",
+        "forbidden": "Boolean"
+      },
+      "CompIngredients": {
+        "ref": "String",
+        "runtime_type": "String",
+        "supported_type": "String",
+        "supported": "Boolean",
+        "ingredients": "[ThingDef]"
+      },
+      "UnsupportedThingComp": {
+        "ref": "String",
+        "runtime_type": "String",
+        "supported_type": "String",
+        "supported": "Boolean"
+      },
+      "StorageParent": {
+        "ref": "String",
+        "runtime_type": "String",
+        "thing_id": "String"
+      },
+      "StorageSettings": {
+        "priority": "String domain:RimWorld.StoragePriority",
+        "filter": "ThingFilter"
+      },
+      "JobTarget": {
+        "slot": "String domain:Verse.AI.TargetIndex",
+        "kind": "String",
+        "thing_id": "String",
+        "map_id": "String",
+        "x": "Int",
+        "y": "Int",
+        "z": "Int"
+      },
+      "Tending": {
+        "is_tended": "Boolean",
+        "quality": "Float",
+        "ticks_left": "Int"
+      },
+      "Immunity": {
+        "level": "Float",
+        "fully_immune": "Boolean"
+      },
+      "ThingFilter": {
+        "allowed_thing_defs": "[ThingDef]"
+      }
+    },
+    "value_domains": {
+      "RimWorld.BackstorySlot": {
+        "native_type": "RimWorld.BackstorySlot",
+        "kind": "enum",
+        "values": [
+          "Adulthood",
+          "Childhood"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      },
+      "RimWorld.DrugCategory": {
+        "native_type": "RimWorld.DrugCategory",
+        "kind": "enum",
+        "values": [
+          "Any",
+          "Hard",
+          "Medical",
+          "None",
+          "Social"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      },
+      "RimWorld.FactionRelationKind": {
+        "native_type": "RimWorld.FactionRelationKind",
+        "kind": "enum",
+        "values": [
+          "Ally",
+          "Hostile",
+          "Neutral"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      },
+      "RimWorld.FoodTypeFlags": {
+        "native_type": "RimWorld.FoodTypeFlags",
+        "kind": "flags",
+        "values": [
+          "AnimalProduct",
+          "CarnivoreAnimal",
+          "CarnivoreAnimalStrict",
+          "Corpse",
+          "DendrovoreAnimal",
+          "Fluid",
+          "Fungus",
+          "Kibble",
+          "Liquor",
+          "Meal",
+          "Meat",
+          "None",
+          "OmnivoreAnimal",
+          "OmnivoreHuman",
+          "OmnivoreRoughAnimal",
+          "OvivoreAnimal",
+          "Plant",
+          "Processed",
+          "Seed",
+          "Tree",
+          "VegetableOrFruit",
+          "VegetarianAnimal",
+          "VegetarianRoughAnimal"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "has_all",
+          "has_any",
+          "is_null"
+        ],
+        "flags_separator": ","
+      },
+      "RimWorld.GuestStatus": {
+        "native_type": "RimWorld.GuestStatus",
+        "kind": "enum",
+        "values": [
+          "Guest",
+          "Prisoner",
+          "Slave"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      },
+      "RimWorld.Passion": {
+        "native_type": "RimWorld.Passion",
+        "kind": "enum",
+        "values": [
+          "Major",
+          "Minor",
+          "None"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      },
+      "RimWorld.QualityCategory": {
+        "native_type": "RimWorld.QualityCategory",
+        "kind": "enum",
+        "values": [
+          "Awful",
+          "Excellent",
+          "Good",
+          "Legendary",
+          "Masterwork",
+          "Normal",
+          "Poor"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      },
+      "RimWorld.RotStage": {
+        "native_type": "RimWorld.RotStage",
+        "kind": "enum",
+        "values": [
+          "Dessicated",
+          "Fresh",
+          "Rotting"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      },
+      "RimWorld.StoragePriority": {
+        "native_type": "RimWorld.StoragePriority",
+        "kind": "enum",
+        "values": [
+          "Critical",
+          "Important",
+          "Low",
+          "Normal",
+          "Preferred",
+          "Unstored"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      },
+      "Verse.AI.TargetIndex": {
+        "native_type": "Verse.AI.TargetIndex",
+        "kind": "enum",
+        "values": [
+          "A",
+          "B",
+          "C",
+          "None"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      },
+      "Verse.Gender": {
+        "native_type": "Verse.Gender",
+        "kind": "enum",
+        "values": [
+          "Female",
+          "Male",
+          "None"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      },
+      "Verse.ThingCategory": {
+        "native_type": "Verse.ThingCategory",
+        "kind": "enum",
+        "values": [
+          "Attachment",
+          "Building",
+          "Ethereal",
+          "Filth",
+          "Gas",
+          "Item",
+          "Mote",
+          "None",
+          "Pawn",
+          "Plant",
+          "Projectile",
+          "PsychicEmitter"
+        ],
+        "operators": [
+          "eq",
+          "ne",
+          "in",
+          "is_null"
+        ],
+        "flags_separator": null
+      }
+    },
+    "field_notes": {
+      "NativeMap": {
+        "id": "Transport metadata; not a native gameplay member.",
+        "name": "Game-derived map summary, using the same reader and meaning as Map.name.",
+        "is_current": "Game-derived map summary, using the same reader and meaning as Map.isCurrent.",
+        "is_player_home": "Game-derived map summary, using the same reader and meaning as Map.isPlayerHome.",
+        "colonist_count": "Game-derived map summary, using the same reader and meaning as Map.colonistCount.",
+        "has_visible_threat": "Game-derived map summary, using the same reader and meaning as Map.hasVisibleThreat.",
+        "haul_destination_manager": "Native NativeMap.haulDestinationManager reference; only selected child members are read.",
+        "resource_counter": "Native NativeMap.resourceCounter reference; only selected child members are read."
+      },
+      "ResourceCounter": {
+        "total_human_edible_nutrition": "Native ResourceCounter.TotalHumanEdibleNutrition; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable."
+      },
+      "Status": {
+        "position": "This Pawn's own spawned map position; null when not spawned. A null position does not establish absence from a loaded map or caravan membership.",
+        "current_job": "Current native job; null when there is no current job. It does not establish health, faction or the reason for inactivity."
+      },
+      "Mood": {
+        "level": "Current mood need fraction, not the instantaneous target.",
+        "instant": "Game CurInstantLevelPercentage: current instantaneous/target mood from thoughts, not a historical observation."
+      },
+      "Faction": {
+        "def_name": "Native Faction.def.defName, for example PlayerColony. A definition name identifies the faction type, not a specific faction instance.",
+        "name": "Native Faction.Name: the faction's own display name.",
+        "is_player": "Native Faction.IsPlayer: true only for the player's own faction. This is the native membership test for \"is this ours\"; it is not an ownership guess from inventory, containment or pawn kind.",
+        "player_relation": "Native Faction.PlayerRelationKind (Hostile/Neutral/Ally) toward the player faction. Only a relation, not an action or a threat assessment."
+      },
+      "Stat": {
+        "value_text": "Game-formatted stat value including its display unit; use with raw value rather than guessing percent units."
+      },
+      "ThingReference": {
+        "id": "Transport metadata; not a native gameplay member.",
+        "runtime_type": "Actual CLR class name from GetType().FullName; an exact type, not its base-class hierarchy, faction or construction history.",
+        "definition": "Native ThingReference.def reference; only selected child members are read."
+      },
+      "IntVec3": {
+        "x": "Native IntVec3.x; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "y": "Native IntVec3.y; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "z": "Native IntVec3.z; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable."
+      },
+      "ThingOwner": {
+        "owner": "Native ThingOwner.Owner reference; only selected child members are read.",
+        "count": "Native ThingOwner.Count; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "total_stack_count": "Native ThingOwner.TotalStackCount; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable."
+      },
+      "ThingHolder": {
+        "ref": "Transport metadata; not a native gameplay member.",
+        "runtime_type": "Transport metadata; not a native gameplay member.",
+        "thing_id": "Native ThingHolder.thingId; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "parent": "Native IThingHolder.ParentHolder. Follow this relation to identify containing pawns or root holders; refs remain observation-local."
+      },
+      "NativeStat": {
+        "def_name": "Native NativeStat.defName; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "label": "Native NativeStat.label; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "value": "Derived read via Thing.GetStatValue(selected StatDef); not a native stored scalar.",
+        "value_text": "Derived display via StatDef.ValueToString for the same requested stat value."
+      },
+      "SlotGroup": {
+        "ref": "Transport metadata; not a native gameplay member.",
+        "grouping_label": "Native SlotGroup.GroupingLabel; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "held_things_count": "Native SlotGroup.HeldThingsCount; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "parent": "Native SlotGroup.parent reference; only selected child members are read.",
+        "settings": "Native SlotGroup.Settings reference; only selected child members are read."
+      },
+      "ThingCategoryDef": {
+        "def_name": "Native ThingCategoryDef.defName; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "label": "Native ThingCategoryDef.label; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "parent": "Native ThingCategoryDef.parent reference; only selected child members are read."
+      },
+      "CompProperties": {
+        "runtime_type": "Transport metadata; not a native gameplay member.",
+        "comp_class": "Native CompProperties.compClass; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable."
+      },
+      "IngestibleProperties": {
+        "food_type": "Native IngestibleProperties.foodType; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "drug_category": "Native IngestibleProperties.drugCategory; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "human_edible": "Native IngestibleProperties.HumanEdible; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "is_meal": "Native IngestibleProperties.IsMeal; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "cached_nutrition": "Native IngestibleProperties.CachedNutrition; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "max_num_to_ingest_at_once": "Native IngestibleProperties.maxNumToIngestAtOnce; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable."
+      },
+      "ResourceCountEntry": {
+        "key": "Native ResourceCountEntry.key reference; only selected child members are read.",
+        "value": "Native ResourceCountEntry.value; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable."
+      },
+      "ThoughtGroup": {
+        "mood_offset": "Effective mood offset for this group as computed by the game. Do not sum raw memory offsets as a substitute."
+      },
+      "Thought": {
+        "mood_offset": "Individual thought offset; grouping/stacking can change its effective contribution.",
+        "age_ticks": "Memory age in game ticks; null for non-memory thoughts.",
+        "duration_ticks": "Game memory duration in ticks; null for non-memory thoughts."
+      },
+      "HealthSummary": {
+        "health_percent": "Game summaryHealth.SummaryHealthPercent: an overall game-computed health indicator. Report it separately from conditions and body-part HP; this read is not a blood-volume measurement. A value of 1 does not establish a cause or a general rule about which conditions affect it.",
+        "pain": "Game PainTotal aggregate, distinct from injury severity and health percentage. This aggregate alone does not attribute pain to individual listed conditions.",
+        "bleed_rate": "Native BleedRateTotal: blood-loss fraction per game day (60000 ticks). Multiply by 100 for percentage points per game day; never per second. This rate alone is not a computed survival-time estimate."
+      },
+      "Condition": {
+        "severity": "Raw Hediff severity; meaning/range depends on its definition. Not a universal 0..1 health fraction."
+      },
+      "Trait": {
+        "degree": "Trait variant identifier, not a numeric stat bonus. The game-generated description reports this trait's effects; suppression is separate."
+      },
+      "Skill": {
+        "aptitude": "Game skill Aptitude, distinct from learned level, XP and passion."
+      },
+      "CompQuality": {
+        "ref": "Transport metadata; not a native gameplay member.",
+        "runtime_type": "Transport metadata; not a native gameplay member.",
+        "supported_type": "Transport metadata; not a native gameplay member.",
+        "supported": "Transport metadata; not a native gameplay member.",
+        "quality": "Native CompQuality.Quality; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable."
+      },
+      "CompRottable": {
+        "ref": "Transport metadata; not a native gameplay member.",
+        "runtime_type": "Transport metadata; not a native gameplay member.",
+        "supported_type": "Transport metadata; not a native gameplay member.",
+        "supported": "Transport metadata; not a native gameplay member.",
+        "rot_progress": "Native CompRottable.RotProgress; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "rot_progress_pct": "Native CompRottable.RotProgressPct; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "stage": "Native CompRottable.Stage; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "ticks_until_rot_at_current_temp": "Native CompRottable.TicksUntilRotAtCurrentTemp; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable."
+      },
+      "CompForbiddable": {
+        "ref": "Transport metadata; not a native gameplay member.",
+        "runtime_type": "Transport metadata; not a native gameplay member.",
+        "supported_type": "Transport metadata; not a native gameplay member.",
+        "supported": "Transport metadata; not a native gameplay member.",
+        "forbidden": "Native CompForbiddable.Forbidden; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable."
+      },
+      "CompIngredients": {
+        "ref": "Transport metadata; not a native gameplay member.",
+        "runtime_type": "Transport metadata; not a native gameplay member.",
+        "supported_type": "Transport metadata; not a native gameplay member.",
+        "supported": "Transport metadata; not a native gameplay member."
+      },
+      "UnsupportedThingComp": {
+        "ref": "Transport metadata; not a native gameplay member.",
+        "runtime_type": "Transport metadata; not a native gameplay member.",
+        "supported_type": "Transport metadata; not a native gameplay member.",
+        "supported": "Transport metadata; not a native gameplay member."
+      },
+      "StorageParent": {
+        "ref": "Transport metadata; not a native gameplay member.",
+        "runtime_type": "Transport metadata; not a native gameplay member.",
+        "thing_id": "Native StorageParent.thingId; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable."
+      },
+      "StorageSettings": {
+        "priority": "Native StorageSettings.Priority; selected getter only. Interpret null using this member's meaning; an issue at its path means failed/unavailable.",
+        "filter": "Native StorageSettings.filter reference; only selected child members are read."
+      },
+      "Tending": {
+        "ticks_left": "Remaining tending duration in game ticks; null when not tended."
+      }
+    },
+    "examples": [
+      {
+        "requests": [
+          {
+            "from": "things",
+            "args": {
+              "map_id": "current",
+              "include_held": false
+            },
+            "where": {
+              "definition.category": {
+                "eq": "Item"
+              }
+            },
+            "group_by": [
+              "definition.def_name"
+            ],
+            "select": {
+              "definition": [
+                "def_name",
+                "label",
+                "category",
+                "is_ingestible",
+                "is_weapon"
+              ]
+            },
+            "aggregate": {
+              "quantity": {
+                "op": "sum",
+                "field": "stack_count"
+              }
+            }
+          },
+          {
+            "from": "spawned_free_colonists",
+            "args": {
+              "map_id": "current"
+            },
+            "select": [
+              "id",
+              "name",
+              "inventory",
+              "equipment",
+              "apparel",
+              "carried"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "schema_id": "a35400c8a1c5a61daeb315f781cca2b56b206cc6dcb151d9aedf20f589ba4b5e"
+}

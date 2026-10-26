@@ -1,0 +1,7 @@
+{
+  "plugin.name": "Half-Life & Portal Play",
+  "plugin.description": "Let N.E.K.O play the Half-Life and Portal series: open the game yourself, say 'play Half-Life' or 'play Portal 2', and the catgirl watches the screen, plans out loud, drives the controls, and yields whenever you take over.",
+  "action.source_play": "Let the catgirl play",
+  "action.source_stop": "Tell her to stop",
+  "action.source_status": "Refresh status"
+}

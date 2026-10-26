@@ -1,0 +1,8 @@
+{
+  "name": "neko-voice-bridge",
+  "productName": "猫娘语音桥",
+  "version": "0.7.1",
+  "private": true,
+  "type": "module",
+  "main": "desktop/main.mjs"
+}

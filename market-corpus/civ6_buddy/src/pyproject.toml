@@ -1,0 +1,5 @@
+[project]
+name = "civ6_buddy"
+version = "0.2.0"
+description = "文明6陪玩：解析存档获知局面 + 推荐制屏幕自动化运营托管"
+dependencies = []

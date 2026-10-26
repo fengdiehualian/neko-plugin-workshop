@@ -1,0 +1,10 @@
+[project]
+name = "neko_translate"
+version = "0.1.0"
+description = "翻译猫娘"
+requires-python = ">=3.11"
+# 运行时不依赖任何第三方库（只用标准库），因此无需 vendor/
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

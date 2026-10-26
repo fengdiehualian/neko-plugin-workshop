@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neko.local/knowledge-dungeon/bridge-requests-v1.schema.json",
+  "title": "Knowledge Dungeon domain request bodies v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bridge_protocol_version"],
+  "properties": {
+    "bridge_protocol_version": {"const": 1},
+    "run_id": {"type": "string", "pattern": "^run-[0-9a-f]{24}$"},
+    "request_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "subject_id": {"const": "math"},
+    "scenario_id": {"enum": ["calculus_v0_1", "forest_v0_2"]},
+    "expected_state_version": {"type": "integer", "minimum": 1},
+    "action_id": {
+      "type": "string",
+      "pattern": "^(select_node:[a-z0-9][a-z0-9._-]*|enter_selected_node|play_card:[a-z0-9][a-z0-9._-]*|end_turn|choose_reward:[a-z0-9][a-z0-9._-]*|choose_event:[a-z0-9][a-z0-9._-]*|repair_camp|abandon_run|finish_run)$"
+    }
+  },
+  "oneOf": [
+    {
+      "not": {
+        "anyOf": [
+          {"required": ["run_id"]},
+          {"required": ["request_id"]},
+          {"required": ["subject_id"]},
+          {"required": ["scenario_id"]},
+          {"required": ["expected_state_version"]},
+          {"required": ["action_id"]}
+        ]
+      }
+    },
+    {
+      "required": ["request_id", "subject_id", "scenario_id"],
+      "not": {
+        "anyOf": [
+          {"required": ["run_id"]},
+          {"required": ["expected_state_version"]},
+          {"required": ["action_id"]}
+        ]
+      }
+    },
+    {
+      "required": ["run_id"],
+      "not": {
+        "anyOf": [
+          {"required": ["request_id"]},
+          {"required": ["subject_id"]},
+          {"required": ["scenario_id"]},
+          {"required": ["expected_state_version"]},
+          {"required": ["action_id"]}
+        ]
+      }
+    },
+    {
+      "required": ["run_id", "request_id", "expected_state_version", "action_id"],
+      "not": {
+        "anyOf": [
+          {"required": ["subject_id"]},
+          {"required": ["scenario_id"]}
+        ]
+      }
+    }
+  ]
+}

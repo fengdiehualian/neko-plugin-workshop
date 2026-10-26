@@ -1,0 +1,37 @@
+{
+  "version": "0.7.1",
+  "publication_date": "2026-09-28",
+  "original_installer": true,
+  "installer_payload_files_verified": 76,
+  "desktop_source_files_verified": 29,
+  "plugin_restored_and_rebuilt": true,
+  "python_unit_tests_passed": 44,
+  "ruff": true,
+  "hosted_tsx_files_passed": 1,
+  "desktop_offline_self_test": {
+    "runtime": "44.4.4",
+    "pairing": true,
+    "webrtc_receive": true,
+    "virtual_microphone_send": true,
+    "simulated_cable_capture_to_rtc": true,
+    "wake_filter": true,
+    "setup_wizard": true,
+    "repeated_peer_cleanup": 100
+  },
+  "official_plugin_check_errors": 0,
+  "official_plugin_check_warnings": [
+    "missing editor settings",
+    "missing editor tasks",
+    "missing plugin-local CI workflow",
+    "plugin source is a subdirectory of the publication repository"
+  ],
+  "windows_installation_tested_this_publication": false,
+  "live_kook_tested_this_publication": false,
+  "live_cloud_model_tested_this_publication": false,
+  "official_package_inspector_passed": true,
+  "packaged_entry_metadata": true,
+  "sha256": {
+    "NekoVoiceBridge-Setup-0.7.1-x64.exe": "4e0e9c8d63d01b8e48bbed1d3698376d93f3633856e61b69f4fb67547be2b973",
+    "neko_voice_bridge-0.7.1.neko-plugin": "1626da0b99e936cb26028bb6705cf87898d13fe9d40277af703af15239cb4afe"
+  }
+}

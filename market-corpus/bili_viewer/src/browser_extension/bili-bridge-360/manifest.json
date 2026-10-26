@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "B站接入桥 (360)",
+  "version": "0.2.25",
+  "description": "v0.2.24 无焦点窗口防御加固：全部 tabs.query 查询补 .catch 兜底（消除 Unchecked runtime.lastError: No last-focused window 隐患）；声音采集成功路径主动上报状态（ctx_state=running，插件可远程确认正在采集）。v0.2.21 新增进入直播间指令通道（插件→扩展自动打开直播间标签页驻场，小号出现在观众名单）；v0.2.19 修复双音乐/回声：音频回放仅在源页面被 tabCapture 静音时启用（页面未静音时保留原声、不再重复回放）；edge/360 扩展来源标识独立。v0.2.19 修复双音乐/回声：音频回放仅在源页面被 tabCapture 静音时启用（页面未静音时保留原声、不再重复回放）；edge/360 扩展来源标识独立。360 安全/极速浏览器专用版：v0.2.18 修复窗口焦点校准在无焦点窗口（全最小化/后台唤醒）时抛 Unchecked runtime.lastError；把 B站登录态、当前浏览内容与页面实况（直播弹幕/视频进度/屏幕画面截图）实时同步给本机 N.E.K.O bili_viewer 插件；v0.2.17 新增直播弹幕实时采集（content script 读取弹幕区文本推送给插件，YUI 能实时看到弹幕、被@时触发提醒）；v0.2.16 新增声音授权快捷键（Ctrl+Shift+Y：首次按一次授权 tabCapture，之后永久自动采集）；v0.2.15 修复 AudioWorklet 被 CSP 拦截；v0.2.14 音频诊断透传（offscreen 上报 AudioContext 状态与 addModule 错误到插件日志）；v0.2.13 消除废弃警告：ScriptProcessorNode 已废弃，音频采集升级为 AudioWorkletNode（独立音频线程、更稳定）；v0.2.12 修复声音捕获导致用户本机声音消失（tabCapture 捕获会静音源标签页，现用 audio 元素直连回放给用户，分析链路与回放分离、offscreen 声明 AUDIO_PLAYBACK）；v0.2.11 修复声音捕获 0 推送（offscreen AudioContext 显式 resume，规避 Chrome 自动播放策略挂起）；v0.2.9 声音捕获永久开启（默认开启并记忆，重启浏览器自动恢复，后台静默采集当前 B站 标签页音频，不在 B站 页时记住意图、切过去自动启动，标签切换自动重绑；采样率按实际环境自适应，内核过旧自动降级不影响其它功能；声音开关状态实时回传面板）；v0.2.9 新增窗口焦点门控——仅当浏览器窗口在前台时才推送页面实况（标签/DOM/画面），多浏览器共存时以你正在看的那一个为准，不再互相覆盖；cookie 同步与声音捕获不受焦点限制，后台照常工作。仅推送至 127.0.0.1 本机服务，数据不经过任何外部网络。本版仅供 360 使用，与 Chrome/Edge 版本相互独立，可在多浏览器共存互不干扰。",
+  "permissions": ["cookies", "storage", "alarms", "tabs", "scripting", "activeTab", "tabCapture", "offscreen"],
+  "host_permissions": [
+    "*://*.bilibili.com/*",
+    "http://127.0.0.1:8765/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.bilibili.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [{"resources": ["audio-processor.js"], "matches": ["<all_urls>"]}],
+  "commands": {
+    "toggle-audio": {
+      "suggested_key": { "default": "Ctrl+Shift+Y" },
+      "description": "v0.2.24 无焦点窗口防御加固：全部 tabs.query 查询补 .catch 兜底（消除 Unchecked runtime.lastError: No last-focused window 隐患）；声音采集成功路径主动上报状态（ctx_state=running，插件可远程确认正在采集）。开启/关闭声音采集（首次使用必须按一次授权 tabCapture，之后永久自动）"
+    }
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "B站接入桥 (360)"
+  }
+}

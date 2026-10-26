@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>猫娘实况相册</title>
+<style>
+  :root{
+    --bg:#faf6f2; --card:#ffffff; --ink:#4a3f3a; --sub:#9b8b83;
+    --pink:#ffb7c5; --pink-deep:#f48fa5; --accent:#ff8fab;
+    --shadow:0 8px 24px rgba(180,140,130,.18);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,"PingFang SC",sans-serif;color:var(--ink);
+    background:var(--bg);overflow:hidden;touch-action:manipulation;
+    -webkit-user-select:none;user-select:none;
+  }
+  #app{height:100dvh;display:flex;flex-direction:column;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+  header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 6px}
+  header h1{font-size:19px;font-weight:800;letter-spacing:.5px}
+  header .cnt{font-size:12px;color:var(--sub)}
+
+  #stage{position:relative;flex:1;min-height:0}
+  #nekoCanvas{width:100%;height:100%;display:block}
+  #bubble{
+    position:absolute;left:50%;top:8%;transform:translateX(-50%) scale(.85);
+    max-width:78%;background:#fff;border-radius:18px;padding:10px 16px;
+    font-size:15px;line-height:1.45;box-shadow:var(--shadow);opacity:0;
+    transition:opacity .25s,transform .25s;pointer-events:none;text-align:center;
+  }
+  #bubble.show{opacity:1;transform:translateX(-50%) scale(1)}
+  #bubble::after{content:"";position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);
+    border:9px solid transparent;border-top-color:#fff;border-bottom:0}
+  #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .08s}
+  #flash.on{opacity:.95}
+
+  #controls{display:flex;gap:10px;padding:10px 16px calc(14px + env(safe-area-inset-bottom))}
+  #controls button{
+    flex:1;border:none;border-radius:20px;padding:15px 0;font-size:15px;font-weight:700;
+    color:#fff;background:var(--accent);box-shadow:0 6px 16px rgba(244,143,165,.4);
+    transition:transform .1s;font-family:inherit;
+  }
+  #controls button:active{transform:scale(.95)}
+  #btnHerShot{background:linear-gradient(135deg,#a78bfa,#f48fa5)!important;
+    box-shadow:0 6px 16px rgba(167,139,250,.35)!important}
+  #btnAlbum{background:#fff!important;color:var(--ink)!important;
+    box-shadow:var(--shadow)!important}
+
+  .overlay{position:fixed;inset:0;background:var(--bg);z-index:50;display:none;
+    flex-direction:column;padding:env(safe-area-inset-top) 0 0}
+  .overlay.open{display:flex}
+  .ov-head{display:flex;align-items:center;padding:14px 18px;gap:12px}
+  .ov-head h2{font-size:18px;font-weight:800;flex:1}
+  .closeBtn{border:none;background:#eee5df;width:34px;height:34px;border-radius:50%;
+    font-size:16px;color:var(--ink);font-family:inherit}
+  #grid{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:3px 3px 40px}
+  .card{position:relative;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:#efe6e0}
+  .card img{width:100%;height:100%;object-fit:cover;display:block}
+  .card video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+  .card.playing video{display:block}
+  .card.playing img{display:none}
+  .card .who{position:absolute;top:6px;left:6px;background:rgba(167,139,250,.9);color:#fff;
+    font-size:10px;padding:2px 7px;border-radius:8px}
+  .card .live{position:absolute;bottom:6px;left:6px;color:#fff;font-size:11px;
+    text-shadow:0 1px 4px rgba(0,0,0,.5)}
+  .empty{grid-column:1/-1;text-align:center;color:var(--sub);padding:80px 30px;font-size:14px;line-height:2}
+
+  #detail{z-index:60;background:rgba(30,20,18,.92)}
+  #detail .wrap{flex:1;display:flex;flex-direction:column;justify-content:center;padding:20px}
+  #detailMedia{position:relative;margin:0 auto;width:min(86vw,380px);aspect-ratio:3/4;
+    border-radius:24px;overflow:hidden;background:#000;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+  #detailMedia img,#detailMedia video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  #detailMedia video{display:none}
+  #detailMedia.playing video{display:block}
+  #detailMedia.playing img{display:none}
+  #detailHint{position:absolute;bottom:12px;left:0;right:0;text-align:center;color:#fff;
+    font-size:12px;opacity:.75;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+  #detailMeta{color:#fff;margin-top:18px;text-align:center;font-size:14px;line-height:1.9;padding:0 12px}
+  #detailMeta .mood{color:var(--pink)}
+  #detailActs{display:flex;gap:12px;justify-content:center;padding:18px 20px calc(24px + env(safe-area-inset-bottom))}
+  #detailActs button{border:none;border-radius:16px;padding:13px 22px;font-size:14px;font-weight:700;
+    font-family:inherit;background:rgba(255,255,255,.14);color:#fff}
+  #delBtn{background:rgba(255,90,90,.25)!important}
+
+  #camModal{z-index:70;background:rgba(20,14,12,.94)}
+  #camModal .wrap{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px}
+  #camBox{position:relative;width:min(86vw,400px);aspect-ratio:3/4;border-radius:24px;overflow:hidden;
+    background:#111;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+  #camVideo{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #camCount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:110px;font-weight:800;color:#fff;text-shadow:0 4px 30px rgba(0,0,0,.6);
+    opacity:0;transition:opacity .1s}
+  #camCount.show{opacity:1}
+  #camFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+  #camMsg{color:#fff;margin-top:16px;font-size:14px;text-align:center;line-height:1.8;max-width:80vw}
+
+  #consent{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.35);display:none;
+    align-items:flex-end;justify-content:center}
+  #consent.open{display:flex}
+  #consent .sheet{background:#fff;width:100%;border-radius:24px 24px 0 0;padding:24px 22px
+    calc(20px + env(safe-area-inset-bottom));text-align:center;animation:up .25s ease}
+  @keyframes up{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+  #consent .q{font-size:17px;font-weight:700;line-height:1.6;margin-bottom:4px}
+  #consent .d{font-size:13px;color:var(--sub);margin-bottom:18px;line-height:1.6}
+  #consent .row{display:flex;gap:10px}
+  #consent .row button{flex:1;border:none;border-radius:16px;padding:15px 0;font-size:15px;
+    font-weight:700;font-family:inherit}
+  #yesBtn{background:var(--accent);color:#fff}
+  #noBtn{background:#f0e8e2;color:var(--ink)}
+
+  #tip{position:fixed;inset:0;z-index:90;background:rgba(30,20,18,.55);display:none;
+    align-items:center;justify-content:center;padding:30px}
+  #tip.open{display:flex}
+  #tip .box{background:#fff;border-radius:24px;padding:26px 24px;max-width:340px;line-height:2;
+    font-size:14px;animation:up .25s ease}
+  #tip b{color:var(--pink-deep)}
+  #tipGo{margin-top:14px;width:100%;border:none;border-radius:16px;padding:14px 0;
+    background:var(--accent);color:#fff;font-size:15px;font-weight:700;font-family:inherit}
+  #toast{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);z-index:99;
+    background:rgba(50,40,36,.9);color:#fff;font-size:13px;padding:10px 18px;border-radius:14px;
+    opacity:0;transition:opacity .3s;pointer-events:none;max-width:80vw;text-align:center}
+  #toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🐾 实况相册</h1>
+    <span class="cnt" id="hdrCount"></span>
+  </header>
+  <div id="stage">
+    <canvas id="nekoCanvas"></canvas>
+    <div id="bubble"></div>
+    <div id="flash"></div>
+  </div>
+  <div id="controls">
+    <button id="btnPhoto">📸 拍她</button>
+    <button id="btnHerShot">🤳 她拍你</button>
+    <button id="btnAlbum">📖 相册</button>
+  </div>
+</div>
+
+<div class="overlay" id="albumView">
+  <div class="ov-head">
+    <h2>我们的相册</h2>
+    <button class="closeBtn" data-close="albumView">✕</button>
+  </div>
+  <div id="grid"></div>
+</div>
+
+<div class="overlay" id="detail">
+  <div class="ov-head">
+    <h2 id="detailTitle">实况卡</h2>
+    <button class="closeBtn" data-close="detail">✕</button>
+  </div>
+  <div class="wrap">
+    <div id="detailMedia">
+      <img id="detailImg" alt="">
+      <video id="detailVid" muted loop playsinline></video>
+      <div id="detailHint">按住画面播放实况</div>
+    </div>
+    <div id="detailMeta"></div>
+  </div>
+  <div id="detailActs">
+    <button id="shareBtn">↗ 保存/分享</button>
+    <button id="delBtn">删除</button>
+  </div>
+</div>
+
+<div class="overlay" id="camModal">
+  <div class="wrap">
+    <div id="camBox">
+      <video id="camVideo" autoplay playsinline muted></video>
+      <div id="camCount"></div>
+      <div id="camFlash"></div>
+    </div>
+    <div id="camMsg"></div>
+    <div id="detailActs" style="padding-top:20px">
+      <button id="camCancel" style="width:auto;padding:12px 30px;border-radius:16px;background:rgba(255,255,255,.15);color:#fff">不拍了</button>
+    </div>
+  </div>
+</div>
+
+<div id="consent">
+  <div class="sheet">
+    <div class="q" id="consentQ">可以让我拍一张你吗？</div>
+    <div class="d">她会用前置摄像头拍摄一段实况（约 2.5 秒）<br>存进你们的共同相册</div>
+    <div class="row">
+      <button id="noBtn">不要啦</button>
+      <button id="yesBtn">好呀</button>
+    </div>
+  </div>
+</div>
+
+<div id="tip">
+  <div class="box">
+    <b>🐾 欢迎来到实况相册</b><br>
+    · <b>摸摸她的头</b> — 点她的脑袋<br>
+    · <b>📸 拍她</b> — 抓拍她的反应实况<br>
+    · <b>🤳 她拍你</b> — 她会用前置摄像头拍你<br>
+    · <b>长按照片</b> = 播放实况（iPhone 手感）<br>
+    <button id="tipGo">开始吧</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ============ 基础工具 ============ */
+const $ = id => document.getElementById(id);
+const rand = a => a[Math.floor(Math.random()*a.length)];
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+
+let toastTimer;
+function toast(msg, ms=2200){
+  const t=$("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),ms);
+}
+function flash(el){ el.classList.add("on"); setTimeout(()=>el.classList.remove("on"),130); }
+
+let actx=null;
+function shutterSound(){
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    [[1450,0],[900,.07]].forEach(([f,d])=>{
+      const o=actx.createOscillator(), g=actx.createGain();
+      o.frequency.value=f; o.type="square";
+      g.gain.setValueAtTime(.12,actx.currentTime+d);
+      g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+d+.06);
+      o.connect(g).connect(actx.destination);
+      o.start(actx.currentTime+d); o.stop(actx.currentTime+d+.07);
+    });
+  }catch(e){}
+}
+
+/* ============ IndexedDB 持久化 ============ */
+let idb=null;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const rq=indexedDB.open("neko-live-album",1);
+    rq.onupgradeneeded=()=>{ rq.result.createObjectStore("cards",{keyPath:"id"}); };
+    rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error);
+  });
+}
+function idbPut(card){
+  if(!idb) return;
+  const {vidUrl, ...persist} = card;
+  try{ idb.transaction("cards","readwrite").objectStore("cards").put(persist); }catch(e){}
+}
+function idbDel(id){
+  if(!idb) return;
+  try{ idb.transaction("cards","readwrite").objectStore("cards").delete(id); }catch(e){}
+}
+function idbAll(){
+  return new Promise(res=>{
+    if(!idb) return res([]);
+    try{
+      const rq=idb.transaction("cards").objectStore("cards").getAll();
+      rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>res([]);
+    }catch(e){ res([]); }
+  });
+}
+
+/* ============ 猫娘状态机 ============ */
+const neko = {
+  mood:"normal", moodUntil:0,
+  blink:1, nextBlink: performance.now()+2400,
+  hearts:[], pets:0, lastInteract: Date.now(),
+};
+function setMood(mood, ms, say){
+  neko.mood = mood; neko.moodUntil = performance.now()+ms;
+  if(say) showBubble(say);
+}
+function showBubble(text){
+  const b=$("bubble"); b.textContent=text; b.classList.add("show");
+  clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove("show"),2600);
+}
+
+const REACT_PHOTO = [
+  ["shy","呀！怎、怎么突然拍我啦…"],
+  ["pose","要拍就拍好看一点哦~ ✌"],
+  ["happy","嘿嘿，是不是很可爱？"],
+  ["annoyed","又偷拍…就这一次哦"],
+  ["shy","头发没乱吧…？"],
+];
+const REACT_PET = [
+  ["happy","呼哇…最喜欢摸头了"],
+  ["happy","咕噜咕噜…"],
+  ["shy","别、别揉乱了啦…"],
+  ["happy","再摸一下也可以哦"],
+];
+const ASK_LINES = [
+  "那个…可以让我拍一张你吗？","你现在的样子很好看，能拍下来吗？",
+  "想偷偷收藏一张你的照片，可以吗？",
+];
+const AFTER_LINES = ["拍好了！这张是我的了，不许删哦","嘿嘿，笑起来真好看","收藏！要放进回忆小盒子"];
+const DENY_LINES = ["唔…那算了，小气鬼","好吧…下次一定要答应我哦"];
+
+/* ============ 画布与绘制 ============ */
+const cv=$("nekoCanvas"), ctx=cv.getContext("2d");
+let W=0,H=0,DPR=1;
+function resize(){
+  const r=cv.getBoundingClientRect();
+  DPR=Math.min(devicePixelRatio||1,2);
+  W=r.width; H=r.height;
+  cv.width=W*DPR; cv.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener("resize",resize);
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+
+function drawFrame(now){
+  const t = now/1000;
+  ctx.clearRect(0,0,W,H);
+
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,"#fdf1ea"); bg.addColorStop(.7,"#fbe9e2"); bg.addColorStop(1,"#f7ded6");
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="rgba(255,255,255,.35)";
+  ctx.beginPath(); ctx.ellipse(W/2,H*.88,W*.42,H*.07,0,0,7); ctx.fill();
+
+  const u=H/100, cx=W/2;
+  const bob=Math.sin(t*1.9)*0.9*u;
+  const sway=Math.sin(t*1.6);
+  const mood = now<neko.moodUntil ? neko.mood : (neko.mood="normal");
+  const shy = mood==="shy", pose=mood==="pose", annoyed=mood==="annoyed", happy=mood==="happy";
+
+  if(now>neko.nextBlink){ neko.blink=0; neko.nextBlink=now+2400+Math.random()*1800; }
+  neko.blink=Math.min(1,neko.blink+0.12);
+
+  /* 尾巴 */
+  const tailX = cx+13*u, tailY=86*u;
+  ctx.strokeStyle="#b98a7a"; ctx.lineWidth=4.5*u; ctx.lineCap="round";
+  ctx.beginPath(); ctx.moveTo(tailX,tailY);
+  ctx.bezierCurveTo(tailX+14*u, tailY-4*u, tailX+16*u+sway*4*u, tailY-22*u, tailX+4*u+sway*6*u, tailY-30*u);
+  ctx.stroke();
+  ctx.strokeStyle="#ffc9d4"; ctx.lineWidth=4.5*u;
+  ctx.beginPath(); ctx.moveTo(tailX+4*u+sway*6*u,tailY-30*u);
+  ctx.lineTo(tailX+1*u+sway*6.5*u,tailY-33*u); ctx.stroke();
+
+  /* 双马尾 */
+  for(const side of [-1,1]){
+    const bx=cx+side*15*u, by=46*u+bob;
+    ctx.fillStyle="#a97a6c";
+    ctx.beginPath(); ctx.moveTo(bx,by);
+    ctx.bezierCurveTo(bx+side*10*u, by+14*u, bx+side*(6+sway*3)*u, by+30*u, bx+side*(9+sway*4)*u, by+40*u);
+    ctx.bezierCurveTo(bx+side*2*u, by+30*u, bx+side*4*u, by+14*u, bx, by);
+    ctx.fill();
+  }
+
+  /* 身体 */
+  const bodyTop=62*u+bob;
+  ctx.fillStyle="#ffb7c5";
+  roundRect(cx-12*u, bodyTop, 24*u, 22*u, 9*u); ctx.fill();
+  ctx.fillStyle="#fff";
+  roundRect(cx-8*u, bodyTop+9*u, 16*u, 12*u, 5*u); ctx.fill();
+  ctx.fillStyle="#ffd9c9";
+  ctx.beginPath(); ctx.ellipse(cx-5*u,87*u+bob*.4,3.4*u,2.2*u,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+5*u,87*u+bob*.4,3.4*u,2.2*u,0,0,7); ctx.fill();
+
+  /* 手臂 */
+  const shoulderY=bodyTop+4*u;
+  ctx.strokeStyle="#ffe8dc"; ctx.lineWidth=3.6*u;
+  const armWave = pose? Math.min(1,(performance.now()-(neko.moodUntil-2600))/300):0;
+  for(const side of [-1,1]){
+    let hx,hy2;
+    if(pose && side===1){
+      const a=armWave; hx=cx+(10+8*a)*u; hy2=shoulderY-14*a*u;
+    }else if(shy){
+      hx=cx+side*14*u; hy2=48.5*u+bob;
+    }else{
+      hx=cx+side*13.5*u; hy2=shoulderY+15*u;
+    }
+    ctx.beginPath(); ctx.moveTo(cx+side*10*u, shoulderY);
+    ctx.quadraticCurveTo(cx+side*15*u, shoulderY+8*u, hx, hy2); ctx.stroke();
+    if(pose && side===1 && armWave>.8){
+      ctx.beginPath(); ctx.moveTo(hx,hy2); ctx.lineTo(hx+3.4*u,hy2-4.6*u);
+      ctx.moveTo(hx,hy2); ctx.lineTo(hx+6*u,hy2-2.4*u); ctx.stroke();
+    }
+  }
+
+  /* 头部 */
+  const hy=46*u+bob, R=17*u;
+  for(const side of [-1,1]){
+    ctx.fillStyle="#a97a6c";
+    ctx.beginPath();
+    ctx.moveTo(cx+side*6*u,hy-R*.72);
+    ctx.lineTo(cx+side*14*u,hy-R*1.5);
+    ctx.lineTo(cx+side*16*u,hy-R*.6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle="#ffc9d4";
+    ctx.beginPath();
+    ctx.moveTo(cx+side*9*u,hy-R*.78);
+    ctx.lineTo(cx+side*13.6*u,hy-R*1.3);
+    ctx.lineTo(cx+side*14.4*u,hy-R*.72); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle="#ffe8dc";
+  ctx.beginPath(); ctx.arc(cx,hy,R,0,7); ctx.fill();
+  ctx.fillStyle="#a97a6c";
+  ctx.beginPath(); ctx.arc(cx,hy-1.5*u,R*.98,Math.PI*1.02,Math.PI*1.98);
+  ctx.quadraticCurveTo(cx,hy-R*.4,cx-R*.98,hy-R*.1); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx-R*.98,hy-R*.1);
+  ctx.quadraticCurveTo(cx-R*.5,hy-R*.55,cx-R*.2,hy-R*.15);
+  ctx.quadraticCurveTo(cx,hy-R*.6,cx+R*.3,hy-R*.18);
+  ctx.quadraticCurveTo(cx+R*.6,hy-R*.55,cx+R*.98,hy-R*.15);
+  ctx.lineTo(cx+R*.98,hy-R*.28); ctx.quadraticCurveTo(cx,hy-R*1.1,cx-R*.98,hy-R*.3);
+  ctx.fill();
+  ctx.strokeStyle="#a97a6c"; ctx.lineWidth=1.8*u;
+  ctx.beginPath(); ctx.moveTo(cx,hy-R*.98);
+  ctx.quadraticCurveTo(cx+4*u,hy-R*1.45,cx-2*u+sway*u,hy-R*1.5); ctx.stroke();
+
+  /* 表情 */
+  const ex=7*u, ey=hy+1.5*u, er=3.6*u;
+  const blink=neko.blink;
+  for(const side of [-1,1]){
+    if(happy){
+      ctx.strokeStyle="#5a4440"; ctx.lineWidth=1.6*u;
+      ctx.beginPath(); ctx.arc(cx+side*ex,ey+1.4*u,er*.9,Math.PI*1.15,Math.PI*1.85); ctx.stroke();
+    }else if(annoyed){
+      ctx.strokeStyle="#5a4440"; ctx.lineWidth=1.7*u;
+      const x0=cx+side*ex;
+      ctx.beginPath();
+      ctx.moveTo(x0-er*.8,ey-er*.6); ctx.lineTo(x0+er*.8,ey+er*.6);
+      ctx.moveTo(x0+er*.8,ey-er*.6); ctx.lineTo(x0-er*.8,ey+er*.6); ctx.stroke();
+    }else if(pose && side===-1){
+      ctx.strokeStyle="#5a4440"; ctx.lineWidth=1.6*u;
+      ctx.beginPath(); ctx.arc(cx+side*ex,ey,er*.85,.15,Math.PI-.15); ctx.stroke();
+    }else{
+      const eh=er*(shy? .82:1)*blink;
+      if(eh<.5*u){ ctx.strokeStyle="#5a4440"; ctx.lineWidth=1.5*u;
+        ctx.beginPath(); ctx.moveTo(cx+side*ex-er*.8,ey); ctx.lineTo(cx+side*ex+er*.8,ey); ctx.stroke();
+      }else{
+        ctx.fillStyle="#5a4440";
+        ctx.beginPath(); ctx.ellipse(cx+side*ex,ey,er*.82,eh,0,0,7); ctx.fill();
+        ctx.fillStyle="#fff";
+        ctx.beginPath(); ctx.arc(cx+side*ex-er*.25,ey-eh*.3,er*.26,0,7); ctx.fill();
+        if(shy){ ctx.fillStyle="#5a4440";
+          ctx.beginPath(); ctx.arc(cx+side*ex+er*.3,ey+eh*.1,er*.3,0,7); ctx.fill(); }
+      }
+    }
+  }
+  ctx.fillStyle = (shy?"rgba(255,120,140,.5)": happy?"rgba(255,140,160,.35)":"rgba(255,150,160,.25)");
+  for(const side of [-1,1]){
+    ctx.beginPath(); ctx.ellipse(cx+side*10.5*u,hy+6.5*u,3.4*u,1.9*u,0,0,7); ctx.fill();
+  }
+  ctx.strokeStyle="#c96f6f"; ctx.lineWidth=1.4*u;
+  const my=hy+9*u;
+  ctx.beginPath();
+  if(happy||pose){ ctx.arc(cx,my-1*u,3*u,.15,Math.PI-.15); ctx.stroke();
+    ctx.fillStyle="#e88484"; ctx.beginPath(); ctx.arc(cx,my-.4*u,2.6*u,.1,Math.PI-.1); ctx.fill();
+  }else if(annoyed){ ctx.arc(cx,my+2.6*u,2.6*u,Math.PI+.4,-.4); ctx.stroke();
+  }else if(shy){ ctx.moveTo(cx-2.6*u,my); for(let i=0;i<=4;i++) ctx.lineTo(cx-2.6*u+i*1.3*u,my+(i%2?1.2:-0.4)*u); ctx.stroke();
+  }else{
+    ctx.arc(cx-1.5*u,my,1.6*u,.1,Math.PI-.1); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx+1.5*u,my,1.6*u,.1,Math.PI-.1); ctx.stroke();
+  }
+  if(annoyed){
+    ctx.strokeStyle="#f2557a"; ctx.lineWidth=1.5*u;
+    const ax=cx+R*.8, ay=hy-R*.9;
+    for(const [dx,dy] of [[0,0],[2.2*u,0],[0,2.2*u],[2.2*u,2.2*u]]){
+      ctx.beginPath(); ctx.moveTo(ax+dx-1.4*u,ay+dy-1.4*u); ctx.lineTo(ax+dx+1.4*u,ay+dy+1.4*u); ctx.stroke();
+    }
+  }
+
+  /* 漂浮爱心 */
+  neko.hearts=neko.hearts.filter(h=>now-h.born<1400);
+  for(const h of neko.hearts){
+    const p=(now-h.born)/1400, x=h.x+Math.sin(p*5)*6, y=h.y-p*46;
+    ctx.globalAlpha=1-p; ctx.fillStyle="#ff8fab"; ctx.font=`${13+p*8}px serif`;
+    ctx.fillText("♥",x,y); ctx.globalAlpha=1;
+  }
+
+  requestAnimationFrame(drawFrame);
+}
+
+/* ============ 交互：摸头 ============ */
+cv.addEventListener("pointerdown",e=>{
+  const r=cv.getBoundingClientRect();
+  const x=e.clientX-r.left, y=e.clientY-r.top, u=H/100;
+  const hy=46*u, R=17*u;
+  if(Math.hypot(x-W/2,y-hy)<R*1.15){
+    neko.pets++; neko.lastInteract=Date.now();
+    const [m,say]=rand(REACT_PET);
+    setMood(m,2400,say);
+    neko.hearts.push({x:x,y:y-20,born:performance.now()});
+    if(neko.pets%5===0) setTimeout(maybeAskPhoto,1500);
+  }
+});
+
+/* ============ 相册数据 ============ */
+const album=[];
+const grid=$("grid"), hdrCount=$("hdrCount");
+function updateCount(){ hdrCount.textContent = album.length? `共 ${album.length} 张` : ""; }
+
+function pickMime(){
+  if(!window.MediaRecorder) return "";
+  const c=["video/mp4","video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"];
+  for(const m of c) if(MediaRecorder.isTypeSupported(m)) return m;
+  return "";
+}
+
+function addCard(card){
+  card.id=Date.now()+Math.random().toString(16).slice(2,6);
+  album.unshift(card);
+  updateCount();
+  if(card.blob) idbPut(card);
+  toast(card.who==="user"?"她把这张收进相册了 📷":"已存入实况相册 ✨");
+  renderGrid();
+}
+
+function renderGrid(){
+  grid.innerHTML="";
+  if(!album.length){
+    grid.innerHTML=`<div class="empty">还没有实况卡<br>去拍一张吧 📸</div>`; return;
+  }
+  for(const c of album){
+    const d=document.createElement("div"); d.className="card";
+    d.innerHTML=`${c.who==="user"?`<span class="who">她拍的</span>`:""}
+      <img src="${c.cover}" alt="">
+      ${c.vidUrl?`<video src="${c.vidUrl}" muted loop playsinline></video>`:""}
+      <span class="live">${c.vidUrl?"◎ 实况":"◦ 静态"}</span>`;
+    let timer=null, played=false;
+    const vid=d.querySelector("video");
+    d.addEventListener("pointerdown",()=>{
+      if(!vid) return;
+      timer=setTimeout(()=>{ played=true; d.classList.add("playing"); vid.play().catch(()=>{}); },360);
+    });
+    const end=()=>{ clearTimeout(timer);
+      if(played){ played=false; d.classList.remove("playing"); vid.pause(); vid.currentTime=0; } };
+    d.addEventListener("pointerup",()=>{ const was=played; end(); if(!was) openDetail(c); });
+    d.addEventListener("pointerleave",end);
+    d.addEventListener("contextmenu",e=>e.preventDefault());
+    grid.appendChild(d);
+  }
+}
+
+async function loadAlbum(){
+  try{ idb=await openDB(); }catch(e){ idb=null; }
+  const rows=await idbAll();
+  rows.sort((a,b)=>b.ts-a.ts);
+  for(const r of rows){
+    r.vidUrl = r.blob ? URL.createObjectURL(r.blob) : "";
+    album.push(r);
+  }
+  updateCount();
+}
+
+/* ============ 拍她 ============ */
+let recording=false;
+$("btnPhoto").addEventListener("click",()=>{
+  if(recording) return;
+  neko.lastInteract=Date.now();
+  const [mood,say]=rand(REACT_PHOTO);
+  shutterSound(); flash($("flash"));
+  const cover=cv.toDataURL("image/jpeg",.85);
+  setMood(mood,2600,say);
+
+  const mime=pickMime();
+  if(!window.MediaRecorder){
+    addCard({who:"neko",cover,blob:null,mime:"",ts:Date.now(),mood,say,note:"静态快照"}); return;
+  }
+  recording=true;
+  const stream=cv.captureStream(30);
+  const rec=new MediaRecorder(stream, mime?{mimeType:mime}:undefined);
+  const chunks=[];
+  rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  rec.onstop=()=>{
+    stream.getTracks().forEach(t=>t.stop());
+    const blob=new Blob(chunks,{type:rec.mimeType||mime||"video/mp4"});
+    addCard({who:"neko",cover,blob,vidUrl:URL.createObjectURL(blob),
+      mime:rec.mimeType||mime,ts:Date.now(),mood,say,
+      note: mood==="pose"?"主动摆好了 pose":mood==="shy"?"被偷拍了，有点害羞":mood==="annoyed"?"嘴上嫌弃但没躲开":"笑得很开心"});
+    recording=false;
+  };
+  rec.start();
+  setTimeout(()=>rec.state!=="inactive"&&rec.stop(),2600);
+});
+
+/* ============ 她拍你 ============ */
+const camModal=$("camModal"), camVideo=$("camVideo");
+let camStream=null, camRun=false;
+
+function maybeAskPhoto(){
+  if(camRun || document.querySelector(".overlay.open") || $("consent").classList.contains("open")) return;
+  setMood("shy",3200,rand(ASK_LINES));
+  setTimeout(()=>{ if(!camRun) $("consent").classList.add("open"); },1400);
+}
+$("btnHerShot").addEventListener("click",()=>{
+  neko.lastInteract=Date.now();
+  maybeAskPhoto();
+});
+setInterval(()=>{
+  if(Date.now()-neko.lastInteract>32000 && Math.random()<.4) maybeAskPhoto();
+},45000);
+
+$("noBtn").addEventListener("click",()=>{
+  $("consent").classList.remove("open");
+  setMood("annoyed",2400,rand(DENY_LINES));
+});
+$("yesBtn").addEventListener("click",async()=>{
+  $("consent").classList.remove("open");
+  neko.lastInteract=Date.now();
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});
+  }catch(err){
+    setMood("normal",3200,"呜…拿不到摄像头（需要在 HTTPS 环境下打开，并且允许摄像头权限）");
+    return;
+  }
+  camRun=true; camVideo.srcObject=camStream;
+  camModal.classList.add("open");
+  $("camMsg").textContent="别动哦~ 3 秒后拍！";
+  await new Promise(r=>setTimeout(r,700));
+  for(let n=3;n>=1;n--){
+    const c=$("camCount"); c.textContent=n; c.classList.add("show");
+    await new Promise(r=>setTimeout(r,900));
+  }
+  $("camCount").classList.remove("show");
+  shutterSound(); flash($("camFlash"));
+  await takeUserShot();
+  camStream.getTracks().forEach(t=>t.stop()); camStream=null;
+  camVideo.srcObject=null; camRun=false;
+  camModal.classList.remove("open");
+  setMood("happy",3000,rand(AFTER_LINES));
+});
+
+async function takeUserShot(){
+  const mime=pickMime();
+  const cc=document.createElement("canvas");
+  cc.width=720; cc.height=960;
+  const c2=cc.getContext("2d");
+  const draw=()=>{
+    c2.save(); c2.translate(cc.width,0); c2.scale(-1,1);
+    const v=camVideo, vr=v.videoWidth/v.videoHeight, cr=cc.width/cc.height;
+    let dw=cc.width,dh=cc.height;
+    if(vr>cr){ dw=cc.height*vr; } else { dh=cc.width/vr; }
+    c2.drawImage(v,(cc.width-dw)/2,(cc.height-dh)/2,dw,dh);
+    c2.restore();
+  };
+  draw();
+  const cover=cc.toDataURL("image/jpeg",.85);
+  if(!window.MediaRecorder){
+    addCard({who:"user",cover,blob:null,mime:"",ts:Date.now(),mood:"happy",say:"（她拍的）",note:"她说：你今天也很好看"}); return;
+  }
+  return new Promise(resolve=>{
+    const stream=cc.captureStream(30);
+    const rec=new MediaRecorder(stream, mime?{mimeType:mime}:undefined);
+    const chunks=[];
+    rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+    const iv=setInterval(draw,33);
+    rec.onstop=()=>{
+      clearInterval(iv); stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(chunks,{type:rec.mimeType||mime||"video/mp4"});
+      addCard({who:"user",cover,blob,vidUrl:URL.createObjectURL(blob),
+        mime:rec.mimeType||mime,ts:Date.now(),mood:"happy",say:"（她主动拍的）",
+        note:"她的备注：这张笑得最好看，收藏了 ♡"});
+      resolve();
+    };
+    rec.start();
+    setTimeout(()=>rec.state!=="inactive"&&rec.stop(),2500);
+  });
+}
+$("camCancel").addEventListener("click",()=>{
+  if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+  camVideo.srcObject=null; camRun=false; camModal.classList.remove("open");
+  setMood("normal",2000,"好吧…下次再拍");
+});
+
+/* ============ 详情页 ============ */
+let currentCard=null;
+function openDetail(c){
+  currentCard=c;
+  $("detailImg").src=c.cover;
+  const v=$("detailVid");
+  if(c.vidUrl){ v.src=c.vidUrl; }else{ v.removeAttribute("src"); }
+  $("detailTitle").textContent = c.who==="user"?"她拍的你":"你拍的她";
+  const when=new Date(c.ts);
+  $("detailMeta").innerHTML =
+    `${when.toLocaleString("zh-CN")}<br>`+
+    `<span class="mood">${c.who==="user"?"📷 "+(c.note||""):"💭 "+(c.say||"")}</span><br>`+
+    `<span style="opacity:.65">当时的她：${
+      {happy:"开心的",shy:"害羞的",pose:"在摆 pose",annoyed:"假装嫌弃",normal:"平静的"}[c.mood]||c.mood}</span>`;
+  $("detail").classList.add("open");
+}
+const dm=$("detailMedia"), dv=$("detailVid");
+dm.addEventListener("pointerdown",()=>{ if(dv.src){ dm.classList.add("playing"); dv.play().catch(()=>{}); }});
+const dmEnd=()=>{ dm.classList.remove("playing"); dv.pause(); dv.currentTime=0; };
+dm.addEventListener("pointerup",dmEnd); dm.addEventListener("pointerleave",dmEnd);
+dm.addEventListener("contextmenu",e=>e.preventDefault());
+
+$("shareBtn").addEventListener("click",async()=>{
+  const c=currentCard; if(!c) return;
+  try{
+    if(c.blob){
+      const ext=(c.mime||"").includes("mp4")?"mp4":"webm";
+      const f=new File([c.blob],`neko-live-${c.id}.${ext}`,{type:c.mime||"video/mp4"});
+      if(navigator.canShare && navigator.canShare({files:[f]})){
+        await navigator.share({files:[f],title:"猫娘实况"}); return;
+      }
+    }
+    toast("此浏览器不支持文件分享，可长按封面存图");
+  }catch(e){ /* 用户取消分享不算错误 */ }
+});
+$("delBtn").addEventListener("click",()=>{
+  const i=album.indexOf(currentCard);
+  if(i>-1) album.splice(i,1);
+  if(currentCard) idbDel(currentCard.id);
+  renderGrid(); updateCount();
+  $("detail").classList.remove("open");
+  toast("她嘟着嘴看着你删掉了那张照片…");
+});
+
+document.querySelectorAll("[data-close]").forEach(b=>
+  b.addEventListener("click",()=>$(b.dataset.close).classList.remove("open")));
+
+/* ============ 启动 ============ */
+(async function init(){
+  resize();
+  requestAnimationFrame(drawFrame);
+  await loadAlbum();
+  if(album.length===0){
+    $("tip").classList.add("open");   // 首次使用展示引导
+  }else{
+    showBubble("欢迎回来~ 相册里有 "+album.length+" 张回忆哦");
+  }
+})();
+$("tipGo").addEventListener("click",()=>{
+  $("tip").classList.remove("open");
+  setMood("happy",2600,"欢迎回来~ 今天想拍点什么？");
+  neko.lastInteract=Date.now();
+});
+</script>
+</body>
+</html>

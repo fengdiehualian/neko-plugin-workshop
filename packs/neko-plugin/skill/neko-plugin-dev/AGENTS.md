@@ -6,7 +6,7 @@
 
 1. 读 `SKILL.md`(本目录)——完整的 N.E.K.O. 插件规范,写代码前先核对相关章节。
 2. 涉及 UI / Adapter / 示例 / 生命周期 / tool calling 的任务,先读 `references/` 里对应文档再动手;这些文档是唯一事实来源,不要依赖训练记忆里的旧版 SDK。
-2b. 动手前必读 `references/market-patterns.md`(46 个市场插件写法统计);有同类功能时读 `references/market-examples/` 对应范例源码再写——优先复用市场惯用法(llm_tool 双注册 / httpx 异步 / 防重复状态机 / store 持久化)。
+2b. 动手前必读 `references/market-patterns.md`(127 个在架插件的写法统计);有同类功能时读 `references/market-examples/` 对应范例源码再写——优先复用市场惯用法(llm_tool 双注册 / httpx 异步 / 防重复状态机 / store 持久化)。
 3. `git log --oneline -3` 看最近改动,恢复工作上下文。
 
 ## 自主闭环(每次任务都走这个循环)

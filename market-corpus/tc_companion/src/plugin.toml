@@ -1,0 +1,38 @@
+[plugin]
+id = "tc_companion"
+name = "图灵完备助手"
+description = "《Turing Complete》陪玩插件：读取游戏内置手册与关卡测试定义，读写 spec.isa / new_program.asm 并做指令集校验，检查与部署电路存档（circuit.data），按 levels.txt 做验收。电路是版本化二进制，插件采用模板/存档复制而不是凭空生成元件；每次写文件前自动备份。"
+short_description = "Companion for Turing Complete: manual + level tests, ISA/assembly editing with validation, circuit archive inspection/deployment, progress acceptance."
+keywords = [
+    "Turing Complete",
+    "图灵完备",
+    "电路",
+    "汇编",
+    "ISA",
+    "陪玩",
+    "自动化",
+]
+version = "0.1.0"
+type = "plugin"
+entry = "plugin.plugins.tc_companion:TcCompanionPlugin"
+
+[plugin.author]
+name = "local"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[tc]
+# 用户数据目录。留空 = %APPDATA%\Turing Complete
+user_dir = ""
+
+# 游戏安装目录。留空 = 自动探测常见 Steam 路径
+game_dir = ""
+
+# 写代码 / 部署电路开关
+allow_write = true

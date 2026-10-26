@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "legacy-wide-pool",
+  "nameKey": "map.summerPool",
+  "art": null,
+  "world": { "width": 1200, "height": 486, "bounds": { "left": 36, "top": 36, "right": 1164, "bottom": 450 } },
+  "spawns": [
+    [{ "x": 352, "y": 370 }, { "x": 445, "y": 170 }, { "x": 260, "y": 240 }],
+    [{ "x": 948, "y": 170 }, { "x": 770, "y": 280 }, { "x": 910, "y": 390 }]
+  ],
+  "spawnRegions": [
+    { "left": 76, "top": 100, "right": 560, "bottom": 410 },
+    { "left": 640, "top": 100, "right": 1124, "bottom": 410 }
+  ],
+  "practiceLayouts": {
+    "free": [[250, 280], [500, 190], [715, 300]], "wall": [[300, 243]],
+    "duel": [[260, 243], [615, 243]], "chain": [[220, 243], [480, 243], [735, 243]],
+    "corner": [[86, 86], [168, 86], [86, 168]]
+  },
+  "colliders": [], "mechanics": []
+}

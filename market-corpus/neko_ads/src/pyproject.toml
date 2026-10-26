@@ -1,0 +1,17 @@
+[tool.neko.build]
+exclude = ["static/voice-cache/**"]
+include = [
+    "plugin.toml",
+    "__init__.py",
+    "session.py",
+    "connection.py",
+    "desktop.py",
+    "hotkey.py",
+    "speech.py",
+    "voice.py",
+    "static/**",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE",
+]

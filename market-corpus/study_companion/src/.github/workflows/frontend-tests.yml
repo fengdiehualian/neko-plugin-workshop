@@ -1,0 +1,44 @@
+name: Study Companion Frontend Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-contracts:
+    name: Frontend contracts (Node 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/frontend/package-lock.json
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install frontend test dependencies
+        working-directory: tests/frontend
+        run: npm ci
+
+      - name: Verify generated study UI contracts
+        run: uv run python tools/sync_study_ui_contracts.py --check
+
+      - name: Run frontend contract tests
+        run: >-
+          uv run --with pytest pytest
+          tests/test_workspace_frontend.py
+          tests/test_notebook_frontend.py
+          tests/test_scanned_pdf_frontend.py
+          tests/test_scanned_pdf_surface.py
+          -q

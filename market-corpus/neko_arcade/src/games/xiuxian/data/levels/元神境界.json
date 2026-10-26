@@ -1,0 +1,64 @@
+[
+{
+    "level": "紫府元神",
+    "level_id": 0,
+    "秘境要求": 0,
+    "仙古要求": 0
+}, 
+{
+    "level": "仙台/神火级元神",
+    "level_id": 1
+}, 
+{
+    "level": "王者/真神级元神",
+    "level_id": 2
+},    
+{
+    "level": "圣人/天神级元神",
+    "level_id": 3
+},    
+{
+    "level": "圣王/虚道级元神",
+    "level_id": 4
+},  
+{
+    "level": "大圣/斩我级元神",
+    "level_id": 5
+},
+{
+    "level": "准帝/遁一级元神",
+    "level_id": 6
+},
+{
+    "level": "大帝/极道至尊级元神",
+    "level_id": 7
+},
+{
+    "level": "真仙级元神",
+    "level_id": 8
+},
+{
+    "level": "仙王级元神",
+    "level_id": 9
+},
+{
+    "level": "仙王巨头级元神",
+    "level_id": 10
+},
+{
+    "level": "准仙帝级元神",
+    "level_id": 11
+},
+{
+    "level": "仙帝级元神",
+    "level_id": 12
+},
+{
+    "level": "祭道级元神",
+    "level_id": 13
+},
+{
+    "level": "超脱级元神",
+    "level_id": 14
+}
+]

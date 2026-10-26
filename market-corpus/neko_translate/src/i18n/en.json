@@ -1,0 +1,10 @@
+{
+  "plugin.name": "Translation Catgirl",
+  "plugin.description": "Let your catgirl translate for you: 30+ languages, single or batch, with the result pushed straight into chat. No API key required",
+  "entry.translate_text.name": "Translate text",
+  "entry.translate_text.description": "Translate a piece of text into the target language",
+  "entry.translate_batch.name": "Batch translate",
+  "entry.translate_batch.description": "Translate several texts at once and get the results in the same order",
+  "entry.list_languages.name": "Supported languages",
+  "entry.list_languages.description": "List the supported languages and their codes"
+}

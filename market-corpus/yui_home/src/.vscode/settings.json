@@ -1,0 +1,6 @@
+{
+  "nekoPlugin.repoRoot": "../N.E.K.O",
+  "python.analysis.extraPaths": [
+    "${config:nekoPlugin.repoRoot}"
+  ]
+}

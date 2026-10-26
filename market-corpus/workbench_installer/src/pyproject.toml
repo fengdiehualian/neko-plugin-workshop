@@ -1,0 +1,5 @@
+[project]
+name = "workbench_installer"
+version = "0.2.3"
+dependencies = []
+requires-python = "==3.11.*"

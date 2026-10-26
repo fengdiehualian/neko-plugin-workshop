@@ -1,0 +1,4 @@
+[project]
+name = "sp2_copilot"
+version = "0.2.0"
+dependencies = []

@@ -1,0 +1,189 @@
+[plugin]
+name = "更好的网络搜索"
+id = "better_web_search"
+# 旧名 free_web_search 从没上过 Market，这次是唯一的无包袱改名窗口。
+# 声明 previous_ids 不是"自动搬迁"，而是让宿主在旧插件还装着的时候**拒绝导入**
+# （install_plan.py:135-153 → 前端 package.install.blockedLegacyPlugin），避免出现
+# 两个都注册了 search 工具的插件抢活。请先卸载旧插件，再装这份。
+previous_ids = ["free_web_search"]
+version = "1.0.0"
+type = "plugin"
+description = "不需要任何 API Key 的联网搜索与网页正文阅读。开箱即用，失败自动换后端；自带面板新手引导（可填入多把 Exa 免费密钥，一把用完自动换下一把）、宿主内置搜索状态查看（停用它请在插件中心点一下）、代理软件兼容开关、网络自检，面板还能回看最近一次搜索是哪一路答的；支持代理与自建 SearXNG。"
+short_description = "免 Key 联网搜索 + 网页正文，多后端自动回退；面板一键引导、自检与搜索回看。"
+# 宿主拿这些当**正则**用（brain/plugin_filter.py:114-124 的 re.search），不是字面词：
+# 这是 task_executor.py:1958-1968 那道闸门唯一的"零 LLM 兜底"——低外部意图的一轮里，
+# 只有命中关键词才会去派发插件，否则她直接凭记忆答（实测 2026-09-19 22:45:07
+# 「你仔细帮查查然后总结一下给我」→ [AgentGate] skip assessment: external_intent=0.00，
+# 于是一句"本喵这就去仔细查"后面什么都没派发）。所以这里必须覆盖内置那份
+# （plugin/plugins/web_search/plugin.toml:5）能命中的说法，还要更宽。
+# 查字用带否后视的写法：内置的 查[一找] 会误伤"检查一下身体/调查一下"，这里用
+# (?<![调检侦考审警探追巡])查 把这些排除掉，同时补上内置也漏掉的 查查/查下/查询/查看/查了。
+# 但也不许再宽到裸 查|搜：命中不只是"多跑一次评估"——task_executor.py:1503 会把本插件
+# 强推进候选、:1525 在提示里打上 [KEYWORD MATCH]，而 prompts_agent.py:370 让模型优先选
+# 打了标的插件，所以误命中会变成一次真搜索并占用引擎冷却。用例里两份清单（该命中 /
+# 不许命中）就是这条边界。
+keywords = ["搜索", "联网", "(?<![调检侦考审警探追巡])查(?:[一下询找看]|查|资料|了)",
+            "搜(?:[一下]|一搜|搜)", "帮我查", "网页", "百度",
+            "search", "web", "fetch", "免费", "duckduckgo", "google", 'look\s?up',
+            "検索", "調べ", "探し", "검색", "찾아", "поиск", "искать", "найти", "busca"]
+entry = "plugin.plugins.better_web_search:BetterWebSearchPlugin"
+
+[plugin.author]
+name = "N.E.K.O Plugin Community"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+# 必须开着：密钥环"现在停在哪一把"存在这里，重启后从同一把继续。
+# 只存 8 位指纹，不存密钥本身；配置里那个 exa_api_keys 列表才是钥匙的来源。
+enabled = true
+
+# 面板与引导：宿主卡片会自动多出“打开面板”按钮（声明 panel 即生效）。
+# .tsx 面板、.md 教程的模式由宿主按文件后缀自动推断，不要写 mode。
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "联网搜索"
+entry = "ui/panel.tsx"
+context = "main"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "接入教程"
+entry = "docs/quickstart.md"
+permissions = ["state:read"]
+
+[search]
+# ---------------------------------------------------------------------------
+# 后端链路：全部免 API Key，按顺序尝试，前一个失败就自动换下一个。
+# 下表是 mainland 直连实测结果（代理关闭）；顺序上的取舍只写在下面每条末尾：
+# anysearch=匿名可用的搜索 API（直连 1.2–5.0 秒），放首位
+# exa=公共 MCP 网关（免 Key，直接返回网页正文，直连 1.6–3.5 秒）
+#   ↑ 例外：一旦在下面填了 exa_api_keys 而 anysearch_api_key 还空着，exa 自动升到
+#     第一位——免 Key 那档是所有匿名用户共用同一个池子（问得快就撞 429），有密钥
+#     才走自己账号的额度，才值得让它打头。这个"首位"只看配置，不会在一次会话中途变，
+#     整池密钥都用完时的让位由后端冷却负责，不是靠改顺序。
+# bing=直连约 0.6 秒，中英文效果好，排第三
+# baidu=直连经常撞“百度安全验证”，靠 BAIDUID 预热才勉强能用，放最后
+# duckduckgo=直连 DNS 污染直接超时，只有检测到代理才会进链路（见下）
+# sogou=实测无可解析结果，实现了但不进默认链路
+# searxng=你自己的实例，需在下面填 searxng_base_url
+# ---------------------------------------------------------------------------
+backend = "auto"
+backend_chain = ["anysearch", "exa", "bing", "baidu"]
+# 对话里没指定条数时用这个值（上限 15）
+max_results = 6
+timeout_seconds = 12
+# 所有回退都要在宿主 30 秒看门狗内跑完。
+total_timeout_seconds = 25
+
+# ---------------------------------------------------------------------------
+# 代理：这是"搜索突然不能用"最常见的原因。
+# auto   = 跟随系统/环境变量代理；各后端再用 *_proxy 微调
+# off    = 一律不走代理
+# on     = 一律走系统代理
+# 也可以直接填 http://127.0.0.1:7890
+# ---------------------------------------------------------------------------
+proxy = "auto"
+proxy_url = ""
+# 单个后端可覆盖：direct=强制直连，proxy=强制走代理，auto=跟随上面的设置
+duckduckgo_proxy = "proxy"
+exa_proxy = "auto"
+anysearch_proxy = "auto"
+bing_proxy = "direct"
+sogou_proxy = "direct"
+baidu_proxy = "direct"
+# DuckDuckGo 用 POST 表单更稳（GET 常被返回空页）。
+duckduckgo_method = "POST"
+
+# ---------------------------------------------------------------------------
+# 可选增强（留空也能用）
+# ---------------------------------------------------------------------------
+# 填了限额更高，不填走匿名档。它还管一件事：有这把钥匙时 exa 不再升到链路首位。
+# 面板「密钥管理」的折叠块里也能填，保存时会当场真搜一次验货。
+anysearch_api_key = ""
+# cn / intl / 留空
+anysearch_zone = ""
+# 自建实例示例：http://127.0.0.1:8888 （远程实例必须 https）
+searxng_base_url = ""
+# 开启后 Exa 会实时抓取网页，更新但更慢 —— 只在 exa_tool = "advanced" 时生效，
+# 默认的 auto 快路径不带这个参数（advanced 才会自己爬页面）
+exa_live_crawl = false
+
+# ---------------------------------------------------------------------------
+# Exa 密钥（可选升级，不是必需）：在面板里逐把填写更方便
+# 注册地址 https://dashboard.exa.ai/api-keys（国内直连可达，邮箱注册）；
+# 免费档每个账号每月刷新约 $10 额度 ≈ 1400 次。
+# 一把不够用就多注册几个账号、把密钥都列进来：一次搜索从"上一把成功的"开始，
+# 这把报错就顺延下一把，走到列表末尾再绕回开头 —— 没有计时器，循环本身就是
+# 重试节奏。全部报错时整条 Exa 链路进退避期，改走别的搜索来源。
+# 填了它还有一个作用：anysearch_api_key 还空着时，exa 自动升到链路首位（这时它走的
+# 是自己账号的额度，不是所有匿名用户共用的那个池子）。只看配置，不会在一次会话中途
+# 改顺序。
+# 密钥只存在本插件配置里，面板/日志/状态上报一律只显示 exa****尾4位。
+# ---------------------------------------------------------------------------
+exa_api_keys = []
+# 用哪个 Exa 工具：auto=永远用快路径（实测 advanced 3.7–11.7 秒会顶穿 12 秒预算），
+# 只有明确想要更全结果时才选 advanced；simple=强制快路径
+exa_tool = "auto"
+# 开关：整个密钥池都报错时，要不要再降级成匿名档（关闭则直接改用其它搜索来源）。
+# 默认关闭：匿名档限额低，池子都空了时它多半也不通，不如把预算留给下一个后端。
+exa_key_fallback_anonymous = false
+# baidu 先领 BAIDUID cookie 再搜（实测不领必撞“百度安全验证”）
+baidu_warmup = true
+# 没检测到任何代理时，duckduckgo 不进实际链路（直连只会白白耗掉几秒）
+duckduckgo_needs_proxy = true
+
+# ---------------------------------------------------------------------------
+# 正文抓取
+# ---------------------------------------------------------------------------
+max_content_chars = 4000
+fetch_total_timeout_seconds = 24
+
+# ---------------------------------------------------------------------------
+# 缓存与限流：免 Key 通道是公共资源，打太猛会被限流甚至封 IP
+# ---------------------------------------------------------------------------
+cache_ttl_seconds = 300
+stale_ttl_seconds = 1800
+cache_entries = 128
+queue_wait_seconds = 2
+cooldown_seconds = 60
+exa_min_interval_seconds = 0.5
+anysearch_min_interval_seconds = 0.75
+bing_min_interval_seconds = 2
+sogou_min_interval_seconds = 3
+baidu_min_interval_seconds = 10
+duckduckgo_min_interval_seconds = 3
+searxng_min_interval_seconds = 0.5
+baidu_cooldown_seconds = 120
+duckduckgo_cooldown_seconds = 300
+# 网络自检用的固定查询词（只影响自检，不影响正常搜索）
+diagnose_query = "N.E.K.O 猫娘 插件"
+
+[net]
+# ---------------------------------------------------------------------------
+# 安全：fetch 链接的 SSRF 防护默认拒绝一切内网地址。
+# 只有一种例外：开了 TUN + fake-ip 模式的代理会把域名解析成 198.18.x.x 假 IP，
+# 这里放行的段仅对“域名解析结果”生效；手填 IP、localhost、云元数据地址照旧拒绝。
+# 不懂就保持默认；改成空列表 [] 则连 fake-ip 也不放行（可能影响部分代理下的 fetch）。
+# ---------------------------------------------------------------------------
+ssrf_allow_ranges = ["198.18.0.0/15"]
+
+[ui]
+# ---------------------------------------------------------------------------
+# 首启引导提示是否已发过（只发一次，不骚扰；删掉本行恢复默认也一样）
+# ---------------------------------------------------------------------------
+first_run_notice_sent = false

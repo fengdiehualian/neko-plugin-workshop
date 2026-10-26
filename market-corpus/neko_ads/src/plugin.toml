@@ -1,0 +1,48 @@
+[plugin]
+id = "neko_ads"
+name = "猫娘广告部：杂鱼桌面占领计划"
+description = "用户主动开局的复古广告整蛊小游戏。支持安全词退出。"
+version = "0.2.0"
+entry = "plugin.plugins.neko_ads:NekoAdsPlugin"
+passive = true
+
+[[plugin.entries]]
+id = "desktop_command"
+name = "主界面广告控制"
+description = "供广告主界面桥接使用的确认开局、状态检查和退出操作。"
+kind = "action"
+auto_start = false
+model_validate = true
+timeout = 20
+input_schema = { type = "object", properties = { command = { type = "string", enum = ["poll", "start", "stop", "shortcut", "speech", "speech_result", "cancel_speech", "voice", "prepare_voice", "voice_clip"] }, payload = { type = "object", additionalProperties = true } }, required = ["command", "payload"], additionalProperties = false }
+
+[[plugin.entries]]
+id = "stop_game"
+name = "立即结束"
+description = "结束当前广告游戏。"
+kind = "action"
+auto_start = false
+model_validate = true
+input_schema = { type = "object", properties = { round_id = { type = "string", default = "" }, stop_epoch = { type = "string", default = "" } }, additionalProperties = false }
+
+[plugin.author]
+name = "WhiteFrostune"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+timeout = 60
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "猫娘广告部：杂鱼桌面占领计划"
+entry = "static/index.html"
+context = "main"
+permissions = ["state:read", "action:call"]

@@ -1,0 +1,1382 @@
+[
+  {
+    "name": "生铁",
+    "class": "材料",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "铁锭",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "煤炭",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "骨粉",
+    "class": "材料",
+    "amount": 3,
+    "materials": [
+      {
+        "name": "骨头",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "生铁剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "生铁",
+        "class": "材料",
+        "amount": 8
+      },
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "下界合金剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "下界合金锭",
+        "class": "材料",
+        "amount": 45
+      },
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "生铁甲",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "生铁",
+        "class": "材料",
+        "amount": 8
+      }
+    ]
+  },
+  {
+    "name": "下界合金甲",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "下界合金锭",
+        "class": "材料",
+        "amount": 45
+      }
+    ]
+  },
+  {
+    "name": "生铁头盔",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "生铁",
+        "class": "材料",
+        "amount": 8
+      }
+    ]
+  },
+  {
+    "name": "下界合金头盔",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "下界合金锭",
+        "class": "材料",
+        "amount": 45
+      }
+    ]
+  },
+  {
+    "name": "熔炉",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "圆石",
+        "class": "材料",
+        "amount": 8
+      }
+    ]
+  },
+  {
+    "name": "木板",
+    "class": "材料",
+    "amount": 4,
+    "materials": [
+      {
+        "name": "原木",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "木棍",
+    "class": "材料",
+    "amount": 4,
+    "materials": [
+      {
+        "name": "木板",
+        "class": "材料",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "name": "木斧",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木板",
+        "class": "材料",
+        "amount": 3
+      },
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "name": "石斧",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "圆石",
+        "class": "材料",
+        "amount": 3
+      },
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "name": "木锄",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木板",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "name": "石锄",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "圆石",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "name": "铁锄",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "铁锭",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "name": "金锄",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "金锭",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "name": "钻石锄",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "钻石",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "name": "木镐",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "木板",
+        "class": "材料",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "name": "石镐",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "圆石",
+        "class": "材料",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "name": "铁镐",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "铁锭",
+        "class": "材料",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "name": "金镐",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "金锭",
+        "class": "材料",
+        "amount": 3
+      }
+    ]
+  },
+    {
+    "name": "铂金镐",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "铂金锭",
+        "class": "材料",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "name": "钻石镐",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "钻石",
+        "class": "材料",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "name": "木铲",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "木板",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "石铲",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "圆石",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "铁铲",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "铁锭",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "金铲",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "金锭",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "钻石铲",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "钻石",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+
+  {
+    "name": "未点燃的火把",
+    "class": "道具",
+    "amount": 5,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "煤炭",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "木剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "木板",
+        "class": "材料",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "name": "石剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "圆石",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+  {
+    "name": "铁剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "铁锭",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+  {
+    "name": "金剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "金锭",
+        "class": "材料",
+        "amount": 20
+      }
+    ]
+  },
+  {
+    "name": "钻石剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "钻石",
+        "class": "材料",
+        "amount": 20
+      }
+    ]
+  },
+    {
+    "name": "草薙",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "毒刺",
+        "class": "材料",
+        "amount": 15
+      },
+      {
+        "name": "丛林孢子",
+        "class": "材料",
+        "amount": 12
+      }
+    ]
+  },
+      {
+    "name": "火山",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "狱岩锭",
+        "class": "材料",
+        "amount": 20
+      }
+    ]
+  },
+        {
+    "name": "魔光剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "魔锭",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+          {
+    "name": "永夜刃",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "火山",
+        "class": "装备",
+        "amount": 1
+      },  {
+        "name": "草薙",
+        "class": "装备",
+        "amount": 1
+      }, {
+        "name": "魔光剑",
+        "class": "装备",
+        "amount": 1
+      },{
+        "name": "妖刀村正",
+        "class": "装备",
+        "amount": 1
+      }
+    ]
+  },
+            {
+    "name": "原版永夜刃",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "永夜刃",
+        "class": "装备",
+        "amount": 1
+      },  {
+        "name": "视域之魂",
+        "class": "材料",
+        "amount": 20
+      }, {
+        "name": "力量之魂",
+        "class": "材料",
+        "amount": 20
+      },{
+        "name": "恐惧之魂",
+        "class": "材料",
+        "amount": 20
+      }
+    ]
+  },
+              {
+    "name": "断钢剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "神圣锭",
+        "class": "材料",
+        "amount": 12
+      }
+    ]
+  },
+            {
+    "name": "原版断钢剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "断钢剑",
+        "class": "装备",
+        "amount": 1
+      },  {
+        "name": "叶绿锭",
+        "class": "材料",
+        "amount": 24
+      }
+    ]
+  },
+              {
+    "name": "泰拉刃",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "原版断钢剑",
+        "class": "装备",
+        "amount": 1
+      }, 
+       {
+        "name": "原版永夜刃",
+        "class": "装备",
+        "amount": 1
+      },
+       {
+        "name": "断裂英雄剑",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+                {
+    "name": "天顶剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "铜短剑",
+        "class": "装备",
+        "amount": 1
+      }, 
+       {
+        "name": "泰拉刃",
+        "class": "装备",
+        "amount": 1
+      },
+       {
+        "name": "彩虹猫之刃",
+        "class": "装备",
+        "amount": 1
+      }, 
+             {
+        "name": "狂星之怒",
+        "class": "装备",
+        "amount": 1
+      }, 
+       {
+        "name": "星怒",
+        "class": "装备",
+        "amount": 1
+      },
+       {
+        "name": "附魔剑",
+        "class": "装备",
+        "amount": 1
+      }, 
+       {
+        "name": "养蜂人",
+        "class": "装备",
+        "amount": 1
+      },
+       {
+        "name": "种子弯刀",
+        "class": "装备",
+        "amount": 1
+      }, 
+       {
+        "name": "无头骑士剑",
+        "class": "装备",
+        "amount": 1
+      },
+       {
+        "name": "波涌之刃",
+        "class": "装备",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "铁头盔",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "铁锭",
+        "class": "材料",
+        "amount": 5
+      }
+    ]
+  },
+  {
+    "name": "铁甲",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "铁锭",
+        "class": "材料",
+        "amount": 8
+      }
+    ]
+  },
+  {
+    "name": "金头盔",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "金锭",
+        "class": "材料",
+        "amount": 20
+      }
+    ]
+  },
+  {
+    "name": "金甲",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "金锭",
+        "class": "材料",
+        "amount": 20
+      }
+    ]
+  },
+  {
+    "name": "钻石头盔",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "钻石",
+        "class": "材料",
+        "amount": 20
+      }
+    ]
+  },
+  {
+    "name": "钻石甲",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "钻石",
+        "class": "材料",
+        "amount": 20
+      }
+    ]
+  },
+  {
+    "name": "铁剑",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "铁锭",
+        "class": "材料",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "name": "皮革甲",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "皮革",
+        "class": "食材",
+        "amount": 8
+      }
+    ]
+  },
+  {
+    "name": "皮革头盔",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "皮革",
+        "class": "食材",
+        "amount": 8
+      }
+    ]
+  },
+  {
+    "name": "线",
+    "class": "材料",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "羊毛",
+        "class": "食材",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "钓鱼竿",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      },
+      {
+        "name": "线",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+  {
+    "name": "深渊传送门",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "黑曜石",
+        "class": "材料",
+        "amount": 12
+      }
+    ]
+  },
+  {
+    "name": "末地传送门",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "末影之眼",
+        "class": "材料",
+        "amount": 12
+      }
+    ]
+  },
+
+  {
+    "name": "纸",
+    "class": "材料",
+    "amount": 3,
+    "materials": [
+      {
+        "name": "甘蔗",
+        "class": "食材",
+        "amount": 3
+      }
+    ]
+  },
+
+  {
+    "name": "书架",
+    "class": "材料",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "书本",
+        "class": "材料",
+        "amount": 3
+      },
+      {
+        "name": "木板",
+        "class": "材料",
+        "amount": 6
+      }
+    ]
+  },
+  {
+    "name": "下界合金镐",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "下界合金锭",
+        "class": "材料",
+        "amount": 3
+      },
+      {
+        "name": "木棍",
+        "class": "材料",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "name": "圣体精血",
+    "class": "丹药",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "圣体遗血",
+        "class": "丹药",
+        "amount": 5
+      }
+    ]
+  },
+   {
+    "name": "仙泪绿金",
+    "class": "材料",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "仙泪绿金残块",
+        "class": "材料",
+        "amount": 9
+      }
+    ]
+  },
+   {
+    "name": "神痕紫金",
+    "class": "材料",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "神痕紫金残块",
+        "class": "材料",
+        "amount": 9
+      }
+    ]
+  },
+  {
+    "name": "龙纹黑金",
+    "class": "材料",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "龙纹黑金残块",
+        "class": "材料",
+        "amount": 9
+      }
+    ]
+  },
+  {
+    "name": "九彩神金",
+    "class": "材料",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "仙泪绿金",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "凰血赤金",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "龙纹黑金",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "永恒蓝金",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "神痕紫金",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "道劫黄金",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "羽化青金",
+        "class": "材料",
+        "amount": 1
+      },
+      {
+        "name": "混沌石精",
+        "class": "材料",
+        "amount": 1
+      },
+     {
+        "name": "大罗银精",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+   {
+    "name": "吞天魔功",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "吞天魔功残卷",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+     {
+    "name": "太皇经",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "太皇经残卷",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+     {
+    "name": "前字秘",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "前字秘残卷",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+       {
+    "name": "临字秘",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "临字秘残卷",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+       {
+    "name": "兵字秘",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "兵字秘残卷",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+  {
+    "name": "者字秘",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "者字秘残卷",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+    {
+    "name": "真龙宝术",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "真龙宝术残篇",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+      {
+    "name": "雷帝宝术",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "雷帝宝术残篇",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+  {
+    "name": "补天术",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "补天术残篇",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+      {
+    "name": "不灭经",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "不灭经残卷",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+    {
+    "name": "仙劫剑诀",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "仙劫剑经残卷",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+  {
+    "name": "鲲鹏宝术",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "鲲鹏宝术残篇",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+  {
+    "name": "狻猊宝术",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "狻猊宝术残篇",
+        "class": "材料",
+        "amount": 5
+      }
+    ]
+  },
+  {
+    "name": "青天鹏宝术",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "狻猊宝术",
+        "class": "功法",
+        "amount": 1
+      },
+       {
+        "name": "青鳞鹰宝术",
+        "class": "功法",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "荒无剑诀",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "平乱诀",
+        "class": "功法",
+        "amount": 1
+      },
+       {
+        "name": "草字剑诀",
+        "class": "功法",
+        "amount": 1
+      },
+       {
+        "name": "仙劫剑诀",
+        "class": "功法",
+        "amount": 1
+      }
+    ]
+  },
+    {
+    "name": "原始真解超脱篇",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "白玉骨鼎",
+        "class": "道具",
+        "amount": 1
+      },
+       {
+        "name": "至尊山宝",
+        "class": "道具",
+        "amount": 1
+      }
+    ]
+  },
+    {
+    "name": "涅槃法门",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+       {
+        "name": "涅槃法门·残缺",
+        "class": "功法",
+        "amount": 10
+      }
+    ]
+  },
+      {
+    "name": "柳神法",
+    "class": "功法",
+    "amount": 1,
+    "materials": [
+       {
+        "name": "柳神法残篇",
+        "class": "材料",
+        "amount": 10
+      }
+    ]
+  },
+  {
+    "name": "万灵图",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "万灵图残骨一",
+        "class": "材料",
+        "amount": 1
+      },
+       {
+        "name": "万灵图残骨二",
+        "class": "材料",
+        "amount": 1
+      },
+       {
+        "name": "万灵图残骨三",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+    {
+    "name": "万灵天图",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "万灵图",
+        "class": "道具",
+        "amount": 1
+      },
+       {
+        "name": "原始宝骨",
+        "class": "道具",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "天荒战戟",
+    "class": "装备",
+    "amount": 1,
+    "materials": [
+      {
+        "name": "天荒战戟·残损",
+        "class": "装备",
+        "amount": 1
+      },
+       {
+        "name": "鲲鹏原始真羽",
+        "class": "材料",
+        "amount": 1
+      },
+       {
+        "name": "太阴天金",
+        "class": "材料",
+        "amount": 1
+      },
+       {
+        "name": "太阳天金",
+        "class": "材料",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "name": "不灭霸血",
+    "class": "道具",
+    "amount": 1,
+    "materials": [
+       {
+        "name": "霸血凝晶",
+        "class": "材料",
+        "amount": 5
+      }
+    ]
+  }
+]

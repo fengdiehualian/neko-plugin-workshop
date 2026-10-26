@@ -1,0 +1,390 @@
+[plugin]
+id = "hsr_companion"
+name = "星铁游戏搭子"
+description = "公开测试版：无需开启语音或视频通话，通过独立本地助手观察星铁窗口，把数据库校验过的场景与角色事实交给 N.E.K.O；识别仍可能遗漏，不操作游戏客户端。"
+short_description = "无需开启通话的星铁后台陪玩；独立感知、严格校验、识别失败不乱猜。"
+keywords = ["崩坏：星穹铁道", "星铁", "陪玩", "后台感知", "主动陪伴", "外部资料包", "页面识别", "角色识别", "玩家纠错", "玩家语境"]
+version = "0.9.6"
+type = "plugin"
+# Direct LLM tools and our event stream remain active. Do not let the legacy
+# after-turn Agent re-dispatch a completed conversation as a background task.
+passive = true
+entry = "plugin.plugins.hsr_companion:HsrCompanionPlugin"
+
+# Keep action discovery available when the packaged host refreshes its registry.
+# Schemas mirror the decorated entries; tests guard against drift.
+[[plugin.entries]]
+id = "save_manual_build"
+name = { "$i18n" = "build.save", default = "保存角色资料" }
+description = { "$i18n" = "build.saveDescription", default = "保存玩家在面板中明确录入的角色配装字段，不联网，不覆盖UID原始快照。" }
+input_schema = { type = "object", properties = { form_id = { type = "string" }, changes = { type = "object" }, expected_revision = { type = "string" } }, required = ["form_id", "changes", "expected_revision"], additionalProperties = false }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["player_build_save"]
+llm_result_schema = { type = "object", properties = { player_build_save = {} }, required = ["player_build_save"] }
+
+[[plugin.entries]]
+id = "preview_uid_import"
+name = { "$i18n" = "uid.read", default = "读取展示角色" }
+description = { "$i18n" = "uid.readDescription", default = "经玩家同意，查询国服公开展示；预览不自动写入角色库。" }
+input_schema = { type = "object", properties = { uid = { type = "string" }, consent = { type = "boolean" }, use_system_proxy = { type = "boolean", default = false } }, required = ["uid", "consent"], additionalProperties = false }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["uid_import"]
+llm_result_schema = { type = "object", properties = { uid_import = {} }, required = ["uid_import"] }
+
+[[plugin.entries]]
+id = "confirm_uid_import"
+name = { "$i18n" = "uid.confirm", default = "确认保存这批角色" }
+description = { "$i18n" = "uid.confirmDescription", default = "合并玩家确认的展示配装；同角色整份更新，不删除未展示角色。" }
+input_schema = { type = "object", properties = { preview_id = { type = "string" } }, required = ["preview_id"], additionalProperties = false }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["uid_import"]
+llm_result_schema = { type = "object", properties = { uid_import = {} }, required = ["uid_import"] }
+
+[[plugin.entries]]
+id = "discard_uid_import"
+name = { "$i18n" = "uid.discard", default = "暂不保存" }
+description = { "$i18n" = "uid.discardDescription", default = "取消当前预览，不改变已导入角色和手动档案。" }
+input_schema = { type = "object", properties = { preview_id = { type = "string" } }, required = ["preview_id"], additionalProperties = false }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["uid_import"]
+llm_result_schema = { type = "object", properties = { uid_import = {} }, required = ["uid_import"] }
+
+[[plugin.entries]]
+id = "clear_uid_import"
+name = { "$i18n" = "uid.clear", default = "移除导入资料" }
+description = { "$i18n" = "uid.clearDescription", default = "经确认仅移除UID及导入配装；不清空手动档案、记忆或当前画面。" }
+input_schema = { type = "object", properties = { confirmed = { type = "boolean" } }, required = ["confirmed"], additionalProperties = false }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["uid_import"]
+llm_result_schema = { type = "object", properties = { uid_import = {} }, required = ["uid_import"] }
+
+[[plugin.entries]]
+id = "analyze_team"
+name = "分析星铁队伍"
+description = "结合带来源的结构化目录、精选机制笔记和玩家档案做透明的基础队伍检查。"
+input_schema = { "type" = "object", "properties" = { "members" = { "type" = "array", "items" = { "type" = "string" } }, "goal" = { "type" = "string", "default" = "" } }, "required" = ["members"] }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["members", "goal", "strengths", "issues", "recommended_next_steps", "evidence", "disclaimer", "analysis_available", "analysis_scope", "member_mechanics", "missing_information", "team_optimization_available"]
+llm_result_schema = { "type" = "object", "properties" = { "members" = {  }, "goal" = {  }, "strengths" = {  }, "issues" = {  }, "recommended_next_steps" = {  }, "evidence" = {  }, "disclaimer" = {  }, "analysis_available" = {  }, "analysis_scope" = {  }, "member_mechanics" = {  }, "missing_information" = {  }, "team_optimization_available" = {  } }, "required" = ["members", "goal", "strengths", "issues", "recommended_next_steps", "evidence", "disclaimer", "analysis_available", "analysis_scope", "member_mechanics", "missing_information", "team_optimization_available"] }
+
+[[plugin.entries]]
+id = "confirm_profile_proposal"
+name = "确认星铁档案识别结果"
+description = "在玩家明确确认后，把等待中的识别结果写入插件玩家档案。"
+input_schema = { "type" = "object", "properties" = { "proposal_id" = { "type" = "string", "default" = "" } } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["profile", "applied_characters", "memory_boundary"]
+llm_result_schema = { "type" = "object", "properties" = { "profile" = {  }, "applied_characters" = {  }, "memory_boundary" = {  } }, "required" = ["profile", "applied_characters", "memory_boundary"] }
+
+[[plugin.entries]]
+id = "discard_profile_proposal"
+name = "放弃星铁档案识别结果"
+description = "丢弃当前等待确认的识别结果，不修改正式玩家档案。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["discarded"]
+llm_result_schema = { "type" = "object", "properties" = { "discarded" = {  } }, "required" = ["discarded"] }
+
+[[plugin.entries]]
+id = "get_player_context"
+name = "读取玩家星铁语境"
+description = "读取玩家主动提供的结构化星铁档案。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["profile", "memory_boundary"]
+llm_result_schema = { "type" = "object", "properties" = { "profile" = {  }, "memory_boundary" = {  } }, "required" = ["profile", "memory_boundary"] }
+
+[[plugin.entries]]
+id = "install_background_perception"
+name = "下载并安装星铁视觉助手"
+description = "从插件自己的 GitHub Release 下载独立助手，校验后安装到插件外部；随后启动并检查连接。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["vision_assistant", "observer"]
+llm_result_schema = { "type" = "object", "properties" = { "vision_assistant" = {  }, "observer" = {  } }, "required" = ["vision_assistant", "observer"] }
+
+[[plugin.entries]]
+id = "lookup"
+name = "查询星铁知识"
+description = "查询带来源、数据版本和校验状态的星铁结构化数据库。"
+input_schema = { "type" = "object", "properties" = { "query" = { "type" = "string" }, "category" = { "type" = "string", "default" = "" }, "limit" = { "type" = "integer", "default" = 5 } }, "required" = ["query"] }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["query", "count", "results", "notice"]
+llm_result_schema = { "type" = "object", "properties" = { "query" = {  }, "count" = {  }, "results" = {  }, "notice" = {  } }, "required" = ["query", "count", "results", "notice"] }
+
+[[plugin.entries]]
+id = "notify_game_event"
+name = "提供星铁事件"
+description = "向 N.E.K.O 提供一个去重、可过期的星铁事件。默认仅预览，不推送。"
+input_schema = { "type" = "object", "properties" = { "event_id" = { "type" = "string" }, "event_type" = { "type" = "string" }, "summary" = { "type" = "string" }, "occurred_at" = { "type" = "string", "description" = "ISO 8601 时间" }, "expires_in_seconds" = { "type" = "integer", "default" = 300 }, "request_response" = { "type" = "boolean", "default" = false }, "dry_run" = { "type" = "boolean", "default" = true } }, "required" = ["event_id", "event_type", "summary", "occurred_at"] }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["accepted", "reason", "submitted", "dry_run"]
+llm_result_schema = { "type" = "object", "properties" = { "accepted" = {  }, "reason" = {  }, "submitted" = {  }, "dry_run" = {  } }, "required" = ["accepted", "reason", "submitted", "dry_run"] }
+
+[[plugin.entries]]
+id = "prepare_data_pack"
+name = "准备星铁资料组件"
+description = "在插件外部下载并校验固定版本的星铁结构化资料包。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["data_pack"]
+llm_result_schema = { "type" = "object", "properties" = { "data_pack" = {  } }, "required" = ["data_pack"] }
+
+[[plugin.entries]]
+id = "record_experience"
+name = "记录星铁经历"
+description = "记录玩家明确确认的星铁经历；记录只保存在插件档案中。"
+input_schema = { "type" = "object", "properties" = { "event_type" = { "type" = "string" }, "summary" = { "type" = "string" }, "importance" = { "type" = "string", "enum" = ["normal", "important", "milestone"], "default" = "normal" }, "tags" = { "type" = "array", "items" = { "type" = "string" }, "default" = [] } }, "required" = ["event_type", "summary"] }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["experience", "memory_boundary"]
+llm_result_schema = { "type" = "object", "properties" = { "experience" = {  }, "memory_boundary" = {  } }, "required" = ["experience", "memory_boundary"] }
+
+[[plugin.entries]]
+id = "refresh_current_observation"
+name = { "$i18n" = "manualRefresh.label" }
+description = { "$i18n" = "manualRefresh.description" }
+input_schema = { "type" = "object", "properties" = {} }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["manual_refresh", "last_operation"]
+llm_result_schema = { "type" = "object", "properties" = { "manual_refresh" = {}, "last_operation" = {} }, "required" = ["manual_refresh", "last_operation"] }
+
+[[plugin.entries]]
+id = "refresh_companion_context"
+name = "刷新星铁陪玩上下文"
+description = "重新把当前玩家档案、纠错和事实规则注入 N.E.K.O，不触发立即回复。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["session", "delivery"]
+llm_result_schema = { "type" = "object", "properties" = { "session" = {  }, "delivery" = {  } }, "required" = ["session", "delivery"] }
+
+[[plugin.entries]]
+id = "remember_character_correction"
+name = "记住玩家的星铁角色纠正"
+description = "保存玩家明确给出的角色名纠错。语音或聊天别名可长期使用；视觉纠错只绑定当前角色名区域，避免误伤真实角色。方向必须是‘错误名字 → 玩家给出的正确名字’。"
+input_schema = { "type" = "object", "properties" = { "observed_name" = { "type" = "string", "description" = "纠正前的错误名字。例如‘不是花火，是火花’应填写花火" }, "canonical_name" = { "type" = "string", "description" = "玩家明确给出的正确名字。例如‘不是花火，是火花’应填写火花" }, "modality" = { "type" = "string", "enum" = ["chat", "voice", "vision"], "default" = "chat" }, "note" = { "type" = "string", "default" = "" } }, "required" = ["observed_name", "canonical_name"] }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["correction", "pending_updated", "instruction"]
+llm_result_schema = { "type" = "object", "properties" = { "correction" = {  }, "pending_updated" = {  }, "instruction" = {  } }, "required" = ["correction", "pending_updated", "instruction"] }
+
+[[plugin.entries]]
+id = "reset_demo_data"
+name = "清空星铁插件数据"
+description = "仅清空本插件保存的玩家档案、纠错、画面状态、经历和事件去重记录。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["cleared_keys"]
+llm_result_schema = { "type" = "object", "properties" = { "cleared_keys" = {  } }, "required" = ["cleared_keys"] }
+
+[[plugin.entries]]
+id = "restart_background_perception"
+name = "检查并修复星铁后台感知"
+description = "重启插件自己的本地画面助手；不会操作游戏或修改 N.E.K.O 本体。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["vision_assistant", "observer"]
+llm_result_schema = { "type" = "object", "properties" = { "vision_assistant" = {  }, "observer" = {  } }, "required" = ["vision_assistant", "observer"] }
+
+[[plugin.entries]]
+id = "set_proactive_companionship"
+name = "设置星铁主动陪伴"
+description = "控制已验证游戏事件是否请求猫娘主动回应；关闭后仍会静默同步可靠状态。"
+input_schema = { "type" = "object", "properties" = { "enabled" = { "type" = "boolean" } }, "required" = ["enabled"] }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["proactive_companionship"]
+llm_result_schema = { "type" = "object", "properties" = { "proactive_companionship" = {  } }, "required" = ["proactive_companionship"] }
+
+[[plugin.entries]]
+id = "stage_player_context"
+name = "暂存星铁玩家档案识别结果"
+description = "暂存从截图或自然语言中整理出的角色列表，等待玩家确认后再写入正式档案。"
+input_schema = { "type" = "object", "properties" = { "recognized_characters" = { "type" = "array", "items" = { "type" = "string" } }, "uncertain_characters" = { "type" = "array", "items" = { "type" = "string" }, "default" = [] }, "import_mode" = { "type" = "string", "enum" = ["merge", "replace"], "default" = "merge" }, "source" = { "type" = "string", "enum" = ["chat", "voice", "screenshot", "panel"], "default" = "chat" }, "confidence" = { "type" = "string", "enum" = ["high", "mixed", "low"], "default" = "mixed" }, "note" = { "type" = "string", "default" = "" } }, "required" = ["recognized_characters"] }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["proposal", "confirmation_required", "rejected_characters"]
+llm_result_schema = { "type" = "object", "properties" = { "proposal" = {  }, "confirmation_required" = {  }, "rejected_characters" = {  } }, "required" = ["proposal", "confirmation_required", "rejected_characters"] }
+
+[[plugin.entries]]
+id = "start_auto_observation"
+name = "开始自动观察星铁窗口"
+description = "经玩家明确开启后，只采集星铁窗口；切换聊天不影响观察，最小化或关闭游戏时暂停。画面仅在内存中处理，不操作游戏。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["observer", "session"]
+llm_result_schema = { "type" = "object", "properties" = { "observer" = {  }, "session" = {  } }, "required" = ["observer", "session"] }
+
+[[plugin.entries]]
+id = "start_companion_session"
+name = "开启星铁陪玩会话"
+description = "开启会话并把玩家档案、纠错和严格事实边界主动送入 N.E.K.O 上下文。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["session", "delivery"]
+llm_result_schema = { "type" = "object", "properties" = { "session" = {  }, "delivery" = {  } }, "required" = ["session", "delivery"] }
+
+[[plugin.entries]]
+id = "stop_auto_observation"
+name = "停止自动观察星铁窗口"
+description = "立即停止读取星铁窗口；玩家档案、纠错和当前陪玩会话仍保留。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["observer"]
+llm_result_schema = { "type" = "object", "properties" = { "observer" = {  } }, "required" = ["observer"] }
+
+[[plugin.entries]]
+id = "stop_companion_session"
+name = "结束星铁陪玩会话"
+description = "结束当前星铁场景并让 N.E.K.O 恢复普通聊天，插件档案不会删除。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["session", "delivery"]
+llm_result_schema = { "type" = "object", "properties" = { "session" = {  }, "delivery" = {  } }, "required" = ["session", "delivery"] }
+
+[[plugin.entries]]
+id = "submit_game_screenshot"
+name = "让 N.E.K.O 判断当前星铁画面"
+description = "把用户主动选择的当前游戏截图交给 N.E.K.O，判断剧情、战斗、探索、菜单等状态；原图不写入插件存储。"
+input_schema = { "type" = "object", "properties" = { "image_data_url" = { "type" = "string" } }, "required" = ["image_data_url"] }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["submitted", "message", "image_stored"]
+llm_result_schema = { "type" = "object", "properties" = { "submitted" = {  }, "message" = {  }, "image_stored" = {  } }, "required" = ["submitted", "message", "image_stored"] }
+
+[[plugin.entries]]
+id = "submit_roster_screenshot"
+name = "让 N.E.K.O 识别角色截图"
+description = "把用户主动选择的角色列表截图交给 N.E.K.O 视觉能力；原图不写入插件存储，识别结果必须再次确认。"
+input_schema = { "type" = "object", "properties" = { "image_data_url" = { "type" = "string" }, "import_mode" = { "type" = "string", "enum" = ["merge", "replace"], "default" = "merge" } }, "required" = ["image_data_url"] }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["submitted", "message", "image_stored"]
+llm_result_schema = { "type" = "object", "properties" = { "submitted" = {  }, "message" = {  }, "image_stored" = {  } }, "required" = ["submitted", "message", "image_stored"] }
+
+[[plugin.entries]]
+id = "update_player_context"
+name = "更新玩家星铁语境"
+description = "根据玩家明确提供的信息更新档案；角色字段必须通过固定版本角色数据库校验。"
+input_schema = { "type" = "object", "properties" = { "changes" = { "type" = "object", "properties" = { "owned_characters" = { "type" = "array", "items" = { "type" = "string" } }, "favorite_characters" = { "type" = "array", "items" = { "type" = "string" } }, "training_targets" = { "type" = "array", "items" = { "type" = "string" } }, "common_teams" = { "type" = "array", "items" = { "type" = "string" } }, "current_goals" = { "type" = "array", "items" = { "type" = "string" } }, "preferences" = { "type" = "object", "additionalProperties" = true }, "progression_note" = { "type" = "string" } } }, "mode" = { "type" = "string", "enum" = ["merge", "replace"], "default" = "merge" }, "clear_fields" = { "type" = "array", "items" = { "type" = "string" }, "default" = [] } }, "required" = ["changes"] }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["profile", "memory_boundary"]
+llm_result_schema = { "type" = "object", "properties" = { "profile" = {  }, "memory_boundary" = {  } }, "required" = ["profile", "memory_boundary"] }
+
+[[plugin.entries]]
+id = "diagnose_companion"
+name = { "$i18n" = "diagnostics.run" }
+description = { "$i18n" = "diagnostics.description" }
+input_schema = { "type" = "object", "properties" = { "delivery_trace_seconds" = { "type" = "integer", "minimum" = 0, "maximum" = 120, "description" = "仅明确排查转述错值时开启：短时内存记录必要装备字段，不保存截图；0关闭。默认不开启。" }, "include_delivery_trace" = { "type" = "boolean", "default" = false, "description" = "仅明确请求时读取短时装备交付追踪；默认支持诊断/导出不包含游戏字段。" } }, "additionalProperties" = false }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["diagnostic"]
+llm_result_schema = { "type" = "object", "properties" = { "diagnostic" = {} }, "required" = ["diagnostic"] }
+
+[[plugin.entries]]
+id = "export_companion_diagnostic"
+name = { "$i18n" = "diagnostics.export" }
+description = { "$i18n" = "diagnostics.exportDescription" }
+input_schema = { "type" = "object", "properties" = {}, "additionalProperties" = false }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["diagnostic", "export"]
+llm_result_schema = { "type" = "object", "properties" = { "diagnostic" = {}, "export" = {} }, "required" = ["diagnostic", "export"] }
+
+[[plugin.entries]]
+id = "test_proactive_message"
+name = "测试星铁主动搭话"
+description = "向当前猫娘请求一句连接测试回应，不依赖角色识别，不模拟游戏事件。"
+input_schema = { "type" = "object", "properties" = {  } }
+kind = "action"
+auto_start = false
+model_validate = true
+llm_result_fields = ["proactive_companionship", "last_operation"]
+llm_result_schema = { "type" = "object", "properties" = { "proactive_companionship" = {  }, "last_operation" = {  } }, "required" = ["proactive_companionship", "last_operation"] }
+
+[plugin.author]
+name = "WhiteFrostune"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = true
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "demo"
+title = "星铁游戏搭子 0.9.6"
+entry = "ui/panel_v09.tsx"
+context = "demo"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "使用说明"
+entry = "docs/quickstart.md"
+permissions = ["state:read"]
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+

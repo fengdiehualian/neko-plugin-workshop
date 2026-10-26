@@ -1,0 +1,49 @@
+[plugin]
+id = "neko_terraria"
+name = "泰拉瑞亚猫娘"
+description = "让 AI 猫娘作为独立玩家加入泰拉瑞亚世界：有头客户端、自动匹配 Host&Play/专用服务器、双轨任务调度、自主行为、mod 物品合成推演。"
+short_description = "Terraria AI cat-girl teammate with headful client and mod crafting."
+keywords = ["terraria", "泰拉瑞亚", "泰拉", "游戏", "game", "autonomous", "cat", "猫娘", "跟着", "跟随", "follow", "跟在我身边", "跟过来", "挖矿", "采矿", "mine", "守卫", "守在这", "guard", "战斗", "打怪", "fight", "合成", "craft", "mod", "ai-teammate", "headful-client"]
+version = "0.6.0"
+entry = "plugin.plugins.neko_terraria:NTerrariaPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+# 双 LLM 架构配置
+# 主 LLM：对话交互、情感表达、角色一致性（使用宿主默认 LLM，通过 __call_llm 注入）
+# 意图 LLM：结构化推理、任务规划、快速解析（通过 __call_intent_llm 注入，未设置时回退主 LLM）
+
+[plugin.store]
+enabled = true
+
+
+# 前端为静态 HTML，每 2s 轮询 /runs API
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "泰拉瑞亚猫娘"
+entry = "static/index.html"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "guide"
+title = "使用指南"
+entry = "docs/guide.md"
+permissions = ["state:read"]

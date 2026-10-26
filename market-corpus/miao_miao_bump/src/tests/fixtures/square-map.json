@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "test-square",
+  "nameKey": "map.testSquare",
+  "art": { "metadata": "assets/summer-pool.json" },
+  "world": { "width": 800, "height": 800, "bounds": { "left": 60, "top": 70, "right": 740, "bottom": 730 } },
+  "spawns": [
+    [{ "x": 180, "y": 210 }, { "x": 280, "y": 400 }, { "x": 180, "y": 590 }],
+    [{ "x": 620, "y": 210 }, { "x": 520, "y": 400 }, { "x": 620, "y": 590 }]
+  ],
+  "spawnRegions": [
+    { "left": 100, "top": 110, "right": 350, "bottom": 690 },
+    { "left": 450, "top": 110, "right": 700, "bottom": 690 }
+  ],
+  "colliders": [],
+  "mechanics": []
+}

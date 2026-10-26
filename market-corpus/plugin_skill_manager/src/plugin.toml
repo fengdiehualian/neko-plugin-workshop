@@ -1,0 +1,88 @@
+[plugin]
+id = "plugin_skill_manager"
+name = "Plugin Skill Manager"
+version = "0.2.0"
+type = "plugin"
+description = "Agent Skill 管理器：自带 4 个可执行 Skill（knowledge-search / knowledge-import / database-query / database-export，转发到知识库插件），并把用户文件夹各 Agent 的 skills 根（~/.agents、~/.claude、~/.codex、~/.evox、~/.omp、~/.pencil、~/.workbuddy、~/.zcode、Doubao、N.E.K.O/.agent 等）以 Windows 目录联接零拷贝挂进 skills/ 统一登记、启用禁用、热重载与校验（SKILL.md + frontmatter）。（次数/错误/耗时经知识库插件写入数据库插件。）"
+short_description = "Agent Skills registry: bundles 4 executable KB/DB skills and mounts every user skills root (~/.agents, ~/.claude, ~/.codex, …) into skills/ via Windows junctions for unified listing, validation, enable/disable and call statistics."
+keywords = [
+    "skill",
+    "agent",
+    "技能",
+    "SKILL.md",
+    "注册",
+    "知识库",
+    "数据库",
+    "统计",
+    "用户技能",
+    "claude",
+    "codex",
+]
+entry = "plugin.plugins.plugin_skill_manager:PluginSkillManagerPlugin"
+
+[plugin.author]
+name = "neko-plugin"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+# 静态声明入口（只写 id + name，其余元数据仍以 @plugin_entry 装饰器为准）。
+# 宿主重扫插件时只认 plugin.meta.json / 这里的声明来重建入口列表；不写的话
+# 一次 /plugins/refresh 就会把入口清空，面板 action 全部 404。
+# tests/test_manifest_entries.py 校验这里与装饰器保持一致。
+
+[[plugin.entries]]
+id = "skill_list"
+name = "Skill 列表"
+
+[[plugin.entries]]
+id = "skill_sync"
+name = "同步用户 Skill"
+
+[[plugin.entries]]
+id = "skill_enable"
+name = "启用 Skill"
+
+[[plugin.entries]]
+id = "skill_disable"
+name = "禁用 Skill"
+
+[[plugin.entries]]
+id = "skill_reload"
+name = "重载 Skill 注册表"
+
+[[plugin.entries]]
+id = "skill_invoke"
+name = "调用 Skill"
+
+[[plugin.entries]]
+id = "skill_validate"
+name = "校验 SKILL.md"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.store]
+enabled = true
+
+[skill_manager]
+# 启动时自动注册所有启用的 Skill 为运行时入口
+auto_register = true
+
+# 外部（用户文件夹）Skill 默认只登记，不注册成可调用入口。
+# 它们没有 KB 路由，注册了只会返回 "has no KB route"。
+# 要放行 + 补路由见 <用户数据目录>/plugins/plugin_skill_manager/config/plugin.toml
+# 的 builtin_only / [skill_manager.routes.*]。
+builtin_only = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "Plugin Skill Manager"
+entry = "ui/panel.tsx"
+context = "plugin_skill_manager_panel"
+permissions = ["state:read", "action:call"]

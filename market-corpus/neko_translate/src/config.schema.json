@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "translate": {
+      "type": "object",
+      "title": "翻译设置",
+      "properties": {
+        "default_target": {
+          "type": "string",
+          "title": "默认目标语言",
+          "description": "用户没有指定目标语言时使用。可填语言代码或语言名，如 zh-CN、en、ja、中文、英语。",
+          "x-title-i18n": { "zh-CN": "默认目标语言", "en": "Default target language" },
+          "x-description-i18n": {
+            "zh-CN": "用户没有指定目标语言时使用。可填语言代码或语言名，如 zh-CN、en、ja、中文、英语。",
+            "en": "Used when no target language is given. Accepts a code or a name, e.g. zh-CN, en, ja."
+          },
+          "default": "zh-CN"
+        },
+        "default_source": {
+          "type": "string",
+          "title": "默认源语言",
+          "description": "auto 表示自动检测，通常保持 auto 即可。",
+          "x-title-i18n": { "zh-CN": "默认源语言", "en": "Default source language" },
+          "x-description-i18n": {
+            "zh-CN": "auto 表示自动检测，通常保持 auto 即可。",
+            "en": "auto means detect automatically; usually keep it as auto."
+          },
+          "enum": ["auto", "zh-CN", "zh-TW", "en", "ja", "ko", "fr", "de", "es", "ru"],
+          "default": "auto"
+        },
+        "push_to_chat": {
+          "type": "boolean",
+          "title": "把译文推到聊天框",
+          "description": "开启后，翻译结果会作为一条消息出现在聊天里，方便猫娘直接念给你听。",
+          "x-title-i18n": { "zh-CN": "把译文推到聊天框", "en": "Push translation to chat" },
+          "x-description-i18n": {
+            "zh-CN": "开启后，翻译结果会作为一条消息出现在聊天里，方便猫娘直接念给你听。",
+            "en": "When enabled, the translation is posted as a chat message so the catgirl can read it out."
+          },
+          "default": true
+        },
+        "max_input_chars": {
+          "type": "integer",
+          "title": "单次最大字符数",
+          "description": "超过这个长度的文本会被拒绝，请分段翻译。公共接口对长文本也会限流。",
+          "x-title-i18n": { "zh-CN": "单次最大字符数", "en": "Max characters per request" },
+          "x-description-i18n": {
+            "zh-CN": "超过这个长度的文本会被拒绝，请分段翻译。公共接口对长文本也会限流。",
+            "en": "Text longer than this is rejected; split it into parts. Public endpoints rate-limit long text too."
+          },
+          "minimum": 200,
+          "maximum": 20000,
+          "default": 3000
+        },
+        "cute": {
+          "type": "boolean",
+          "title": "猫娘语气",
+          "description": "译文是中文时结尾加「喵～」。翻成其他语言时不会加，避免破坏译文。",
+          "x-title-i18n": { "zh-CN": "猫娘语气", "en": "Catgirl tone" },
+          "x-description-i18n": {
+            "zh-CN": "译文是中文时结尾加「喵～」。翻成其他语言时不会加，避免破坏译文。",
+            "en": "Appends a meow when the result is Chinese. Other target languages are left untouched."
+          },
+          "default": true
+        },
+        "cat_suffix": {
+          "type": "string",
+          "title": "自定义语气后缀",
+          "x-title-i18n": { "zh-CN": "自定义语气后缀", "en": "Custom catchphrase" },
+          "description": "留空使用默认的「喵～」。",
+          "x-description-i18n": { "zh-CN": "留空使用默认的「喵～」。", "en": "Empty uses the default meow." },
+          "default": ""
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "title": "请求超时（秒）",
+          "x-title-i18n": { "zh-CN": "请求超时（秒）", "en": "Request timeout (seconds)" },
+          "minimum": 3,
+          "maximum": 120,
+          "default": 15
+        },
+        "providers": {
+          "type": "array",
+          "title": "翻译提供方顺序",
+          "description": "按顺序降级尝试。mymemory 实测最稳；gtrans 在国内常不可达；lingva 需要自建实例。",
+          "x-title-i18n": { "zh-CN": "翻译提供方顺序", "en": "Provider fallback order" },
+          "x-description-i18n": {
+            "zh-CN": "按顺序降级尝试。mymemory 实测最稳；gtrans 在国内常不可达；lingva 需要自建实例。",
+            "en": "Tried in order. mymemory is the most reliable; gtrans is often unreachable in mainland China; lingva needs your own instance."
+          },
+          "items": { "type": "string" }
+        },
+        "lingva_base": {
+          "type": "string",
+          "title": "Lingva 实例地址",
+          "description": "仅当你在提供方列表里加入 lingva 时才需要填写。",
+          "x-title-i18n": { "zh-CN": "Lingva 实例地址", "en": "Lingva instance URL" },
+          "x-description-i18n": {
+            "zh-CN": "仅当你在提供方列表里加入 lingva 时才需要填写。",
+            "en": "Only needed if you add lingva to the provider list."
+          },
+          "default": "https://lingva.ml"
+        }
+      }
+    }
+  }
+}

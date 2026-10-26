@@ -1,0 +1,8 @@
+# 打包排除规则（CLI build 读取 [tool.neko.build]）
+[tool.neko.build]
+exclude_dirs = ["tests", ".vscode", ".github"]
+exclude_files = ["*.neko-plugin", "*.md", "conftest.py", "pytest.ini", ".gitignore"]
+
+[tool.neko.pack]
+exclude_dirs = ["tests", ".vscode", ".github"]
+exclude_files = ["*.neko-plugin", "*.md", "conftest.py", "pytest.ini", ".gitignore"]

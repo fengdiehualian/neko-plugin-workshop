@@ -1,0 +1,22 @@
+[project]
+name = "genshin_game_buddy"
+version = "2.0.73b0"
+dependencies = [
+]
+authors = [
+    { name = "silverwolftyro" },
+]
+
+[tool.pytest.ini_options]
+# 本插件的测试自带配置：从插件目录直接跑 `pytest tests` 时不必依赖仓库根的 pytest.ini。
+asyncio_mode = "auto"
+norecursedirs = "scene_test_* .pytest-tmp"
+markers = [
+    "unit: 纯函数级用例（不构造插件）",
+    "integration: 构造真实插件实例的用例",
+    "static: 源码静态扫描用例（红线回归）",
+    "privacy: 隐私边界用例，CI 必跑不可跳",
+    "release: 发布前必过",
+    "p1: P1 功能用例",
+    "stress: OCR 链路压测（秒级完成，可 -m 'not stress' 排除）",
+]

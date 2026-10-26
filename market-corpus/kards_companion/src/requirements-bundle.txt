@@ -1,0 +1,42 @@
+# requirements-bundle.txt
+# STATUS: BLOCKED_PENDING_BUILD
+#
+# THIS IS NOT A PIP LOCK AND MUST NOT BE INSTALLED BY `pip -r`.
+# It intentionally contains no version pins, hashes, wheel URLs, or local
+# environment copies. The offline build must generate the real lock from an
+# isolated CPython 3.11 win_amd64 CPU-only builder, then replace this file with
+# build-generated output before the bundle can be published.
+#
+# Hard rules for the build:
+#   * Build/install only with CPython 3.11.x on Windows x86_64 (win_amd64).
+#   * CPUExecutionProvider only; do not ship CUDA/DirectML/TensorRT runtimes.
+#   * Never copy site-packages, wheels, or pins from the current Python 3.14
+#     environment or from the N.E.K.O host interpreter.
+#   * Use a clean, offline-verifiable resolver run; every artifact needs a
+#     pinned version and a SHA-256 hash in the generated lock.
+#   * Record the exact wheel filenames and hashes in the bundle manifest; the
+#     worker self-check must prove imports originate inside vendor/python.
+#   * Keep the two JSON contracts separate:
+#       worker-runtime.json  -> kards-worker-runtime/1 (worker self-check)
+#       bundle-manifest.json -> neko-kards-bundle-manifest/1 (distribution tool)
+#     The worker must never generate or overwrite bundle-manifest.json.
+#   * Run the publication gate in THIRD_PARTY_NOTICES.md before publishing.
+#
+# Candidate distributions (names only; no version or license claim is made
+# here). The build must resolve, pin, hash, and license-audit each one:
+#   - numpy
+#   - Pillow
+#   - opencv-python-headless          (optional, module name: cv2)
+#   - onnxruntime                     (optional, CPU provider)
+#
+# OCR 引擎依赖已随 OCR 全链路移除，不再是候选依赖。
+#
+# Optional capability mapping for the phase-1 self-check:
+#   numpy          -> numeric
+#   Pillow         -> image
+#   cv2            -> vision
+#   onnxruntime    -> detector
+#
+# The build must emit a separate generated lock (for example
+# requirements-bundle.lock.txt) and must refuse to publish if this template is
+# still present unchanged.

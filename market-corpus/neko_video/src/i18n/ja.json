@@ -1,0 +1,10 @@
+{
+  "plugin.name": "動画鑑賞猫娘",
+  "plugin.description": "猫娘が今見ている Bilibili 動画の内容をちゃんと理解できるように。タイトルを読み上げるだけでは終わりません。",
+  "entry.video_status.name": "動画鑑賞の状態",
+  "entry.video_status.description": "プラグインが使える状態か、これまでに認識した動画を確認します。",
+  "entry.check_now.name": "今なにを見ているか確認",
+  "entry.check_now.description": "今のウィンドウをすぐに検出し、必要ならプッシュします（デバッグ用）。",
+  "entry.set_bvid.name": "動画の BV 番号を指定",
+  "entry.set_bvid.description": "猫娘に特定の動画を手動で教えます（予備手段）。"
+}

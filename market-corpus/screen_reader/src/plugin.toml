@@ -1,0 +1,31 @@
+[plugin]
+id = "screen_reader"
+name = "屏幕阅读器"
+description = "让 YUI 看见电脑屏幕：全屏/前台窗口截屏（PNG 路径，可直接交视觉能力解读）、前台窗口识别、可选 OCR 文字识别（需 Tesseract）。何时用：'看看我屏幕/截个屏/屏幕上是什么'，或'一起看电脑/一起看屏幕/我们一起看'等共享观看场景。安全边界：按需截屏，不静默持续录制。"
+short_description = "让 YUI 看见屏幕：截屏/窗口识别/OCR；'一起看'时自动截屏"
+keywords = ["屏幕", "截图", "截屏", "screen", "capture", "screenshot", "窗口", "window", "ocr", "识别", "文字", "阅读", "reader", "视觉", "前台窗口", "看到屏幕", "一起看", "一起看电脑", "一起看屏幕", "共享观看"]
+version = "0.1.3"
+type = "plugin"
+entry = "plugin.plugins.screen_reader:ScreenReaderPlugin"
+
+[plugin.author]
+name = "起诉人"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "使用说明"
+entry = "docs/guide.md"

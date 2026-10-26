@@ -1,0 +1,57 @@
+[plugin]
+id = "space_launch"
+name = "太空发射"
+description = "查询下一次及未来多次太空发射任务，并支持跨来源检索航天资料：航天器、火箭型号、空间站、航天机构、宇航员、中文百科条目、国内卫星百科（灰机wiki）、NASA 技术文献与网页兜底搜索。数据来源为 Launch Library 2、NASA NTRS、百度百科、卫星百科（sat.huijiwiki.com / 灰机wiki）与 Bing。由星河拓航工作室 Galaxy Exploration Studio（航天科普组织）开发维护。"
+short_description = "Query upcoming rocket launches and look up spacecraft, launchers, agencies, Chinese encyclopedia entries, the domestic Satellite Wiki and NASA literature, with web fallback."
+keywords = [
+    "太空", "发射", "火箭", "卫星", "航天", "下一次发射", "空间站", "宇航员", "航天器",
+    "航天机构", "NASA", "文献", "资料", "查卫星", "百科", "查询", "是什么", "卫星百科",
+    "灰机wiki", "风云", "神舟", "长征", "文昌", "发射场",
+    "space", "launch", "rocket", "satellite", "spaceflight", "spacecraft", "space station",
+    "astronaut", "agency", "launchpad", "satwiki", "打ち上げ", "宇宙", "ロケット", "로켓", "발사",
+    "космос", "запуск", "спутник"
+]
+version = "1.4.0"
+type = "plugin"
+entry = "plugin.plugins.space_launch:SpaceLaunchPlugin"
+
+[plugin.author]
+name = "星河拓航Studio"
+email = "contact@xhth.top"
+url = "https://xhth.top/"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[space_launch]
+# Launch Library 2 API 基础地址（带尾部斜杠）
+api_base_url = "https://ll.thespacedevs.com/2.3.0/"
+# NASA 技术报告库（NTRS）基础地址（带尾部斜杠）
+ntrs_base_url = "https://ntrs.nasa.gov/"
+# 百度百科基础地址（中文航天资料）
+baike_base_url = "https://baike.baidu.com/"
+# 网页兜底搜索基础地址
+bing_base_url = "https://cn.bing.com/"
+# 国内卫星百科基础地址（灰机wiki / sat.huijiwiki.com，中文航天资料）
+huijiwiki_base_url = "https://sat.huijiwiki.com/"
+# 单次请求超时（秒）
+timeout_seconds = 15
+# 默认返回的即将发射数量
+default_limit = 5
+# 是否在下次发射/列表中附带任务描述
+include_descriptions = true
+# API 响应的内存缓存时间（秒）
+cache_ttl_seconds = 300
+# 自动播报：插件在后台定期把「下一次发射」写进角色的上下文里，
+# 这样她不用等你开口才去查。用的是「只读不打断」的方式，不会突然插话。
+# 关掉它就退回旧的问答式行为：只有你问了才查。
+auto_brief_enabled = true
+# 自动播报的轮询间隔（秒），范围 30-3600。
+# 默认 180 秒：发射计划变化很慢，而且 Launch Library 2 免费额度
+# 只有约每小时 15 次请求（插件内另有 300 秒缓存兜底），不必查得太勤。
+auto_brief_interval_seconds = 180

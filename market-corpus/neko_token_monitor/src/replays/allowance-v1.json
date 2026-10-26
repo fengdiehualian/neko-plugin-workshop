@@ -1,0 +1,494 @@
+{
+  "schema_version": 1,
+  "isolated": true,
+  "contains_real_account_data": false,
+  "cases": [
+    {
+      "name": "deepseek_exact_money",
+      "profile": "deepseek",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "deepseek",
+          "currency": "CNY",
+          "interval": 300,
+          "balance_total": 20
+        },
+        "selected": {
+          "balance": "4.2400000001"
+        },
+        "updated_at": 1999999999,
+        "stale": false
+      },
+      "expect": {
+        "value": "4.2400000001",
+        "metric": "money_balance",
+        "status": "current",
+        "can_alert": true
+      }
+    },
+    {
+      "name": "deepseek_zero_is_known",
+      "profile": "deepseek",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "deepseek",
+          "currency": "CNY"
+        },
+        "selected": {
+          "balance": "0"
+        },
+        "updated_at": 1999999999
+      },
+      "expect": {
+        "value": "0",
+        "percent": null,
+        "status": "current"
+      }
+    },
+    {
+      "name": "timeout_keeps_original_stamp",
+      "profile": "deepseek",
+      "now": 2000000100,
+      "state": {
+        "config": {
+          "source": "deepseek",
+          "interval": 300
+        },
+        "selected": {
+          "balance": "4.24"
+        },
+        "updated_at": 1999999999,
+        "checked_at": 2000000100,
+        "error": "synthetic failure"
+      },
+      "expect": {
+        "value": "4.24",
+        "observed_at": 1999999999,
+        "status": "stale",
+        "can_alert": false
+      }
+    },
+    {
+      "name": "missing_is_not_zero",
+      "profile": "deepseek",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "deepseek"
+        },
+        "error": "synthetic failure"
+      },
+      "expect": {
+        "value": null,
+        "status": "unknown",
+        "can_alert": false
+      }
+    },
+    {
+      "name": "future_time_rejected",
+      "profile": "deepseek",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "deepseek"
+        },
+        "selected": {
+          "balance": "5"
+        },
+        "updated_at": 2000000600
+      },
+      "expect": {
+        "value": null,
+        "status": "invalid",
+        "can_alert": false
+      }
+    },
+    {
+      "name": "bool_not_money",
+      "profile": "deepseek",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "deepseek"
+        },
+        "selected": {
+          "balance": true
+        },
+        "updated_at": 1999999999
+      },
+      "expect": {
+        "value": null,
+        "status": "invalid"
+      }
+    },
+    {
+      "name": "codex_weakest_active_window",
+      "profile": "codex",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "codex"
+        },
+        "updated_at": 1999999999,
+        "codex_quota": {
+          "windows": [
+            {
+              "label": "5 小时额度",
+              "remaining": 75,
+              "minutes": 300,
+              "resets_at": 2000000300
+            },
+            {
+              "label": "周额度",
+              "remaining": 25,
+              "minutes": 10080,
+              "resets_at": 2000604800
+            }
+          ]
+        }
+      },
+      "expect": {
+        "value": "25",
+        "percent": 25,
+        "unit": "%",
+        "status": "current"
+      }
+    },
+    {
+      "name": "codex_expired_is_unknown",
+      "profile": "codex",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "codex"
+        },
+        "updated_at": 1999999999,
+        "codex_quota": {
+          "windows": [
+            {
+              "label": "5 小时",
+              "remaining": 0,
+              "resets_at": 1999999998
+            }
+          ]
+        }
+      },
+      "expect": {
+        "value": null,
+        "percent": null,
+        "status": "expired",
+        "can_alert": false
+      }
+    },
+    {
+      "name": "codex_partial_reset",
+      "profile": "codex",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "codex"
+        },
+        "updated_at": 1999999999,
+        "codex_quota": {
+          "windows": [
+            {
+              "label": "旧窗口",
+              "remaining": 0,
+              "resets_at": 1999999998
+            },
+            {
+              "label": "周额度",
+              "remaining": 80,
+              "resets_at": 2000604800
+            }
+          ]
+        }
+      },
+      "expect": {
+        "value": "80",
+        "percent": 80,
+        "status": "current"
+      }
+    },
+    {
+      "name": "codex_missing_reset_not_live",
+      "profile": "codex",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "codex"
+        },
+        "updated_at": 1999999999,
+        "codex_quota": {
+          "windows": [
+            {
+              "remaining": 12
+            }
+          ]
+        }
+      },
+      "expect": {
+        "value": null,
+        "status": "unknown",
+        "can_alert": false
+      }
+    },
+    {
+      "name": "trae_native_credits",
+      "profile": "trae",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "desktop_quota",
+          "quota_mode": "auto",
+          "quota_total": 1000
+        },
+        "account_quota": {
+          "remaining": 750
+        },
+        "updated_at": 1999999999
+      },
+      "expect": {
+        "value": "750",
+        "percent": 75,
+        "unit": "积分",
+        "method": "desktop_panel"
+      }
+    },
+    {
+      "name": "manual_tokens_keep_entry_time",
+      "profile": "qwen",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "manual_quota",
+          "quota_unit": "token",
+          "quota_remaining": 500000,
+          "quota_total": 1000000,
+          "recorded_at": 1999000000
+        },
+        "updated_at": 1999999999
+      },
+      "expect": {
+        "value": "500000",
+        "observed_at": 1999000000,
+        "percent": 50,
+        "status": "manual"
+      }
+    },
+    {
+      "name": "legacy_manual_time_unknown",
+      "profile": "trae",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "desktop_quota",
+          "quota_mode": "manual",
+          "quota_unit": "积分",
+          "quota_remaining": 25,
+          "quota_total": 100
+        },
+        "updated_at": 1999999999
+      },
+      "expect": {
+        "value": "25",
+        "observed_at": null,
+        "status": "manual",
+        "percent": 25
+      }
+    },
+    {
+      "name": "budget_is_not_balance",
+      "profile": "openai",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "openai",
+          "currency": "USD",
+          "budget": 100,
+          "budget_start": "2033-01-01"
+        },
+        "selected": {
+          "balance": "40"
+        },
+        "updated_at": 1999999999
+      },
+      "expect": {
+        "metric": "budget_remaining",
+        "value": "40",
+        "percent": 40
+      }
+    },
+    {
+      "name": "jev_usage_not_remaining",
+      "profile": "jev",
+      "now": 2000000000,
+      "state": {
+        "config": {
+          "source": "jev"
+        },
+        "reported_usage": {
+          "input_tokens": 100,
+          "output_tokens": 10,
+          "updated_at": 1999999999
+        }
+      },
+      "expect": {
+        "metric": "usage_total",
+        "value": "110",
+        "percent": null,
+        "can_alert": false
+      }
+    }
+  ],
+  "source_cases": [
+    {
+      "name": "codex_current_shape",
+      "adapter": "codex",
+      "payload": {
+        "rateLimitsByLimitId": {
+          "codex": {
+            "primary": {
+              "usedPercent": 22,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000300
+            }
+          }
+        }
+      },
+      "expect": {
+        "remaining": [
+          78
+        ]
+      }
+    },
+    {
+      "name": "codex_legacy_shape",
+      "adapter": "codex",
+      "payload": {
+        "rateLimits": {
+          "primary": {
+            "usedPercent": 100,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000300
+          }
+        }
+      },
+      "expect": {
+        "remaining": [
+          0
+        ]
+      }
+    },
+    {
+      "name": "codex_boolean_not_a_percent",
+      "adapter": "codex",
+      "payload": {
+        "rateLimits": {
+          "primary": {
+            "usedPercent": true,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000300
+          }
+        }
+      },
+      "error": true
+    },
+    {
+      "name": "codex_invalid_range_not_zero",
+      "adapter": "codex",
+      "payload": {
+        "rateLimits": {
+          "primary": {
+            "usedPercent": 200,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000300
+          }
+        }
+      },
+      "error": true
+    },
+    {
+      "name": "deepseek_zero",
+      "adapter": "deepseek",
+      "payload": {
+        "is_available": false,
+        "balance_infos": [
+          {
+            "currency": "CNY",
+            "total_balance": "0.00"
+          }
+        ]
+      },
+      "expect": {
+        "balances": [
+          {
+            "currency": "CNY",
+            "balance": "0.00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "deepseek_invalid_number",
+      "adapter": "deepseek",
+      "payload": {
+        "is_available": true,
+        "balance_infos": [
+          {
+            "currency": "CNY",
+            "total_balance": "NaN"
+          }
+        ]
+      },
+      "error": true
+    },
+    {
+      "name": "trae_label_precision",
+      "adapter": "desktop",
+      "app": "trae",
+      "panels": [
+        [
+          "总可用积分",
+          "750.25"
+        ]
+      ],
+      "expect": {
+        "remaining": 750.25,
+        "unit": "积分"
+      }
+    },
+    {
+      "name": "trae_ambiguous_panel",
+      "adapter": "desktop",
+      "app": "trae",
+      "panels": [
+        [
+          "总可用积分",
+          "750"
+        ],
+        [
+          "总可用积分",
+          "300"
+        ]
+      ],
+      "error": true
+    },
+    {
+      "name": "workbuddy_price_not_balance",
+      "adapter": "desktop",
+      "app": "workbuddy",
+      "panels": [
+        [
+          "购买积分",
+          "100",
+          "套餐价格",
+          "29"
+        ]
+      ],
+      "error": true
+    }
+  ]
+}

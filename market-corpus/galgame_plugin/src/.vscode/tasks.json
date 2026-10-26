@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check galgame_plugin",
+      "type": "shell",
+      "command": "uv run neko-plugin check galgame_plugin",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync galgame_plugin",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync galgame_plugin --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r galgame_plugin",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r galgame_plugin",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build galgame_plugin",
+      "type": "shell",
+      "command": "uv run neko-plugin build galgame_plugin",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

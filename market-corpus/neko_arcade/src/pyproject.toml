@@ -1,0 +1,54 @@
+[project]
+name = "neko_arcade"
+version = "0.5.10"
+description = "N.E.K.O mini-games hub: catgirl plays fishing, turtle-soup, coin-flip and more."
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = []
+
+[tool.neko.build]
+exclude_dirs = [
+    ".vscode",
+    ".venv",
+    ".pytest_cache",
+    ".ruff_cache",
+    "tests",
+    ".tmp_neko_photo_test",
+    ".tmp_push_sender_test",
+    # 喵图相册图库: 用户上传/自建的图**绝不进包**(打包发布默认空图库)
+    "games/neko_photo/data",
+    # 塔罗牌面 251MB PNG: 不进包 —— 首次运行从素材源下载到缓存
+    # (见 adapters/asset_store.py; 包内只留 games/tarot/assets.manifest.json)
+    "games/tarot/data",
+    # 渲染产物落盘缓存(旧宿主 markdown 图片通道用), 属于运行时数据不该发布
+    "static/cards",
+]
+exclude_files = [
+    ".gitignore",
+    "README.md",
+    "uv.lock",
+    "ruff.toml",
+    "LICENSE",
+    "data/store.db",
+    "*.neko-plugin",
+    "*.neko-bundle",
+    # 完整文档(在 GitHub 仓库 docs/)——不打包进发布包;
+    # 面板仅展示 docs/ui/ 下的简版文档(plugin.toml ui.guide 指向)
+    "docs/CHANGELOG.md",
+    "docs/development.md",
+    "docs/rules.md",
+    "docs/pitfalls.md",
+    "docs/ARCHITECTURE.md",
+    # 大数据 JSON: 仓库里保留明文(开发/审阅/再生成), **发布只带 .json.gz**
+    # —— minify+gzip 后 2.59MB → 0.17MB(省 94%); 运行时由 core/datafile.py
+    #    优先读 <name>.gz 透明解压。改数据后跑 tools/compress_data_json.py 重新生成。
+    "games/remake/resources/data/*.json",
+    "games/xiuxian/data/items/*.json",
+    "games/xiuxian/data/levels/*.json",
+    "games/fishing/fishdata.json",
+    # ⚠️ UI 素材（图标/背景/立绘/徽章，共约 288KB）**刻意留在包里**：
+    #   · 帮助图渲染要它们内联成 data URI，留包 = 完全离线可用；
+    #   · 体积代价只有 0.28MB，而"人生重开"的 JSON 才是大头（见上）。
+    #   素材库是"本地优先"的（AssetStore.local_mirror），本地有就不会下载。
+    #   塔罗牌面（251MB）例外：那部分确实外置，首次运行按需/预热下载。
+]

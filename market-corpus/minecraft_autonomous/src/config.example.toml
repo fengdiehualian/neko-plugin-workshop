@@ -1,0 +1,104 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+# Enable only after installing the backend and binding the decision model.
+# Explicit start is always required, even when this is true.
+[autonomy]
+enabled = false
+min_decision_seconds = 10
+idle_decision_seconds = 60
+max_decisions = 0 # Continuous after explicit start; stop from the panel whenever desired.
+max_tool_rounds = 6
+context_tokens = 65536 # 默认64K；服务实际支持时可选131072（128K），保留显式配置的其他有效值。
+context_mode = "compact" # full 保留已提供的原文、完整工具结果与历史，仅按实际模型窗口预算省略。
+max_output_tokens = 1024
+model_timeout_seconds = 180
+
+[server]
+host = "127.0.0.1" # Existing local Java server; remote servers can be selected in the panel.
+port = 25565
+username = "" # Quick start creates and saves a private offline nickname when left empty.
+auth = "offline" # Use microsoft for authenticated public servers.
+version = "1.21.1"
+login_config_file = "" # Optional private login configuration; never commit it.
+
+[qiandengji]
+identity_file = "" # Optional website invitation identity path; existing game roles keep this empty.
+
+[backend]
+node = "" # Empty: select the prepared offline runtime. Explicit custom paths bypass all implicit runtime defaults.
+directory = "" # Empty: select the same prepared runtime; custom installations must match the pinned core.
+
+[viewer]
+default_appearance = "bundled:yui-ysm" # Web only; saved per-server/account browser choices, including server-follow, win.
+bundled_appearance_catalog_file = "" # Empty: use this plugin's original YUI catalog when explicitly starting embedded play.
+renderer_directory = ""
+catalog_file = ""
+listen_port = 28985
+auto_open = true # Open once after an explicitly started session joins the game.
+url = "" # Optional existing viewer, e.g. https://viewer.example.org/3dview/.
+port = 0
+console_port = 0
+
+[runtime]
+mode = "embedded" # external: N.E.K.O only observes/submits; shutdown leaves standalone running.
+data_directory = "" # external mode: same absolute data root used by standalone.py.
+
+[extension_pack]
+mode = "auto" # Byte-checked optional pack; ordinary servers do not register its channels. none disables it.
+
+[perception]
+enabled = true # Only actual core PNG artifacts. Bind optional vision slot in Neko.
+mineral_vision = false # Explicit opt-in: loaded minerals within 32 blocks, not unseen terrain or action permission.
+
+[knowledge]
+minedojo_index_file = "" # Optional absolute path to an explicitly prepared reference SQLite index.
+retrieval = "hybrid" # hybrid, lexical or local-vector; CPU only, no model or dataset download.
+
+[host_context]
+enabled = true
+character_api_url = "" # Optional explicit local public /api/characters endpoint; no port scanning.
+
+[presentation]
+enabled = false # Optional meaningful game-event narration through Neko's official voice path.
+target = "" # Empty: host-selected role; otherwise a configured Neko character name.
+min_interval_seconds = 90 # Ordinary commentary, including strategic reviews; urgent danger may bypass once.
+
+[heartbeat]
+enabled = false # Explicitly enable Neko main-character strategic reviews of an already running game.
+target = "" # Empty: current Neko character. Independent runtime does not require Neko.
+min_interval_seconds = 60 # Material changes are coalesced; this is not a fixed model-call interval.
+review_interval_seconds = 180 # Fallback strategic review with fresh facts.
+review_max_output_tokens = 3072 # Independent total review output, including provider reasoning; body budget is unchanged.
+idle_presence_seconds = 45 # Bounded optional character chat in the existing review loop; accepted events reset it.
+
+[speech_output]
+enabled = false # Explicit optional public Neko REST output-only integration; no additional model.
+base_url = "" # Exact local Neko origin, with no path/credentials; empty target follows its current cat.
+planner_narration = true # Forward explicit spoken_text from the existing planning call; no extra inference.
+min_interval_seconds = 30 # Pace ordinary planning commentary independently of strategic reviews.
+# Capability checked through /openapi.json; only /api/game/minecraft_autonomous/speak is used.
+# Enqueue is not playback; ordinary final host replies cannot be filtered by this plugin.
+
+[fast]
+mode = "rules" # rules | neko (public fast slot) | system_one (Jev/Decider protocol)
+endpoint = "" # Explicit full endpoint, e.g. https://api.typesafe.ai/v1/systemone
+model = "" # e.g. jev-latest; local services use their own model name.
+api_key_env = "" # Environment VARIABLE NAME only, never a secret value.
+min_confidence = 0.75
+
+# Retrieval is implemented by agent-mc-world, shared with other Agent frameworks.
+[memory]
+mode = "local" # local | local-vector (offline CPU token similarity) | vector | remote
+agent_id = "" # Optional stable note owner; empty preserves the existing namespace. Does not move old notes.
+endpoint = "" # Full embeddings URL in vector mode; memory API base URL in remote mode.
+model = "" # Required only in vector mode.
+api_key_env = "" # Environment variable NAME; never put the secret in this file.
+timeout_ms = 3000
+provider = "http" # http | mem0-oss | mem0-platform | bailian | powercontext
+library_id = "" # Optional Bailian memory library.
+project_id = "agent-mc"
+scope_id = "" # Existing operator-selected PowerContext Scope; never auto-created.
+search_mode = "text" # PowerContext: text | vector | hybrid.
+learning_enabled = false # Optional PowerContext / HTTP game evidence and reviewed experience workflows.

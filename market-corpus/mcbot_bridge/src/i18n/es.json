@@ -1,0 +1,4 @@
+{
+  "plugin.name": "Puente del compañero MCBot",
+  "plugin.description": "Conecta un mcbot local (compañero de Fabric) para que neko-chan pueda darle órdenes, transmitirte sus preguntas y narrar su progreso en tiempo real."
+}

@@ -1,0 +1,23 @@
+# 文明6陪玩插件运行配置（安装后写入 N.E.K.O/plugins/civ6_buddy/config/plugin.toml）
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[civ6_buddy]
+# 文明6存档目录（默认 Windows 位置；游戏改过存档路径时在此覆盖）
+saves_dir = "C:/Users/jh/Documents/My Games/Sid Meier's Civilization VI/Saves"
+
+# ── 进阶版：屏幕自动化运营（civ6_ops）按钮坐标校准 ──
+# 文明6 主界面"下一回合"按钮的窗口内相对坐标（0-1，以窗口左上角为原点）。
+# 默认值按 1920x1080 窗口实测；分辨率/窗口缩放不同时在这里校准。
+# 获取方法：游戏内截图，找到右下角回合按钮中心位置 ÷ 窗口宽高。
+# [civ6_buddy.ops_buttons]
+# next_turn = [0.960, 0.918]   # 下一回合
+# policy_ok = [0.50, 0.55]     # 政策卡"选择"（兜底）
+# production_yes = [0.62, 0.78] # 生产面板"推荐建造"（兜底）
+
+# ── 精细运营：城市面板按钮（真实截图标定，相对坐标分辨率无关）──
+# [civ6_buddy.city_panel_buttons]
+# citizen = [0.836, 0.871]     # 城市面板条「市民管理」按钮（打开市民管理窗口）
+# production = [0.929, 0.872]  # 城市面板条「选择生产项目」按钮（打开生产面板）

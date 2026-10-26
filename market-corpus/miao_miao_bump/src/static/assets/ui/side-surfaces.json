@@ -1,0 +1,10 @@
+{
+  "capsule": {
+    "image": "side-capsule-v1.png",
+    "crop": { "x": 113, "y": 251, "width": 1757, "height": 286 }
+  },
+  "circle": {
+    "image": "side-circle-v1.png",
+    "crop": { "x": 124, "y": 124, "width": 1002, "height": 1002 }
+  }
+}

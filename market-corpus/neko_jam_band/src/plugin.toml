@@ -1,0 +1,25 @@
+[plugin]
+name = "猫娘伴奏团"
+description = "你唱歌，猫娘用乐器伴奏：实时音高检测（YIN）→ 自动定调 → I-V-vi-IV 和弦琶音。四种合成乐器（钢琴/电钢琴/八音盒/尤克里里），唱长音时猫娘叠三度和声。Web UI：http://127.0.0.1:48918/plugin/neko_jam_band/ui/"
+short_description = "You sing, your catgirl plays piano/ukulele/music-box accompaniment in real time — auto key detection, chord progressions, harmony on sustained notes."
+keywords = ["唱歌", "伴奏", "音乐", "jam", "sing", "accompaniment", "piano", "和弦", "卡拉OK"]
+version = "0.1.0"
+id = "neko_jam_band"
+entry = "plugin.plugins.neko_jam_band:NekoJamBandPlugin"
+
+[plugin.author]
+name = "NEKO Community"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = true
+
+[plugin.i18n]
+default_locale = "zh-CN"
+
+[plugin_runtime]
+enabled = true
+auto_start = false

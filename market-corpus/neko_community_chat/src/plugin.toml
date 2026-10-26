@@ -1,0 +1,53 @@
+[plugin]
+id = "neko_community_chat"
+name = "喵宇宙社区聊天"
+description = """
+让 YUI 接入喵宇宙社区的多人聊天插件（v0.4 管理版）：
+本地跑消息服务（127.0.0.1:7870）+ 类似 QQ 的聊天面板（独立页 & 可嵌入网页），与 YUI 实时对话
+（后台唤醒 YUI、YUI 用 community_chat_send 回消息），聊天历史存本地。
+互联（三层通道）：① 内置默认中继（零配置开箱即用，所有安装者默认接入同一公网中继，地址隐私隐藏、自动走系统代理/已装 WARP 代理模式加速，不拖慢系统）；
+② 公网通道（默认开启）：公共 MQTT broker 全球互通（默认 broker.hivemq.com，
+自动回退 broker.mqttdashboard.com / broker.emqx.io，国内可达）——任何安装了本插件的节点开箱即聊，含昵称、
+定向回复（YUI 回复可跨节点送达）；③ 局域网：同网段 UDP 自动
+发现直连互通。自建中继可配：部署 relay/worker.js（Cloudflare Worker）后填入自有地址（可替代内置默认，
+地址一律不显示明文）。
+社区动态 tab = 自建墙（所有节点发帖），全部走自建通道；帖子显示发布者昵称（本机帖显示自己的昵称、远端帖显示对方昵称，本机来源标"本机"）。
+本地管理员：本机自动获得管理员权限（节点页顶部有管理员面板：身份徽标 + 禁言/拉黑名单随时可解除），可删除任意帖子、禁言/拉黑节点（禁言隐藏其消息、拉黑彻底不可见）；
+人人可一键清空自己与 YUI 的聊天记录（保留远端消息与社区动态）。
+何时用：用户说'和YUI聊天/社区聊天/喵宇宙聊天/打开聊天面板/社区动态/看看社区有什么新动态/和别处的用户聊天'时。
+回复纪律：直接给出消息内容或操作结果，不编造聊天记录、不假装已发送未发出的消息。
+"""
+short_description = "喵宇宙社区聊天：内置默认中继（零配置全球互通·地址隐私隐藏）+公网MQTT多broker回退+局域网自动发现，QQ 式聊天面板，YUI 实时对话，自建社区墙，本地管理员（删帖/禁言/拉黑）与一键清空聊天"
+keywords = ["聊天", "chat", "喵宇宙", "社区", "community", "nekoverse", "消息", "message", "面板", "chat panel", "YUI", "对话", "即时通讯", "IM", "浏览器面板", "hosted-ui", "动态", "feed", "互联", "局域网", "LAN", "中继", "relay", "公网", "MQTT", "全球", "社区墙", "管理员", "admin", "禁言", "拉黑", "清空"]
+version = "0.4.5"
+type = "plugin"
+entry = "plugin.plugins.neko_community_chat:NekoCommunityChatPlugin"
+
+[plugin.author]
+name = "起诉人"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "community_chat"
+title = "喵宇宙聊天"
+entry = "static/index.html"
+context = "community_chat"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "怎么用"
+entry = "docs/guide.md"

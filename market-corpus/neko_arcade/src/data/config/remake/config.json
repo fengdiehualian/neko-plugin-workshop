@@ -1,0 +1,11 @@
+{
+  "game": {
+    "note": "人生重开模拟器。天赋/事件/属性数据在 games/remake/resources/data/ 下(age.json/events.json/talents.json)。LLM 配置属于主插件全局，不在这里配"
+  },
+  "judge": {
+    "good_sum": 100,
+    "good_age": 80,
+    "bad_sum": 40,
+    "bad_age": 20
+  }
+}

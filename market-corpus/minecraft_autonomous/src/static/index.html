@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="referrer" content="no-referrer" />
+        <title>Minecraft · 观战与状态</title>
+        <link rel="stylesheet" href="./observer.css" />
+        <script type="module" src="./observer.js"></script>
+    </head>
+    <body>
+        <main class="shell">
+            <header class="page-header">
+                <div class="brand">
+                    <span class="brand-mark" aria-hidden="true">M</span>
+                    <div>
+                        <div class="eyebrow">MINECRAFT AUTONOMOUS</div>
+                        <h1>观战与状态</h1>
+                    </div>
+                </div>
+                <nav aria-label="页面操作">
+                    <a
+                        class="button secondary"
+                        href="/ui/plugins/minecraft_autonomous?tab=panel&amp;surface=main"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >配置与控制 ↗</a
+                    ><button id="refresh">刷新观测</button>
+                </nav>
+            </header>
+            <div class="status-bar">
+                <span id="sample-status" class="badge" role="status"
+                    >等待观测</span
+                ><span id="sample-time">尚无样本</span
+                ><span id="runtime-mode" class="mode-label"></span>
+            </div>
+            <p id="read-error" class="notice error" role="alert" hidden></p>
+            <p id="runtime-error" class="notice error" role="status" hidden>
+                框架最近记录为运行失败。下方保留最后观测；刷新页面不会自动恢复游玩。
+            </p>
+            <section class="workspace" aria-label="观战与当前状态">
+                <article class="card viewer-card">
+                    <div class="card-heading">
+                        <div>
+                            <div class="eyebrow">OBSERVE</div>
+                            <h2>游戏画面</h2>
+                        </div>
+                        <span id="viewer-badge" class="badge">未配置</span>
+                    </div>
+                    <div class="viewer-stage" id="viewer-stage">
+                        <div class="empty-viewer" id="viewer-empty">
+                            <svg
+                                class="viewer-symbol"
+                                viewBox="0 0 80 80"
+                                fill="none"
+                                aria-hidden="true"
+                            >
+                                <rect
+                                    x="12"
+                                    y="18"
+                                    width="56"
+                                    height="38"
+                                    rx="6"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                />
+                                <path
+                                    d="M30 65h20M40 56v9M28 31h9v9h-9zM43 31h9v9h-9zM33 46h14"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                />
+                            </svg>
+                            <h3 id="viewer-empty-title">
+                                尚未设置现代观战地址
+                            </h3>
+                            <p id="viewer-empty-detail">
+                                在「配置与控制」中填写与当前角色配套的可视化页面。右侧与下方可直接查看框架的实际观测。
+                            </p>
+                            <button id="load-viewer" class="primary" disabled>
+                                载入观战画面
+                            </button>
+                        </div>
+                        <div id="frame-slot" hidden></div>
+                    </div>
+                    <div class="viewer-footer">
+                        <p id="viewer-note">尚无画面连接，未核验角色绑定。</p>
+                        <div class="actions">
+                            <button id="unload-viewer" class="secondary" hidden>
+                                关闭画面</button
+                            ><a
+                                id="open-viewer"
+                                class="button secondary"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                hidden
+                                >单独打开 ↗</a
+                            >
+                        </div>
+                    </div>
+                </article>
+                <aside class="side-stack" aria-label="角色观测">
+                    <article class="card">
+                        <div class="card-heading">
+                            <h2>角色状态</h2>
+                            <span class="small muted">Java 1.21.1</span>
+                        </div>
+                        <p id="connection" class="connection">等待连接观测</p>
+                        <div class="vital">
+                            <div>
+                                <span>生命</span><strong id="health">—</strong>
+                            </div>
+                            <meter
+                                id="health-meter"
+                                min="0"
+                                max="20"
+                                low="6"
+                                optimum="20"
+                                value="0"
+                                aria-label="生命"
+                                hidden
+                            ></meter>
+                        </div>
+                        <div class="vital">
+                            <div>
+                                <span>饥饿</span><strong id="food">—</strong>
+                            </div>
+                            <meter
+                                id="food-meter"
+                                min="0"
+                                max="20"
+                                low="6"
+                                optimum="20"
+                                value="0"
+                                aria-label="饥饿"
+                                hidden
+                            ></meter>
+                        </div>
+                        <div class="location">
+                            <span class="eyebrow">当前位置</span>
+                            <p id="place">尚无位置观测</p>
+                        </div>
+                    </article>
+                    <article class="card goal-card">
+                        <div class="eyebrow">CURRENT GOAL</div>
+                        <h2>正在做什么</h2>
+                        <p id="goal" class="goal">尚无目标</p>
+                        <p class="small muted">
+                            此处展示最近记录。目标达成需以实际动作和结果为准。
+                        </p>
+                    </article>
+                </aside>
+            </section>
+            <section class="metrics" aria-label="运行统计">
+                <article class="card stat">
+                    <span>本次决策轮次</span><strong id="turns">—</strong
+                    ><small>框架累计记录</small>
+                </article>
+                <article class="card stat">
+                    <span>待结算原生动作</span
+                    ><strong id="pending-count">—</strong
+                    ><small>来自原生任务队列</small>
+                </article>
+                <article class="card stat">
+                    <span>失败回执</span><strong id="failed-count">—</strong
+                    ><small>最近回执样本内</small>
+                </article>
+                <article class="card stat">
+                    <span>Token 用量</span><strong id="token-count">—</strong
+                    ><small>最近决策样本内</small>
+                </article>
+            </section>
+            <section class="details-grid">
+                <article class="card">
+                    <div class="card-heading">
+                        <div>
+                            <div class="eyebrow">NATIVE QUEUE</div>
+                            <h2>动作队列</h2>
+                        </div>
+                        <span id="phase" class="badge">尚无状态</span>
+                    </div>
+                    <div id="queue" class="record-list">
+                        <p class="muted">等待框架观测</p>
+                    </div>
+                </article>
+                <article class="card">
+                    <div class="card-heading">
+                        <div>
+                            <div class="eyebrow">DECISION LATENCY</div>
+                            <h2>决策耗时</h2>
+                        </div>
+                        <strong id="latest-latency">—</strong>
+                    </div>
+                    <div class="chart">
+                        <svg
+                            viewBox="-3 -3 266 62"
+                            preserveAspectRatio="none"
+                            role="img"
+                            aria-label="最近记录的决策耗时走势"
+                        >
+                            <polyline
+                                id="latency-line"
+                                points=""
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                vector-effect="non-scaling-stroke"
+                                stroke-linejoin="round"
+                                stroke-linecap="round"
+                            />
+                        </svg>
+                        <p id="chart-empty" class="muted">尚无耗时记录</p>
+                    </div>
+                    <p id="latency-caption" class="small muted">
+                        仅展示有实际耗时的样本；不补零。
+                    </p>
+                </article>
+            </section>
+            <section class="card audit-card">
+                <div class="card-heading">
+                    <div>
+                        <div class="eyebrow">INTERMEDIATE RESULTS</div>
+                        <h2>决策与中间结果</h2>
+                    </div>
+                    <span class="small muted">每类最近 20 条</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <caption class="sr-only">
+                            最近决策样本
+                        </caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">模型路由</th>
+                                <th scope="col">结果</th>
+                                <th scope="col">工具</th>
+                                <th scope="col">耗时</th>
+                                <th scope="col">回复摘要</th>
+                            </tr>
+                        </thead>
+                        <tbody id="decisions"></tbody>
+                    </table>
+                </div>
+                <p id="decisions-empty" class="muted">尚无决策记录</p>
+                <details>
+                    <summary>查看原生工具回执</summary>
+                    <div id="receipts" class="record-list"></div>
+                </details>
+            </section>
+            <section class="card">
+                <div class="card-heading">
+                    <h2>当前事实</h2>
+                    <span class="small muted">原生观测 · 限长显示</span>
+                </div>
+                <div id="facts" class="facts">
+                    <p class="muted">等待框架观测</p>
+                </div>
+            </section>
+            <footer class="page-footer">
+                页面可见时每 5 秒读取一次状态 · 隐藏后暂停读取 ·
+                不触发模型、游戏动作或聊天
+                <p>
+                    统计仅覆盖各审计文件末尾 128 KiB 内最多 20
+                    条完整记录。页面成功载入不代表画面与当前角色已绑定。
+                </p>
+            </footer>
+        </main>
+    </body>
+</html>

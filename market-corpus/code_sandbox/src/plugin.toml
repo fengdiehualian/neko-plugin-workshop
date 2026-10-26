@@ -1,0 +1,31 @@
+[plugin]
+id = "code_sandbox"
+name = "代码沙箱"
+description = "让 YUI 在受限安全沙箱中执行 Python 代码：适合数学计算、数据处理、算法验证、逻辑推理辅助。系统命令、网络访问、文件写操作等危险行为一律被安全拦截；支持超时强制终止，防止资源耗尽。何时用：用户要求'算一下/计算/跑一下这段代码/处理这段数据/验证算法/模拟一下'等需要运行代码的请求时。结果以文本输出返回（stdout/stderr 各自截断上限），违规会说明拦截原因。"
+short_description = "YUI 安全执行 Python 代码：计算/数据处理/算法验证，危险操作自动拦截，超时强制终止"
+keywords = ["代码", "沙箱", "python", "计算", "算法", "数据处理", "code", "sandbox", "run", "执行", "安全", "运行代码", "数学", "验证", "模拟"]
+version = "0.1.1"
+type = "plugin"
+entry = "plugin.plugins.code_sandbox:CodeSandboxPlugin"
+
+[plugin.author]
+name = "起诉人"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "使用说明"
+entry = "docs/guide.md"

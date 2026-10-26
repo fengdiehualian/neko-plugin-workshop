@@ -1,0 +1,25 @@
+[plugin]
+name = "D-one 任务管家"
+description = "桥接 D-one 优先级便签与 NEKO 猫娘：任务变更时猫娘按优先级用人格化语气提醒你，p0 催促、p1 提醒、p2 温柔。Web UI：http://127.0.0.1:48917/plugin/neko_done_bridge/ui/"
+short_description = "Bridges D-one priority notes into NEKO: your catgirl urges, reminds, and cheers by task priority."
+keywords = ["d-one", "done", "todo", "任务", "便签", "优先级", "提醒", "bridge", "效率"]
+version = "0.1.0"
+id = "neko_done_bridge"
+entry = "plugin.plugins.neko_done_bridge:NekoDoneBridgePlugin"
+
+[plugin.author]
+name = "NEKO Community"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = true
+
+[plugin.i18n]
+default_locale = "zh-CN"
+
+[plugin_runtime]
+enabled = true
+auto_start = false

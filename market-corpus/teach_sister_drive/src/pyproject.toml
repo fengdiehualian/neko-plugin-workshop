@@ -1,0 +1,9 @@
+[project]
+name = "neko-teach-sister-drive"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.neko.build]
+exclude = ["mod/**", "tests/**", "data/**", "dist/**", "*.part", "install.ps1"]
+exclude_dirs = ["mod", "tests", "data", "dist"]

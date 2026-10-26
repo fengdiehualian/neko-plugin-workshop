@@ -1,0 +1,117 @@
+{
+  "version": 2,
+  "note": "P13.0 剧情数据。P12 的 prompt 字段已删除——给外置猫娘 Yui 的提示词里不许再预设固定台词、语气或表演指令。现在这里只放**客观处境**：发生了什么客观事实、玩家处于什么状态。对话本身完全交还给 N.E.K.O 的大模型。scene 是面板沉浸模式显示的纯文本场景（降级时用），不参与对话。",
+  "chapters": [
+    {
+      "id": "ch1_tuition",
+      "order": 1,
+      "title": "第一章 · 拿零花钱试试",
+      "requires": [],
+      "trigger": { "type": "join" },
+      "situation": "玩家刚开户，这是第一次下场。可动用资金是家里给的零花钱；每天要交一次生活费，交不上即视为破产。目前尚未发生任何交易，账户只有初始资金。",
+      "scene": "第一天。手里是家里给的零花钱，账上写着这是你的家底。\n每天要交一次生活费，交不上就等于宣告破产。\n你第一次决定：拿多少去试水。",
+      "choices": [
+        {
+          "id": "small",
+          "label": "先拿一小笔试试",
+          "hint": "留够生活费，剩下的才敢输",
+          "effect": { "type": "none", "tag": "cautious" }
+        },
+        {
+          "id": "all",
+          "label": "一把梭哈",
+          "hint": "不甘心还没开始 —— 全押了痛快",
+          "effect": { "type": "none", "tag": "all_in" }
+        }
+      ]
+    },
+    {
+      "id": "ch2_cutoff",
+      "order": 2,
+      "title": "第二章 · 断供",
+      "requires": ["ch1_tuition"],
+      "trigger": {
+        "type": "watch",
+        "min_loss_ratio": 0.1,
+        "or_strikes": 1,
+        "or_cash_below_bill": true
+      },
+      "situation": "玩家的现金已经不足以覆盖下一笔生活费，或者账户已出现欠费记录。账户净值低于初始资金，累计亏损已达初始资金的 10% 以上。生活费是每天固定要交的支出。",
+      "scene": "账上的数字和第一天对不上了。\n下一笔生活费还差一截，你开始算：还剩几天能撑。\n钱不够的时候，人会开始想一些以前不想的事。",
+      "choices": [
+        {
+          "id": "hold",
+          "label": "认栽，先缩回去",
+          "hint": "缩回小仓位，先把饭钱保住",
+          "effect": { "type": "none", "tag": "shrink" }
+        },
+        {
+          "id": "ask",
+          "label": "硬扛，找亲戚接济",
+          "hint": "开口是丢脸，但丢脸总比断饭强",
+          "effect": { "type": "cash", "multiplier": 3.0, "tag": "relief" }
+        }
+      ]
+    },
+    {
+      "id": "ch3_sunk",
+      "order": 3,
+      "title": "第三章 · 不服输想回本",
+      "requires": ["ch2_cutoff"],
+      "trigger": {
+        "type": "watch",
+        "min_loss_ratio": 0.25,
+        "or_trade_count": 8
+      },
+      "situation": "玩家累计亏损已达初始资金的 25% 以上，或者成交已达 8 笔以上。已投入的资金无法收回；玩家没有退出账户，仍在继续操作。账上同时挂着尚未交清的生活费。",
+      "scene": "你开始算一笔账：亏掉的那些，到底要不要算进去。\n算进去就只剩一个念头——把它赚回来。\n已经投进去的钱不会回来，但你还想着它。",
+      "choices": [
+        {
+          "id": "stop",
+          "label": "算了，收手",
+          "hint": "别再把沉没成本算进去 —— 守住剩下的",
+          "effect": { "type": "none", "tag": "quit" }
+        },
+        {
+          "id": "again",
+          "label": "再搏一把",
+          "hint": "不甘心加倍下注，赢回来就都赚回来了",
+          "effect": { "type": "cash", "multiplier": 2.0, "tag": "sunk" }
+        }
+      ]
+    },
+    {
+      "id": "ch4_usury",
+      "order": 4,
+      "title": "第四章 · 借高利贷",
+      "requires": ["ch3_sunk"],
+      "trigger": {
+        "type": "watch",
+        "min_loss_ratio": 0.35,
+        "or_cash_below_bill": true
+      },
+      "situation": "玩家已累计亏损初始资金的 35% 以上，或者现金已不足以覆盖生活费。玩家不打算就此停止，正在考虑向账户之外借钱；借款需要还本付息，利息会累计。",
+      "scene": "这是最后一条路了。\n借钱的人拿到的是救命钱，还回去的是利息——而利息会一点一点吃掉本金。\n你已经亏过一轮，所以这次你想借来的不是钱，是翻本的资格。",
+      "choices": [
+        {
+          "id": "no",
+          "label": "不借，宁可认输",
+          "hint": "这条路的尽头你看得见",
+          "effect": { "type": "none", "tag": "refuse" }
+        },
+        {
+          "id": "yes",
+          "label": "借！先活过这周",
+          "hint": "到手五千，三天后还六千",
+          "effect": {
+            "type": "debt",
+            "cash_multiplier": 5.0,
+            "repay_multiplier": 6.0,
+            "due_days": 3,
+            "tag": "usury"
+          }
+        }
+      ]
+    }
+  ]
+}

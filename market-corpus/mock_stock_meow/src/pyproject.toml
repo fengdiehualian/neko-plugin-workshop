@@ -1,0 +1,10 @@
+[project]
+name = "mock_stock_meow"
+version = "0.1.0"
+dependencies = []
+
+# 本地开发工具。**版本必须与市场 CI 完全一致**（CI 用的是
+# ``uvx ruff==0.12.4``），否则本地过、CI 挂。
+# 装好后 ``uv run ruff check .`` 就能直接在仓库根跑。
+[dependency-groups]
+dev = ["ruff==0.12.4"]

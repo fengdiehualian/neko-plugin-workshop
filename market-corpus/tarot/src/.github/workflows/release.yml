@@ -1,0 +1,18 @@
+name: Release N.E.K.O Plugin
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: Project-N-E-K-O/N.E.K.O/.github/workflows/plugin-market-release.yml@main
+    with:
+      plugin-id: tarot
+      neko-repository: Project-N-E-K-O/N.E.K.O
+      neko-ref: main

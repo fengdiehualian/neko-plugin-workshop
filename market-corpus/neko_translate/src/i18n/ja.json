@@ -1,0 +1,10 @@
+{
+  "plugin.name": "翻訳猫娘",
+  "plugin.description": "猫娘に翻訳してもらおう。中日英韓など 30 以上の言語に対応、一括翻訳やチャットへの結果送信も可能。API キー不要",
+  "entry.translate_text.name": "テキストを翻訳",
+  "entry.translate_text.description": "テキストを指定した言語に翻訳します",
+  "entry.translate_batch.name": "一括翻訳",
+  "entry.translate_batch.description": "複数のテキストをまとめて翻訳し、同じ順序で結果を返します",
+  "entry.list_languages.name": "対応言語",
+  "entry.list_languages.description": "対応している言語とコードの一覧を表示します"
+}

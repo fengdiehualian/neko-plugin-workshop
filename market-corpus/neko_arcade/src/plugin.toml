@@ -1,0 +1,75 @@
+[plugin]
+id = "neko_arcade"
+type = "plugin"
+name = "猫娘小游戏"
+description = "让猫娘陪你玩的一整套小游戏：棋类对弈（五子棋 / 黑白棋 / 中国象棋 / 四子棋 / 围棋 / 国际象棋）、钓鱼、海龟汤、猜硬币、俄罗斯轮盘、人生重开、诸天修仙、塔罗牌、猫猫进化路、喵图相册、历史上的今天。聊天或语音里说一句游戏名就能开玩——下棋时她认真对局、落子就出棋盘图；钓鱼时帮你数鱼获；解海龟汤时当裁判；抽塔罗时给你解牌；修仙时给你护法。赢了夸你、输了安慰你，还会记住你上一世的冒险。每个游戏都自带中文配置面板、帮助图与独立存档；帮助图按功能分组，「修仙帮助 战斗」直接看那一块，「我的纳戒」直接出那张背包图。台词、心情、闲聊与局中主动搭话由插件的统一陪伴层负责：猫娘读的是宿主的角色人设（换角色即时生效），也会自己判断什么时候该搭话。一个插件，无限可能。"
+short_description = "N.E.K.O 猫娘小游戏合集：棋类对弈(五子棋/象棋/围棋/国际象棋…)+钓鱼/海龟汤/猜硬币/轮盘/人生重开/修仙/塔罗/猫猫进化/喵图相册——喊游戏名就能玩，猫娘陪你玩并记住你的冒险。"
+keywords = ["game", "游戏", "小游戏", "mini-games", "fun", "play", "玩", "陪玩",
+            "猫娘", "喵图", "喵图相册", "发图", "看照片", "自拍", "图库", "图鉴",
+            "棋类对弈", "对弈", "下棋", "五子棋", "黑白棋", "翻转棋", "象棋",
+            "中国象棋", "四子棋", "围棋", "国际象棋", "西洋棋",
+            "钓鱼", "海龟汤", "猜硬币", "俄罗斯轮盘", "人生重开", "修仙", "塔罗牌",
+            "猫猫进化", "历史上的今天"]
+version = "0.5.10"
+entry = "plugin.plugins.neko_arcade:NekoArcadePlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "猫娘小游戏"
+entry = "static/index.html"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+
+# 面板 guide 文档 = docs/ui/ 下的简版（面向普通用户/快速查阅）。
+# 完整开发者文档（docs/rules.md、docs/pitfalls.md、docs/ARCHITECTURE.md、
+# docs/development.md）保留在 GitHub 仓库，打包时排除（见 pyproject.toml）。
+
+[[plugin.ui.guide]]
+id = "guide"
+title = "使用指南"
+entry = "docs/ui/guide.md"
+mode = "markdown"
+permissions = ["state:read"]
+
+[[plugin.ui.guide]]
+id = "development"
+title = "开发文档"
+entry = "docs/ui/development.md"
+mode = "markdown"
+permissions = ["state:read"]
+
+[[plugin.ui.guide]]
+id = "rules"
+title = "接入规则"
+entry = "docs/ui/rules.md"
+mode = "markdown"
+permissions = ["state:read"]
+
+[[plugin.ui.guide]]
+id = "architecture"
+title = "运行机制总纲"
+entry = "docs/ui/ARCHITECTURE.md"
+mode = "markdown"
+permissions = ["state:read"]

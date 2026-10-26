@@ -1,0 +1,93 @@
+{
+  "schema": "agent-mc-server-presentation/v1",
+  "repository": "https://github.com/jcs130/cortico-world-qiandengji",
+  "source_revision": "5581afa3c4743b8db54a1ba14924236c5ce48286",
+  "source_path": "integrations/qiandengji/presentation.mjs",
+  "version": "standalone-presentation-20261020.1",
+  "minecraft_version": "1.21.1",
+  "module_sha256": "e6e106541e284370dfdd65e72c1c45507b86bcd6b8d172bce994232cfc2d79b2",
+  "license": "MIT",
+  "license_sha256": "f070c28670ca12855a68aff1fa8ca87b5d772489ba0edba1362c42e5ec878c4a",
+  "activation": "validated_same_player_server_guidance_or_exact_observed_item_profile",
+  "dependencies": [],
+  "commands_sent": true,
+  "models_called": false,
+  "resources": {
+    "data-packs/qiandengji/viewer-items/README.md": {
+      "sha256": "8eaadd6849313a61f21d5f5cb152aa6608e6b231236bfa47fa86fed32b98e08a",
+      "bytes": 1397
+    },
+    "data-packs/qiandengji/viewer-items/catalog.json": {
+      "sha256": "bc79c58108deb78accf2f281de59e149ab4116ecb1131485ae4c9ee51c4012c8",
+      "bytes": 4916
+    },
+    "data-packs/qiandengji/viewer-items/icons/abyss_verdict.png": {
+      "sha256": "07876ee027415735dcee903cd99701e95685bdf8e1e8cec97c96b8ae3d4eed9e",
+      "bytes": 1124
+    },
+    "data-packs/qiandengji/viewer-items/icons/blink_dagger.png": {
+      "sha256": "86f55ca9d885e10ce985d279df032bd9f5f0b4c102485a7f3459aed928196043",
+      "bytes": 1074
+    },
+    "data-packs/qiandengji/viewer-items/icons/focus_wand.png": {
+      "sha256": "cfb116521a64044d3ea5284a72283ea79215e9d6d3683f459afcff33dde177f9",
+      "bytes": 974
+    },
+    "data-packs/qiandengji/viewer-items/icons/frost_sword.png": {
+      "sha256": "0d8cece432c0c97e849d390087a136f5ad5e7dd1b2cb39cd5543247b7444e985",
+      "bytes": 928
+    },
+    "data-packs/qiandengji/viewer-items/icons/mechanical_crossbow.png": {
+      "sha256": "1a25d7374f4e09ede6c04803ae9a4280c217e4844bebd266d1f3dcc36ff33515",
+      "bytes": 1835
+    },
+    "data-packs/qiandengji/viewer-items/models/abyss_verdict.json": {
+      "sha256": "c1bec61ba72cd886b26b0e10f377d046831d39e811056e2c1abe4a0e0ce5992a",
+      "bytes": 6155
+    },
+    "data-packs/qiandengji/viewer-items/models/blink_dagger.json": {
+      "sha256": "7e19ae49d30491f53003e3a96e4d3fdb9e2e0438cedde1c1bd36b83f19e81d74",
+      "bytes": 4947
+    },
+    "data-packs/qiandengji/viewer-items/models/focus_wand.json": {
+      "sha256": "2e5c5d075330c9137a3c64b5568c449bdfc3b4f99d628d0af51a2628010230e2",
+      "bytes": 5765
+    },
+    "data-packs/qiandengji/viewer-items/models/frost_sword.json": {
+      "sha256": "e010db2de0074ef5da6c01269c5b5a0f43d823ab49a38269bb5363834b067705",
+      "bytes": 5266
+    },
+    "data-packs/qiandengji/viewer-items/models/mechanical_crossbow.json": {
+      "sha256": "324c28e6ec37250e13b77acbd2b58d94e85871fc5e00b9909bfd392c7e721b69",
+      "bytes": 6150
+    },
+    "data-packs/qiandengji/viewer-items/textures/abyss_verdict.png": {
+      "sha256": "c5188155097155c94083226507480c537568cdcdbcae98aba948876a1eb1a2a5",
+      "bytes": 169
+    },
+    "data-packs/qiandengji/viewer-items/textures/backpack-profile.png": {
+      "sha256": "8dcc6eb40f3bada41e4339888d6d207437598bdbd175c2e731191d5a9a42d3c8",
+      "bytes": 697
+    },
+    "data-packs/qiandengji/viewer-items/textures/blink_dagger.png": {
+      "sha256": "41c18f86ba4c04c6483c8051078269e54c5a43e1acc329633f5107c5494ff4f7",
+      "bytes": 185
+    },
+    "data-packs/qiandengji/viewer-items/textures/focus_wand.png": {
+      "sha256": "561adc6baba0986342976655f9a7a5e5a114631d1e21ba0c707d813da2e477ea",
+      "bytes": 182
+    },
+    "data-packs/qiandengji/viewer-items/textures/frost_sword.png": {
+      "sha256": "43497cc7d47c7e1cea03a7ddc86d1ffd9a432859e6c0f9da48ae1169f11f28d4",
+      "bytes": 211
+    },
+    "data-packs/qiandengji/viewer-items/textures/mechanical_crossbow.png": {
+      "sha256": "9515f314930ffcc6e8a0b2e2db1dbd613582a80239beb608f38c92d4b3d86244",
+      "bytes": 166
+    }
+  },
+  "read_only_commands": [
+    "/mycli status"
+  ],
+  "state_refresh_minimum_ms": 30000
+}

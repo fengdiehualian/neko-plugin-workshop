@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "test",
+      "detail": "Run the plugin smoke tests.",
+      "type": "shell",
+      "command": "uv run --with pytest pytest tests",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "lint",
+      "detail": "Run ruff with the same rule set the N.E.K.O. market CI uses.",
+      "type": "shell",
+      "command": "uvx ruff==0.12.4 check --ignore-noqa --isolated --target-version py311 --line-length 120 --select E4,E7,E9,F,I --exclude vendor .",
+      "problemMatcher": []
+    },
+    {
+      "label": "check",
+      "detail": "Run the pre-release check from the N.E.K.O. source tree.",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r deepseekharness_bridge",
+      "problemMatcher": []
+    }
+  ]
+}

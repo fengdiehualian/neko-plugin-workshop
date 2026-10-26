@@ -1,0 +1,57 @@
+name: Guard packaged plugin contents
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-guard:
+    runs-on: ubuntu-latest
+    env:
+      PLUGIN_ID: from_the_heart
+      NEKO_REPOSITORY: Project-N-E-K-O/N.E.K.O
+      NEKO_REF: main
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Checkout plugin repository
+        uses: actions/checkout@v4
+        with:
+          path: plugin-repo
+
+      - name: Checkout N.E.K.O
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.NEKO_REPOSITORY }}
+          ref: ${{ env.NEKO_REF }}
+          path: neko
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Mount plugin into N.E.K.O tree
+        run: |
+          rm -rf "neko/plugin/plugins/${PLUGIN_ID}"
+          mkdir -p neko/plugin/plugins
+          cp -R plugin-repo "neko/plugin/plugins/${PLUGIN_ID}"
+
+      - name: Sync plugin dependencies
+        working-directory: neko
+        run: uv run --with pip python -m plugin.neko_plugin_cli.cli sync "${PLUGIN_ID}" --clean
+
+      - name: Build release-check package
+        working-directory: neko
+        run: |
+          set -o pipefail
+          mkdir -p plugin/neko_plugin_cli/target
+          uv run python -m plugin.neko_plugin_cli.cli check -r --skip-tests "${PLUGIN_ID}" \
+            | tee "plugin/neko_plugin_cli/target/${PLUGIN_ID}.check-package-guard.txt"
+
+      - name: Reject bytecode caches and unsafe paths
+        working-directory: neko
+        run: |
+          uv run python "../plugin-repo/.github/check_package_contents.py" \
+            "plugin/neko_plugin_cli/target/${PLUGIN_ID}.neko-plugin"

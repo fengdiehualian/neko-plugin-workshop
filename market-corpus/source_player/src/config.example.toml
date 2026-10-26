@@ -1,0 +1,92 @@
+# source_player —— runtime configuration template.
+#
+# The plugin's live configuration lives in the N.E.K.O plugin state directory
+# (`<storage-root>/plugins/source_player/config/plugin.toml`, editable from
+# 插件管理 → 半条命 & 传送门 陪玩 → 配置). This file documents every key and its
+# default so the values can be copied into the live config.
+#
+# `plugin.toml` ships the same defaults as the initial profile, so a fresh
+# install behaves exactly like this template.
+
+[source]
+# auto | dxgi | gdi | pil
+#
+# dxgi is the plugin's own pure-ctypes Desktop Duplication capture, so it also
+# sees exclusive-fullscreen Source games without OpenCV. GDI is the always
+# available fallback for windowed/borderless. A failing backend is quarantined
+# and the next candidate is used.
+capture_backend = "auto"
+capture_monitor = 0
+
+# Smallest believable game window/frame edge in pixels. A minimised window is
+# parked near (-32000, -32000) with an icon-sized rectangle; cropping to it
+# yields a 1x1 image that still looks bright, so it must be rejected.
+min_capture_edge = 160
+
+# Observation cadence and screenshot streaming into the dialogue LLM.
+target_fps = 4.0
+frame_max_edge_px = 1024
+frame_jpeg_quality = 75
+# Raw JPEG byte budget per pushed frame (the wire format base64-encodes it).
+frame_max_bytes = 102400
+stream_frames_to_llm = true
+frame_stream_interval_seconds = 8.0
+# Proactive "here is what I see / here is what I will do" turns. Each one is a
+# real LLM turn, so keep it comfortable.
+commentary_interval_seconds = 25.0
+problem_cooldown_seconds = 60.0
+
+# Refuse to inject input unless the game window is the foreground window.
+require_foreground = true
+
+# false = enabling the plugin does not start playing; use source_play.
+autopilot_enabled = false
+autopilot_tick_seconds = 0.35
+
+# true = watch and narrate only, never press a key. Useful for a first run.
+dry_run = false
+
+# The game is opened BY HAND. The plugin never starts a game on its own: the
+# loop waits, and begins as soon as it sees the selected game's window.
+# Hard stop so an unattended session cannot run forever.
+max_session_minutes = 45.0
+
+# Consecutive all-black frames before the plugin refuses to press keys.
+blind_frame_limit = 8
+
+# Mouse-look calibration. Source computes yaw as dx * sensitivity * m_yaw.
+# If turns overshoot, raise this; if they undershoot, lower it.
+look_units_per_degree = 15.15
+horizontal_fov = 90.0
+vertical_fov = 59.0
+invert_y = false
+
+# "Jump in and play together": if the player presses WASD/fire/E etc. (keys the
+# plugin is not holding), the catgirl releases everything and watches. After
+# this many idle seconds she resumes automatically. F8 is a hard pause that
+# only "继续"/source_resume/F8 clears.
+yield_on_human_input = true
+human_input_grace_seconds = 12.0
+pause_hotkey_enabled = true
+
+# If the game shows a pause menu (cursor visible) without the player touching
+# the controls, press Escape once to resume. Never clicks "New Game".
+auto_resume_from_menu = true
+menu_stable_ticks = 3
+
+# If true, the plugin refuses to play until it has actually seen gameplay
+# (cursor hidden). This is what stops it from blindly clicking around a main
+# menu and starting a new game over the user's save.
+start_in_game_required = true
+
+# Default objective; can be overridden per game by source_play(objective=...).
+objective = ""
+plan_steps = []
+
+# Per-action key overrides. Keys use the names from Half-Life's config.cfg
+# (w/a/s/d/e/ctrl/space/r/f/mouse1/mouse2) and are applied on top of the
+# catalogue defaults. Examples:
+#   forward = "w"
+#   use = "e"
+#   attack = "mouse1"
+[source.keys]

@@ -1,0 +1,41 @@
+[plugin]
+id = "endless_test"
+name = "无尽测试"
+description = "把《无尽测试》接入 Neko：统一保存养成/图鉴/战绩数据，可从插件面板或独立全屏程序开局，AI 伙伴由 Neko 自己选职业、决定战术与科技，还能听你指挥。"
+short_description = "Run Endless Test from Neko with unified saves and an AI wingman."
+keywords = [
+    "无尽测试", "游戏", "开局", "重置", "战绩", "存档", "图鉴", "职业", "流派",
+    "endless", "test", "game", "roguelike", "save", "profile", "wingman", "partner",
+    "AI伙伴", "AI 伙伴", "协同作战", "game", "ゲーム", "ゲーム開始", "게임", "игра"
+]
+version = "1.0.0"
+type = "plugin"
+entry = "plugin.plugins.endless_test:EndlessTestPlugin"
+
+[plugin.author]
+name = "tangbai"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = true
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+startup_failure = "warn"
+timeout = 30
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "无尽测试"
+entry = "static/panel.html"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"

@@ -1,0 +1,110 @@
+/* One coordinate space owns the character, bubble, controls and history. */
+:root{--ink:#353b73;--paper:#ffffff;--muted:#9a9eb8;--companion-margin:0px;--companion-scale:1}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;padding:0;margin:0;background:transparent;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;color:var(--ink);user-select:none}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:3px solid #dfa18e;outline-offset:2px}
+#companion{position:absolute;left:50%;top:50%;width:min(400px,calc(100vw - var(--companion-margin)));height:450px;transform:translate(-50%,-50%) scale(var(--companion-scale));transform-origin:center}
+#companion{cursor:grab}
+#pet,#thought,#recordBar,#historyPanel header,#outfitPanel header{cursor:grab;touch-action:none}
+#companion.dragging,#companion.dragging *{cursor:grabbing!important}
+#historyPanel{touch-action:auto}
+#historyPanel header{user-select:none}
+#pet{position:relative;width:100%;height:374px}
+#thought{position:absolute;left:12px;top:7px;width:min(303px,calc(100% - 24px));height:168px;border:5px solid var(--ink);border-radius:50%;background:var(--paper);padding:25px 15px;z-index:3}
+#thought:after{content:'';position:absolute;left:83px;bottom:-11px;width:32px;height:16px;border:5px solid var(--ink);border-top:0;background:var(--paper);border-radius:0 0 60% 60%;transform:rotate(10deg)}
+.title{font-weight:650;font-size:22px;letter-spacing:1px}
+#amount{font-size:38px;line-height:1.35;font-weight:800;letter-spacing:-1px}
+#amount.idle-label{color:#559464;font-size:36px}
+#detail{font-size:12px;color:var(--muted);white-space:normal;line-height:1.4;max-width:260px;margin:auto}
+#quip{font-size:19px;font-weight:650;white-space:pre-line;line-height:1.4;padding:9px 0}
+.dot{position:absolute;background:var(--paper);border:4px solid var(--ink);border-radius:50%;z-index:3}
+.one{width:31px;height:23px;top:190px;left:115px;transform:rotate(20deg)}
+.two{width:21px;height:16px;top:217px;left:152px;transform:rotate(22deg)}
+#character{position:absolute;right:4px;bottom:0;width:205px;height:207px;background:none;border:0;padding:0;transform-origin:50% 95%;touch-action:none;z-index:2;cursor:grab}
+#character:active{cursor:grabbing}
+#character img{width:100%;height:100%;object-fit:contain;pointer-events:none}
+#quotaPose{position:relative;display:block;width:100%;height:100%;transform-origin:50% 88%;animation:none;transform:none}
+#catForm{display:none!important}
+body[data-quota-reaction="shake"] #quotaPose{animation:catfood-worry-wiggle 1.05s ease-in-out infinite}
+body[data-quota-reaction="chase"] .yuiPortrait,body[data-quota-reaction="cat-static"] .yuiPortrait,body[data-quota-reaction="chase"] #faceMood,body[data-quota-reaction="cat-static"] #faceMood{display:none}
+body[data-quota-reaction="chase"] #catForm,body[data-quota-reaction="cat-static"] #catForm{display:block!important}
+body.chase-native-active #character,body.chase-inline-active #character{width:64px;height:70px;right:12px;bottom:8px;cursor:context-menu}
+body.chase-inline-active #companion{z-index:4;pointer-events:none}
+body.chase-inline-active #companion button,body.chase-inline-active #companion input,body.chase-inline-active #companion select{pointer-events:auto}
+@keyframes catfood-worry-wiggle{0%,100%{transform:translate(-10px,0) rotate(-2deg)}25%{transform:translate(0,-7px) rotate(0)}50%{transform:translate(10px,0) rotate(2deg)}75%{transform:translate(0,-7px) rotate(0)}}
+#faceMood{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#faceMood .mood-shadow,#faceMood .mood-mouth,#faceMood .mood-lines{opacity:0;transition:opacity 1s ease}
+#character[data-mood="watch"] .mood-shadow{opacity:.28}
+#character[data-mood="half"] .mood-shadow{opacity:.56}
+#character[data-mood="low"] .mood-shadow{opacity:.9}
+#character[data-mood="watch"] .mood-mouth{opacity:.4}
+#character[data-mood="half"] .mood-mouth{opacity:.7}
+#character[data-mood="low"] .mood-mouth{opacity:1}
+#character[data-mood="half"] .mood-lines{opacity:.25}
+#character[data-mood="low"] .mood-lines{opacity:.6}
+#amount.token-amount{font-size:30px;letter-spacing:-.7px}
+.contextMenu{position:fixed;z-index:350;width:238px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow-y:auto;overscroll-behavior:contain;background:var(--paper);border:2px solid var(--ink);border-radius:14px;padding:10px;box-shadow:0 6px 22px #49372d22;cursor:default}
+.contextMenu[hidden]{display:none}
+.contextMenu h2{font-size:15px;margin:2px 8px 10px}
+.contextMenu .menuGroup{border-top:1px solid #e5e1ee;margin-top:10px;padding-top:9px}
+.contextMenu h3{font-size:11px;color:#777d99;font-weight:600;margin:0 8px 6px}
+.contextMenu button{display:block;width:100%;min-height:34px;border:0;background:none;text-align:left;padding:8px;border-radius:7px;font-size:13px;line-height:1.4;margin:3px 0}
+.contextMenu button:hover,.contextMenu button:focus-visible{background:#eeeaf7}
+.contextMenu button:disabled{opacity:.5;cursor:default}
+.contextMenu [role="menuitemcheckbox"]:after{content:'关';float:right;color:#777d99}
+.contextMenu [role="menuitemcheckbox"][aria-checked="true"]:after{content:'开';color:#559464}
+#recordBar{position:absolute;left:8px;right:8px;top:382px;z-index:30;min-height:52px;border:1px solid #d8d5e5;border-radius:10px;padding:6px;background:#fffdf8;font-size:11px;display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+#recordBar button{border:0;border-radius:6px;background:#353b73;color:#fff;padding:6px;font-size:11px}
+#recordBar[hidden]{display:none}
+#recordCounts{width:100%;color:#626780;line-height:1.4;overflow-wrap:anywhere}
+#outfitPanel{position:absolute;inset:4px;z-index:120;overflow:auto;background:#fffdf8;border:2px solid var(--ink);border-radius:14px;padding:14px;font-size:12px;touch-action:auto}
+#outfitPanel[hidden]{display:none}
+#outfitPanel header{position:sticky;top:-14px;z-index:1;background:#fffdf8;display:flex;align-items:center;justify-content:space-between;padding:8px 0;user-select:none}
+#outfitPanel h2{font-size:17px;margin:0}
+#outfitPanel header button{border:0;border-radius:8px;background:#eeeaf7;padding:8px}
+#outfitFollow{width:100%;font:inherit;color:inherit;border:1px solid #d8d5e5;border-radius:8px;padding:8px;margin-top:6px;background:white}
+#outfitContext,.wardrobeNote{line-height:1.5;color:#747992}
+#outfitChoices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#outfitChoices button{border:1px solid #dfdce8;border-radius:10px;background:#f4f1fa;padding:8px 4px;display:flex;flex-direction:column;align-items:center;text-align:center;font-size:12px}
+#outfitChoices button.selected{border:2px solid #68608e;background:#fff3d8;padding:7px 3px}
+#outfitChoices img{width:76px;height:78px;object-fit:contain;pointer-events:none}
+#outfitChoices strong{margin-top:4px;font-size:12px}
+#outfitChoices small{margin-top:3px;font-size:10px;color:#777d99}
+#historyPanel{position:absolute;inset:4px;z-index:110;overflow:auto;background:#fffdf8;border:2px solid #353b73;border-radius:14px;padding:16px;font-size:13px;user-select:text}
+#historyPanel[hidden]{display:none}
+#historyPanel header{display:flex;align-items:center;justify-content:space-between}
+#historyPanel button{padding:8px;border:0;border-radius:8px;background:#eeeaf7}
+#historyRows article{border-top:1px solid #ddd;padding:12px 0;line-height:1.7;white-space:pre-line}
+#accountPanel header{position:sticky;top:-20px;background:#fffdf8;z-index:1;padding-top:8px}
+#agentStatus,#connection{display:none}
+body.record-inactive:not(.browser-preview) #character,body.record-inactive:not(.browser-preview) .dot{display:none}
+body.record-inactive:not(.browser-preview) #thought:after{display:none}
+body.record-finished #recordBar,body.record-finished .contextMenu{display:none}
+body.browser-preview{--companion-margin:16px}
+.fade{animation:appear .3s ease-out}
+@keyframes appear{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Rhythm owns the inner pose; click/drag keep the existing outer button. */
+#rhythmPose{position:relative;display:block;width:100%;height:100%;transform-origin:50% 94%;pointer-events:none;will-change:transform}
+#rhythmPanel{position:absolute;inset:6px;z-index:105;overflow:auto;background:#f9fcff;border:2px solid #879dc4;border-radius:18px;padding:16px;font-size:14px;box-shadow:0 5px 24px #353b7322}
+#rhythmPanel[hidden]{display:none}#rhythmPanel header{display:flex;justify-content:space-between;align-items:center}#rhythmPanel button{border:0;border-radius:10px;background:#dcecfb;padding:9px 12px;margin:4px 2px}#rhythmPanel label{display:block;margin-top:14px}#rhythmStrength{width:100%;accent-color:#6d9bd0}#rhythmBpm{width:80px;padding:8px;border:1px solid #bacde0;border-radius:8px}#rhythmStatus{white-space:pre-line;line-height:1.6;min-height:46px}#rhythmPanel details{margin-top:12px}#rhythmPanel summary{cursor:pointer}.rhythmNote{font-size:11px;line-height:1.6;color:#69778c}
+
+#returnSpot{position:absolute;right:4px;bottom:0;width:205px;height:207px;pointer-events:none}
+body[data-quota-reaction="recovered"] #faceMood{opacity:0}
+.playSettings{position:fixed;inset:16px;z-index:600;max-width:400px;max-height:calc(100vh - 32px);margin:auto;overflow:auto;padding:18px;background:#fffdf8;border:2px solid var(--ink);border-radius:16px;font-size:13px;cursor:default}
+.playSettings[hidden]{display:none}
+#carePanel label{display:block;margin:12px 0 6px}
+#carePanel input[type="checkbox"]{width:auto;margin-right:6px}
+.playSettings header{display:flex;align-items:center;justify-content:space-between}
+.playSettings h2{font-size:18px;margin:0}
+.playSettings p{line-height:1.7;color:#747992}
+.playSettings label{display:block;margin:18px 0 8px}
+.playSettings input{width:100%;font:inherit;padding:9px;border:1px solid #d8d5e5;border-radius:8px}
+.playSettings button{padding:8px 12px;border:0;border-radius:8px;background:#eeeaf7;color:var(--ink)}
+.contextMenu{z-index:650}
+
+body.bubble-hidden #thought,body.bubble-hidden .dot{display:none!important}
+
+.contextMenu button[hidden]{display:none!important}

@@ -1,0 +1,6 @@
+{
+  "nekoPlugin.repoRoot": "../../../../../../dev/N.E.K.O",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/../../../../../../dev/N.E.K.O"
+  ]
+}

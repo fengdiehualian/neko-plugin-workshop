@@ -1,0 +1,72 @@
+[plugin]
+id = "mo_companion"
+name = "Mental Omega Companion"
+description = "Connect N.E.K.O to a local Mental Omega / Phobos bridge."
+short_description = "Observe Mental Omega and execute persistent native game-control tasks."
+keywords = ["mental omega", "red alert 2", "phobos", "game", "harvester"]
+version = "0.23.0"
+type = "plugin"
+entry = "plugins.mo_companion:MOCompanionPlugin"
+
+[plugin.author]
+name = "Local NEKO MO project"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[mo_bridge]
+base_url = "http://127.0.0.1:48971"
+auto_start_bridge = true
+auto_enable_control = true
+request_timeout_seconds = 2.0
+bridge_restart_retry_seconds = 5.0
+max_snapshot_age_ms = 1000
+commands_enabled = true
+allowed_modes = ["skirmish", "campaign", "lan", "internet"]
+allow_network_control = true
+action_log_enabled = true
+opening_doctrine = "us_standard"
+combat_experiment_log_enabled = true
+strategic_ai_enabled = true
+offline_validation_trials = 10000
+proactive_reports_enabled = true
+production_completion_reports_enabled = false
+under_attack_reports_enabled = false
+strategy_library_enabled = true
+strategy_editor_enabled = true
+strategy_editor_port = 8765
+mental_omega_focus_enabled = true
+watch_poll_seconds = 0.10
+world_model_history_size = 1000000
+world_model_memory_budget_bytes = 1073741824
+world_model_entity_memory_seconds = 180.0
+world_model_log_enabled = true
+intent_planner_enabled = true
+autonomous_reasoning_enabled = true
+autonomous_reasoning_interval_seconds = 5.0
+skip_autonomous_reasoning_if_busy = true
+autonomy_activation_interval_seconds = 12.0
+autonomous_reasoning_entity_limit = 768
+intent_default_force_size = 12
+watch_default_seconds = 21600
+attack_task_default_seconds = 21600
+attack_task_keepalive_seconds = 10.0
+load_task_seconds = 21600
+production_task_seconds = 21600
+repair_attempts = 5
+adaptive_move_task_seconds = 1800
+adaptive_explore_task_seconds = 3600
+adaptive_arrival_radius_cells = 5
+tactical_engage_radius_cells = 18
+watch_near_distance_cells = 25
+watch_critical_distance_cells = 12
+alert_watch_radius_cells = 35
+neko_main_url = "http://127.0.0.1:48911"

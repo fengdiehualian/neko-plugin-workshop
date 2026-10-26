@@ -1,0 +1,58 @@
+{
+  "image": "pudding-expressions.png",
+  "artSet": "concept-v2",
+  "integratedFloat": true,
+  "frames": [
+    {
+      "name": "idle",
+      "x": 62,
+      "y": 52,
+      "width": 592,
+      "height": 677
+    },
+    {
+      "name": "impact",
+      "x": 720,
+      "y": 52,
+      "width": 592,
+      "height": 677
+    },
+    {
+      "name": "rebound",
+      "x": 1377,
+      "y": 52,
+      "width": 592,
+      "height": 677
+    }
+  ],
+  "drawBox": {
+    "x": -45.019,
+    "y": -85.3232,
+    "width": 90.038,
+    "height": 102.9658
+  },
+  "pixelGrid": {
+    "width": 80,
+    "height": 92
+  },
+  "portraitBox": {
+    "x": 2,
+    "y": 0,
+    "width": 76,
+    "height": 76
+  },
+  "portraitResolution": 64,
+  "hud": {
+    "healthY": -100,
+    "nameY": 25
+  },
+  "collisionRadius": 40,
+  "floatReference": {
+    "diameterInSource": 526,
+    "centerInFirstFrame": {
+      "x": 296,
+      "y": 561
+    },
+    "diameterInWorld": 80
+  }
+}

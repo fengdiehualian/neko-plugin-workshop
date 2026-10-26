@@ -1,0 +1,25 @@
+# 猫娘晨报 · 配置
+#
+# 每一行就是一个信息源，和 time 同级，不需要分组：
+#
+#   time   每天几点播报
+#   名称   "链接 + 想要什么"（名称随你起）
+#
+# 到点后，插件会把下面这些内容原文交给模型，由模型自己去取数据、再汇报。
+
+time = "08:00"
+
+weather = "通过链接 https://api.open-meteo.com/v1/forecast?latitude=30.29&longitude=120.16&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto 获取杭州今天的天气"
+
+# hn = "https://hnrss.org/frontpage 获取科技新闻"
+# crypto = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=cny&include_24hr_change=true cookie=你的cookie 获取币价"
+# blog = "https://example.com/ 获取该博客最新更新的文章"
+
+# ---------------------------------------------------------------------------
+# 高级设置（一般不用动）
+# ---------------------------------------------------------------------------
+# timezone = "local"
+# catch_up_minutes = 120
+# prompt_visibility = "hidden"
+# proxy = "auto"
+# spoken_char_limit = 240

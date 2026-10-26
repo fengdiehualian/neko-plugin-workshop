@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "seed_id": "study_companion_builtin",
+  "seed_protocol_version": 1,
+  "content_revision": 8,
+  "manifest_sha256": "2e31157ad3d9f8d0cb1b741ca5c0ec5996f57709082744cf528566590d337711",
+  "type": "knowledge_seed_manifest",
+  "description": "Study Companion public knowledge graph seed manifest.",
+  "files": [
+    {
+      "path": "knowledge_seeds/math.json",
+      "subject": "math",
+      "topic_count": 457
+    },
+    {
+      "path": "knowledge_seeds/english.json",
+      "subject": "english",
+      "topic_count": 45
+    },
+    {
+      "path": "knowledge_seeds/chinese.json",
+      "subject": "chinese",
+      "topic_count": 45
+    },
+    {
+      "path": "knowledge_seeds/physics.json",
+      "subject": "physics",
+      "topic_count": 74
+    },
+    {
+      "path": "knowledge_seeds/chemistry.json",
+      "subject": "chemistry",
+      "topic_count": 44
+    },
+    {
+      "path": "knowledge_seeds/biology.json",
+      "subject": "biology",
+      "topic_count": 44
+    },
+    {
+      "path": "knowledge_seeds/history.json",
+      "subject": "history",
+      "topic_count": 38
+    },
+    {
+      "path": "knowledge_seeds/geography.json",
+      "subject": "geography",
+      "topic_count": 38
+    },
+    {
+      "path": "knowledge_seeds/politics.json",
+      "subject": "politics",
+      "topic_count": 37
+    },
+    {
+      "path": "knowledge_seeds/computer_science.json",
+      "subject": "computer_science",
+      "topic_count": 40
+    },
+    {
+      "path": "knowledge_seeds/economics.json",
+      "subject": "economics",
+      "topic_count": 30
+    }
+  ],
+  "total_topics": 892
+}

@@ -1,0 +1,22 @@
+# Loader patch contributed by the dsh-plugin-neko bundle.
+#
+# The row references the package by name, not a relative path: Node resolution
+# finds the installed code. Relative paths only work in a `--patch` overlay,
+# which is the local-development route documented in the README.
+- insert:
+    - id: neko-bridge
+      name: dsh-plugin-neko
+      config:
+        # N.E.K.O. main server. Change this if you run N.E.K.O. on another port.
+        baseUrl: 'http://127.0.0.1:48911'
+        # Scope registrations to one catgirl role. Empty means every role.
+        role: ''
+        # Only mirror tools whose source starts with this prefix.
+        # 'plugin:' keeps built-in N.E.K.O. tools out of dsh, where they would
+        # shadow dsh's own filesystem and shell tools.
+        sourcePrefix: 'plugin:'
+        # N.E.K.O. registrations live only in its runtime, so poll for new ones.
+        refreshMs: 30000
+        # Per-call timeout for a N.E.K.O. tool invocation.
+        timeoutMs: 60000
+        pluginsOnly: true

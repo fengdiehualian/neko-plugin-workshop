@@ -1,0 +1,135 @@
+"""Internal contracts and ports for the adaptive-learning application layer.
+
+This package intentionally has no dependency on plugin entry points or SQLite
+implementations.  New application services can depend on these stable types
+while public entry payloads remain backward compatible.
+"""
+
+from .answer_application import AnswerAssessmentService, AssessmentValidationResult
+from .cognitive_delivery import (
+    PreparedCognitiveIntervention,
+    abandoned_intervention_event,
+    committed_question_event,
+    prepare_cognitive_intervention,
+    reviewed_question_payload,
+    validate_reviewed_question,
+)
+from .cognitive_intervention import (
+    COGNITIVE_INTERVENTION_SCHEMA_VERSION,
+    DEFAULT_COGNITIVE_POLICY_VERSION,
+    CognitiveEvaluationVerdict,
+    CognitiveInterventionBinding,
+    CognitiveInterventionEvent,
+    CognitiveInterventionEventType,
+    CognitiveInterventionIntent,
+    hypothesis_ref_from_payload,
+    hypothesis_ref_payload,
+    is_cognitive_intervention_intent,
+)
+from .cognitive_policy import (
+    CognitiveIntentMode,
+    CognitiveIntentPolicy,
+    CognitivePolicyDecision,
+    question_plan_ownership_fingerprint,
+)
+from .cognitive_question_validation import (
+    DEFAULT_COGNITIVE_VALIDATOR_VERSION,
+    CognitiveQuestionArtifact,
+    CognitiveQuestionValidationContext,
+    CognitiveQuestionValidationResult,
+    DiagnosticQuestionValidator,
+)
+from .cognitive_state import (
+    CognitiveEvidenceStatus,
+    CognitiveInterventionStage,
+    CognitiveReadReason,
+    CognitiveStateReader,
+    CognitiveStateStorePort,
+    LearnerCognitiveHypothesis,
+    LearnerCognitiveStateView,
+)
+from .contracts import (
+    DEFAULT_ASSESSMENT_POLICY_VERSION,
+    DEFAULT_PRACTICE_POLICY_VERSION,
+    DEFAULT_QUESTION_POLICY_VERSION,
+    INTERNAL_SCHEMA_VERSION,
+    AssessmentResult,
+    EvaluatedAttempt,
+    EvaluationResult,
+    HypothesisRef,
+    LearningActionCandidate,
+    LearningCommitContext,
+    LearningIntent,
+    MapPage,
+    MapQuery,
+    PracticeSelection,
+    QuestionGenerationResult,
+    QuestionInstance,
+    QuestionPlan,
+    RepairStrategy,
+    TopicRef,
+)
+from .learning_commit import CommitOutcome, LearningCommitService
+from .production_adapters import StudyTrackerCommitAdapter
+from .question_application import QuestionApplicationService, QuestionGenerationFailure
+
+__all__ = [
+    "DEFAULT_ASSESSMENT_POLICY_VERSION",
+    "DEFAULT_PRACTICE_POLICY_VERSION",
+    "DEFAULT_QUESTION_POLICY_VERSION",
+    "INTERNAL_SCHEMA_VERSION",
+    "AssessmentResult",
+    "COGNITIVE_INTERVENTION_SCHEMA_VERSION",
+    "DEFAULT_COGNITIVE_POLICY_VERSION",
+    "DEFAULT_COGNITIVE_VALIDATOR_VERSION",
+    "CognitiveEvaluationVerdict",
+    "CognitiveEvidenceStatus",
+    "CognitiveIntentMode",
+    "CognitiveIntentPolicy",
+    "CognitiveInterventionBinding",
+    "CognitiveInterventionEvent",
+    "CognitiveInterventionEventType",
+    "CognitiveInterventionIntent",
+    "CognitiveInterventionStage",
+    "CognitivePolicyDecision",
+    "CognitiveQuestionArtifact",
+    "CognitiveQuestionValidationContext",
+    "CognitiveQuestionValidationResult",
+    "CognitiveReadReason",
+    "CognitiveStateReader",
+    "CognitiveStateStorePort",
+    "EvaluatedAttempt",
+    "EvaluationResult",
+    "HypothesisRef",
+    "LearningActionCandidate",
+    "LearningCommitContext",
+    "LearningIntent",
+    "LearnerCognitiveHypothesis",
+    "LearnerCognitiveStateView",
+    "MapPage",
+    "MapQuery",
+    "PracticeSelection",
+    "QuestionInstance",
+    "QuestionGenerationResult",
+    "QuestionPlan",
+    "RepairStrategy",
+    "TopicRef",
+    "AnswerAssessmentService",
+    "AssessmentValidationResult",
+    "CommitOutcome",
+    "LearningCommitService",
+    "QuestionApplicationService",
+    "QuestionGenerationFailure",
+    "StudyTrackerCommitAdapter",
+    "PreparedCognitiveIntervention",
+    "DiagnosticQuestionValidator",
+    "abandoned_intervention_event",
+    "committed_question_event",
+    "hypothesis_ref_from_payload",
+    "hypothesis_ref_payload",
+    "is_cognitive_intervention_intent",
+    "prepare_cognitive_intervention",
+    "question_plan_ownership_fingerprint",
+    "reviewed_question_payload",
+    "validate_reviewed_question",
+]

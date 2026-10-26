@@ -1,0 +1,726 @@
+{
+  "mod": "ModLoader",
+  "items": [
+    {
+      "id": 5456,
+      "name": "Jofairden_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5457,
+      "name": "Jofairden_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5458,
+      "name": "Jofairden_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5459,
+      "name": "AetherBreaker_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5460,
+      "name": "AetherBreaker_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5461,
+      "name": "AetherBreaker_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5462,
+      "name": "AetherBreaker_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5463,
+      "name": "AlejandroAkbal_Back",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5464,
+      "name": "AlejandroAkbal_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5465,
+      "name": "AlejandroAkbal_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5466,
+      "name": "AlejandroAkbal_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5467,
+      "name": "Coolmike5000_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5468,
+      "name": "Coolmike5000_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5469,
+      "name": "Coolmike5000_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5470,
+      "name": "Coolmike5000_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5471,
+      "name": "dinidini_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5472,
+      "name": "dinidini_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5473,
+      "name": "dinidini_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5474,
+      "name": "dinidini_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5475,
+      "name": "dschosen_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5476,
+      "name": "dschosen_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5477,
+      "name": "dschosen_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5478,
+      "name": "dschosen_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5479,
+      "name": "Elfinlocks_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5480,
+      "name": "Elfinlocks_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5481,
+      "name": "Elfinlocks_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5482,
+      "name": "Frosty_Hat",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5483,
+      "name": "Frosty_Hoodie",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5484,
+      "name": "Frosty_Pants",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5485,
+      "name": "Glory_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5486,
+      "name": "Glory_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5487,
+      "name": "Glory_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5488,
+      "name": "Guildpack_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5489,
+      "name": "Guildpack_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5490,
+      "name": "Guildpack_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5491,
+      "name": "HER0zero_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5492,
+      "name": "HER0zero_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5493,
+      "name": "HER0zero_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5494,
+      "name": "Linus_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5495,
+      "name": "Linus_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5496,
+      "name": "Linus_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5497,
+      "name": "Linus_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5498,
+      "name": "Mayne_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5499,
+      "name": "Mayne_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5500,
+      "name": "Mayne_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5501,
+      "name": "Mayne_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5502,
+      "name": "Orian_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5503,
+      "name": "Orian_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5504,
+      "name": "Orian_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5505,
+      "name": "POCKETS_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5506,
+      "name": "POCKETS_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5507,
+      "name": "POCKETS_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5508,
+      "name": "POCKETS_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5509,
+      "name": "Polyblank_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5510,
+      "name": "Polyblank_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5511,
+      "name": "Polyblank_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5512,
+      "name": "Remeus_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5513,
+      "name": "Remeus_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5514,
+      "name": "Remeus_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5515,
+      "name": "Saethar_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5516,
+      "name": "Saethar_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5517,
+      "name": "Saethar_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5518,
+      "name": "Saethar_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5519,
+      "name": "Sailing_Squid_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5520,
+      "name": "Sailing_Squid_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5521,
+      "name": "Sailing_Squid_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5522,
+      "name": "Sailing_Squid_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5523,
+      "name": "Squid_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5524,
+      "name": "Squid_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5525,
+      "name": "Squid_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5526,
+      "name": "Tantamount_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5527,
+      "name": "Tantamount_Head",
+      "use": "armor",
+      "tags": [
+        "armor",
+        "accessory"
+      ]
+    },
+    {
+      "id": 5528,
+      "name": "Tantamount_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5529,
+      "name": "Tantamount_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5530,
+      "name": "toplayz_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5531,
+      "name": "toplayz_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5532,
+      "name": "toplayz_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5533,
+      "name": "WitchDaggah_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5534,
+      "name": "xAqult_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5535,
+      "name": "xAqult_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5536,
+      "name": "xAqult_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5537,
+      "name": "xAqult_Lens",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5538,
+      "name": "xAqult_Mask",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5539,
+      "name": "xAqult_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5540,
+      "name": "Zeph_Body",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5541,
+      "name": "Zeph_Head",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5542,
+      "name": "Zeph_Legs",
+      "use": "armor",
+      "tags": [
+        "armor"
+      ]
+    },
+    {
+      "id": 5543,
+      "name": "Zeph_Wings",
+      "use": "accessory",
+      "tags": [
+        "accessory"
+      ]
+    },
+    {
+      "id": 5544,
+      "name": "StartBag",
+      "use": "misc",
+      "tags": [
+        "misc"
+      ]
+    },
+    {
+      "id": 5545,
+      "name": "UnloadedItem",
+      "use": "misc",
+      "tags": [
+        "misc"
+      ]
+    }
+  ]
+}

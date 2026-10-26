@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+import sqlite3
+from contextlib import contextmanager
+from typing import Any, Iterator
+
+_PURGE_TABLES = (
+    "mastery_retention_evidence",
+    "mastery_retention_state",
+    "learning_card_events",
+    "mastery_retention_identity",
+    "evaluations",
+    "attempts",
+    "question_instances",
+    "mastery_projection_queue",
+    "mastery_snapshots_v2",
+    "cognitive_monitoring_episode_facts",
+    "cognitive_obligation_satisfactions",
+    "cognitive_obligation_claims",
+    "cognitive_learning_obligations",
+    "cognitive_monitoring_episodes",
+    "cognitive_outbox",
+    "cognitive_intervention_events",
+    "cognitive_hypothesis_current",
+    "cognitive_hypothesis_snapshots",
+    "cognitive_evidence",
+    "cognitive_topic_projection_queue",
+    "cognitive_extraction_queue",
+    "cognitive_projection_queue",
+    "cognitive_user_controls",
+    "cognitive_delete_cutoffs",
+    "cognitive_fact_roots",
+    "learning_plan_items",
+    "learning_plans",
+    "memory_habit_progress",
+    "recitation_attempts",
+    "review_records",
+    "memory_review_log",
+    "memory_fsrs_cards",
+    "memory_items",
+    "decks",
+    "focus_sessions",
+    "checkins",
+    "daily_goals",
+    "qa_records",
+    "captured_questions",
+    "sessions",
+    "review_log",
+    "fsrs_cards",
+    "wrong_questions",
+    "mastery_snapshots",
+    "knowledge_evidence",
+    "candidate_knowledge_items",
+    "anonymous_knowledge_stats",
+    "knowledge_contribution_queue",
+    "interactions",
+    "topics",
+    "notes",
+    "notebooks",
+    "kv",
+)
+
+
+@contextmanager
+def transaction(self) -> Iterator[sqlite3.Connection]:
+    """Hold the store lock around a SQLite transaction."""
+    with self._lock:
+        conn = self._require_conn()
+        try:
+            yield conn
+        except Exception:
+            conn.rollback()
+            raise
+        else:
+            conn.commit()
+
+
+def json_loads(self, value: object, fallback: Any = None) -> Any:
+    """Public JSON loader for store extension modules."""
+    if fallback is None:
+        fallback = {}
+    return self._json_loads(value, fallback)
+
+
+def purge_all(self) -> dict[str, int]:
+    """Delete all user data rows while preserving the database schema."""
+    deleted: dict[str, int] = {}
+    with self._lock:
+        conn = self._require_conn()
+        conn.execute("PRAGMA foreign_keys = OFF")
+        try:
+            for table in _PURGE_TABLES:
+                try:
+                    cursor = conn.execute(f"DELETE FROM {table}")
+                except sqlite3.Error:
+                    deleted[table] = 0
+                else:
+                    deleted[table] = max(0, int(cursor.rowcount or 0))
+            from .store_mastery_retention import create_mastery_retention_schema
+
+            create_mastery_retention_schema(conn)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.execute("PRAGMA foreign_keys = ON")
+    return deleted

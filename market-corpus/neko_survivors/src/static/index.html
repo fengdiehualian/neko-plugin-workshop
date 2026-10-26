@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猫娘姐妹：幸存者</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='18' r='10' fill='%23ff86b8'/%3E%3Cpath d='M8 12 L10 3 L16 9 Z M24 12 L22 3 L16 9 Z' fill='%23ff86b8'/%3E%3C/svg%3E">
+<style>
+  /* 206 轮：这个启动页原来是暗紫夜空的另一套皮肤，和游戏里已经换成浅色主题的标题页对不上。
+     现在统一成「猫娘计划社区」那套：明亮天空 + 白卡片 + 蓝青渐变按钮。 */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    background:
+      radial-gradient(70% 55% at 50% 4%, #ffffff 0%, rgba(255,255,255,0) 62%),
+      linear-gradient(180deg, #d9ecff 0%, #c6e2ff 38%, #eaf6ff 100%);
+    color: #1b2a41;
+    font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    overflow: hidden;
+  }
+  .hero {
+    text-align: center; max-width: 660px; width: calc(100% - 40px);
+    padding: 40px 36px 30px;
+    background: linear-gradient(180deg, #ffffff, #f4faff);
+    border: 1px solid #e2eefb;
+    border-radius: 24px;
+    box-shadow: 0 18px 44px rgba(26, 62, 120, .18), 0 2px 8px rgba(26, 62, 120, .08);
+  }
+  /* 标题：蓝白渐变 + 两个小猫耳 */
+  .title-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .ear {
+    width: 30px; height: 26px; flex: none; margin-top: -4px;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    background: linear-gradient(180deg, #bfe3ff, #4aa8ff);
+    filter: drop-shadow(0 4px 10px rgba(63, 157, 248, .45));
+  }
+  .ear.right { transform: scaleX(-1); }
+  h1 {
+    font-size: 44px; letter-spacing: 2px; font-weight: 900;
+    background: linear-gradient(180deg, #8fd0ff 0%, #56b0f8 42%, #2f7ed8 78%, #4a63d8 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 0 rgba(255, 255, 255, .95)) drop-shadow(0 10px 20px rgba(63, 157, 248, .35));
+  }
+  .sub { margin-top: 14px; font-size: 15px; color: #5b6f88; line-height: 1.9; }
+  .keys {
+    margin: 24px auto 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+    font-size: 13px; color: #3d5570;
+  }
+  .keys span {
+    border: 1.5px solid #cfe4fb; border-radius: 999px; padding: 6px 15px;
+    background: #ffffff; box-shadow: 0 2px 6px rgba(30, 80, 150, .06);
+  }
+  .keys b { color: #2f7fd0; }
+  #play {
+    margin-top: 30px; font-size: 19px; font-weight: 800; letter-spacing: 4px;
+    padding: 14px 64px; border-radius: 999px; cursor: pointer;
+    border: 0; color: #ffffff;
+    background: linear-gradient(135deg, #4aa8ff, #67d3f0);
+    box-shadow: 0 12px 28px rgba(63, 157, 248, .4), inset 0 1px 0 rgba(255, 255, 255, .5);
+    transition: transform .12s ease, box-shadow .15s ease, filter .15s ease;
+  }
+  #play:hover {
+    transform: translateY(-2px) scale(1.02);
+    filter: brightness(1.05);
+    box-shadow: 0 16px 34px rgba(63, 157, 248, .48);
+  }
+  #play:active { transform: scale(.98); }
+  .foot { margin-top: 22px; font-size: 12px; color: #8ba0ba; }
+  #frame-wrap { display: none; position: fixed; inset: 0; background: #0b0612; }
+  #frame-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
+</style>
+</head>
+<body>
+  <div class="hero" id="hero">
+    <div class="title-row">
+      <span class="ear"></span>
+      <h1>猫娘姐妹</h1>
+      <span class="ear right"></span>
+    </div>
+    <div class="sub">
+      弹幕生存肉鸽 · NEKO Sisters<br>
+      在 20 波围攻中活下来，收集材料，把武器合成到传说品质。<br>
+      噩梦难度还藏着好几个隐藏 Boss。
+    </div>
+    <div class="keys">
+      <span><b>WASD</b> / 方向键 移动</span>
+      <span><b>武器自动开火</b></span>
+      <span><b>按住左键</b> 所有武器瞄准鼠标方向</span>
+      <span><b>ESC</b> 暂停</span>
+      <span><b>M</b> 静音</span>
+    </div>
+    <button id="play">开始游戏</button>
+    <div class="foot">游戏完全本地运行 · 进度保存在浏览器里</div>
+  </div>
+  <div id="frame-wrap">
+    <iframe id="game-frame" src="game/index.html" title="猫娘姐妹：幸存者"
+            allow="autoplay; fullscreen" allowfullscreen></iframe>
+  </div>
+  <script>
+    document.getElementById('play').addEventListener('click', () => {
+      document.getElementById('hero').style.display = 'none';
+      document.getElementById('frame-wrap').style.display = 'block';
+      // 重新赋一次 src，保证每次进来都是新开局画面
+      const f = document.getElementById('game-frame');
+      f.src = 'game/index.html?_t=' + Date.now();
+      f.focus();
+    });
+  </script>
+</body>
+</html>

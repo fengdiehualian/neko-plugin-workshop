@@ -1,0 +1,61 @@
+# Copy to config.local.toml; importing or checking never starts the game.
+[runtime]
+mode = "external"
+data_directory = "" # Use the SAME absolute root in the N.E.K.O observer configuration.
+
+[autonomy]
+enabled = false
+max_decisions = 0 # Run until explicit stop/error; set a positive number for a bounded trial.
+max_tool_rounds = 6
+context_tokens = 65536 # Default 64K; optional 131072 (128K) only when the configured service supports it.
+context_mode = "compact" # "full" disables fixed previews/count caps; the real model window still applies.
+max_output_tokens = 1024
+model_timeout_seconds = 180
+
+[server]
+host = ""
+port = 25565
+username = ""
+auth = "offline"
+version = "1.21.1"
+
+[backend]
+node = "node"
+directory = "" # Absolute verified backend installation directory.
+
+[viewer]
+default_appearance = "server" # Neutral standalone default. Set bundled:yui-ysm explicitly for local Web presentation.
+renderer_directory = ""
+catalog_file = ""
+listen_port = 28985
+auto_open = true # A configured viewer opens only after the game is connected.
+url = ""
+port = 0
+console_port = 0
+
+# Omit this table when using --queue-only. No model is discovered automatically.
+[planner]
+base_url = "" # Explicit OpenAI-compatible API base, including /v1 where required.
+model = ""
+api_key_env = "" # Environment variable name only; blank permits an anonymous local endpoint.
+output_parameter = "max_tokens" # Or max_completion_tokens, as required by your provider.
+image_input = false # Explicit capability; do not guess from the model name.
+
+[perception]
+enabled = true
+mineral_vision = false # Opt-in loaded-mineral queries only; physical permissions stay unchanged.
+
+[knowledge]
+minedojo_index_file = "" # Optional absolute path to a separately prepared historical Wiki index.
+retrieval = "hybrid" # Local CPU retrieval; an empty path leaves this source unconfigured.
+
+[memory]
+mode = "local" # local | local-vector (offline CPU token similarity) | vector | remote.
+agent_id = "" # Empty preserves existing note ownership; changing this does not move notes.
+
+[fast]
+mode = "rules" # system_one enables an explicitly configured local/remote provider.
+endpoint = ""
+model = ""
+api_key_env = ""
+min_confidence = 0.75

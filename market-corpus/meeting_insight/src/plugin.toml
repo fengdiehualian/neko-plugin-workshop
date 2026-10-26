@@ -1,0 +1,41 @@
+[plugin]
+id = "meeting_insight"
+name = "联网搜索助手"
+version = "0.1.1"
+type = "plugin"
+description = "为不想配置第三方搜索 API 的用户提供开箱即用的联网搜索能力。基于 DeepSeek 的 Anthropic 兼容端点，声明服务端 web_search 工具，自动联网检索并返回带引用来源的结构化结果。同时附带会议总结工具，可提炼会议摘要、要点与待办事项。"
+short_description = "基于 DeepSeek 服务端 API 的联网搜索，国内直连，无需额外配置 Tavily。"
+keywords = ["联网搜索", "实时搜索", "在线搜索", "网上搜索", "搜一下", "查一下", "搜一搜", "查最新", "最新消息", "最新新闻", "实时信息", "最新动态", "搜索助手", "联网查询", "在线查询", "会议总结", "会议纪要", "总结会议"]
+entry = "plugin.plugins.meeting_insight:MeetingInsightPlugin"
+
+[plugin.author]
+name = "silverwolftyro"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+timeout = 30
+startup_failure = "warn"
+
+[plugin.store]
+enabled = true
+
+[meeting_insight]
+max_segments = 200
+summary_language = "zh-CN"
+
+# ---- 联网总结链路（DeepSeek Anthropic 兼容端点 + 服务端 web_search）----
+# 安全提示：本文件位于插件源码目录，会随插件提交到 git 并被打进 .neko-plugin 包。
+# 请勿在此填写真实 API Key。推荐在「用户运行期配置」里填写，它优先级更高、不进版本库：
+#   <用户数据根>/plugins/meeting_insight/config/plugin.toml
+deepseek_api_key = ""                       # 留空 = 自动回退到本地结构化提取
+deepseek_base_url = "https://api.deepseek.com"   # 不要带 /anthropic 后缀，请求路径已含该段
+deepseek_model = "deepseek-v4-flash"        # 服务端 web_search 需要支持该工具的模型
+web_search_enabled = true                   # 是否在请求里声明服务端 web_search 工具
+web_search_max_uses = 5                     # 单次工具调用最多搜索几次（1-10）
+anthropic_version = "2023-06-01"
+request_timeout = 60.0                      # 单次 HTTP 请求上限；实际还会受工具总预算约束

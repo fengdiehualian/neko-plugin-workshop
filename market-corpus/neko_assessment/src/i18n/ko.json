@@ -1,0 +1,20 @@
+{
+  "plugin.name": "심리 검사실",
+  "plugin.description": "성격·심리·재미 검사를 한 화면에: 빅파이브, 16유형, 직업흥미, 애착유형, 회복탄력성, 그리고 공개 재현 가능한 PHQ-9 / GAD-7 / 외로움 척도. 모든 채점은 기기에서 이루어지며 저장도 이 기기에만 됩니다.",
+  "panel.title": "심리 검사실",
+  "panel.subtitle": "성격·심리·재미 검사 - 한 문제씩, 결과는 이 기기에만",
+  "panel.tab.home": "검사",
+  "panel.tab.quiz": "응답",
+  "panel.tab.result": "결과",
+  "panel.tab.records": "기록",
+  "panel.tab.about": "정보",
+  "panel.search": "이름이나 설명으로 검색",
+  "panel.start": "하나 골라 시작",
+  "panel.disclaimer": "이 검사들은 자기 이해와 성찰을 위한 것이며 의학적 진단이 아닙니다.",
+  "panel.copy": "결과 복사",
+  "panel.share": "공유 카드 만들기",
+  "panel.retake": "다시 하기",
+  "panel.export": "내보내기(텍스트)",
+  "panel.clear": "전체 삭제",
+  "panel.empty_records": "아직 기록이 없습니다."
+}

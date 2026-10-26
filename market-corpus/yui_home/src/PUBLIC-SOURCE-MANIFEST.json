@@ -1,0 +1,97 @@
+[
+  {
+    "path": ".github/workflows/release.yml",
+    "bytes": 395,
+    "sha256": "75e031df7bff9f88d89a0d54857337324e78ae718fce238273bf9b41eab6c09e"
+  },
+  {
+    "path": ".github/workflows/verify.yml",
+    "bytes": 384,
+    "sha256": "ee065c3b7de68b39952699bb1a0f97c20e4c5d002c3d67be447e087e8a43e9ee"
+  },
+  {
+    "path": ".gitignore",
+    "bytes": 134,
+    "sha256": "690018b998f26052a4efc7b74a0c8c3d4b9629041cffcbe77ab243054db7deef"
+  },
+  {
+    "path": ".vscode/settings.json",
+    "bytes": 123,
+    "sha256": "b568b49caea748d689939f7e92fc264eae9c064a1c4da80980afcaedee910701"
+  },
+  {
+    "path": ".vscode/tasks.json",
+    "bytes": 1098,
+    "sha256": "596db4f438262cf1cc97acdfd99ce1847ac326f3955ad24e16344f69f49b3f34"
+  },
+  {
+    "path": "README.md",
+    "bytes": 3590,
+    "sha256": "822fd9be161170c348eec2f9e89ccbec6b21a535d55ce8adb51fa7944faae5fa"
+  },
+  {
+    "path": "__init__.py",
+    "bytes": 12830,
+    "sha256": "ece2d5affa052f572e337e712b507170e730f703a34623e51b53891555621b06"
+  },
+  {
+    "path": "config.example.toml",
+    "bytes": 50,
+    "sha256": "11f187fe2dfdbcdd7b34e131c290652aff146658fe529ae4f1bed88a919c32c0"
+  },
+  {
+    "path": "docs/REVIEW-2026-10-08.md",
+    "bytes": 2887,
+    "sha256": "6717bdba57ed013225d2e36aa1d10cc3d34dd6b1cbfb62ce0d1e68d726248aff"
+  },
+  {
+    "path": "docs/test-results.json",
+    "bytes": 1284,
+    "sha256": "6f26de210636d9df6010475d8f40bd0349703597242e59973390027d88477238"
+  },
+  {
+    "path": "i18n/en.json",
+    "bytes": 1993,
+    "sha256": "065d92b0a585218d0dfc0b053795d2420e6d11a6a6a63c07c3e11622ff506ae6"
+  },
+  {
+    "path": "i18n/zh-CN.json",
+    "bytes": 2019,
+    "sha256": "10d00cf220785eb9904b59ababc30837659b8f334bed7c97e8ddf74366dc0f7d"
+  },
+  {
+    "path": "plugin.toml",
+    "bytes": 930,
+    "sha256": "bb33db28a4c0eef1c7834f19e693d1985ccb9c3605c0affebb2a1db9cfd02a58"
+  },
+  {
+    "path": "pyproject.toml",
+    "bytes": 97,
+    "sha256": "a147949e194b1ff87c3dbd04af9682918d5233abd81451666a15807be9d0c11e"
+  },
+  {
+    "path": "ruff.toml",
+    "bytes": 215,
+    "sha256": "b4303b147c481bc7ec6e96a0a68e7fb3c71d653fe1277c40ad48b4bac8b55efe"
+  },
+  {
+    "path": "static/index.html",
+    "bytes": 1039,
+    "sha256": "ffb238dbad6e7753b153c852a17f26595673a7d2fc1abd90a59e593fea9cac37"
+  },
+  {
+    "path": "tests/conftest.py",
+    "bytes": 2484,
+    "sha256": "5bd6908865c779aca4d7a78cf59901de0c0918be727a4bf99224ac9865e5ec2d"
+  },
+  {
+    "path": "tests/test_entries.py",
+    "bytes": 5802,
+    "sha256": "e74f0ff00a490dbc09000898a2e354adf2ba52e30d4a206df44abc0c6a3f3113"
+  },
+  {
+    "path": "tests/test_smoke.py",
+    "bytes": 3121,
+    "sha256": "d986f64bb0a268917ca3dbef7a93ce8e2ae3ed76491ee7c39370e8d34102a4b7"
+  }
+]

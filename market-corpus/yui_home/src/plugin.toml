@@ -1,0 +1,30 @@
+[plugin]
+id = "yui_home"
+name = "Yui的家"
+description = "Yui的家桌面运行环境的配套控制插件：真实 Yui 聊天、3D 建造、Minecraft Java 1.21.6 双向同步及共同记忆。首次使用须先安装完整项目包；仅导入此插件不会安装桌面、Java 或 Minecraft 服务器。"
+short_description = "Yui's Home: desktop building, live Minecraft synchronization and shared memories."
+version = "2.13.1"
+type = "plugin"
+entry = "plugin.plugins.yui_home:YuiHomePlugin"
+keywords = ["Yui", "家", "Minecraft", "我的世界", "建造", "存档", "实时同步", "共同记忆"]
+
+[plugin.author]
+name = "主人与Yui"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.ui]
+enabled = true
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "安装与使用"
+entry = "static/index.html"
+mode = "static"
+permissions = []

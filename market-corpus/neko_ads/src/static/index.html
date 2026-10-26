@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <meta name="darkreader-lock">
+  <title>猫娘广告部：杂鱼桌面占领计划</title>
+  <link rel="stylesheet" href="panel.css?r=panel1">
+  <script src="engine.js?v=ad-art2" defer></script>
+  <script src="main.js?r=v0.2.0" defer></script>
+  <script src="panel-links.js?v=0.2.0-panel-return1" defer></script>
+  <script src="panel-ui.js?r=panel1" defer></script>
+</head>
+<body>
+  <main class="console" aria-label="广告部营业台">
+    <div class="panel-art" aria-hidden="true">
+      <img class="geometry" src="assets/geometric-background-v2b.png" alt="" width="1672" height="941">
+      <img class="character" src="assets/yui-faceless-layer-v1.png" alt="" width="1672" height="941">
+      <img class="character cat-outline" src="assets/yui-faceless-layer-v1.png" alt="" width="1672" height="941">
+    </div>
+    <header class="masthead">
+      <div class="brand"><img src="assets/neko-logo.png" alt="N.E.K.O" width="192" height="192"><div><span>N.E.K.O AD DEPT.</span><small><span id="plugin-version" aria-label="当前安装版本">版本读取中…</span><b>本地原型</b></small></div></div>
+      <p id="connection"></p>
+      <h1 class="sr-only">猫娘广告部：杂鱼桌面占领计划</h1>
+      <div class="title-art" aria-hidden="true"><img src="assets/title-lockup-v2.png" alt="" width="1671" height="941"></div>
+    </header>
+    <section class="controls" aria-label="插件与本局">
+      <div class="runtime-row"><span class="phase-label" id="phase-label">等待连接</span><button id="enable" type="button" disabled>一键启动插件</button></div>
+      <p class="start-help">启用后待命，点击按钮才开局。</p>
+      <button class="action primary" id="start" type="button" disabled aria-label="开始广告游戏：杂鱼♡让本喵占领桌面！">杂鱼♡让本喵占领桌面！</button>
+      <div class="end-action"><button class="action secondary" id="stop" type="button" disabled aria-label="结束本局：杂鱼♡这就认输啦？">杂鱼♡这就认输啦？</button><small>结束本局</small></div>
+      <div class="runtime-detail"><p id="status" role="status">正在检查插件状态……</p><p id="message" role="status"></p></div>
+    </section>
+    <section class="settings" aria-label="语音与退出设置">
+      <div class="voice-row"><label class="voice-switch"><span>当前猫娘语音反馈</span><input id="voice" type="checkbox" checked><span class="switch" aria-hidden="true"></span></label><p id="voice-status" role="status">正在检查语音准备状态……</p><button class="text-button" id="voice-retry" type="button" disabled>继续／重试语音准备</button></div>
+      <div class="shortcut-row"><label for="shortcut">退出快捷键</label><input id="shortcut" readonly value="Ctrl+Shift+1" aria-describedby="shortcut-help"><button class="text-button" id="shortcut-edit" type="button">修改</button></div>
+      <p id="shortcut-help" class="field-help">点击输入框后，按下想用的组合键。</p>
+      <a class="website-button" id="open-website" href="website.html" target="_blank" rel="noopener noreferrer">杂鱼♡来本喵的地盘逛逛（网页）</a>
+      <p id="website-status" role="status"></p>
+    </section>
+  </main>
+  <footer class="safety-bar"><p id="notice">输入安全词「广告下班」或按 Ctrl+Shift+1 可以立即结束。</p></footer>
+</body>
+</html>

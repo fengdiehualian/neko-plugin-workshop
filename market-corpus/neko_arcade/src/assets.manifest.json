@@ -1,0 +1,689 @@
+{
+  "version": "1",
+  "generated_from": "5e9604b",
+  "note": "插件素材：客户端首次运行按 path 下载到用户缓存并校验 sha256，缺图回退占位图。",
+  "count": 136,
+  "total_size": 25247836,
+  "files": [
+    {
+      "path": "tarot/ba/0-愚者.webp",
+      "sha256": "5f8a9e9c2f4e705ce901c7ba57dfe4fb79f03cb46571fe62a7f45fc90012aac4",
+      "size": 66654
+    },
+    {
+      "path": "tarot/ba/01-魔术师.webp",
+      "sha256": "edca2efe7a2f2fe52f2ac7c14e7c55b93bd0773d4777c665629d562290fad32e",
+      "size": 93614
+    },
+    {
+      "path": "tarot/ba/02-女祭司.webp",
+      "sha256": "acc488ff6527dd2e162360b9338ae76bda09e2e2425874423803488876c27bbe",
+      "size": 95766
+    },
+    {
+      "path": "tarot/ba/03-女皇.webp",
+      "sha256": "a2b2f27fb4853668fcef33cb5c982c857b5ff8a7bee1deaeae6e5197fcac2b30",
+      "size": 89058
+    },
+    {
+      "path": "tarot/ba/04-皇帝.webp",
+      "sha256": "f8bd5c063b4aa0fcecfa8b86399590b1051c89898e3acdcac9087bf8b21bbe44",
+      "size": 80124
+    },
+    {
+      "path": "tarot/ba/05-教皇.webp",
+      "sha256": "2178bf36334071c1702848a713c098e67877a388cbfd04a87141f24c1a51d44b",
+      "size": 75106
+    },
+    {
+      "path": "tarot/ba/06-恋人.webp",
+      "sha256": "520f3e42b917a45bda371a19e8d8dfd41b4eae97804b830c5a7ad195624e82d6",
+      "size": 75886
+    },
+    {
+      "path": "tarot/ba/07-战车.webp",
+      "sha256": "1f5f3c4191102c4823970b79d988aca31122e9e6083ef42fa9ac4781f9ed8196",
+      "size": 83622
+    },
+    {
+      "path": "tarot/ba/08-力量.webp",
+      "sha256": "63f99928fb4c1afb48c291904def057e0c563b12883ee8b0534328eb878f5266",
+      "size": 82292
+    },
+    {
+      "path": "tarot/ba/09-隐士.webp",
+      "sha256": "ef9e44946320fa1c04b2b68f007e2421f9fef1313bf91dc17836d01c2f624478",
+      "size": 70576
+    },
+    {
+      "path": "tarot/ba/10-命运之轮.webp",
+      "sha256": "3d09559450979b3f458fc7f7b7277ea18256dd3346191ea0b4ce9f23d3ccb618",
+      "size": 67092
+    },
+    {
+      "path": "tarot/ba/11-正义.webp",
+      "sha256": "12f264f08d60f249e131a7d2954f1f804dc9fd5395e0afab8b3fcdb057e8b84c",
+      "size": 80830
+    },
+    {
+      "path": "tarot/ba/12-倒吊人.webp",
+      "sha256": "372802b45476165bba3e9115069611d7861396e4b0b194dfc34775214ed89307",
+      "size": 71638
+    },
+    {
+      "path": "tarot/ba/13-死神.webp",
+      "sha256": "4b64191d84efd1d4cc50c97a1be77dca57720cbb61ab133124343e2139f712ee",
+      "size": 81804
+    },
+    {
+      "path": "tarot/ba/14-节制.webp",
+      "sha256": "adc3d437b4256f30bdc94c2d198925a971b2337793ed7e65a10b5f40567e2159",
+      "size": 93428
+    },
+    {
+      "path": "tarot/ba/15-恶魔.webp",
+      "sha256": "da0586b8d6f67ce1ba508f6c9d81b33ec83328c1d283162a5ed270e6217c3e09",
+      "size": 95452
+    },
+    {
+      "path": "tarot/ba/16-高塔.webp",
+      "sha256": "1459a0180ce98ce62434af7c8fd1661aeb89d0e8db10a74fe192dcece658c4b9",
+      "size": 104272
+    },
+    {
+      "path": "tarot/ba/17-星星.webp",
+      "sha256": "9b9cf3a61d385c6dcfc10612699290e44a37dcf9d39e92871e655550ff319e86",
+      "size": 76504
+    },
+    {
+      "path": "tarot/ba/18-月亮.webp",
+      "sha256": "58ea3d5a4e7d43b83c35c3fa73dfc3ca3d3d08ae40c5e1197fd0c17867e96200",
+      "size": 86802
+    },
+    {
+      "path": "tarot/ba/19-太阳.webp",
+      "sha256": "4072b02521488a60012b70f91de1a63163c12c63fb50580541c448b1b82fd733",
+      "size": 84116
+    },
+    {
+      "path": "tarot/ba/20-审判.webp",
+      "sha256": "b44a7679b6c9fbf77a2f3f1e84868c8717f24dc636e74a3292f7e8af357f2644",
+      "size": 73728
+    },
+    {
+      "path": "tarot/ba/21-世界.webp",
+      "sha256": "cf0fff254739fb28038a1df84d1027c63432b048ca5f61c0456e39bcd9540195",
+      "size": 70266
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯-01.webp",
+      "sha256": "f7dead174d6c742473dff14785c01517c8e5462ac5a3f22126f96ca1c054ae35",
+      "size": 216116
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯-02.webp",
+      "sha256": "78d4871cc9b7c534f65486b07efa3dc3b30f745b35a73633e5150c3aa969521b",
+      "size": 213456
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯-03.webp",
+      "sha256": "497c423ea411ed74eb23ad52bbe0bb44150eb9bb7a9317948e3db4320712898f",
+      "size": 232148
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯-04.webp",
+      "sha256": "ca3c9a49ad048ae44d8cd8ecd94eb0cb690935ad39c52cb4c54055f8ed451152",
+      "size": 211224
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯-05.webp",
+      "sha256": "dcdd38694461003ff5a31b006688a666d58f19debfa57ebe5b98b3bffa47e0b7",
+      "size": 234374
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯-06.webp",
+      "sha256": "ed0c845e9a7c4bd9bc1e7a6812c1d738b93387dc89cb46d5b04ef1fb28b3f56b",
+      "size": 236986
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯-07.webp",
+      "sha256": "f561f6abb6f703d5d32daa90b0f8bab7689f007db99002b2133f8f71fc8774ec",
+      "size": 265766
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯-08.webp",
+      "sha256": "eb27aa6961c1ccf9a2d4c0db9fb30b1ae9845de2690ae30a874a4166407ce6fd",
+      "size": 239210
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯-09.webp",
+      "sha256": "924aa14f2d3cb713097423dc345ba5005dced9e3fa48df4a834fb94ba25dde31",
+      "size": 255794
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯-10.webp",
+      "sha256": "461ee3cd1ca05bb57df229db9ec6752868ab87eb4b00b01f7985bebe2424e46c",
+      "size": 227254
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯侍从.webp",
+      "sha256": "bc631d4eb2c650a572db1ea1711a7b9ad490aa91581bf2932a144e4aaf925f74",
+      "size": 269128
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯国王.webp",
+      "sha256": "36b66eab440695de6662a448c803bc8569076d3f56e1975183e34e54bb6306e1",
+      "size": 270734
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯王后.webp",
+      "sha256": "afbfce8378c5977a6ef51af434a89c3aebcb1c5e55b3d3144a79f3c2f58f28e2",
+      "size": 271546
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯皇后.webp",
+      "sha256": "afbfce8378c5977a6ef51af434a89c3aebcb1c5e55b3d3144a79f3c2f58f28e2",
+      "size": 271546
+    },
+    {
+      "path": "tarot/bili/Cups/圣杯骑士.webp",
+      "sha256": "065a72ea7bc88a5730083631b6f6bcb07b30016f43627e47b650441736264402",
+      "size": 247238
+    },
+    {
+      "path": "tarot/bili/Extra/ACE OF COINS-星币王牌.webp",
+      "sha256": "03eca7e9d1d058a4b6066c1a595b77d065e782a94518d50531ab2e9b5a5bcccc",
+      "size": 136716
+    },
+    {
+      "path": "tarot/bili/Extra/ACE OF CUPS-圣杯王牌.webp",
+      "sha256": "3e854b9705dd149f705fe26157e3f583f336558a0fed7778c9353c6de9d92868",
+      "size": 141202
+    },
+    {
+      "path": "tarot/bili/Extra/ACE OF SWORDS_宝剑王牌.webp",
+      "sha256": "2b79cb2f0bbe4deedb5bc3a7e68542ae7b36560aac1033236242b193e37a89f7",
+      "size": 136826
+    },
+    {
+      "path": "tarot/bili/Extra/ACE OF WANDS_权杖王牌.webp",
+      "sha256": "419fee9b0ae0564562da991d2c08e4fa950421d7e8a8c3395feba172958bb4a1",
+      "size": 147950
+    },
+    {
+      "path": "tarot/bili/Extra/背景.webp",
+      "sha256": "6bcc73abf836b53e4e460279f17d9c4cbf413dda5155a8364683334ac033de9b",
+      "size": 107368
+    },
+    {
+      "path": "tarot/bili/MajorArcana/0-愚者.webp",
+      "sha256": "e5b991d41860a91fd5d4b450b37004f0e87179e575618e953ddfc6f3f0fbfc9c",
+      "size": 265924
+    },
+    {
+      "path": "tarot/bili/MajorArcana/01-魔术师.webp",
+      "sha256": "2d0151dca280da047dadc84418bf027b0b4250f36fbfb4ae6a5b89c4964aa466",
+      "size": 298140
+    },
+    {
+      "path": "tarot/bili/MajorArcana/02-女祭司.webp",
+      "sha256": "42ff9e0589134a872fabfdea1150dd0ea8ea88c5a76f79fb5fe1dcec443c6388",
+      "size": 278342
+    },
+    {
+      "path": "tarot/bili/MajorArcana/03-女皇.webp",
+      "sha256": "22bd4ca5aae9caceba78fffcb0ec1081623416c5080c2d0c7e662f7fc09e572b",
+      "size": 272962
+    },
+    {
+      "path": "tarot/bili/MajorArcana/04-皇帝.webp",
+      "sha256": "1fe126cb82e8e729648034e72da12e6cb7122c94084cd0d0b4eb723d0a38a73b",
+      "size": 278710
+    },
+    {
+      "path": "tarot/bili/MajorArcana/05-教皇.webp",
+      "sha256": "a6c7f7fe7c16ea6a2570d6b8367c2e064b2849cb3211e221ce73122f243930f5",
+      "size": 302186
+    },
+    {
+      "path": "tarot/bili/MajorArcana/06-恋人.webp",
+      "sha256": "c839957863f83e00454ea905738b8e36f885172a5627b2841f505359acda6155",
+      "size": 316762
+    },
+    {
+      "path": "tarot/bili/MajorArcana/07-战车.webp",
+      "sha256": "b6f56927ef4d3a6a4dc7922659c401c7f14f872f0aa0e5fddf547c6f533c8623",
+      "size": 288098
+    },
+    {
+      "path": "tarot/bili/MajorArcana/08-力量.webp",
+      "sha256": "13565c56a48e57514d717f363180422a63f76f611571a483ab760789adb24317",
+      "size": 305178
+    },
+    {
+      "path": "tarot/bili/MajorArcana/09-隐士.webp",
+      "sha256": "413cbf6983b0e6e98657da1483f51f054a0d84d0b3090a1ec0639414d741d23b",
+      "size": 277904
+    },
+    {
+      "path": "tarot/bili/MajorArcana/10-命运之轮.webp",
+      "sha256": "1eed0e974d2b68c9f5cfe22a9aec6f7dd148820b248303df6d0ab5f3536eec65",
+      "size": 321138
+    },
+    {
+      "path": "tarot/bili/MajorArcana/11-正义.webp",
+      "sha256": "3bd48bd5eb481aa39fd48997c1a5ae07b619b579c918769e43283d5d84a36de7",
+      "size": 320524
+    },
+    {
+      "path": "tarot/bili/MajorArcana/12-倒吊人.webp",
+      "sha256": "1bbed938e23a05dd2ed9951a60523f41396edbd060849e08e36a2dece8033114",
+      "size": 292134
+    },
+    {
+      "path": "tarot/bili/MajorArcana/13-死神.webp",
+      "sha256": "fc034c71c74d51a5cd94f817c63a7e0748b222fa614076c750efae52ae5e047a",
+      "size": 246760
+    },
+    {
+      "path": "tarot/bili/MajorArcana/14-节制.webp",
+      "sha256": "ead383a0f295cfe9cec5e5e866f6d1d001f3f1b4e896f0a0a546496dacfcaeab",
+      "size": 299728
+    },
+    {
+      "path": "tarot/bili/MajorArcana/15-恶魔.webp",
+      "sha256": "349f2927b62448ef185a20cf25463596420c944a35b78ae674c1be4506f194e0",
+      "size": 303792
+    },
+    {
+      "path": "tarot/bili/MajorArcana/16-高塔.webp",
+      "sha256": "08265cf4e852f196f60da393da215feae2b90b3edc4ab58669c2620a5a3a52e0",
+      "size": 270588
+    },
+    {
+      "path": "tarot/bili/MajorArcana/17-星星.webp",
+      "sha256": "9658e0a14bf0e9d2a7f06ac6b45a2d8d7418cddeb6965a9dd9bf60586cf35fea",
+      "size": 326262
+    },
+    {
+      "path": "tarot/bili/MajorArcana/18-月亮.webp",
+      "sha256": "2483990a3267b5eb0de2bbe308d6d37c2ed8062eb8017b4af914cd1cff8b1cb0",
+      "size": 244100
+    },
+    {
+      "path": "tarot/bili/MajorArcana/19-太阳.webp",
+      "sha256": "75851a120d7eeeab5b8597108ec829bf993011db6d3a06f55d7d219c5d2aeec7",
+      "size": 338920
+    },
+    {
+      "path": "tarot/bili/MajorArcana/20-审判.webp",
+      "sha256": "bf3ecdd6502f2a663dcd14b20c122891c342d1b72a2f8b76fcc925785a84c3d8",
+      "size": 284528
+    },
+    {
+      "path": "tarot/bili/MajorArcana/21-世界.webp",
+      "sha256": "94daaae70f34e93f0f9eddc8936c1507e22f8d026e267f0742172364caa0f282",
+      "size": 318166
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币-01.webp",
+      "sha256": "8603a9c2b2a70cc90ebb9c57766581015c2cec47eae65609a777999510ee6bf5",
+      "size": 186350
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币-02.webp",
+      "sha256": "5acacc79c09c0a271e19d2f59054559c71d0be18db864f787f838d88a57af975",
+      "size": 171426
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币-03.webp",
+      "sha256": "ac603f68567e16d86fc755a985c8423efe331436cc5e89a95a68a0f029ba4207",
+      "size": 204444
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币-04.webp",
+      "sha256": "b436999591893ed42b74d06554a59821073116472d38c1f5cf4ae8f6a91840db",
+      "size": 196676
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币-05.webp",
+      "sha256": "fd1a4a6d3cdac2519fc385e72d7fea7796c62fa0879e10d5ec8560aa4057570e",
+      "size": 235938
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币-06.webp",
+      "sha256": "89ae42b1599ec0a7d7532567ef4e2dfcb1ae98923c702b787ed7de2a0fc0358b",
+      "size": 212968
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币-07.webp",
+      "sha256": "3c5c35b7adeff09e13987459ba19265fd7f0bcd8af44fbf733837a953a5a5db7",
+      "size": 206134
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币-08.webp",
+      "sha256": "2d5caaeb1364bc8a607657f0d7173b39ed9ea10b2035cc15ffb506d76e7a4ff1",
+      "size": 199050
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币-09.webp",
+      "sha256": "01ac9248d50045a753e91c60946d0fb5829b6f7e979dce46e401cab54ec9bac3",
+      "size": 215160
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币-10.webp",
+      "sha256": "b9b2013d5bf7207b2ad2bd27875eaad3d7983f435c352a0ea3fe5dc504f56801",
+      "size": 185140
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币侍从.webp",
+      "sha256": "8a0a0099e17ac4e8a9047e1ed8553c6dd8b67d99361c75bd7ce2677c95ac4dfe",
+      "size": 241596
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币国王.webp",
+      "sha256": "1c8120f1a7fd5d77b1856d8f8f54a21e5d61d5c742751bf85d29225ee5d4412b",
+      "size": 241676
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币王后.webp",
+      "sha256": "678aa9e6ef996638b39624e385fbace492bee2bccacf47306d4890d1e21103ef",
+      "size": 240974
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币皇后.webp",
+      "sha256": "678aa9e6ef996638b39624e385fbace492bee2bccacf47306d4890d1e21103ef",
+      "size": 240974
+    },
+    {
+      "path": "tarot/bili/Pentacles/星币骑士.webp",
+      "sha256": "84401a3afea3e5b790ea55d22cea397875e72bd0a0f405adffc94ac440521adc",
+      "size": 219052
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑-01.webp",
+      "sha256": "b281194b44efc847ea5e14e5df3d7353a617321fc1b57a06c2dabf844a98c1f7",
+      "size": 223794
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑-02.webp",
+      "sha256": "e259595b243ebfd16802c9d13df9cb240983e70dc16b5cff38bb1f638511f30c",
+      "size": 214868
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑-03.webp",
+      "sha256": "084b25ab584ef32b1ca6426f3517fdae8f31b078a72b981104dce7d4865cd57a",
+      "size": 219494
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑-04.webp",
+      "sha256": "c067b24a290a84f7286fdae6634bd00311aba519cc328895d1894dfdcc28f871",
+      "size": 222288
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑-05.webp",
+      "sha256": "cf244f9240adc733d8defec522a712fc214485d4c9afdc5d37211e474da64153",
+      "size": 242432
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑-06.webp",
+      "sha256": "0f80ce1b599688a265b36ecdfcc6450cd53126a20aa78d08802ef8b81e10a5a1",
+      "size": 219444
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑-07.webp",
+      "sha256": "1ef1750b633b4880262ccd30941b79856fc1efa539a720e46a2dcf697f83fb6b",
+      "size": 216938
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑-08.webp",
+      "sha256": "9b8bf839c6e2c0cffa09f637ea5d6d3e85166f283f9ab98b4550d4d9e05b15f4",
+      "size": 215282
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑-09.webp",
+      "sha256": "0f85e518c387f3d5dad594acca6e87c93778a00699055fe7617736b53279208b",
+      "size": 238254
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑-10.webp",
+      "sha256": "7a913aec2a0c05845b5653a2f4d5b6789a3fca02514bfd93bd53af2ac349a634",
+      "size": 241996
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑侍从.webp",
+      "sha256": "a9cf169508ffe181387c78f54fc8e2183fdc774443228e2c2480c67d166adbd3",
+      "size": 229028
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑国王.webp",
+      "sha256": "48bd2d0c8862c687d8ea6aa744f2f58d8df9b906d184551f42690bc929dc60ac",
+      "size": 258968
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑王后.webp",
+      "sha256": "d72d6d7c409b807c4f9529c06fbe2a1afa74914c8bd7db8b97acc64cd76565e8",
+      "size": 283456
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑皇后.webp",
+      "sha256": "d72d6d7c409b807c4f9529c06fbe2a1afa74914c8bd7db8b97acc64cd76565e8",
+      "size": 283456
+    },
+    {
+      "path": "tarot/bili/Swords/宝剑骑士.webp",
+      "sha256": "6a2278be8dc9bb17ce7749016d0c5df39ebd1c1b3e2c2bfd592a1f8b023ccd47",
+      "size": 277128
+    },
+    {
+      "path": "tarot/bili/Wands/权杖-01.webp",
+      "sha256": "87d83095fbf7578ddd89dc834721b9b1e7258c38bc3099d1aee56fed20c0db28",
+      "size": 222910
+    },
+    {
+      "path": "tarot/bili/Wands/权杖-02.webp",
+      "sha256": "47bf5d91db421b775f6af390e52ea50d02078c4c19a284a4267a292ae70c1ffe",
+      "size": 202656
+    },
+    {
+      "path": "tarot/bili/Wands/权杖-03.webp",
+      "sha256": "1125e0dd44b9ad5cc40902a4fadf95021990e119ccc77e9d391090ae75563e38",
+      "size": 230284
+    },
+    {
+      "path": "tarot/bili/Wands/权杖-04.webp",
+      "sha256": "b4c0ab38d8e435829c4de8ebc0e7bb75d9fd4face5c122b86b3ecb72e1919a04",
+      "size": 221082
+    },
+    {
+      "path": "tarot/bili/Wands/权杖-05.webp",
+      "sha256": "6387efa6d2f8dd67aa216b7287798011711a12980dcb40bf92ec30bc9184e317",
+      "size": 230390
+    },
+    {
+      "path": "tarot/bili/Wands/权杖-06.webp",
+      "sha256": "0b8f117852928e33482029aef0c913b3012a1b795757caabf21a85d9062ac53f",
+      "size": 218390
+    },
+    {
+      "path": "tarot/bili/Wands/权杖-07.webp",
+      "sha256": "877ef0ebadac3cc7d894832ef14e0ef304cbe4e13f898497038fa01eae50dcbd",
+      "size": 222522
+    },
+    {
+      "path": "tarot/bili/Wands/权杖-08.webp",
+      "sha256": "6b0a80f5ad9d8c2005c27ae6590225bb49baa3c7e1fdf679e76d53b50f7dab1a",
+      "size": 217760
+    },
+    {
+      "path": "tarot/bili/Wands/权杖-09.webp",
+      "sha256": "5ddd0c60817636f775cc60a25a7e81b01d28a4436a254444a77ab51dab67f25b",
+      "size": 227528
+    },
+    {
+      "path": "tarot/bili/Wands/权杖-10.webp",
+      "sha256": "750ec8464a490cc61de338d51738fbec14379333c82e5eaa8a4cad625c49cc6e",
+      "size": 213232
+    },
+    {
+      "path": "tarot/bili/Wands/权杖侍从.webp",
+      "sha256": "32b8b47fd5433c346e02c0070699783ce47974fa86c22e4f707fdfc4f9b8655b",
+      "size": 282708
+    },
+    {
+      "path": "tarot/bili/Wands/权杖国王.webp",
+      "sha256": "545412a38c3dc350bb6a6c759ba0cdbcfd1a49a2924b54f1e78edcd4af9db6a5",
+      "size": 267116
+    },
+    {
+      "path": "tarot/bili/Wands/权杖王后.webp",
+      "sha256": "31bc064e08e0c4589e816d3310490951125ef23633435acba3b6d337fcb95358",
+      "size": 240376
+    },
+    {
+      "path": "tarot/bili/Wands/权杖皇后.webp",
+      "sha256": "31bc064e08e0c4589e816d3310490951125ef23633435acba3b6d337fcb95358",
+      "size": 240376
+    },
+    {
+      "path": "tarot/bili/Wands/权杖骑士.webp",
+      "sha256": "63568a1a4ed58c2b5136b91de57fd11e7e536b67d1682aa41962e36dc0fce947",
+      "size": 276446
+    },
+    {
+      "path": "tarot/touhou/0-愚者.webp",
+      "sha256": "3ea2cbbc8291671928c1c2e475c1037e1cd687ac06607e312cd26098d5f30402",
+      "size": 92016
+    },
+    {
+      "path": "tarot/touhou/01-魔术师.webp",
+      "sha256": "bd604ddb79c30cfa5381a5b6a52326bb1ee2ab9c925c5ef0aa3b8f62b37c0b5c",
+      "size": 109452
+    },
+    {
+      "path": "tarot/touhou/02-女祭司.webp",
+      "sha256": "d3c345401fc22b7800bf91333178cd6b24ae01a3b5e033ea4612c9c6d785ec35",
+      "size": 102598
+    },
+    {
+      "path": "tarot/touhou/03-女皇.webp",
+      "sha256": "adec4cd1010f5a7fec0979342d8bd43a1c1bfdc9ade386f69ed659364fe2a400",
+      "size": 109520
+    },
+    {
+      "path": "tarot/touhou/04-皇帝.webp",
+      "sha256": "288227b6be3f0d24ad1f12886dbd5615deedca1cbe27a9791a5235437d192b7c",
+      "size": 98626
+    },
+    {
+      "path": "tarot/touhou/05-教皇.webp",
+      "sha256": "9626186bd36187cf0c42c941c8acbe33f8abfb8c5f4d92d206a5e64571825e87",
+      "size": 98148
+    },
+    {
+      "path": "tarot/touhou/06-恋人.webp",
+      "sha256": "2867d29191cc9e733e8e7446e5784762f024b0af66150ce32d7e8b76230f8a03",
+      "size": 97174
+    },
+    {
+      "path": "tarot/touhou/07-战车.webp",
+      "sha256": "0df237bf4ac61b12ae8200223e7abf941bf718d63f471a5efcf5901c2b5c153f",
+      "size": 90372
+    },
+    {
+      "path": "tarot/touhou/08-力量.webp",
+      "sha256": "d7ada792c80c666553aac23af81adc73dca419f8c70af739a908e74df9804349",
+      "size": 87624
+    },
+    {
+      "path": "tarot/touhou/09-隐士.webp",
+      "sha256": "e6afef4c9273898e8343b8d9bc8721ac07a07b7db0a72cd33a104041871ffe5b",
+      "size": 84410
+    },
+    {
+      "path": "tarot/touhou/10-命运之轮.webp",
+      "sha256": "cfa6aeea728f64c1634b2ece8493a587389eddc43083cc247caf91935b3487f8",
+      "size": 90254
+    },
+    {
+      "path": "tarot/touhou/11-正义.webp",
+      "sha256": "f0b1c41ec1095caf2c3aa76fc3d18ca1bd759880065744e9547a1d0211f6e2f8",
+      "size": 92548
+    },
+    {
+      "path": "tarot/touhou/12-倒吊人.webp",
+      "sha256": "49b98bb06a54a1f2b3c42c39822eb772e800d0a9a3e78222c104dd576fceccd3",
+      "size": 94602
+    },
+    {
+      "path": "tarot/touhou/13-死神.webp",
+      "sha256": "0fab8bf6fe107b42004da5feccb8431d65debb8929bb8ce056e4e9c6dff971e2",
+      "size": 90836
+    },
+    {
+      "path": "tarot/touhou/14-节制.webp",
+      "sha256": "3cc3a5f50e536d8b82c37932532fb27d95ced0e89b2d2016533540aedef5db93",
+      "size": 79776
+    },
+    {
+      "path": "tarot/touhou/15-恶魔.webp",
+      "sha256": "06c5ad4bf68b94fe2a72ab7a104c5949733b3b3678d2a39069c7b1488de3648e",
+      "size": 94578
+    },
+    {
+      "path": "tarot/touhou/16-高塔.webp",
+      "sha256": "6bf8bc995f3bca9a7c37e7c390d0f5f8480e561bd09de103997cef4cd5e49667",
+      "size": 115082
+    },
+    {
+      "path": "tarot/touhou/17-星星.webp",
+      "sha256": "75fd952f185278d76223e685200739be32d842584382e80d2d57eb022f9e2bc9",
+      "size": 86344
+    },
+    {
+      "path": "tarot/touhou/18-月亮.webp",
+      "sha256": "d7a22bcf705976ecadc995b5923e17f0c5e3074889461f81bd693c42fc6741c2",
+      "size": 86890
+    },
+    {
+      "path": "tarot/touhou/19-太阳.webp",
+      "sha256": "cbc28ff500ddd4f61b4d9fa714d6f1c64159c1ec5d906cab712c9c8ccffb9554",
+      "size": 89442
+    },
+    {
+      "path": "tarot/touhou/20-审判.webp",
+      "sha256": "31acbb32d7a4086baf6a2b4be6254bcaa0aa656ce0d4b440519d46447a107dcb",
+      "size": 96326
+    },
+    {
+      "path": "tarot/touhou/21-世界.webp",
+      "sha256": "170d24d56e68a566508ccf6604602dab20e8193fcd0dda1846279af7c5c97cc1",
+      "size": 95026
+    },
+    {
+      "path": "ui/icon.webp",
+      "sha256": "7b1d27337820d24f1f37680a75cbd3e3dc17156463c414213b2adf16299171ed",
+      "size": 20818
+    },
+    {
+      "path": "ui/media/yui横.webp",
+      "sha256": "9a7e1641c2288a1dc31587998f338b72b1d147d2730a6d24ae235b3c70e375b5",
+      "size": 53918
+    },
+    {
+      "path": "ui/media/yui竖.webp",
+      "sha256": "c04c94b3a7084a7a69c4d67a81e317f2d812d99c5e34e0239330e507261d4119",
+      "size": 68290
+    },
+    {
+      "path": "panel/logo-icon.webp",
+      "sha256": "906a2942609588948180ce56b430d6a6a40e22e14665285e782f13ea856856d4",
+      "size": 6982
+    },
+    {
+      "path": "panel/yui-hero.webp",
+      "sha256": "1b7e2ec4efc0e583bad3e087af2e2d76ee04c6d36e3e8131803db304534a5fdd",
+      "size": 135966
+    }
+  ]
+}

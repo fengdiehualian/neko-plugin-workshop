@@ -1,0 +1,84 @@
+[plugin]
+id = "mcbot_bridge"
+name = "MCBot 同伴桥接"
+description = "桥接本地 mcbot（Fabric 假人同伴），让猫娘可以指挥同伴做事、替同伴向你转达问题，并实时转播同伴的进展。"
+short_description = "Bridge a local mcbot companion (REST + SSE) so neko-chan can direct it and relay its progress."
+keywords = ["minecraft", "mcbot", "companion"]
+version = "0.1.0"
+entry = "plugin.plugins.mcbot_bridge:McbotBridgePlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+# 手动启动，避免用户开插件时默认去连一个还没跑起来的 Minecraft 客户端。
+auto_start = false
+
+[plugin.ui]
+enabled = true
+
+# 交互面板用 [[plugin.ui.panel]]，不要用 [[plugin.ui.guide]]。
+# guide / docs 是**只读文档面**：默认只给 state:read，渲染在插件详情页的「指南」标签里。
+# surfaces/mcbot.tsx 会通过 props.api.call 调 mcbot_status / mcbot_stop，它是面板。
+[[plugin.ui.panel]]
+id = "mcbot"
+title = "mcbot 同伴"
+entry = "surfaces/mcbot.tsx"
+# context 对应 @ui.context(id="mcbot")；缺了 api.call 会因 UI context not found 失败。
+context = "mcbot"
+# action:call 让面板通过 props.api.call 调用 mcbot_status / mcbot_stop。
+permissions = ["state:read", "action:call"]
+
+[mcbot]
+# mcbot 的本地桥（仅在 Minecraft 客户端进入世界时监听）。
+base_url = "http://127.0.0.1:17897"
+
+# Minecraft 游戏目录，用于定位 bridge.token。留空则尝试平台默认位置
+# （Windows: %APPDATA%/.minecraft）。
+game_dir = ""
+
+# 显式指定 token 文件路径；留空则用 <game_dir>/mcbot/bridge.token。
+# token 只从文件读，不写进本插件的配置——见 README 的隐私说明。
+token_file = ""
+
+# SSE 事件流断开后的重连间隔。
+reconnect_interval_seconds = 5.0
+
+# 单次 REST 调用（task/cancel/answer/status）的超时。
+http_timeout_seconds = 10.0
+
+# /v1/ask 的超时。必须大于 mcbot 自己的 135s 上限，好让我们看到 mcbot
+# 报的超时，而不是自造一个和它赛跑的客户端超时。
+ask_timeout_seconds = 150.0
+
+# 派活之后等 done 事件的预算。超时就放开任务槽并如实说"没等到回音"——
+# 没有这条，一个丢了完成事件的任务（同伴中途崩了/桥重启）会把槽位永久占住，
+# 之后每次派活都只会回"她正忙着"。
+#
+# 15 分钟是实测调出来的：第一次真机验证设的是 300s，结果一个「看看附近有什么」
+# 的复合任务在 move_to（单步上限 180s）+ break_block（60s）之后仍未结束，
+# 看门狗在 300 秒整开火、提前放开了槽位，而真正的 done 是之后才到的。
+# 任务本身合法，是预算给短了。宁可放长：多等只是慢，提前放槽会让后续派活
+# 叠在一个仍在跑的同伴身上。
+task_wait_timeout_seconds = 900.0
+
+# 是否订阅 /v1/events。关掉后同伴的进展、反问和完成都不会主动到达（只剩
+# 派活与查询），一般不该关。
+stream_events = true
+
+# progress 事件推进 LLM 上下文的最小间隔。mcbot 每执行一步都会发一条
+# progress，不设闸会把上下文灌满；同一个 coalesce_key 只会折叠在队列里，
+# 落不进已发出的回合。
+progress_min_interval_seconds = 6.0
+
+# state 事件（同伴的身体状态变化）推进上下文的最小间隔，同理。
+state_min_interval_seconds = 6.0

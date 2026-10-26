@@ -1,0 +1,37 @@
+[plugin]
+id = "selfie"
+name = "自拍"
+description = "根据角色参考图生成自拍并推送到聊天框。用户要求或角色主动想分享自拍时均可调用。"
+short_description = "Generate and share character selfies from a reference image on request or when the character wants to share one."
+keywords = ["自拍", "照片", "selfie", "セルフィー", "自撮り", "셀카", "селфи", "autofoto"]
+version = "0.1.1"
+entry = "plugin.plugins.selfie:SelfiePlugin"
+
+[plugin.author]
+name = "xxynet"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "en"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[selfie]
+provider = "volcengine"
+base_url = "https://ark.cn-beijing.volces.com/api/v3"
+# Set your image-to-image model ID (or Ark endpoint ID), API key and reference.
+model = ""
+api_key = ""
+reference_image = ""
+size = "2K"
+timeout_seconds = 120
+cooldown_seconds = 60
+# Set both fields for a particular character; empty target uses host default routing.
+target_lanlan = ""
+locale = "en"

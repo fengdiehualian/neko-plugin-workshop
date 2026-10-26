@@ -1,0 +1,31 @@
+[plugin]
+id = "media_generator"
+name = "媒体生成器"
+description = "让 YUI 生成图片和视频。文生图：通义万相（DashScope）/ OpenAI 兼容 API；文生视频：火山方舟 Seedance（豆包）/ 可灵（Kling）。API Key 通过环境变量配置（DASHSCOPE_API_KEY / OPENAI_API_KEY / DOUBAO_ARK_API_KEY+DOUBAO_ARK_ENDPOINT / KLING_API_KEY+KLING_SECRET_KEY），对话中不暴露密钥，生成结果以 URL 返回。"
+short_description = "让 YUI 生成图片与视频：文生图（通义万相/OpenAI 兼容）、文生视频（Seedance/可灵）"
+keywords = ["生成", "图片", "视频", "文生图", "文生视频", "image", "video", "generate", "dashscope", "通义万相", "openai", "seedance", "可灵", "kling", "doubao", "media"]
+version = "0.2.0"
+type = "plugin"
+entry = "plugin.plugins.media_generator:MediaGeneratorPlugin"
+
+[plugin.author]
+name = "起诉人"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "使用说明"
+entry = "docs/guide.md"

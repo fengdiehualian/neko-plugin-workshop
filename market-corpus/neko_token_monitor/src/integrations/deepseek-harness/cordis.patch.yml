@@ -1,0 +1,4 @@
+- insert:
+    - id: catfood-harness-bridge
+      name: '@local/catfood-harness-bridge'
+      config: {}

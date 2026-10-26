@@ -1,0 +1,50 @@
+[plugin]
+id = "recall"
+name = "Recall 陪伴式记忆与复习"
+description = "【测试阶段】Recall 是 N.E.K.O. 的陪伴式记忆与复习插件。v0.2 当前支持英语词汇学习，并根据记忆状态自动安排每次学习；打开即可开始，无需选择学习模式。"
+short_description = "测试阶段｜v0.2 当前支持英语词汇：打开就背，Recall 自动安排。"
+keywords = ["vocabulary", "words", "CET-4", "review", "spaced repetition", "背单词", "词汇", "复习", "测试版"]
+version = "0.2.0"
+type = "plugin"
+entry = "plugin.plugins.recall:RecallPlugin"
+
+[plugin.author]
+name = "WhiteFrostune"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = true
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[recall]
+default_source = "official.cet4.core.v1"
+new_words_per_session = 5
+review_limit = 12
+retention_target = 0.90
+
+[recall.sources]
+official = true
+community = false
+local = false
+user = false
+external = false
+
+[recall.bridge]
+accept_cards = false
+study_companion = false
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "recall-main"
+title = "Recall"
+entry = "static/index.html"
+context = "recall"
+permissions = ["state:read", "action:call"]

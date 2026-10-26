@@ -1,0 +1,4 @@
+[project]
+name = "neko_morning_brief"
+version = "1.0.2"
+dependencies = []

@@ -1,0 +1,10 @@
+{
+  "plugin.name": "看视频猫娘",
+  "plugin.description": "让猫娘知道你正在看的 B站视频到底在讲什么，而不是只会念标题。",
+  "entry.video_status.name": "看视频猫娘状态",
+  "entry.video_status.description": "查看插件是否就绪、已识别过哪些视频。",
+  "entry.check_now.name": "立刻看看在放什么",
+  "entry.check_now.description": "立刻检测当前窗口并在需要时推送（调试用）。",
+  "entry.set_bvid.name": "指定视频 BV 号",
+  "entry.set_bvid.description": "手动让猫娘了解某个视频（兜底方案）。"
+}

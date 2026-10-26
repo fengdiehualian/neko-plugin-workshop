@@ -1,0 +1,240 @@
+# =============================================================================
+# genshin_game_buddy — 原神游戏搭子（L1 MVP）
+# -----------------------------------------------------------------------------
+# 范围：仅做四件事
+#   ① 用户/模型声明"我现在在玩 XX 游戏"
+#   ② 声明后加载该游戏的术语库
+#   ③ 陪聊时把术语库注入宿主 LLM 上下文（推小块 + 拉单条）
+#   ④ 切换游戏时卸载旧术语索引、加载新术语索引
+#
+# 明确不做：游戏检测 / 动作操作 / 决策层 / 主动搭话调度 / 自建 LLM 调用
+#
+# 与 KB 的关系：
+#   - 只用 type = "plugin"（默认），不写 type = "extension"，不写 [plugin.host]
+#   - 不声明 [plugin.database] / [plugin_state] / [plugin.install]
+#   - 自定义配置放顶层 [genshin_game_buddy] 与 [games.*]（KB W6 认可自定义段）
+#   - 不往 [plugin] 里塞平台不认识的键
+# =============================================================================
+
+[plugin]
+id = "genshin_game_buddy"
+name = "原神游戏搭子"
+type = "plugin"
+
+description = "陪伴你玩多款游戏：登记当前在玩的游戏后，自动切换到对应的游戏语境与术语库，用正确的术语陪聊、解闷、哄人。支持原神、鸣潮等；也可以由猫娘在对话里识别并登记。不读取游戏数据、不修改游戏、不做任何自动化操作。"
+
+short_description = "Multi-game companion: switch game context and terminology on demand."
+
+# keywords 是正则片段，命中后并入 Agent Stage 1 候选集（不绕过 Stage 2，也不保证执行）。
+# 全部为纯文字，不含正则元字符，避免误匹配或解析异常。
+keywords = [
+    "原神",
+    "鸣潮",
+    "崩坏",
+    "星穹铁道",
+    "绝区零",
+    "陪玩",
+    "陪聊",
+    "游戏术语",
+    "genshin",
+    "wuthering",
+]
+
+version = "2.0.73b0"
+entry = "plugin.plugins.genshin_game_buddy:GenshinGameBuddyPlugin"
+
+[plugin.author]
+# 作者名（显示在插件管理器）
+name = "silverwolftyro"
+
+# -----------------------------------------------------------------------------
+# SDK 版本窗口
+# recommended 是"最佳测试范围"，比 supported 更窄是正常的，不是矛盾。
+# 取值沿用 docs/plugins/plugin-toml.md 的官方示例。
+# -----------------------------------------------------------------------------
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+# -----------------------------------------------------------------------------
+# 插件本地 i18n —— 必须显式声明
+# （sts2 漏声明 [plugin.i18n] 靠 locales_dir 默认值侥幸生效，本插件不重犯）
+# -----------------------------------------------------------------------------
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+# -----------------------------------------------------------------------------
+# 持久化 KV —— 存 current_game / last_switched_at
+# 必须显式 enabled = true，否则 self.store 处于禁用态。
+# -----------------------------------------------------------------------------
+[plugin.store]
+enabled = true
+
+# -----------------------------------------------------------------------------
+# 运行时
+# auto_start = false → 手动启动（不是"禁用"，也不代表 import 安全；
+#   本插件的模块顶层无任何副作用）。
+# 刻意不写 timeout：走系统默认，避免 0 < timeout <= 300 的边界约束成为负担。
+# -----------------------------------------------------------------------------
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+# -----------------------------------------------------------------------------
+# UI —— quickstart（只读 Markdown）+ 拍板 2.0.65 Hosted UI 参数面板（7 项参数化配置）
+# 面板走 TSX 渲染，每项带性能代价提示；用户可调转场响应 ↔ CPU 权衡。
+# -----------------------------------------------------------------------------
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "settings"
+title = "原神游戏搭子设置"
+entry = "ui/panel.tsx"
+mode = "hosted-tsx"
+context = "settings"
+permissions = ["config:write", "action:call", "state:read"]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "快速开始"
+entry = "docs/quickstart.md"
+permissions = ["state:read"]
+
+
+# =============================================================================
+# 自定义段 1：MVP 可调项
+# -----------------------------------------------------------------------------
+# ⚠️ 每个键都必须被代码真正读取，并有一个"改了它行为就变"的测试。
+#    （直接针对 sts2 那 14 个"清单里声明、代码里零命中"的死配置键教训）
+# =============================================================================
+
+[genshin_game_buddy]
+# 未登记任何游戏时的兜底 game_id；空字符串 = 无兜底（首次使用必须显式声明）
+default_game = ""
+
+# 启动时从 self.store 恢复上次登记的游戏
+auto_restore_last_game = true
+
+# 语境块里自动携带的术语条数上限（核心层：core + slang + systems 维度全部条目；与 MAX_ACTIVE 对齐，拍板 2.0.57）
+context_inject_max_terms = 40
+
+# 语境块字符数硬上限（push_message 的 payload 上限是 512 KiB，这里留三个数量级余量）
+max_context_chars = 800
+
+# lookup_game_term 每次最多返回的匹配条数
+lookup_max_matches = 3
+
+# lookup_game_term 每条术语返回的字符上限（brief + slang 截断到该长度）
+lookup_max_chars_per_term = 200
+
+# P1：每 N 条用户消息重推一次语境块，解决长会话中语境被挤出上下文窗口。
+# 0 = 关闭（MVP 默认关闭）
+reinject_every_n_messages = 0
+
+# 拍板 2.0.64 + 2.0.65 + 2.0.66 + 2.0.67：参数化配置框架——本轮就把所有可调项落地，
+# 代码里读 self._options.xxx，不留 magic number。下面 11 项即使部分只在运行时被消费，
+# 也全部读到并存着——Hosted UI 面板做"读配置→展示→写回"三件事不需要重构。
+
+# OCR 配置档（拍板 2.0.66：自适应 + 预设）
+#   auto = 启动时探测 CPU+内存自动选档（首次安装默认）
+#   eco/balanced/performance = 预设档位（省电/平衡/性能）
+#   custom = 用户手动改了 interval/threads 后自动切到这档
+ocr_profile = "auto"
+
+# OCR 感知周期（秒）。tick 装饰器固定 3s 跑一次；本值控实际 OCR 间隔。
+#   3 = 极限 tick（CPU 约 10% 单核，转场秒响应）
+#  15 = 平衡（默认；CPU 约 2% 单核）
+#  60 = 省 CPU（CPU < 0.5% 单核，转场最慢 1 分钟感知）
+ocr_perceive_interval_seconds = 15
+# 拍板 2.0.71：高频 OCR + 场景状态机
+ocr_scene_interval_seconds = 2  # 场景判定间隔（秒；快，默认 2s）
+ocr_term_interval_seconds = 15  # 术语激活间隔（秒；慢，默认 15s）
+scene_hysteresis_count = 3  # 场景切换滞回次数（连续 N 次同一新场景才算切换）
+
+# OCR worker 线程数（拍板 2.0.65：tick 装饰器 3s + 线程池）
+#   1 = 串行 OCR：上一轮未跑完则跳过本次 tick（最省 CPU）
+#   2 = 允许 2 个 OCR 并发：tick=3-5s 时可堆积，CPU 约 ×1.5
+ocr_worker_threads = 1
+
+# 单次 screen-activate 最多激活几条。↑ 信息多 token 多；↓ 省 token 但可能漏
+screen_activation_limit = 12
+
+# 用户消息命中术语的激活 TTL（秒）。↑ 话题延续久 token 多；↓ 上下文轻盈
+query_activation_ttl_seconds = 300
+
+# scene prompt 重推间隔（秒）。0 = 只推一次；>0 = 每隔 N 秒重推一次（防长对话中 prompt 被挤出）
+scene_prompt_reinject_seconds = 0
+
+# 拍板 2.0.67：S1 变化驱动 OCR（每 3s tick 抓轻量帧做 dHash 对比，差异大则绕过 interval 立即 OCR）
+#   关 = 走老的 interval 节奏（用户嫌迟钝时可关掉试试）
+change_driven_enabled = false  # 拍板 2.0.70：默认关（S1 真机连续 worker 卡死，默认关回到 2.0.66 稳定行为）
+
+# 拍板 2.0.67：S1 轻量帧差异阈值（dHash 16 位汉明距离）。越小越敏感
+#   1  = 几乎任意 UI 变化都触发（极敏感，CPU 升）
+#   8  = 平衡（默认；场景切换 + UI 跳页都能感知）
+#   64 = 几乎不触发（≈关闭）
+change_detect_threshold = 8
+
+# 拍板 2.0.67：S2 场景切换冷却（绕过 300s 全局冷却）
+#   玩家切场景 A→B 后，30s 内再切 B→C 不再立即主动搭话（防刷屏）
+#   同场景内仍走 300s 全局冷却（防同样内容重复推）
+scene_switch_cooldown_seconds = 30
+
+# 是否启用桌面/IDE 反特征黑名单。关 = 桌面/IDE 也可能被判 IN_GAME（不推荐关）
+desktop_markers_enabled = true
+
+# 用户自定义额外桌面特征串（追加到内置表）。空 = 全部用内置；非空 = 追加到内置之后。
+desktop_markers_extra = []
+
+
+# =============================================================================
+# 自定义段 2：游戏注册表
+# -----------------------------------------------------------------------------
+# 设计约定（重要，避免身份与内容重复定义）：
+#   - 本段是"身份真源"：game_id / display_name / aliases / terms_dir / enabled
+#     必须在读任何术语文件之前就能解析，供声明的模糊匹配使用。
+#   - 术语包里的 core.toml [game] 只管"内容"（tone / notes），不重复身份字段。
+#
+# 每个 [games.<game_id>] 的字段：
+#   display_name   必填  注入语境块时使用的正式名
+#   aliases        必填  字符串数组，声明的模糊匹配依据
+#   terms_dir      可选  相对 plugin_dir 的术语包目录，默认 terms/<game_id>
+#   enabled        可选  默认 true；false 可临时下架而不删文件
+#   context_terms  可选  强制常驻语境块的术语 key 列表；缺省则按 context_inject_max_terms 自动选取
+#
+# 用户可通过运行配置（<用户数据>/plugins/genshin_game_buddy/config/plugin.toml）
+# 覆盖或新增游戏，无需改动本清单。
+# =============================================================================
+
+[games.genshin]
+display_name = "原神"
+aliases = ["原神", "Genshin", "Genshin Impact", "genshin"]
+terms_dir = "terms/genshin"
+signals = ["原神", "冒险等阶", "原粹树脂", "祈愿", "深境螺旋", "星之归还", "熔铁的孤塞", "原石", "摩拉", "冒险阅历", "纪行", "神之眼", "命之座", "元素力"]
+enabled = true
+# context_terms = ["元素反应", "深境螺旋", "抽卡"]   # 可选：覆盖自动选取
+
+[games.wuthering_waves]
+display_name = "鸣潮"
+aliases = ["鸣潮", "Wuthering Waves", "WuWa", "wuthering"]
+terms_dir = "terms/wuthering_waves"
+signals = ["鸣潮", "数据坞", "声骸", "共鸣者", "索拉"]
+enabled = true
+# context_terms = ["共鸣者", "声骸", "数据坞"]       # 可选：覆盖自动选取
+
+# -----------------------------------------------------------------------------
+# 后续扩展示例（把注释打开并补齐 terms/<id>/ 四个文件即可启用）
+# -----------------------------------------------------------------------------
+# [games.honkai_star_rail]
+# display_name = "崩坏：星穹铁道"
+# aliases = ["崩坏星穹铁道", "星铁", "崩铁", "Star Rail"]
+# terms_dir = "terms/honkai_star_rail"
+# enabled = true
+#
+# [games.zenless_zone_zero]
+# display_name = "绝区零"
+# aliases = ["绝区零", "ZZZ", "Zenless Zone Zero"]
+# terms_dir = "terms/zenless_zone_zero"
+# enabled = true

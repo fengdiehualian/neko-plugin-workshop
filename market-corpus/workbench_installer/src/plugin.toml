@@ -1,0 +1,35 @@
+[plugin]
+id = "workbench_installer"
+name = "Agent工作台安装器"
+version = "0.2.6"
+type = "plugin"
+description = "在猫娘计划(N.E.K.O.)里一键安装「N.E.K.O. 插件工坊」Agent 工作台:下载官方安装版(Setup.exe)静默安装,自动创建桌面快捷方式并启动,随时查看安装与运行状态。对猫娘说「安装工作台」「启动工作台」即可使用。"
+short_description = "在猫娘计划里一键安装、启动「N.E.K.O. 插件工坊」Agent 工作台"
+keywords = ["安装", "工作台", "工坊", "插件工坊", "Agent工作台", "workbench", "installer", "安装器", "启动工作台", "重装", "下载"]
+entry = "plugin.plugins.workbench_installer:WorkbenchInstallerPlugin"
+
+[plugin.author]
+name = "fengdiehualian"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+# 安装器不需要随 N.E.K.O 启动而自启,由用户/猫娘主动触发即可
+auto_start = false
+timeout = 60
+startup_failure = "warn"
+
+[workbench_installer]
+# 下载地址(留空 = 官方 Release 最新安装版 Setup.exe)
+url = ""
+# 镜像回退(留空 = GitHub 超时后自动用码云最新发行版资产;填 off 关闭;也可填具体直链)
+mirror = ""
+# 下载失败时自动弹出手动下载页(可一键复制地址到浏览器);填 false 关闭
+manual_page = true
+# 下载代理(留空 = 先读环境变量代理,再直连);形如 http://127.0.0.1:7890
+proxy = ""
+# 下载整体超时(秒,60-1800,默认 900)
+download_timeout = 900

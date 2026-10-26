@@ -1,0 +1,53 @@
+[plugin]
+id = "mock_stock_meow"
+name = "拟股喵喵"
+version = "0.10.5"
+entry = "plugin.plugins.mock_stock_meow:MockStockMeowPlugin"
+description = "纯虚构反诈沙盘：养套杀 + 每日账单斩杀"
+type = "plugin"
+
+[plugin_runtime]
+timeout = 30
+
+[plugin.store]
+enabled = true
+
+[plugin.database]
+enabled = true
+name = "mock_stock_meow.db"
+
+[plugin_state]
+backend = "file"
+persist_mode = "auto"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "market"
+title = "拟股喵喵行情"
+entry = "ui/panel.tsx"
+context = "market"
+permissions = ["state:read", "action:call"]
+
+# P10：官方推荐的「用户指南」面（Markdown 只读页）。
+# 面板里的【玩法说明】弹窗讲的是"三步怎么玩"，这一页是完整手册，
+# 两者互补：弹窗让人上手，手册让人查细节。
+#
+# P11：猫娘主动搭话（外置交互引导）**不需要**新的面板面 ——
+# 插件通过 SDK 的 `push_message(ai_behavior="respond")` 让**外置猫娘**主动开口，
+# 那条通道走宿主的 message_plane；面板侧只需要已有的 `action:call` 权限
+# （【呼叫猫娘】按钮调 `meow_call`，首次打开面板调 `meow_greet`）。
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "玩法说明"
+entry = "docs/guide.md"
+permissions = ["state:read"]

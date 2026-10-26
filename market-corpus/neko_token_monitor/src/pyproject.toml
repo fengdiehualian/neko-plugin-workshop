@@ -1,0 +1,5 @@
+[project]
+name = "neko-token-monitor"
+version = "0.8.29-dev.5"
+requires-python = ">=3.11"
+dependencies = []

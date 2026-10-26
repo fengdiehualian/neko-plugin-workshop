@@ -1,0 +1,19 @@
+# 运行配置模板。
+# 第一次需要运行配置时，N.E.K.O 会把本文件复制到用户数据目录的
+# <用户数据根目录>/plugins/dsh_bridge/config/plugin.toml，之后改这里不会覆盖已有配置。
+# 注意：本文件不能包含 [plugin] 段（那是 plugin.toml 清单的事）。
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+# ── 插件自己的配置（可在插件配置面板里改）──
+[dsh_bridge]
+# 本插件监听的本地端口（只绑 127.0.0.1）
+port = 48921
+# 下命令用的模板：{text} 会被替换成 DSH 传来的原文
+template = "（来自 DeepSeek Harness）主人让你把下面这段内容用一两句话精简一下，然后念给他听：\n\n{text}"
+# 单次文本上限（超出截断，避免一次塞爆实时会话）
+max_chars = 4000
+# 最小推送间隔（秒），0 = 不限制
+min_interval_seconds = 0

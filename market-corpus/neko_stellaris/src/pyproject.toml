@@ -1,0 +1,36 @@
+[project]
+name = "neko-stellaris"
+version = "0.1.0"
+description = "把 N.E.K.O 接进《群星》：生成游戏内顾问语音包（YUI），并尾随 game.log 实时解说"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "N.E.K.O Team" }]
+license = { text = "Apache-2.0" }
+keywords = ["stellaris", "neko", "advisor", "voice", "mod"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: Microsoft :: Windows",
+]
+
+# 运行时只用 Python 标准库：plugin.sdk 与 websockets 都由 N.E.K.O 宿主提供，
+# 所以这里**不能**列依赖——一旦列了，`neko-plugin check` 会要求仓库里有 vendor/。
+dependencies = []
+
+[tool.pytest.ini_options]
+# 跑法请用 `pytest tests`（或 `neko-plugin check -r`，它传的就是 tests/ 的路径）。
+# 仓库根有 __init__.py —— 那是插件入口 module，而仓库目录名不是合法 Python 标识符
+# （含 - 或 .），rootdir 落在仓库根时 pytest 会试着把它当包 import 然后炸。
+# tests/pytest.ini 就是为这件事把 rootdir 钉在 tests/ 上的；裸跑 `pytest` 会用到
+# 下面这个 testpaths 而 rootdir 仍是仓库根，所以别裸跑。
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+# 与官方 Plugin Market Verify 使用的规则集保持一致（那一步跑的是
+# `ruff check --isolated --select E4,E7,E9,F,I --line-length 120`）。
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

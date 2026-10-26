@@ -1,0 +1,20 @@
+{
+  "plugin.name": "Sala de tests",
+  "plugin.description": "Tests de personalidad, psicologia y diversion en un panel: Big Five, 16 tipos, intereses profesionales, apego, resiliencia, ademas de PHQ-9 / GAD-7 / soledad de reproduccion abierta. Se corrige en local; los datos se quedan en tu equipo.",
+  "panel.title": "Sala de tests",
+  "panel.subtitle": "Tests de personalidad y psicologia - una pregunta a la vez, resultados solo en tu equipo",
+  "panel.tab.home": "Tests",
+  "panel.tab.quiz": "Preguntas",
+  "panel.tab.result": "Resultado",
+  "panel.tab.records": "Registros",
+  "panel.tab.about": "Acerca de",
+  "panel.search": "Buscar por nombre o descripcion",
+  "panel.start": "Elige uno para empezar",
+  "panel.disclaimer": "Estas pruebas son para autoconocimiento y reflexion; no son un diagnostico medico.",
+  "panel.copy": "Copiar resultado",
+  "panel.share": "Tarjeta para compartir",
+  "panel.retake": "Repetir",
+  "panel.export": "Exportar (texto)",
+  "panel.clear": "Borrar todo",
+  "panel.empty_records": "Aun no hay registros."
+}

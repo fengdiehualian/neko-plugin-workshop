@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>N.E.K.O · 教妹妹开车</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main>
+    <p class="eyebrow">N.E.K.O × 教妹妹开车</p>
+    <h1>让猫娘接管妹妹的身体</h1>
+    <p>接管后，猫娘会用自己的性格、声音和已有记忆与你互动，结合路况决定驾驶，并通过妹妹的身体和表情回应。接管时会连接来源主窗口，或打开猫娘语音窗口，请保持该窗口开启。</p>
+    <section aria-labelledby="connection-title">
+      <h2 id="connection-title">连接</h2>
+      <label>猫娘名称 <input id="character" placeholder="留空使用当前角色" maxlength="128"></label>
+      <div class="actions"><button id="connect" disabled>接管游戏</button><button id="disconnect" disabled>结束接管</button><button id="microphone" disabled>开启麦克风</button><button id="emergency" disabled>立即刹车</button><button id="continue-tutorial" hidden disabled>继续剧情语音</button></div>
+      <p id="connection" role="status">尚未连接</p>
+      <p id="tutorial-state" role="status" hidden></p>
+      <label><input id="memory" type="checkbox" checked> 沿用猫娘的已有记忆</label><p id="memory-state" role="status">等待连接记忆</p>
+      <p id="voice-state" role="status">麦克风未开启。</p>
+      <p id="error" role="alert"></p>
+    </section>
+    <section aria-labelledby="driving-title">
+      <h2 id="driving-title">驾驶状态</h2>
+      <dl><dt>关卡</dt><dd id="scene">—</dd><dt>车辆</dt><dd id="car">—</dd><dt>速度</dt><dd id="speed">—</dd><dt>最近听到</dt><dd id="heard">—</dd><dt>最近操作</dt><dd id="receipt">—</dd></dl>
+      <p id="body-state">等待身体接管</p><p id="intent-state" role="status">等待口令</p><p>可以说“慢慢往前开”“向左转一点”“保持 20 公里每小时”“刹车”。也可以聊天，或说“前进半秒然后停”。方向和速度会保持，直到新的动作改变它们。</p>
+      <form id="command-form"><label for="command">也可以直接和猫娘说话</label><div class="actions"><input id="command" maxlength="160" autocomplete="off" placeholder="例如：往前开一点然后停，你紧张吗" disabled><button id="send" disabled>发送</button></div></form>
+    </section>
+    <section aria-labelledby="speech-title"><h2 id="speech-title">正在说的话</h2><p id="subtitle">等待猫娘开口</p><p id="speech-state" role="status">字幕和嘴型跟随实际声音播放。</p><button id="retry-current-speech" hidden>重试这句语音</button><button id="retry" hidden>重播未完成的台词</button></section>
+    <details><summary>响应耗时（语音输入从识别文字到达后开始计时）</summary><p id="timing-state" role="status">等待本次互动</p><p>仅在当前面板内存保留最近32次的阶段耗时；不记录原话、台词或角色资料。尚不包含麦克风识别耗时。</p><button id="export-timing">导出耗时诊断</button></details>
+  </main>
+  <script src="/static/game/sdk/neko-minigame-sdk.js"></script>
+  <script id="neko-minigame-host-launch" type="application/json">{"registrations":{"teach-sister-drive":{"mode":"development","gameId":"teach-sister-drive","publisherId":"local-neko-plugin","version":"0.1.0","allowedCapabilities":["runtime","logging","voice-input","speech-output","avatar-renderer","dialogue"]}}}</script>
+  <script src="./host-registration.js"></script>
+  <script src="/static/game/sdk/neko-minigame-same-origin-bootstrap.js"></script>
+  <script type="module" src="./adapter.mjs?v=0.1.0-native1"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[knowledge]
+models_dir = ""
+
+[hot_promotion]
+window_days = 7
+threshold = 5
+demotion_days = 30

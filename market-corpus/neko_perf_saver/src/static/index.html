@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>性能守护 · 面板</title>
+<!--
+  neko_perf_saver 的插件管理器面板（hosted UI / static 渲染模式）。
+
+  契约（见 tmp/neko_docs/hosted-ui.md、tmp/neko_skill/hosted-ui-api.md 与宿主自带静态面板插件
+  app_launcher / wechat_integration / qq_auto_reply 的写法）：
+    1. 本文件由 N.E.K.O 宿主的插件服务提供（api.register_static_ui("static") →
+       /plugin/neko_perf_saver/ui/），运行在宿主页面里；
+    2. 所有请求都是同源相对路径，只有宿主插件服务提供的接口：
+         POST /runs              {plugin_id, entry_id, args} → {run_id}
+         GET  /runs/{run_id}     轮询到 status = succeeded/failed/cancelled
+         GET  /runs/{run_id}/export → {items:[{type:"json", json:{success, data, error}}]}
+       data 就是插件入口 Ok(...) 里的返回值（status / apply_now / restore_now / toggle_saver /
+       get_disclaimer / acknowledge_disclaimer）。
+    3. 零外部依赖：不引任何外链脚本 / 样式 / 字体，不发任何第三方请求。
+    4. 宿主 API 不可用时必须给出可读错误，不能白屏。
+    5. 使用前先过免责声明：面板载入即调 get_disclaimer；只有后端「显式」required === false
+       才放行，否则用 id="disclaimer-modal" 的遮罩模态挡住全部操作按钮，确认走
+       acknowledge_disclaimer（args.dont_remind_again = 复选框状态，字符串 "true"/"false"）；
+       确认也必须显式成功（ok !== false）才放行，acknowledged=false 只是「本次放行」不算失败。
+       「以后都不再提醒」以插件配置为准（后端持久化），面板侧只有缓存；调用失败一律不放行。
+       局部故障（get_disclaimer 单独 500 / 坏 JSON / 卡住 / 宿主不回包）＝不放行：
+       模态转错误态 + 可点「重试」，且 #host-error 横幅钉住不被后续 status 刷新抹掉。
+
+  i18n：文案集中在 JS 的 I18N 里，键名与 i18n/*.json 对齐；免责正文以后端返回的 text 优先。
+  配置表单：见 id="panel-config" 的 section（US-004 起已填成真实表单）：7 项配置直接写回插件，
+  取值全部来自 status 入口的 options 字段（不在面板里写死），保存走 set_option 与
+  set_target_processes；未确认免责声明时表单按钮同样 disabled + 同一个捕获阶段 guard 拦下。
+  「预览」是**纯客户端零请求**：只展示「将要发送的入口 + 参数」与「变更摘要（旧值 → 新值）」，
+  不调用任何入口（set_option / set_target_processes / status 都不调）。
+  为什么不做服务端 dry-run（面板上的说明同此口径）：
+    __init__.py:961  set_option(key, value, dry_run="") 只在 key == "close_extra_processes"
+      分支里看 dry_run（L968-990）；其它 key 的 dry_run 被忽略并照常 _set_option 写盘（L991-993）。
+    __init__.py:944  set_target_processes(processes) 根本没有 dry_run 形参。
+    ⇒ 走 set_option(..., dry_run="true") 的「预览」会在真实宿主上偷偷改配置，那正是「预览」
+      最不该有的行为，所以本面板一律不发请求（点预览后请求数不变、配置逐字不变）。
+-->
+<style>
+  :root {
+    --bg: #14161c;
+    --bg-soft: #1b1e27;
+    --card: #20232e;
+    --line: #2e3342;
+    --text: #e7e9f0;
+    --muted: #98a0b4;
+    --accent: #ff7bac;
+    --ok: #3ddc97;
+    --warn: #ffc75f;
+    --err: #ff6b6b;
+    --idle: #8b96b3;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+    padding: 16px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header.head { margin-bottom: 14px; }
+  h1 { font-size: 19px; margin: 0 0 2px; font-weight: 650; letter-spacing: .3px; }
+  h2.card-title { font-size: 14px; margin: 0 0 10px; font-weight: 650; color: var(--text); }
+  .sub { color: var(--muted); font-size: 12px; margin: 0; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .grow { flex: 1 1 auto; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 999px; padding: 3px 11px;
+    font-size: 12px; font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .badge-idle { color: var(--idle); background: rgba(139,150,179,.14); border-color: rgba(139,150,179,.35); }
+  .badge-applied { color: var(--ok); background: rgba(61,220,151,.13); border-color: rgba(61,220,151,.35); }
+  .badge-paused { color: var(--warn); background: rgba(255,199,95,.13); border-color: rgba(255,199,95,.35); }
+  .badge-unknown { color: var(--muted); background: rgba(152,160,180,.12); border-color: rgba(152,160,180,.3); }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: 8px; padding: 3px 9px; font-size: 12px; color: var(--muted);
+  }
+  .chip b { color: var(--text); font-weight: 600; }
+  .chip.on { border-color: rgba(61,220,151,.4); }
+  .chip.off { border-color: rgba(152,160,180,.3); }
+  button {
+    font: inherit; font-size: 13px; font-weight: 600;
+    color: var(--text); background: var(--bg-soft);
+    border: 1px solid var(--line); border-radius: 9px;
+    padding: 8px 14px; cursor: pointer;
+    transition: filter .12s ease, opacity .12s ease;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.25); }
+  button:disabled { opacity: .45; cursor: progress; }
+  button.primary { background: linear-gradient(180deg, #ff7bac, #e8608f); border-color: #ff8fbb; color: #22101a; }
+  button.ok { background: linear-gradient(180deg, #3ddc97, #2bb87b); border-color: #52e3a5; color: #0e2318; }
+  button.ghost { background: transparent; }
+  button.tiny { padding: 5px 10px; font-size: 12px; font-weight: 500; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .feedback {
+    display: none; margin-top: 10px; border-radius: 9px;
+    padding: 9px 12px; font-size: 13px; border: 1px solid transparent;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .feedback.show { display: block; }
+  .feedback.info { background: rgba(152,160,180,.12); border-color: rgba(152,160,180,.35); color: var(--text); }
+  .feedback.ok { background: rgba(61,220,151,.12); border-color: rgba(61,220,151,.4); color: #b7f5d8; }
+  .feedback.err { background: rgba(255,107,107,.12); border-color: rgba(255,107,107,.4); color: #ffc9c9; }
+  .feedback.warn { background: rgba(255,199,95,.13); border-color: rgba(255,199,95,.42); color: #ffe6b0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  td.num { text-align: right; font-family: Consolas, "Cascadia Mono", monospace; }
+  .empty { color: var(--muted); font-size: 12.5px; padding: 4px 0; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .kv { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; }
+  .kv .k { color: var(--muted); font-size: 11.5px; }
+  .kv .v { font-size: 13px; word-break: break-word; }
+  .list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .list li {
+    background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: 7px; padding: 3px 9px; font-size: 12.5px;
+    font-family: Consolas, "Cascadia Mono", monospace;
+  }
+  .banner-err {
+    display: none; border: 1px solid rgba(255,107,107,.45);
+    background: rgba(255,107,107,.1); color: #ffc9c9;
+    border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .banner-err.show { display: block; }
+  /* ── 免责声明模态（遮罩 + 卡片）──────────────────────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    padding: 18px;
+    background: rgba(8, 9, 13, .74);
+  }
+  .modal {
+    width: 100%; max-width: 560px; max-height: 86vh; overflow: auto;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 18px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .55);
+  }
+  .modal-title { font-size: 16px; margin: 0 0 10px; font-weight: 650; letter-spacing: .2px; }
+  .modal-body { margin: 0 0 12px; white-space: pre-wrap; word-break: break-word; }
+  .modal-check {
+    display: flex; gap: 9px; align-items: flex-start;
+    background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: 9px; padding: 9px 11px; margin: 0 0 12px;
+    cursor: pointer; user-select: none;
+  }
+  .modal-check input { margin: 3px 0 0; width: 15px; height: 15px; flex: 0 0 auto; accent-color: var(--accent); }
+  .modal-check span { font-size: 13px; }
+  .modal-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .modal-note { margin: 10px 0 0; color: var(--muted); }
+  /* ── 配置表单（US-004）── */
+  .cfg-list { display: flex; flex-direction: column; gap: 8px; }
+  .cfg-item {
+    display: flex; gap: 9px; align-items: flex-start;
+    background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: 9px; padding: 9px 11px;
+    cursor: pointer; user-select: none;
+  }
+  .cfg-item.cfg-wide { flex-direction: column; gap: 4px; cursor: default; }
+  .cfg-item input[type="checkbox"] {
+    margin: 3px 0 0; width: 15px; height: 15px; flex: 0 0 auto; accent-color: var(--accent);
+  }
+  .cfg-text { display: flex; flex-direction: column; gap: 2px; }
+  .cfg-label { font-size: 13px; }
+  .cfg-hint { color: var(--muted); font-size: 11.5px; }
+  .cfg-item textarea {
+    width: 100%; min-height: 74px; resize: vertical; margin-top: 3px;
+    font: inherit; font-size: 12.5px; color: var(--text);
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 9px;
+  }
+  .cfg-out {
+    display: none; margin: 0; padding: 9px 11px;
+    background: var(--bg-soft); border: 1px solid var(--line); border-radius: 9px;
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 11.5px;
+    color: var(--muted); white-space: pre-wrap; word-break: break-word;
+    max-height: 280px; overflow: auto;
+  }
+  /* 未确认期间：面板本体压暗，且操作按钮全部 disabled（另有捕获阶段点击拦截兜底） */
+  .wrap.locked .card { opacity: .55; }
+  .spin { display: inline-block; width: 11px; height: 11px; border: 2px solid rgba(255,255,255,.35);
+    border-top-color: #fff; border-radius: 50%; animation: sp .7s linear infinite; vertical-align: -1px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  footer.foot { color: var(--muted); font-size: 11.5px; text-align: center; padding: 4px 0 12px; }
+</style>
+</head>
+<body>
+<div class="wrap locked" id="panel-root">
+
+  <header class="head">
+    <div class="row">
+      <div class="grow">
+        <h1 id="panel-title">性能守护</h1>
+        <p class="sub" id="panel-subtitle">指定软件运行时降低 N.E.K.O 占用，退出后完整恢复。</p>
+      </div>
+      <span class="badge badge-unknown" id="status-badge">读取中…</span>
+    </div>
+  </header>
+
+  <!-- 宿主 API 不可用时的可读错误（不白屏） -->
+  <div class="banner-err" id="host-error" role="alert"></div>
+
+  <!-- ───────── 状态卡片 ───────── -->
+  <section class="card" id="status-card">
+    <h2 class="card-title">当前状态</h2>
+    <div class="row" style="margin-bottom:10px">
+      <span class="grow" id="state-text">—</span>
+      <span class="chip" id="chip-saver"><span>自动守护</span><b>—</b></span>
+      <span class="chip" id="chip-target"><span>触发软件</span><b>—</b></span>
+    </div>
+    <p class="muted small" id="status-summary" style="margin:0 0 10px">—</p>
+
+    <div class="kv" style="margin-bottom:10px">
+      <div class="k">最近一次操作</div>
+      <div class="v" id="last-action">本次启动以来还没有执行过操作</div>
+    </div>
+
+    <div class="grid2">
+      <div class="kv"><div class="k">触发原因（最近一次状态变化）</div><div class="v" id="meta-reason">—</div></div>
+      <div class="kv"><div class="k">本次启动时长</div><div class="v" id="meta-uptime">—</div></div>
+      <div class="kv"><div class="k">进程枚举后端</div><div class="v" id="meta-backend">—</div></div>
+      <div class="kv"><div class="k">已挂起 / 已结束</div><div class="v" id="meta-counts">—</div></div>
+    </div>
+
+    <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+
+    <div class="actions" style="margin-top:12px">
+      <!-- 默认 disabled：免责声明未确认（或状态未知）前，这些按钮一律不可用 -->
+      <button class="primary" id="btn-apply" data-entry="apply_now" type="button" disabled>立即优化</button>
+      <button class="ok" id="btn-restore" data-entry="restore_now" type="button" disabled>立即恢复</button>
+      <button id="btn-toggle" data-entry="toggle_saver" type="button" disabled>自动守护：关闭</button>
+      <button class="ghost tiny" id="btn-refresh" data-entry="status" type="button" disabled>刷新状态</button>
+    </div>
+  </section>
+
+  <!-- ───────── 触发软件 ───────── -->
+  <section class="card" id="targets-card">
+    <h2 class="card-title">触发软件（命中即自动优化）</h2>
+    <ul class="list" id="target-list"></ul>
+    <p class="empty" id="target-empty" style="display:none">未设置触发软件；仍可用「立即优化」手动降负载。</p>
+  </section>
+
+  <!-- ───────── 已挂起进程 ───────── -->
+  <section class="card" id="suspended-card">
+    <h2 class="card-title">已挂起进程 <span class="muted small" id="suspended-count"></span></h2>
+    <div id="suspended-box"></div>
+  </section>
+
+  <!-- ───────── 已结束进程 ───────── -->
+  <section class="card" id="closed-card">
+    <h2 class="card-title">已结束进程 <span class="muted small" id="closed-count"></span></h2>
+    <div id="closed-box"></div>
+  </section>
+
+  <!-- ══════════ 配置表单（US-004：7 项开关直接写回插件配置） ══════════ -->
+  <section class="card" id="panel-config" data-section="config-form">
+    <h2 class="card-title" id="config-title">配置</h2>
+    <p class="muted small" id="config-intro" style="margin:0 0 8px">
+      以下 7 项就是插件配置本身：保存后立即生效；界面上的取值每次都从插件读回（不在面板里写死）。
+    </p>
+
+    <div class="cfg-list" id="config-fields">
+      <label class="cfg-item" for="cfg-saver_enabled">
+        <input type="checkbox" id="cfg-saver_enabled" data-option-key="saver_enabled">
+        <span class="cfg-text">
+          <span class="cfg-label" id="cfg-saver_enabled-title">自动守护（总开关）</span>
+          <span class="cfg-hint" id="cfg-saver_enabled-hint">关闭后插件只待命、不自动降负载。</span>
+        </span>
+      </label>
+
+      <div class="cfg-item cfg-wide">
+        <label class="cfg-label" for="cfg-target_processes" id="cfg-target_processes-title">触发软件（命中即自动优化）</label>
+        <span class="cfg-hint" id="cfg-target_processes-hint">每行一个，或用逗号分隔。</span>
+        <textarea id="cfg-target_processes" data-option-key="target_processes" rows="4" spellcheck="false"></textarea>
+      </div>
+
+      <label class="cfg-item" for="cfg-freeze_gpu">
+        <input type="checkbox" id="cfg-freeze_gpu" data-option-key="freeze_gpu">
+        <span class="cfg-text">
+          <span class="cfg-label" id="cfg-freeze_gpu-title">挂起 GPU 进程</span>
+          <span class="cfg-hint" id="cfg-freeze_gpu-hint">收益有限，插件默认关闭。</span>
+        </span>
+      </label>
+
+      <label class="cfg-item" for="cfg-close_video_capture_service">
+        <input type="checkbox" id="cfg-close_video_capture_service" data-option-key="close_video_capture_service">
+        <span class="cfg-text">
+          <span class="cfg-label" id="cfg-close_video_capture_service-title">结束视频采集服务</span>
+          <span class="cfg-hint" id="cfg-close_video_capture_service-hint">该进程可自动重建，插件默认开启。</span>
+        </span>
+      </label>
+
+      <label class="cfg-item" for="cfg-close_audio_service">
+        <input type="checkbox" id="cfg-close_audio_service" data-option-key="close_audio_service">
+        <span class="cfg-text">
+          <span class="cfg-label" id="cfg-close_audio_service-title">结束音频服务</span>
+          <span class="cfg-hint" id="cfg-close_audio_service-hint">会让 N.E.K.O 静音，插件默认关闭。</span>
+        </span>
+      </label>
+
+      <label class="cfg-item" for="cfg-skip_while_neko_foreground">
+        <input type="checkbox" id="cfg-skip_while_neko_foreground" data-option-key="skip_while_neko_foreground">
+        <span class="cfg-text">
+          <span class="cfg-label" id="cfg-skip_while_neko_foreground-title">N.E.K.O 在前台时临时恢复</span>
+          <span class="cfg-hint" id="cfg-skip_while_neko_foreground-hint">切到前台先恢复，切走后再优化；插件默认开启。</span>
+        </span>
+      </label>
+
+      <label class="cfg-item" for="cfg-restore_on_target_exit">
+        <input type="checkbox" id="cfg-restore_on_target_exit" data-option-key="restore_on_target_exit">
+        <span class="cfg-text">
+          <span class="cfg-label" id="cfg-restore_on_target_exit-title">目标软件退出后自动恢复</span>
+          <span class="cfg-hint" id="cfg-restore_on_target_exit-hint">目标软件退出即把 N.E.K.O 恢复原状；插件默认开启。</span>
+        </span>
+      </label>
+    </div>
+
+    <div class="actions" style="margin-top:12px">
+      <!-- 默认 disabled；并带 data-entry 属性 ⇒ 未确认免责声明时被捕获阶段的 guardActionClick 拦下。
+           #cfg-preview 自身不发任何请求，但同样走这道 guard：免责声明未确认时不得有任何交互后门 -->
+      <button class="primary" id="cfg-save" data-entry="set_option" type="button" disabled>保存配置</button>
+      <button id="cfg-preview" data-entry="set_option" type="button" disabled>预览（不发请求）</button>
+    </div>
+
+    <div class="feedback" id="config-feedback" role="status" aria-live="polite"></div>
+    <p class="muted small" id="config-note" style="margin:10px 0 6px; display:none"></p>
+    <pre class="cfg-out" id="config-out"></pre>
+  </section>
+
+  <!-- ══════════ 免责声明模态（使用前提示；未确认期间挡住全部操作） ══════════ -->
+  <div class="modal-backdrop" id="disclaimer-modal" data-section="disclaimer-modal"
+       role="dialog" aria-modal="true" aria-labelledby="disclaimer-title"
+       aria-describedby="disclaimer-text" style="display:none">
+    <div class="modal" id="disclaimer-box">
+      <h2 class="modal-title" id="disclaimer-title">免责声明</h2>
+      <p class="modal-body" id="disclaimer-text">本插件不保证不会触发游戏反作弊，使用本插件引起的后果与本插件无关。</p>
+      <label class="modal-check" id="disclaimer-remind" for="disclaimer-checkbox">
+        <input type="checkbox" id="disclaimer-checkbox">
+        <span id="disclaimer-remind-text">以后都不再提醒</span>
+      </label>
+      <div class="modal-actions">
+        <button class="primary" id="btn-disclaimer-ok" data-entry="acknowledge_disclaimer"
+                type="button">我已了解并继续</button>
+        <button class="ghost" id="btn-disclaimer-retry" data-entry="get_disclaimer"
+                type="button" style="display:none">重试</button>
+      </div>
+      <p class="modal-note small" id="disclaimer-note" style="display:none"></p>
+    </div>
+  </div>
+
+  <footer class="foot" id="foot">数据来自插件入口 status；状态在每次操作后自动刷新。</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ────────────────────────────────────────────────────────────
+  // 常量与文案（i18n：US-005 会把这些抽到 i18n/zh-CN.json 与 i18n/en.json）
+  // ────────────────────────────────────────────────────────────
+  var PLUGIN_ID = "neko_perf_saver";
+  var RUNS_URL = "/runs";
+  var POLL_INTERVAL_MS = 400;
+  var POLL_TIMEOUT_MS = 90000;
+  // 单次 HTTP 请求的硬超时：TCP 连上了但宿主不回包时 fetch 会永远 pending，
+  // 面板只会停在「正在读取使用前提示…」的死界面（看不到错误、也没有重试按钮）。
+  var REQUEST_TIMEOUT_MS = 15000;
+
+  var I18N = {
+    "zh-CN": {
+      // ===I18N-MIRROR-BEGIN===（由 i18n/zh-CN.json 同步生成，键名+取值逐字一致，勿手改）===
+        "config.err.empty": "至少要填一个触发软件名。留空会被插件当成「清空触发软件列表」，面板为避免误清空，不发送空值。",
+        "config.err.emptyItem": "第 {index} 项是空的：进程名之间只用一个逗号或换行分隔（例如 a.exe,b.exe）。",
+        "config.err.wildcard": "通配模式 {pattern} 过于宽泛：第一个通配符前至少要有 3 个字符（例如 extra*.exe）。",
+        "config.failed": "「{label}」保存失败：{message}",
+        "config.intro": "以下 7 项就是插件配置本身：保存后立即生效；界面上的取值每次都从插件读回（不在面板里写死）。",
+        "config.loaded": "已从插件读回当前配置。",
+        "config.noneChanged": "没有检测到改动，未调用任何写入口。",
+        "config.notReady": "还没读到插件配置（status 入口没有成功返回），点「刷新状态」读回来之后才能保存。",
+        "config.opt.close_audio_service": "结束音频服务",
+        "config.opt.close_audio_service.hint": "会让 N.E.K.O 静音；插件默认关闭。",
+        "config.opt.close_video_capture_service": "结束视频采集服务",
+        "config.opt.close_video_capture_service.hint": "该进程可自动重建；插件默认开启。",
+        "config.opt.freeze_gpu": "挂起 GPU 进程",
+        "config.opt.freeze_gpu.hint": "收益有限，且 Chromium 有看门狗；插件默认关闭。",
+        "config.opt.restore_on_target_exit": "目标软件退出后自动恢复",
+        "config.opt.restore_on_target_exit.hint": "目标软件退出即把 N.E.K.O 恢复原状；插件默认开启。",
+        "config.opt.saver_enabled": "自动守护（总开关）",
+        "config.opt.saver_enabled.hint": "关闭后插件只待命、不自动降负载；仍可用「立即优化」手动执行一次。",
+        "config.opt.skip_while_neko_foreground": "N.E.K.O 在前台时临时恢复",
+        "config.opt.skip_while_neko_foreground.hint": "N.E.K.O 窗口切到前台先恢复，切走后再优化；插件默认开启。",
+        "config.opt.target_processes": "触发软件（命中即自动优化）",
+        "config.opt.target_processes.hint": "每行一个，或用逗号分隔；大小写不敏感，支持 * 通配（如 extra*.exe）。留空会被拦下并提示，面板不会发送空列表。",
+        "config.preview": "预览（不发请求）",
+        "config.previewDiff": "・{label}：{before} → {after}",
+        "config.previewDiffHead": "── 变更摘要（旧值 → 新值）──",
+        "config.previewHead": "── 将要发送的入口与参数（{count} 项；仅预览，尚未发送）──",
+        "config.previewNoChange": "预览（未发送）：没有改动，点「保存配置」也不会发出任何写请求（本次 0 个请求）。",
+        "config.previewNote": "「预览」只在本页面计算：它列出「将要发送的入口 + 参数」和「旧值 → 新值」，不会给插件发任何请求（零请求 ⇒ 配置逐字不变）。本面板不提供服务端 dry-run —— 插件端 set_option 的 dry_run 目前只对 close_extra_processes 生效，其它 key 的 dry_run 会被忽略并照常写盘，而 set_target_processes 没有 dry_run 形参；那样「预览」会偷偷改配置，本面板不这么做。真正的写入只发生在点「保存配置」时。",
+        "config.previewPlanned": "预览（未发送）：{count} 项待保存，点「保存配置」才会真正发出这 {count} 个请求。",
+        "config.previewReq": "・{label}\n    {call}",
+        "config.previewUnchanged": "── 无改动，不会发送（{count} 项）──\n{labels}",
+        "config.previewZero": "（零请求：以上内容全部由前端本地计算，未调用 set_option / set_target_processes / status 等任何入口；点「保存配置」才会真正发出上面的请求。）",
+        "config.save": "保存配置",
+        "config.saved": "已保存：{label}",
+        "config.savedMany": "已保存 {count} 项：{labels}",
+        "config.title": "配置",
+        "config.unavailable": "读不到插件配置：{message}",
+        "disclaimer.ackOk": "已确认使用前提示（{extra}）。",
+        "disclaimer.ackOk.once": "本次放行，下次仍会提醒",
+        "disclaimer.acknowledged_hint": "已确认免责声明（以后不再提醒）",
+        "disclaimer.blocked": "请先确认使用前提示，再操作面板。",
+        "disclaimer.cached": "上次确认时间：{at}（本地缓存仅作参考，是否再提醒以插件配置为准）。",
+        "disclaimer.checking": "正在读取使用前提示…",
+        "disclaimer.confirm_button": "我已了解并继续",
+        "disclaimer.dont_remind_label": "以后都不再提醒",
+        "disclaimer.errBody": "读不到使用前提示：{message}\n在确认之前，面板的操作按钮保持不可用。",
+        "disclaimer.errTitle": "使用前提示读取失败",
+        "disclaimer.note": "勾选「以后都不再提醒」并继续 ⇒ 以后打开面板不再提示；不勾选 ⇒ 本次放行，下次打开面板仍会提示（以插件配置为准）。",
+        "disclaimer.retry": "重试",
+        "disclaimer.text": "本插件不保证不会触发游戏反作弊，使用本插件引起的后果与本插件无关。",
+        "disclaimer.title": "使用前请知悉（反作弊提示）",
+        "entry.acknowledge_disclaimer.description": "确认已阅读「使用前免责声明」；勾选「以后都不再提醒」时会把确认状态写入插件配置。",
+        "entry.acknowledge_disclaimer.name": "确认免责声明",
+        "entry.acknowledge_disclaimer.param.dont_remind_again": "是否「以后都不再提醒」：true=写入配置、以后不再提示；false=这次知道了、下次仍提醒（不写盘）",
+        "entry.apply_now.description": "不等目标软件，立刻对 N.E.K.O 执行一次降负载（挂起渲染、关进程、回收内存）。",
+        "entry.apply_now.name": "立即优化",
+        "entry.diagnose.description": "报告运行环境：进程枚举后端、识别到的 N.E.K.O 进程及分类、目标软件是否在运行。",
+        "entry.diagnose.name": "环境诊断",
+        "entry.disable_saver.description": "关闭自动守护并立即恢复所有被挂起的进程（插件本体仍在运行，可随时再开启）。",
+        "entry.disable_saver.name": "关闭自动守护",
+        "entry.enable_saver.description": "开启自动守护：指定软件启动时自动降低 N.E.K.O 占用，退出后自动恢复。",
+        "entry.enable_saver.name": "开启自动守护",
+        "entry.get_disclaimer.description": "只读查看「使用前免责声明」的正文，以及是否已经确认过（required=true 表示打开面板时仍会提醒）。",
+        "entry.get_disclaimer.name": "查看免责声明",
+        "entry.restore_now.description": "立刻恢复所有被挂起/结束的进程，回到完全正常的 N.E.K.O。",
+        "entry.restore_now.name": "立即恢复",
+        "entry.set_option.description": "修改插件开关，例如 freeze_renderers / close_audio_service / trim_working_set / lower_priority。",
+        "entry.set_option.name": "修改设置",
+        "entry.set_option.param.key": "设置项名称（见 plugin.toml 的 [perf_saver] 段）",
+        "entry.set_option.param.value": "设置值，布尔用 true/false，秒数用整数，列表用逗号分隔",
+        "entry.set_target_processes.description": "设置触发降负载的软件进程名，多个用逗号或换行分隔，支持 * 通配符。",
+        "entry.set_target_processes.name": "设置触发的软件",
+        "entry.set_target_processes.param.processes": "进程名列表，例如：DeltaForceClient-Win64-Shipping.exe,Cyberpunk2077.exe",
+        "entry.status.description": "查看当前是否处于降负载状态、触发的软件、被挂起/结束的进程，以及各项开关。",
+        "entry.status.name": "查看守护状态",
+        "entry.toggle_saver.description": "在开启/关闭自动守护之间切换；关闭时会立即恢复被挂起的进程。",
+        "entry.toggle_saver.name": "切换自动守护",
+        "plugin.description": "在指定软件（默认三角洲行动）运行时，自动停止 N.E.K.O 的界面渲染、关闭可重建的后台进程并回收内存，降低内存与 GPU 占用；目标软件退出或关闭插件时自动完整恢复。",
+        "plugin.name": "性能守护",
+      // ===I18N-MIRROR-END===
+
+      // ── 面板专有文案（面板运行时状态，i18n/*.json 无对应键）──
+      "panel.title": "性能守护",
+      "panel.subtitle": "指定软件运行时降低 N.E.K.O 占用，退出后完整恢复。",
+      "state.idle": "待命（未降负载）",
+      "state.applied": "已优化（正在降低 N.E.K.O 占用）",
+      "state.paused": "已优化但临时恢复（N.E.K.O 在前台）",
+      "state.unknown": "状态未知",
+      "state.unavailable": "读不到宿主状态（见上方提示）",
+      "state.reading": "读取中…",
+      "label.saver": "自动守护",
+      "label.target": "触发软件",
+      "on": "已开启",
+      "off": "已关闭",
+      "running": "运行中",
+      "notRunning": "未运行",
+      "lastAction.none": "本次启动以来还没有执行过操作",
+      "lastAction.line": "{entry} · {summary}（{at}）",
+      "meta.reason": "触发原因（最近一次状态变化）",
+      "meta.uptime": "本次启动时长",
+      "meta.backend": "进程枚举后端",
+      "meta.counts": "已挂起 / 已结束",
+      "btn.apply": "立即优化",
+      "btn.restore": "立即恢复",
+      "btn.toggle.on": "自动守护：开启",
+      "btn.toggle.off": "自动守护：关闭",
+      "btn.refresh": "刷新状态",
+      "btn.busy": "执行中…",
+      "targets.title": "触发软件（命中即自动优化）",
+      "targets.empty": "未设置触发软件；仍可用「立即优化」手动降负载。",
+      "suspended.title": "已挂起进程",
+      "closed.title": "已结束进程",
+      "col.pid": "PID",
+      "col.name": "进程名",
+      "col.kind": "类型",
+      "col.rss": "内存(MB)",
+      "col.created": "启动时间",
+      "col.state": "状态",
+      "col.respawn": "可重建",
+      "col.relaunch": "已自动重启",
+      "yes": "是",
+      "no": "否",
+      "empty.rows": "（无）",
+      "empty.unavailable": "宿主暂不可用，读不到这一项；点「刷新状态」重试。",
+      "empty.suspended": "当前没有挂起的进程。",
+      "empty.closed": "当前没有结束的进程。",
+      "feedback.done": "完成：{message}",
+      "feedback.statusFailed": "读取状态失败：{message}",
+      "err.noFetch": "宿主环境不支持 fetch，无法调用插件入口。",
+      "err.badResponse": "宿主返回的不是有效 JSON（HTTP {status}）。",
+      "err.noRunId": "宿主没有返回 run_id，无法跟踪本次操作。",
+      "err.runFailed": "入口执行失败：{message}",
+      "err.runTimeout": "等待宿主执行超时（{seconds} 秒），请稍后在日志里确认结果。",
+      "err.network": "连不上宿主插件服务：{message}",
+      "err.host": "宿主 API 不可用：{message}。请确认 N.E.K.O 正在运行、插件处于运行状态，然后点「刷新状态」重试。",
+      // ── US-002（retry）新增：请求硬超时 + 确认被后端拒绝（i18n/*.json 无对应键）──
+      "err.timeout": "宿主插件服务超过 {seconds} 秒没有回应，本次请求已放弃。",
+      "disclaimer.ackErrTitle": "确认没有生效",
+      "disclaimer.ackErrBody": "插件没有接受这次确认：{message}\n在插件确认之前，面板的操作按钮保持不可用。",
+      "disclaimer.ackRejected": "后端返回 ok=false",
+      "disclaimer.ackRejectedBanner": "插件没有接受这次确认（后端返回 ok=false），面板保持锁定，操作按钮仍不可用。",
+      "entry.status": "查看守护状态",
+      "entry.apply_now": "立即优化",
+      "entry.restore_now": "立即恢复",
+      "entry.toggle_saver": "切换自动守护",
+      "entry.enable_saver": "开启自动守护",
+      "entry.disable_saver": "关闭自动守护",
+      "entry.get_disclaimer": "查看免责声明",
+      "entry.acknowledge_disclaimer": "确认免责声明",
+      "kind.resumed": "已恢复",
+      "kind.held": "挂起中",
+      "foot.host": "只调用宿主插件服务的接口（/runs），无任何外部请求。",
+
+    }
+  };
+
+  var LOCALE = "zh-CN";
+
+  function t(key, params) {
+    var table = I18N[LOCALE] || I18N["zh-CN"];
+    var text = Object.prototype.hasOwnProperty.call(table, key) ? table[key] : key;
+    if (params) {
+      Object.keys(params).forEach(function (name) {
+        text = text.split("{" + name + "}").join(String(params[name]));
+      });
+    }
+    return text;
+  }
+
+  // 面板按下的操作 → 插件入口（entry_id 必须与 __init__.py 的 @plugin_entry(id=...) 一致）
+  var ENTRY = {
+    status: "status",
+    apply: "apply_now",
+    restore: "restore_now",
+    toggle: "toggle_saver",
+    getDisclaimer: "get_disclaimer",
+    acknowledgeDisclaimer: "acknowledge_disclaimer",
+    // US-004：配置表单的写入口（参数名/形态见 __init__.py:961 / :944）
+    setOption: "set_option",
+    setTargetProcesses: "set_target_processes"
+  };
+
+  // ────────────────────────────────────────────────────────────
+  // DOM 小工具
+  // ────────────────────────────────────────────────────────────
+  function $(id) { return document.getElementById(id); }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) { node.className = className; }
+    if (text !== undefined && text !== null) { node.textContent = String(text); }
+    return node;
+  }
+
+  function clear(node) {
+    while (node && node.firstChild) { node.removeChild(node.firstChild); }
+  }
+
+  function show(node, visible) {
+    if (node) { node.style.display = visible ? "" : "none"; }
+  }
+
+  function fmtTime(seconds) {
+    var s = Number(seconds);
+    if (!isFinite(s) || s <= 0) { return "—"; }
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var rest = Math.floor(s % 60);
+    if (h > 0) { return h + " 小时 " + m + " 分"; }
+    if (m > 0) { return m + " 分 " + rest + " 秒"; }
+    return rest + " 秒";
+  }
+
+  function fmtEpoch(value) {
+    var n = Number(value);
+    if (!isFinite(n) || n <= 0) { return "—"; }
+    var d = new Date(n * 1000);
+    function p(x) { return (x < 10 ? "0" : "") + x; }
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " +
+           p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }
+
+  function entryLabel(entryId) {
+    var key = "entry." + String(entryId || "");
+    var table = I18N[LOCALE] || I18N["zh-CN"];
+    return Object.prototype.hasOwnProperty.call(table, key) ? table[key] : String(entryId || "—");
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // 宿主 API 调用（全部是同源相对路径，只有宿主插件服务）
+  // ────────────────────────────────────────────────────────────
+  function requestJson(method, url, body) {
+    if (typeof fetch !== "function") {
+      return Promise.reject(new Error(t("err.noFetch")));
+    }
+    var options = { method: method, headers: { "Accept": "application/json" } };
+    if (body !== undefined) {
+      options.headers["Content-Type"] = "application/json";
+      options.body = JSON.stringify(body);
+    }
+    // 显式超时兜底（AbortController 不可用的老引擎则退回「没有超时」的旧行为）
+    var controller = null;
+    var timer = null;
+    var timedOut = false;
+    if (typeof AbortController === "function") {
+      controller = new AbortController();
+      options.signal = controller.signal;
+      timer = setTimeout(function () {
+        timedOut = true;
+        try { controller.abort(); } catch (e) { /* 忽略：老引擎可能不支持 abort */ }
+      }, REQUEST_TIMEOUT_MS);
+    }
+    function stopTimer() {
+      if (timer !== null) { clearTimeout(timer); timer = null; }
+    }
+    return fetch(url, options).then(function (response) {
+      return response.text().then(function (raw) {
+        stopTimer();
+        var parsed = null;
+        try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
+        if (!response.ok) {
+          throw new Error(t("err.badResponse", { status: response.status }));
+        }
+        if (parsed === null) {
+          throw new Error(t("err.badResponse", { status: response.status }));
+        }
+        return parsed;
+      });
+    }, function (err) {
+      stopTimer();
+      if (timedOut) {
+        throw new Error(t("err.timeout", { seconds: Math.round(REQUEST_TIMEOUT_MS / 1000) }));
+      }
+      throw new Error(t("err.network", { message: (err && err.message) || String(err) }));
+    });
+  }
+
+  function pollRun(runId) {
+    var started = Date.now();
+    function step() {
+      return requestJson("GET", RUNS_URL + "/" + encodeURIComponent(runId)).then(function (run) {
+        var status = String((run && run.status) || "").toLowerCase();
+        if (status === "succeeded" || status === "failed" || status === "cancelled" || status === "canceled") {
+          return run;
+        }
+        if (Date.now() - started > POLL_TIMEOUT_MS) {
+          throw new Error(t("err.runTimeout", { seconds: Math.round(POLL_TIMEOUT_MS / 1000) }));
+        }
+        return new Promise(function (resolve) { setTimeout(resolve, POLL_INTERVAL_MS); }).then(step);
+      });
+    }
+    return step();
+  }
+
+  function readExport(runId) {
+    return requestJson("GET", RUNS_URL + "/" + encodeURIComponent(runId) + "/export").then(function (payload) {
+      var items = (payload && payload.items) || [];
+      var message = null;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i] && items[i].json) { message = items[i].json; break; }
+      }
+      if (message === null || message === undefined) { return {}; }
+      if (message.success === false || message.error) {
+        throw new Error(String(message.error || message.message || t("err.runFailed", { message: "unknown" })));
+      }
+      if (message.data !== undefined && message.data !== null) { return message.data; }
+      return message;
+    });
+  }
+
+  // 调用一个插件入口，返回入口 Ok(...) 里的 data。
+  function callEntry(entryId, args) {
+    return requestJson("POST", RUNS_URL, {
+      plugin_id: PLUGIN_ID,
+      entry_id: entryId,
+      args: args || {}
+    }).then(function (created) {
+      var runId = created && (created.run_id || created.id);
+      if (!runId) { throw new Error(t("err.noRunId")); }
+      return pollRun(runId).then(function (run) {
+        var status = String((run && run.status) || "").toLowerCase();
+        if (status === "failed" || status === "cancelled" || status === "canceled") {
+          throw new Error(String((run && (run.error || run.message)) || t("err.runFailed", { message: status })));
+        }
+        return readExport(runId);
+      });
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // 渲染
+  // ────────────────────────────────────────────────────────────
+  var busy = false;
+
+  // ── 免责声明状态（US-002）────────────────────────────────────
+  // 保守默认：只有后端 get_disclaimer 明确说 required=false 才解锁。
+  var disclaimerLocked = true;
+  var ackBusy = false;
+  var disclaimerText = "";        // 后端返回的正文优先，本地文案表兜底
+  var STORAGE_CACHE_KEY = "neko_perf_saver.disclaimer.cache";
+
+  // 统一控制面板上的操作按钮：忙 或 免责声明未确认 ⇒ disabled
+  // （US-004 起把配置表单的「保存 / 预览」也纳入同一个开关 —— 否则就是一条绕过免责声明的写路径）
+  function applyOpsDisabled() {
+    ["btn-apply", "btn-restore", "btn-toggle", "btn-refresh",
+     "cfg-save", "cfg-preview"].forEach(function (id) {
+      var node = $(id);
+      if (node) { node.disabled = busy || disclaimerLocked; }
+    });
+  }
+
+  function setBusy(next, busyLabel) {
+    busy = !!next;
+    applyOpsDisabled();
+    if (busy && busyLabel) { setFeedback("info", busyLabel); }
+  }
+
+  function setFeedback(kind, message) {
+    var box = $("feedback");
+    if (!box) { return; }
+    box.className = "feedback show " + (kind || "info");
+    clear(box);
+    if (kind === "info" && busy) {
+      box.appendChild(el("span", "spin"));
+      box.appendChild(document.createTextNode(" "));
+    }
+    box.appendChild(document.createTextNode(String(message || "")));
+  }
+
+  function clearFeedback() {
+    var box = $("feedback");
+    if (box) { box.className = "feedback"; clear(box); }
+  }
+
+  // 放行依据（get_disclaimer / acknowledge_disclaimer）读不到时留下的错误是「粘性」的：
+  // 一次成功的 status 刷新不得把它抹掉 —— 否则横幅会在几十毫秒内被清空，
+  // 用户看不到「为什么按钮点不动」。只有重新读到放行依据（或确认成功）才解除。
+  var stickyHostError = "";
+
+  function paintHostError(line) {
+    var box = $("host-error");
+    if (!box) { return; }
+    if (line) {
+      box.className = "banner-err show";
+      clear(box);
+      // 模板自带句号、错误消息也常自带句号 ⇒ 去重，避免出现「。。」
+      box.appendChild(el("div", null, String(line).replace(/。{2,}/g, "。")));
+    } else {
+      box.className = "banner-err";
+      clear(box);
+    }
+  }
+
+  // message = 原因（套 err.host 模板）；sticky=true 时钉住，之后的 setHostError(null) 抹不掉
+  function setHostError(message, sticky) {
+    var line = message ? t("err.host", { message: String(message) }) : "";
+    if (line && sticky) { stickyHostError = line; }
+    paintHostError(line || stickyHostError);
+  }
+
+  // 直接给整句（用于语义上不是「宿主 API 不可用」的失败，比如后端拒绝本次确认）
+  function setHostErrorRaw(line, sticky) {
+    if (line && sticky) { stickyHostError = String(line); }
+    paintHostError(line || stickyHostError);
+  }
+
+  // 解除粘性错误（只有确实重新读到放行依据时才调）
+  function clearStickyHostError() {
+    stickyHostError = "";
+    setHostError(null);
+  }
+
+  // 读不到宿主状态时：显示可读错误，并且不再把旧数据留在界面上装作是当前状态
+  function renderUnavailable(message) {
+    var badge = $("status-badge");
+    if (badge) {
+      badge.className = "badge badge-unknown";
+      badge.textContent = t("state.unknown");
+    }
+    var stateText = $("state-text");
+    if (stateText) { stateText.textContent = t("state.unavailable"); }
+    var counts = $("meta-counts");
+    if (counts) { counts.textContent = "—"; }
+    renderTargets([], true);
+    renderSuspended([], true);
+    renderClosed([], true);
+    setHostError(message);
+  }
+
+  // 面板加载/宿主接口不可用时：显示可读错误，绝不白屏
+  function renderFatal(message) {
+    renderUnavailable(message);
+    setFeedback("err", t("feedback.statusFailed", { message: String(message || "") }));
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // 免责声明模态（使用前提示）
+  //   放行判断只认后端：get_disclaimer.required 必须「显式」为 false；
+  //   acknowledge_disclaimer 必须显式成功（ok !== false；acknowledged=false 是合法的
+  //   「本次放行」，后端不写盘时就是 false）；只有 ackError 时保持锁定。
+  //   localStorage 仅缓存「上次已知状态」，绝不参与是否弹窗的决策。
+  //   get_disclaimer 局部失败（500 / 坏 JSON / 卡住 / 超时）⇒ 不放行，
+  //   且错误横幅是粘性的，不会被随后的 status 刷新抹掉。
+  // ────────────────────────────────────────────────────────────
+  function cacheDisclaimer(data) {
+    try {
+      if (!window.localStorage) { return; }
+      window.localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify({
+        acknowledged: !!(data && data.acknowledged),
+        dont_remind_again: !!(data && data.dont_remind_again),
+        acknowledged_at: (data && data.acknowledged_at) || null,
+        cached_at: new Date().toISOString()
+      }));
+    } catch (err) { /* 无 storage（隐私模式等）：忽略，不影响放行判断 */ }
+  }
+
+  function cachedDisclaimer() {
+    try {
+      if (!window.localStorage) { return null; }
+      var raw = window.localStorage.getItem(STORAGE_CACHE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) { return null; }
+  }
+
+  function setDisclaimerText(text) {
+    if (typeof text === "string" && text.replace(/\s/g, "") !== "") { disclaimerText = text; }
+  }
+
+  // 正文以后端 get_disclaimer.text 优先，本地文案表兜底
+  function disclaimerBody() {
+    return disclaimerText || t("disclaimer.text");
+  }
+
+  // mode: "checking"（读取中）| "required"（需确认）
+  //     | "error"（读不到使用前提示 ⇒ 不放行）
+  //     | "ackError"（确认被后端拒绝 ⇒ 不放行）
+  function renderDisclaimer(mode, message) {
+    var title = $("disclaimer-title");
+    var body = $("disclaimer-text");
+    var remind = $("disclaimer-remind");
+    var remindText = $("disclaimer-remind-text");
+    var checkbox = $("disclaimer-checkbox");
+    var ok = $("btn-disclaimer-ok");
+    var retry = $("btn-disclaimer-retry");
+    var note = $("disclaimer-note");
+
+    // 文案一律走 t()（键与 i18n/*.json 一致），DOM 里的静态文本只是兜底
+    if (title) {
+      title.textContent = (mode === "error") ? t("disclaimer.errTitle")
+        : (mode === "ackError") ? t("disclaimer.ackErrTitle")
+        : t("disclaimer.title");
+    }
+    if (remindText) { remindText.textContent = t("disclaimer.dont_remind_label"); }
+    if (ok) { ok.textContent = t("disclaimer.confirm_button"); }
+    if (retry) { retry.textContent = t("disclaimer.retry"); }
+    if (body) {
+      if (mode === "checking") { body.textContent = t("disclaimer.checking"); }
+      else if (mode === "error") { body.textContent = t("disclaimer.errBody", { message: String(message || "") }); }
+      else if (mode === "ackError") { body.textContent = t("disclaimer.ackErrBody", { message: String(message || "") }); }
+      else { body.textContent = disclaimerBody(); }
+    }
+    show(remind, mode === "required");
+    show(ok, mode === "required");
+    show(retry, mode === "error" || mode === "ackError");
+    if (ok) { ok.disabled = ackBusy; }
+    if (note) {
+      if (mode === "required") {
+        var cache = cachedDisclaimer();   // 只用于显示「上次确认时间」，不参与放行判断
+        note.textContent = t("disclaimer.note") +
+          ((cache && cache.acknowledged_at) ? "\n" + t("disclaimer.cached", { at: cache.acknowledged_at }) : "");
+      } else {
+        note.textContent = "";
+      }
+      show(note, mode === "required");
+    }
+    if (checkbox && mode !== "required") { checkbox.checked = false; }  // 重新进入时回到「未勾选」
+    show($("disclaimer-modal"), true);
+  }
+
+  // 锁 = 模态遮罩可见 + 4 个操作按钮 disabled + 捕获阶段拦截 data-entry 点击
+  function setOpsLock(locked) {
+    disclaimerLocked = !!locked;
+    applyOpsDisabled();
+    var root = $("panel-root");
+    if (root) { root.className = disclaimerLocked ? "wrap locked" : "wrap"; }
+    if (disclaimerLocked) {
+      var checkbox = $("disclaimer-checkbox");
+      if (checkbox) { checkbox.checked = false; }   // 每次挡上都从「未勾选」开始
+    } else {
+      show($("disclaimer-modal"), false);
+    }
+  }
+
+  // 未确认时拦下任何 data-entry 按钮的点击（双保险，即使按钮被别处误启用也不放行）
+  function guardActionClick(event) {
+    if (!disclaimerLocked) { return; }
+    var modal = $("disclaimer-modal");
+    if (modal && modal.contains(event.target)) { return; }   // 模态自己的按钮（确认/重试）不受影响
+    var node = event.target;
+    while (node && node !== document) {
+      if (node.getAttribute && node.getAttribute("data-entry")) {
+        event.preventDefault();
+        event.stopPropagation();
+        setFeedback("err", t("disclaimer.blocked"));
+        return;
+      }
+      node = node.parentNode;
+    }
+  }
+
+  // 读免责声明状态；返回 true = 需要用户确认（模态已弹出且操作被挡）
+  function checkDisclaimer() {
+    return callEntry(ENTRY.getDisclaimer, {}).then(function (data) {
+      data = data || {};
+      var hadStickyError = !!stickyHostError;
+      stickyHostError = "";   // 这次确实读到了放行依据 ⇒ 之前「读不到」的粘性错误作废
+      // 收紧：只有后端「显式」required === false 才解锁；
+      // required 缺失 / null / true / 其它值 一律按「需要确认」处理（更保守）
+      var required = (data.required === false) ? false : true;
+      setDisclaimerText(data.text);
+      cacheDisclaimer(data);
+      if (required) {
+        setOpsLock(true);
+        renderDisclaimer("required");
+        // 刚重读成功 ⇒ 之前那条粘性横幅已经过时，重绘清掉（普通错误横幅不动）
+        if (hadStickyError) { setHostError(null); }
+        return true;
+      }
+      setHostError(null);
+      setOpsLock(false);
+      return false;
+    }, function (err) {
+      // 保守：读不到放行依据就不放行（模态转错误态 + 重试按钮 + 钉住的 #host-error）
+      var text = (err && err.message) || String(err);
+      setOpsLock(true);
+      renderDisclaimer("error", text);
+      setHostError(text, true);
+      return true;
+    });
+  }
+
+  function onDisclaimerRetry() {
+    if (ackBusy) { return Promise.resolve(); }
+    renderDisclaimer("checking");
+    return checkDisclaimer().then(function (required) {
+      if (required) { return null; }
+      return refreshStatus(true).then(function () { return null; }, function () { return null; });
+    }, function () { return null; });
+  }
+
+  // 主按钮：dont_remind_again = 复选框状态（契约：字符串 "true" / "false"）
+  function onDisclaimerConfirm() {
+    if (ackBusy) { return Promise.resolve(); }
+    var checkbox = $("disclaimer-checkbox");
+    var dontRemind = !!(checkbox && checkbox.checked);   // 默认未勾选 ⇒ false
+    ackBusy = true;
+    renderDisclaimer("required");
+    return callEntry(ENTRY.acknowledgeDisclaimer, {
+      dont_remind_again: dontRemind ? "true" : "false"
+    }).then(function (result) {
+      ackBusy = false;
+      result = result || {};
+      // 契约里有 ok 字段 ⇒ 必须尊重它，且口径与 get_disclaimer 一致：**必须显式成功**。
+      // ok !== true（含缺字段 / 空响应 {} / "false" / false）都表示这次确认没有生效，绝不解锁。
+      // 注意 acknowledge_disclaimer 的 acknowledged=false 是「合法」的：不勾选
+      // 「以后都不再提醒」时后端不写盘（changed=false），只表示本次放行，不能据此挡人。
+      var okFalse = (result.ok !== true);
+      if (okFalse) {
+        var rejected = t("disclaimer.ackRejected");
+        setOpsLock(true);
+        renderDisclaimer("ackError", rejected);
+        setHostErrorRaw(t("disclaimer.ackRejectedBanner"), true);
+        setFeedback("err", t("disclaimer.ackErrTitle") + "：" + rejected);
+        return false;
+      }
+      var acknowledged = (result.acknowledged === undefined) ? true : !!result.acknowledged;
+      var persisted = (result.dont_remind_again === undefined) ? dontRemind : !!result.dont_remind_again;
+      cacheDisclaimer({ acknowledged: acknowledged, dont_remind_again: persisted, acknowledged_at: null });
+      setOpsLock(false);
+      clearStickyHostError();
+      setFeedback("ok", persisted
+        ? t("disclaimer.acknowledged_hint")
+        : t("disclaimer.ackOk", { extra: t("disclaimer.ackOk.once") }));
+      return refreshStatus(true).then(function () { return acknowledged; }, function () { return acknowledged; });
+    }, function (err) {
+      // 确认失败 ⇒ 保持不放行（模态转错误态，可重试）
+      ackBusy = false;
+      var text = (err && err.message) || String(err);
+      setOpsLock(true);
+      renderDisclaimer("error", text);
+      setHostError(text, true);
+      return false;
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // 配置表单（US-004）
+  //   表单里的 7 项就是插件配置本身，取值只来自 status 入口的 options 字段
+  //   （HTML 里不写死任何初始值），页面载入与每次操作后都会重新读回并回填。
+  //   保存映射（参数名与形态按 __init__.py 的真实入口签名核对）：
+  //     6 个布尔项 ⇒ set_option(key, "true" / "false")
+  //       __init__.py:961  async def set_option(self, key: str, value: str = "", dry_run: str = "", **_)
+  //     进程名列表 ⇒ set_target_processes(processes="a,b")
+  //       __init__.py:944  async def set_target_processes(self, processes: str = "", **_)
+  //       （L945 以 [,;\n\r]+ 切分后 _set_option("target_processes", items)，落库形态是 list）
+  //   预览 ⇒ **纯客户端零请求**：只把「将要发送的入口 + 参数」与「旧值 → 新值」写进 #config-out，
+  //   不调 set_option / set_target_processes / status，任何入口都不调（AC4 修订：服务端 dry-run 不可信）。
+  //   未确认免责声明时：#cfg-save / #cfg-preview 一律 disabled（applyOpsDisabled），
+  //   并且照常被捕获阶段的 guardActionClick 拦下 —— 免责声明没有任何写入后门。
+  // ────────────────────────────────────────────────────────────
+  var CONFIG_BOOL_KEYS = [
+    "saver_enabled",
+    "freeze_gpu",
+    "close_video_capture_service",
+    "close_audio_service",
+    "skip_while_neko_foreground",
+    "restore_on_target_exit"
+  ];
+  var CONFIG_LIST_KEY = "target_processes";
+  var CONFIG_ALL_KEYS = [CONFIG_LIST_KEY].concat(CONFIG_BOOL_KEYS);
+  // 与 __init__.py:136 的 _MIN_WILDCARD_LITERAL 同口径：含通配符时，第一个通配符前至少 3 个字符
+  var MIN_WILDCARD_LITERAL = 3;
+  // 与 __init__.py:2114 的 _coerce_value 布尔兜底同口径的「假值」集合
+  var FALSEY_TEXT = ["0", "false", "no", "n", "off", "关", "关闭", "否"];
+
+  var cfgAuthoritative = {};     // 插件最近一次给出的权威值（bool / 字符串数组）
+  var cfgReady = false;          // 是否成功读过至少一次 status.options
+  var cfgFirstFillDone = false;  // 「已从插件读回」只提示一次
+
+  function cfgNode(key) { return $("cfg-" + key); }
+
+  function cfgLabel(key) { return t("config.opt." + key); }
+
+  // 文案一律走 t()：静态 DOM 里的中文只是兜底，界面上不出现裸 key
+  function renderConfigLabels() {
+    var title = $("config-title");
+    if (title) { title.textContent = t("config.title"); }
+    var intro = $("config-intro");
+    if (intro) { intro.textContent = t("config.intro"); }
+    var note = $("config-note");
+    if (note) { note.textContent = t("config.previewNote"); show(note, true); }
+    var save = $("cfg-save");
+    if (save) { save.textContent = t("config.save"); }
+    var preview = $("cfg-preview");
+    if (preview) { preview.textContent = t("config.preview"); }
+    CONFIG_ALL_KEYS.forEach(function (key) {
+      var label = $("cfg-" + key + "-title");
+      if (label) { label.textContent = cfgLabel(key); }
+      var hint = $("cfg-" + key + "-hint");
+      if (hint) { hint.textContent = t("config.opt." + key + ".hint"); }
+    });
+  }
+
+  function configFeedback(kind, message) {
+    var box = $("config-feedback");
+    if (!box) { return; }
+    box.className = "feedback show " + (kind || "info");
+    clear(box);
+    box.appendChild(document.createTextNode(
+      message === undefined || message === null ? "" : String(message)));
+  }
+
+  function clearConfigOut() {
+    var out = $("config-out");
+    if (!out) { return; }
+    out.textContent = "";
+    out.style.display = "none";
+  }
+
+  function showConfigOut(text) {
+    var out = $("config-out");
+    if (!out) { return; }
+    if (text) {
+      out.textContent = String(text);
+      out.style.display = "";
+    } else {
+      clearConfigOut();
+    }
+  }
+
+  // options 里本该是 bool；这里对 "false" / 0 / 1 之类的形态也照实渲染（值类型兜底）
+  function cfgToBool(value) {
+    if (value === true || value === false) { return value; }
+    if (typeof value === "number") { return value !== 0; }
+    if (typeof value === "string") {
+      var text = value.trim().toLowerCase();
+      if (text === "") { return false; }
+      return FALSEY_TEXT.indexOf(text) < 0;
+    }
+    return !!value;
+  }
+
+  // 与后端同口径拆分进程名列表（__init__.py:945 → [,;\n\r]+）
+  function cfgToItems(value) {
+    var parts;
+    if (Array.isArray(value)) {
+      parts = value.map(function (x) { return String(x); });
+    } else if (typeof value === "string") {
+      parts = value.split(/[,;\n\r]+/);
+    } else if (value === undefined || value === null) {
+      parts = [];
+    } else {
+      parts = [String(value)];
+    }
+    var items = [];
+    parts.forEach(function (part) {
+      var text = String(part).trim();
+      if (text !== "") { items.push(text); }
+    });
+    return items;
+  }
+
+  // 前端预检：与 __init__.py:2056 _pattern_refusal 同口径。
+  // 后端只在 close_extra_processes 路径调用它，set_target_processes 自身不校验
+  // ⇒ 「*」会被后端静默接受，必须在面板侧挡下。
+  function cfgWildcardRefusal(name) {
+    var pat = String(name || "").trim();
+    var low = pat.toLowerCase();
+    if (low.indexOf("*") < 0 && low.indexOf("?") < 0) { return ""; }
+    var prefix = low.split(/[*?]/)[0];
+    if (prefix.length < MIN_WILDCARD_LITERAL) {
+      return t("config.err.wildcard", { pattern: pat });
+    }
+    return "";
+  }
+
+  // 解析触发软件输入框：{ok:true, items:[...]} 或 {ok:false, error:"可读原因"}
+  // 空 / 只有逗号 / 项内空项 / 过宽通配 一律在这里被拦下 —— 拦下就不发任何请求，生效配置零变化。
+  // 注意：这里**按单个分隔符**切开（不是 [/]+ 的连续合并），所以 `a.exe,,b.exe` 会切出空项
+  // 并被拦下、提示「第 2 项是空的」。这是 AC 明确要求的口径（0 请求 + 配置零变化），
+  // 也顺带拦住 `a.exe,\nb.exe`（行尾多打一个逗号）这种手滑 —— 不会静默改配置。
+  function cfgParseTargets(text) {
+    var raw = String(text === undefined || text === null ? "" : text);
+    // 首尾多出来的空白与分隔符（末尾一个换行/逗号）不算「空进程名」
+    var trimmed = raw.replace(/^[\s,;]+/, "").replace(/[\s,;]+$/, "");
+    if (trimmed === "") {
+      return { ok: false, error: t("config.err.empty") };
+    }
+    var parts = trimmed.split(/[,;\n\r]/);
+    var items = [];
+    for (var i = 0; i < parts.length; i++) {
+      var item = parts[i].trim();
+      if (item === "") {
+        return { ok: false, error: t("config.err.emptyItem", { index: i + 1 }) };
+      }
+      var refusal = cfgWildcardRefusal(item);
+      if (refusal) { return { ok: false, error: refusal }; }
+      items.push(item);
+    }
+    return { ok: true, items: items };
+  }
+
+  function cfgDescribe(key, value) {
+    if (key === CONFIG_LIST_KEY) {
+      var items = cfgToItems(value);
+      return items.length ? items.join(", ") : t("empty.rows");
+    }
+    return cfgToBool(value) ? "true" : "false";
+  }
+
+  // status.options ⇒ 控件（页面载入 + 每次操作后都走这里）
+  function fillConfig(options) {
+    if (!options || typeof options !== "object") { return; }
+    CONFIG_BOOL_KEYS.forEach(function (key) {
+      var node = cfgNode(key);
+      if (!node || !Object.prototype.hasOwnProperty.call(options, key)) { return; }
+      var value = cfgToBool(options[key]);
+      node.checked = value;
+      cfgAuthoritative[key] = value;
+    });
+    var listNode = cfgNode(CONFIG_LIST_KEY);
+    if (listNode && Object.prototype.hasOwnProperty.call(options, CONFIG_LIST_KEY)) {
+      var items = cfgToItems(options[CONFIG_LIST_KEY]);
+      listNode.value = items.join("\n");
+      cfgAuthoritative[CONFIG_LIST_KEY] = items;
+    }
+    cfgReady = true;
+    if (!cfgFirstFillDone) {
+      cfgFirstFillDone = true;
+      configFeedback("info", t("config.loaded"));
+    }
+  }
+
+  // status 读不到 ⇒ 表单没有权威值：标记未就绪，保存/预览一律拒绝
+  function configUnavailable(message) {
+    cfgReady = false;
+    cfgFirstFillDone = false;
+    showConfigOut("");
+    configFeedback("err", t("config.unavailable", { message: String(message || "") }));
+  }
+
+  // 表单当前内容 ⇒ 待写入计划（只收有改动的项，没有改动就一次写入口都不调）
+  function cfgPlan() {
+    var plan = [];
+    CONFIG_BOOL_KEYS.forEach(function (key) {
+      var node = cfgNode(key);
+      if (!node) { return; }
+      var want = !!node.checked;
+      if (want !== cfgToBool(cfgAuthoritative[key])) {
+        plan.push({
+          kind: "option", key: key, label: cfgLabel(key),
+          value: want ? "true" : "false"
+        });
+      }
+    });
+    var listNode = cfgNode(CONFIG_LIST_KEY);
+    if (listNode) {
+      var parsed = cfgParseTargets(listNode.value);
+      if (!parsed.ok) { return { ok: false, error: parsed.error }; }
+      if (parsed.items.join(",") !== cfgToItems(cfgAuthoritative[CONFIG_LIST_KEY]).join(",")) {
+        plan.push({
+          kind: "processes", key: CONFIG_LIST_KEY, label: cfgLabel(CONFIG_LIST_KEY),
+          processes: parsed.items.join(","), items: parsed.items
+        });
+      }
+    }
+    return { ok: true, plan: plan };
+  }
+
+  // 写请求的唯一出口：**只有「保存配置」会走到这里**；预览（AC4 修订后）根本不走它。
+  function cfgEntryCall(item) {
+    if (item.kind === "processes") {
+      // 列表项 ⇒ set_target_processes(processes="a,b")
+      //   __init__.py:944  async def set_target_processes(self, processes: str = "", **_)
+      return callEntry(ENTRY.setTargetProcesses, { processes: item.processes });
+    }
+    // 布尔项 ⇒ set_option(key, "true"/"false")
+    //   __init__.py:961  async def set_option(self, key: str, value: str = "", dry_run: str = "", **_)
+    return callEntry(ENTRY.setOption, { key: item.key, value: item.value });
+  }
+
+  // 顺序提交（一项失败就停下，后面的不再提交）
+  function cfgRun(plan) {
+    var results = [];
+    var failed = null;
+    function step(index) {
+      if (index >= plan.length) { return Promise.resolve(); }
+      var item = plan[index];
+      return cfgEntryCall(item).then(function (result) {
+        results.push({ item: item, result: result });
+        return step(index + 1);
+      }, function (err) {
+        failed = { item: item, message: (err && err.message) || String(err) };
+      });
+    }
+    return step(0).then(function () { return { results: results, failed: failed }; });
+  }
+
+  // 「将要发送的入口 + 参数」的可读形态（纯本地字符串拼接，不发出任何请求）
+  function cfgRequestLine(item) {
+    var call = (item.kind === "processes")
+      ? 'set_target_processes(processes="' + item.processes + '")'
+      : 'set_option(key="' + item.key + '", value="' + item.value + '")';
+    return t("config.previewReq", { label: item.label, call: call });
+  }
+
+  // 预览（AC4 修订版）：**纯客户端、零请求**。
+  // 只做两件事：① 算出「将要发送的入口 + 参数」；② 算出「变更摘要（旧值 → 新值）」。
+  // 不调用任何入口 —— set_option / set_target_processes / status 都不调 ⇒ 点完预览后
+  // 请求日志零新增、插件配置逐字不变（见 tmp/us004 探针的请求数 + options 前后比对）。
+  // 为什么不做服务端 dry-run（后端事实，界面必须如实告知）：
+  //   __init__.py:961 set_option(key, value, dry_run="") 只在 key == "close_extra_processes"
+  //     分支里看 dry_run（L968-990）；其它 key 的 dry_run 被忽略并照常写盘（L991-993）。
+  //   __init__.py:944 set_target_processes(processes) 没有 dry_run 形参。
+  //   ⇒ dry_run 预览会在真实宿主上偷偷改配置，所以本面板一律不发。
+  function onConfigPreview() {
+    if (busy) { return Promise.resolve(); }
+    if (!cfgReady) { configFeedback("err", t("config.notReady")); return Promise.resolve(); }
+    var plan = cfgPlan();
+    if (!plan.ok) {
+      showConfigOut("");
+      configFeedback("err", plan.error);   // 非法输入：照样零请求（预览本来就零请求）
+      return Promise.resolve();
+    }
+
+    var lines = [];
+    if (!plan.plan.length) {
+      // 无改动 ⇒ 保存也不会发任何写请求
+      showConfigOut(t("config.previewZero"));
+      configFeedback("info", t("config.previewNoChange"));
+      return Promise.resolve();
+    }
+
+    lines.push(t("config.previewHead", { count: plan.plan.length }));
+    plan.plan.forEach(function (item) { lines.push(cfgRequestLine(item)); });
+
+    lines.push("");
+    lines.push(t("config.previewDiffHead"));
+    plan.plan.forEach(function (item) {
+      lines.push(t("config.previewDiff", {
+        label: item.label,
+        before: cfgDescribe(item.key, cfgAuthoritative[item.key]),
+        // 进程名项在计划里叫 processes（落库形态是 list），布尔项叫 value
+        after: cfgDescribe(item.key,
+                           item.kind === "processes" ? item.processes : item.value)
+      }));
+    });
+
+    var planned = {};
+    plan.plan.forEach(function (item) { planned[item.key] = true; });
+    var untouched = CONFIG_ALL_KEYS.filter(function (key) { return !planned[key]; });
+    if (untouched.length) {
+      lines.push("");
+      lines.push(t("config.previewUnchanged", {
+        count: untouched.length,
+        labels: untouched.map(cfgLabel).join(", ")
+      }));
+    }
+
+    lines.push("");
+    lines.push(t("config.previewZero"));
+    showConfigOut(lines.join("\n"));
+    configFeedback("info", t("config.previewPlanned", { count: plan.plan.length }));
+    return Promise.resolve();
+  }
+
+  // 保存：布尔项走 set_option(key, "true"/"false")，列表项走 set_target_processes(processes="a,b")
+  function onConfigSave() {
+    if (busy) { return Promise.resolve(); }
+    if (!cfgReady) { configFeedback("err", t("config.notReady")); return Promise.resolve(); }
+    var plan = cfgPlan();
+    if (!plan.ok) {
+      showConfigOut("");
+      configFeedback("err", plan.error);   // 非法输入：不发送任何请求，生效配置零变化
+      return Promise.resolve();
+    }
+    if (!plan.plan.length) {
+      showConfigOut("");
+      configFeedback("info", t("config.noneChanged"));
+      return Promise.resolve();
+    }
+    setBusy(true, t("config.save") + "：" + t("btn.busy"));
+    return cfgRun(plan.plan).then(function (outcome) {
+      var labels = [];
+      outcome.results.forEach(function (entry) { labels.push(entry.item.label); });
+      if (outcome.failed) {
+        var failLine = t("config.failed",
+                         { label: outcome.failed.item.label, message: outcome.failed.message });
+        configFeedback("err", labels.length
+          ? t("config.savedMany", { count: labels.length, labels: labels.join(", ") }) + "\n" + failLine
+          : failLine);
+      } else if (labels.length === 1) {
+        configFeedback("ok", t("config.saved", { label: labels[0] }));
+      } else {
+        configFeedback("ok", t("config.savedMany", { count: labels.length, labels: labels.join(", ") }));
+      }
+      // 保存后重新拉一次 status：表单回到插件的权威值（失败时也要回滚显示）
+      return refreshStatus(true).then(function () { return outcome; }, function () { return outcome; });
+    }).then(function () { setBusy(false); });
+  }
+
+  function renderStatus(info) {
+    info = info || {};
+    var state = String(info.state || "unknown");
+    var softPaused = !!info.soft_paused;
+    var display = (state === "applied" && softPaused) ? "paused" : state;
+
+    var badge = $("status-badge");
+    if (badge) {
+      var known = (display === "idle" || display === "applied" || display === "paused");
+      badge.className = "badge " + (known ? "badge-" + display : "badge-unknown");
+      badge.textContent = known ? t("state." + display) : t("state.unknown");
+    }
+
+    var stateText = $("state-text");
+    if (stateText) {
+      stateText.textContent = String(info.state_text || t("state." + (state === "idle" || state === "applied" || state === "paused" ? state : "unknown")));
+    }
+
+    var chipSaver = $("chip-saver");
+    if (chipSaver) {
+      var enabled = !!info.saver_enabled;
+      chipSaver.className = "chip " + (enabled ? "on" : "off");
+      clear(chipSaver);
+      chipSaver.appendChild(el("span", null, t("label.saver")));
+      chipSaver.appendChild(el("b", null, enabled ? t("on") : t("off")));
+    }
+
+    var chipTarget = $("chip-target");
+    if (chipTarget) {
+      chipTarget.className = "chip " + (info.target_running ? "on" : "off");
+      clear(chipTarget);
+      chipTarget.appendChild(el("span", null, t("label.target")));
+      chipTarget.appendChild(el("b", null, info.target_running ? t("running") : t("notRunning")));
+    }
+
+    var summary = $("status-summary");
+    if (summary) { summary.textContent = String(info.summary || "—"); }
+
+    var lastAction = $("last-action");
+    if (lastAction) {
+      var act = info.last_action;
+      clear(lastAction);
+      if (act && (act.entry || act.summary)) {
+        lastAction.appendChild(document.createTextNode(t("lastAction.line", {
+          entry: entryLabel(act.entry),
+          summary: act.summary || "—",
+          at: act.at || "—"
+        })));
+      } else {
+        lastAction.appendChild(document.createTextNode(t("lastAction.none")));
+      }
+    }
+
+    var reason = $("meta-reason");
+    if (reason) { reason.textContent = String(info.last_reason || "—"); }
+
+    var uptime = $("meta-uptime");
+    if (uptime) { uptime.textContent = fmtTime(info.uptime_seconds); }
+
+    var backend = $("meta-backend");
+    if (backend) { backend.textContent = String(info.backend || "—"); }
+
+    var counts = $("meta-counts");
+    if (counts) {
+      counts.textContent = ((info.suspended || []).length) + " / " + ((info.closed || []).length);
+    }
+
+    var toggle = $("btn-toggle");
+    if (toggle) {
+      toggle.textContent = !!info.saver_enabled ? t("btn.toggle.off") : t("btn.toggle.on");
+    }
+
+    renderTargets(info.target_processes || []);
+    renderSuspended(info.suspended || []);
+    renderClosed(info.closed || []);
+
+    if (info.last_error) {
+      setFeedback("err", t("feedback.statusFailed", { message: info.last_error }));
+    }
+  }
+
+  function renderTargets(targets, unavailable) {
+    var list = $("target-list");
+    var empty = $("target-empty");
+    if (!list) { return; }
+    clear(list);
+    targets.forEach(function (name) {
+      list.appendChild(el("li", null, String(name)));
+    });
+    if (unavailable) {
+      if (empty) { empty.textContent = t("empty.unavailable"); }
+      show(list, false);
+      show(empty, true);
+      return;
+    }
+    if (empty) { empty.textContent = t("targets.empty"); }
+    show(list, targets.length > 0);
+    show(empty, targets.length === 0);
+  }
+
+  function buildTable(columns, rows) {
+    var table = el("table");
+    var thead = el("thead");
+    var headRow = el("tr");
+    columns.forEach(function (col) { headRow.appendChild(el("th", null, col.label)); });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+    var tbody = el("tbody");
+    rows.forEach(function (cells) {
+      var tr = el("tr");
+      cells.forEach(function (cell) {
+        var td = el("td", cell && cell.className ? cell.className : null,
+                    cell && cell.text !== undefined ? cell.text : cell);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    return table;
+  }
+
+  function renderSuspended(records, unavailable) {
+    var box = $("suspended-box");
+    var counter = $("suspended-count");
+    if (!box) { return; }
+    clear(box);
+    var rows = [];
+    (records || []).forEach(function (rec) {
+      if (!rec) { return; }
+      rows.push([
+        { text: rec.pid, className: "num" },
+        rec.name || "—",
+        rec.kind || "—",
+        { text: (rec.rss_mb === undefined ? "—" : rec.rss_mb), className: "num" },
+        fmtEpoch(rec.create_time),
+        rec.resumed ? t("kind.resumed") : t("kind.held")
+      ]);
+    });
+    if (counter) { counter.textContent = rows.length ? "（" + rows.length + "）" : ""; }
+    if (unavailable) {
+      box.appendChild(el("p", "empty", t("empty.unavailable")));
+      return;
+    }
+    if (!rows.length) {
+      box.appendChild(el("p", "empty", t("empty.suspended")));
+      return;
+    }
+    box.appendChild(buildTable([
+      { label: t("col.pid") }, { label: t("col.name") }, { label: t("col.kind") },
+      { label: t("col.rss") }, { label: t("col.created") }, { label: t("col.state") }
+    ], rows));
+  }
+
+  function renderClosed(records, unavailable) {
+    var box = $("closed-box");
+    var counter = $("closed-count");
+    if (!box) { return; }
+    clear(box);
+    var rows = [];
+    (records || []).forEach(function (rec) {
+      if (!rec) { return; }
+      rows.push([
+        { text: rec.pid, className: "num" },
+        rec.name || "—",
+        rec.kind || "—",
+        { text: rec.respawnable ? t("yes") : t("no") },
+        { text: rec.relaunched ? t("yes") : t("no") }
+      ]);
+    });
+    if (counter) { counter.textContent = rows.length ? "（" + rows.length + "）" : ""; }
+    if (unavailable) {
+      box.appendChild(el("p", "empty", t("empty.unavailable")));
+      return;
+    }
+    if (!rows.length) {
+      box.appendChild(el("p", "empty", t("empty.closed")));
+      return;
+    }
+    box.appendChild(buildTable([
+      { label: t("col.pid") }, { label: t("col.name") }, { label: t("col.kind") },
+      { label: t("col.respawn") }, { label: t("col.relaunch") }
+    ], rows));
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // 动作
+  // ────────────────────────────────────────────────────────────
+  function refreshStatus(silent) {
+    return callEntry(ENTRY.status, {}).then(function (info) {
+      setHostError(null);
+      renderStatus(info || {});
+      // US-004：每次操作后都按 status.options 重新回填配置表单（初始值只有一个来源：后端）
+      fillConfig((info || {}).options);
+      if (!silent) {
+        setFeedback("ok", t("feedback.done", { message: (info && info.summary) || "状态已更新" }));
+      }
+      return info;
+    }, function (err) {
+      var text = (err && err.message) || String(err);
+      renderUnavailable(text);
+      // US-004：读不到 status ⇒ 配置表单没有权威值，标记成「未就绪」，保存/预览一律拒绝
+      configUnavailable(text);
+      setFeedback("err", t("feedback.statusFailed", { message: text }));
+      throw err;
+    });
+  }
+
+  function runAction(entryId, label, args) {
+    if (busy) { return Promise.resolve(); }
+    setBusy(true, label + "：" + t("btn.busy"));
+    return callEntry(entryId, args).then(function (result) {
+      var message = (result && (result.summary || result.message)) || "已完成";
+      return refreshStatus(true).then(function (info) {
+        setBusy(false);
+        setFeedback("ok", t("feedback.done", { message: (info && info.summary) || message }));
+        return result;
+      }, function () {
+        // 状态刷新失败时，至少把本次操作结果告诉用户（错误提示已由 refreshStatus 给出）
+        setBusy(false);
+        setFeedback("ok", t("feedback.done", { message: message }));
+        return result;
+      });
+    }, function (err) {
+      setBusy(false);
+      var text = (err && err.message) || String(err);
+      setFeedback("err", label + " 失败：" + text);
+      // 失败后也刷新一次，界面上的状态不能停在旧值
+      return refreshStatus(true).then(function () {
+        setFeedback("err", label + " 失败：" + text);
+      }, function () { return null; });
+    });
+  }
+
+  function onApply() { return runAction(ENTRY.apply, t("btn.apply"), {}); }
+
+  function onRestore() { return runAction(ENTRY.restore, t("btn.restore"), {}); }
+
+  function onToggle() {
+    var toggle = $("btn-toggle");
+    var label = toggle ? toggle.textContent : "自动守护";
+    // 入口按当前配置自行判断方向，面板不需要传参
+    return runAction(ENTRY.toggle, label, {});
+  }
+
+  function onRefresh() {
+    if (busy) { return Promise.resolve(); }
+    setBusy(true, t("btn.refresh") + "：" + t("btn.busy"));
+    return refreshStatus(true).then(function (info) {
+      setBusy(false);
+      setFeedback("ok", t("feedback.done", { message: (info && info.summary) || "状态已更新" }));
+    }, function () {
+      setBusy(false);
+    });
+  }
+
+  function bind() {
+    var apply = $("btn-apply");
+    if (apply) { apply.addEventListener("click", onApply); }
+    var restore = $("btn-restore");
+    if (restore) { restore.addEventListener("click", onRestore); }
+    var toggle = $("btn-toggle");
+    if (toggle) { toggle.addEventListener("click", onToggle); }
+    var refresh = $("btn-refresh");
+    if (refresh) { refresh.addEventListener("click", onRefresh); }
+    var ack = $("btn-disclaimer-ok");
+    if (ack) { ack.addEventListener("click", onDisclaimerConfirm); }
+    var retry = $("btn-disclaimer-retry");
+    if (retry) { retry.addEventListener("click", onDisclaimerRetry); }
+    // US-004 配置表单：保存 / 预览（这两个按钮同样带 data-entry，走同一个捕获阶段 guard）
+    var cfgSave = $("cfg-save");
+    if (cfgSave) { cfgSave.addEventListener("click", onConfigSave); }
+    var cfgPreview = $("cfg-preview");
+    if (cfgPreview) { cfgPreview.addEventListener("click", onConfigPreview); }
+    renderConfigLabels();
+    // 捕获阶段兜底：免责声明未确认时，任何 data-entry 按钮的点击都不生效
+    document.addEventListener("click", guardActionClick, true);
+  }
+
+  function start() {
+    try {
+      bind();
+      // 起手就锁：模态 + 4 个操作按钮 disabled，等 get_disclaimer 的结论（保守默认）
+      setOpsLock(true);
+      renderDisclaimer("checking");
+      checkDisclaimer().then(function (required) {
+        // 无论是否需要确认，都只读地拉一次状态（模态挡着也不影响读）
+        return refreshStatus(true).then(function (info) {
+          if (!required) {
+            setFeedback("ok", t("feedback.done", { message: (info && info.summary) || "状态已读取" }));
+          }
+          return null;
+        }, function () {
+          // 错误提示已经在 refreshStatus 里给了，这里保证不白屏
+          setBusy(false);
+          return null;
+        });
+      });
+    } catch (err) {
+      renderFatal((err && err.message) || String(err));
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
+  }
+})();
+</script>
+</body>
+</html>

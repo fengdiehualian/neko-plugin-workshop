@@ -1,0 +1,3666 @@
+﻿const PLUGIN_ID = 'study_companion';
+const RUNS_URL = '/runs';
+const RUN_TIMEOUT_MS = 60000;
+const RUN_EXPORT_RETRY_COUNT = 3;
+const RUN_EXPORT_RETRY_DELAY_MS = 400;
+const LOAD_IMAGE_TIMEOUT_MS = 30000;
+const TARGET_DATA_URL_LENGTH = 1000000;
+const DEFAULT_VISION_MAX_IMAGE_PX = 768;
+const SUPPORTED_PASTE_IMAGE_TYPES = new Set(['image/png', 'image/jpeg']);
+const DEPENDENCY_KEYS = Object.freeze(['rapidocr', 'dxcam']);
+const LEARNING_PROFILE_STORAGE_KEY = 'study_companion.learning_profile.v1';
+const LEARNING_STAGE_OPTIONS = ['primary', 'junior_high', 'senior_high', 'college', 'cross_stage', 'postgraduate', 'custom'];
+const KNOWLEDGE_SUBJECT_OPTIONS = ['math', 'english', 'chinese', 'physics', 'chemistry', 'biology', 'history', 'geography', 'politics', 'computer_science', 'economics'];
+const ENTRY_TIMEOUT_MS = {
+  study_status: 15000,
+  study_ocr_snapshot: 100000,
+  study_ocr_document_capabilities: 15000,
+  study_ocr_document_page: 45000,
+  study_set_mode: 15000,
+  study_explain_text: 120000,
+  study_generate_question: 75000,
+  study_question_context: 30000,
+  study_generate_targeted_question: 130000,
+  study_evaluate_answer: 75000,
+  study_summarize_session: 90000,
+  study_memory_card_upsert: 30000,
+  study_memory_list_decks: 30000,
+  study_memory_create_deck: 30000,
+  study_memory_deck: 30000,
+  study_memory_card_review: 30000,
+  study_memory_review_item: 30000,
+  study_export_notes: 90000,
+  study_note_ai_expand: 90000,
+};
+const STUDY_SURFACE_MESSAGE_TYPES = Object.freeze({
+  openSurface: 'neko-study-open-surface',
+  reviewCompleted: 'neko-study-review-completed',
+  refreshSummary: 'neko-study-refresh-summary',
+  memoryDeckUpdated: 'neko-study-memory-deck-updated',
+});
+const STUDY_SURFACE_INCOMING_MESSAGE_TYPES = new Set([
+  STUDY_SURFACE_MESSAGE_TYPES.reviewCompleted,
+  STUDY_SURFACE_MESSAGE_TYPES.refreshSummary,
+  STUDY_SURFACE_MESSAGE_TYPES.memoryDeckUpdated,
+]);
+const outcomeFormatters = window.StudyOutcomeFormatters;
+if (!outcomeFormatters) {
+  throw new Error('StudyOutcomeFormatters failed to load');
+}
+let currentMode = 'companion';
+let currentMemoryCard = null;
+let currentNextStep = null;
+let memoryDecks = [];
+let memoryDeckDialogResolve = null;
+let mapRequestId=0;
+const $id = (id) => document.getElementById(id);
+
+const statusLine = $id('statusLine');
+const replyText = $id('replyText');
+const studyInput = $id('studyInput');
+const refreshBtn = $id('refreshBtn');
+const ocrBtn = $id('ocrBtn');
+const saveOcrQuestionBtn = $id('saveOcrQuestionBtn');
+const undoOcrQuestionBtn = $id('undoOcrQuestionBtn');
+const clearOcrQuestionsBtn = $id('clearOcrQuestionsBtn');
+const generateQuestionBtn = $id('generateQuestionBtn');
+const questionDifficultySelect = $id('questionDifficultySelect');
+const baselineAssessmentBtn = $id('baselineAssessmentBtn');
+const explainBtn = $id('explainBtn');
+const evaluateAnswerBtn = $id('evaluateAnswerBtn');
+const summarizeBtn = $id('summarizeBtn');
+const answerInput = $id('answerInput');
+const studyInputImagePreview = $id('studyInputImagePreview');
+const studyInputImage = $id('studyInputImage');
+const studyInputImageRemove = $id('studyInputImageRemove');
+const studyInputPasteError = $id('studyInputPasteError');
+const answerInputImagePreview = $id('answerInputImagePreview');
+const answerInputImage = $id('answerInputImage');
+const answerInputImageRemove = $id('answerInputImageRemove');
+const answerInputPasteError = $id('answerInputPasteError');
+const questionText = $id('questionText');
+const questionContextCard = $id('questionContextCard');
+const selectedTopicName = $id('selectedTopicName');
+const selectionReason = $id('selectionReason');
+const questionTopicMeta = $id('questionTopicMeta');
+const questionDifficultyMeta = $id('questionDifficultyMeta');
+const questionAttemptMeta = $id('questionAttemptMeta');
+const hintToggleBtn = $id('hintToggleBtn');
+const hintText = $id('hintText');
+const feedbackPanel = $id('feedbackPanel');
+const evaluationVerdict = $id('evaluationVerdict');
+const feedbackText = $id('feedbackText');
+const masteryDeltaText = $id('masteryDeltaText');
+const nextStepDetails = $id('nextStepDetails');
+const continueQuestionBtn = $id('continueQuestionBtn');
+const learningPlanCard = $id('learningPlanCard');
+const learningPlanTitle = $id('learningPlanTitle');
+const learningPlanSummary = $id('learningPlanSummary');
+const learningPlanWarning = $id('learningPlanWarning');
+const learningPlanTopics = $id('learningPlanTopics');
+const learningPlanOverride = $id('learningPlanOverride');
+const learningPlanNotice = $id('learningPlanNotice');
+const learningPlanActivateBtn = $id('learningPlanActivateBtn');
+const learningPlanPauseBtn = $id('learningPlanPauseBtn');
+const learningPlanResumeBtn = $id('learningPlanResumeBtn');
+const learningPlanCancelBtn = $id('learningPlanCancelBtn');
+const screenType = $id('screenType');
+const questionStatus = $id('questionStatus');
+const evaluationStatus = $id('evaluationStatus');
+const memoryDeckStatus = $id('memoryDeckStatus');
+const memoryFrontInput = $id('memoryFrontInput');
+const memoryBackInput = $id('memoryBackInput');
+const memoryDeckSelect = $id('memoryDeckSelect');
+const memoryItemTypeSelect = $id('memoryItemTypeSelect');
+const memoryDeckDialog = $id('memoryDeckDialog');
+const memoryDeckNameInput = $id('memoryDeckNameInput');
+const memoryDeckTypeSelect = $id('memoryDeckTypeSelect');
+const memoryDeckCreateBtn = $id('memoryDeckCreateBtn');
+const memoryDeckSkipBtn = $id('memoryDeckSkipBtn');
+const memoryRefreshBtn = $id('memoryRefreshBtn');
+const memoryAddBtn = $id('memoryAddBtn');
+const memoryDueCard = $id('memoryDueCard');
+const modeSwitch = $id('modeSwitch');
+const modeSelect = $id('modeSelect');
+const summaryMode = $id('summaryMode');
+const summaryDuration = $id('summaryDuration');
+const summaryGoal = $id('summaryGoal');
+const summaryStage = $id('summaryStage');
+const quickFocusState = $id('quickFocusState');
+const quickReviewCount = $id('quickReviewCount');
+const quickCheckinStatus = $id('quickCheckinStatus');
+const diagnosisTitle = $id('diagnosisTitle');
+const diagnosisBody = $id('diagnosisBody');
+const primaryDiagnosis = $id('primaryDiagnosis');
+const nekoCoachPanel = $id('nekoCoachPanel');
+const nekoCoachScene = $id('nekoCoachScene');
+const nekoCoachMessage = $id('nekoCoachMessage');
+const nekoCoachRecommendation = $id('nekoCoachRecommendation');
+const nekoCoachMode = $id('nekoCoachMode');
+const nekoCoachTimer = $id('nekoCoachTimer');
+const nekoCoachGoal = $id('nekoCoachGoal');
+const nekoCoachReview = $id('nekoCoachReview');
+const nekoCoachPrimaryAction = $id('nekoCoachPrimaryAction');
+const nekoCoachSecondaryAction = $id('nekoCoachSecondaryAction');
+const nekoCoachActionButtons = Array.from(document.querySelectorAll('[data-neko-coach-action]'));
+const firstRunGuide = $id('firstRunGuide');
+const firstRunSteps = $id('firstRunSteps');
+const firstRunSkipBtn = $id('firstRunSkipBtn');
+const advancedToggleBtn = $id('advancedToggleBtn');
+const advancedSettings = $id('advancedSettings');
+const advancedSettingsCloseBtn = $id('advancedSettingsCloseBtn');
+const settingsTabs = Array.from(document.querySelectorAll('[data-settings-tab]'));
+const settingsTabPanels = Array.from(document.querySelectorAll('[data-settings-tab-panel]'));
+const surfaceOpenButtons = Array.from(document.querySelectorAll('[data-open-surface]'));
+const workspaceLinkButtons = Array.from(document.querySelectorAll('[data-workspace-link]'));
+const workspaceHomeButton = $id('workspaceHomeButton');
+const workspaceStudyStatus = $id('workspaceStudyStatus');
+const workspacePracticeStatus = $id('workspacePracticeStatus');
+const workspaceMemoryStatus = $id('workspaceMemoryStatus');
+const workspaceKnowledgeStatus = $id('workspaceKnowledgeStatus');
+const workspaceFocusStatus = $id('workspaceFocusStatus');
+const workspaceNotebookStatus = $id('workspaceNotebookStatus');
+const knowledgeWorkspacePanel = $id('knowledgeWorkspacePanel');
+const knowledgeMapContent = $id('knowledgeMapContent');
+const knowledgeMapStatus = $id('knowledgeMapStatus');
+const knowledgeMapLoading = $id('knowledgeMapLoading');
+const knowledgeMapError = $id('knowledgeMapError');
+const knowledgeMapErrorMessage = $id('knowledgeMapErrorMessage');
+const knowledgeMapFullscreenBtn = $id('knowledgeMapFullscreenBtn');
+const surfaceDrawer = $id('surfaceDrawer');
+const surfaceDrawerTitle = $id('surfaceDrawerTitle');
+const surfaceDrawerBody = $id('surfaceDrawerBody');
+const surfaceDrawerCloseBtn = $id('surfaceDrawerCloseBtn');
+const settingsConfigForm = $id('settingsConfigForm');
+const settingsSaveBtn = $id('settingsSaveBtn');
+const settingsConfigStatus = $id('settingsConfigStatus');
+const settingsDataSaveBtn = $id('settingsDataSaveBtn');
+const settingsDataConfigStatus = $id('settingsDataConfigStatus');
+const settingsRuntimeSaveBtn = $id('settingsRuntimeSaveBtn');
+const settingsRuntimeConfigStatus = $id('settingsRuntimeConfigStatus');
+const settingsDocExportEnabled = $id('settingsDocExportEnabled');
+const settingsCognitiveMode = $id('settingsCognitiveMode');
+const settingsCognitiveEnabled = $id('settingsCognitiveEnabled');
+const settingsCognitiveRuntimeStatus = $id('settingsCognitiveRuntimeStatus');
+const settingsDefaultMode = $id('settingsDefaultMode');
+const settingsLearningProfileSummary = $id('settingsLearningProfileSummary');
+const settingsLearningStage = $id('settingsLearningStage');
+const settingsOcrEnabled = $id('settingsOcrEnabled');
+const settingsOcrLanguages = $id('settingsOcrLanguages');
+const settingsOcrQuestionPersistence = $id('settingsOcrQuestionPersistence');
+const settingsLlmTimeout = $id('settingsLlmTimeout');
+const settingsLlmVisionEnabled = $id('settingsLlmVisionEnabled');
+const settingsLocalModelsEnabled = $id('settingsLocalModelsEnabled');
+const settingsLocalModelsRuntime = $id('settingsLocalModelsRuntime');
+const settingsModelRefreshBtn = $id('settingsModelRefreshBtn');
+const settingsModelRuntimeCards = Array.from(document.querySelectorAll('[data-model-runtime]'));
+const settingsCommunicationEnabled = $id('settingsCommunicationEnabled');
+const settingsSolutionNarrationEnabled = $id('settingsSolutionNarrationEnabled');
+const settingsGeneralNarrationEnabled = $id('settingsGeneralNarrationEnabled');
+const settingsCommunicationRequiresEnabled = $id('settingsCommunicationRequiresEnabled');
+const settingsCommunicationRuntime = $id('settingsCommunicationRuntime');
+const modeButtons = Array.from(document.querySelectorAll('[data-mode]'));
+const memoryReviewButtons = Array.from(document.querySelectorAll('[data-memory-rating]'));
+const MODE_SHORTCUTS=Object.freeze({1:'companion',2:'interactive',3:'teaching'});
+const NEKO_COACH_ACTION_LABELS=Object.freeze({'explain-current':'ui.coach.action.explain_current','quiz-me':'ui.coach.action.quiz_me','start-review':'ui.coach.action.start_review','session-summary':'ui.coach.action.session_summary'});
+const NEKO_COACH_SCENE_ACTIONS=Object.freeze({idle:'explain-current/quiz-me',focus:'explain-current/quiz-me',thinking:'explain-current/quiz-me',happy:'quiz-me/session-summary',review:'start-review/quiz-me',break:'session-summary/start-review',error:'explain-current/session-summary',teaching:'explain-current/quiz-me'});
+let lastStatusPayload = {};
+let settingsConfig = null;
+let settingsCommunicationStatus = {};
+let settingsLocalModelsRuntimeStatus = {};
+let settingsLocalModelAssetsStatus = {};
+let settingsConfigLoading = false;
+let firstRunDismissed = false;
+let advancedSettingsOpen = false;
+let modeChangeInFlight = false;
+let refreshPending = false;
+let learningProfileModal = null;
+let lastReplyValue = '';
+let ocrN = '';
+let ocrT = '';
+let lastSavedOcrQuestionId = '';
+let studyInputImageValue = '';
+let answerInputImageValue = '';
+let pastePendingCount = 0;
+let llmVisionMaxImagePx = DEFAULT_VISION_MAX_IMAGE_PX;
+let currentQuestion = null;
+let canEvaluateCurrentQuestion = false;
+let questionStartedAt = 0;
+let hintRevealed = false;
+let currentSelectionContext = null;
+let currentPracticeScope=null;
+let currentLearningPlanDraft=null;
+let currentLearningPlan=null;
+let currentLearningPlanMapping={};
+let currentLearningPlanTopicIds=[];
+let learningPlanBusy=false;
+let learningProfile = readLearningProfile();
+let knowledgeMapStage = '';
+let lastKnowledgeMapPayload = null;
+let workspaceController = null;
+let suspendedWorkspaceId = '';
+let knowledgeWorkspaceActive = false;
+let releaseKnowledgeWorkspaceHost = null;
+let releaseKnowledgeFullscreenHost = null;
+let knowledgeMapLoadState = 'idle';
+let knowledgeMapLoadError = '';
+const pasteControllers = { study: null, answer: null };
+
+function t(key, fallback) {
+  return window.I18n && typeof window.I18n.t === 'function'
+    ? window.I18n.t(key, fallback)
+    : (fallback || key);
+}
+
+function tf(key, fallback, values = {}) {
+  return window.I18n && typeof window.I18n.tf === 'function'
+    ? window.I18n.tf(key, fallback, values)
+    : (fallback || key).replace(/\{([a-zA-Z0-9_]+)\}/g, (match, name) => (
+      Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : match
+    ));
+}
+
+function readLearningProfile() {
+  try { return JSON.parse(window.localStorage?.getItem(LEARNING_PROFILE_STORAGE_KEY) || '{}') || {}; } catch (error) { return {}; }
+}
+
+function writeLearningProfile(nextProfile) {
+  learningProfile = { ...(nextProfile || {}) };
+  try { window.localStorage?.setItem(LEARNING_PROFILE_STORAGE_KEY, JSON.stringify(learningProfile)); } catch (error) {}
+}
+
+function normalizeLearningStage(value) {
+  const normalized = String(value || '').trim().toLowerCase().replaceAll('-', '_');
+  return LEARNING_STAGE_OPTIONS.includes(normalized) ? normalized : '';
+}
+
+function learningStageLabel(value = learningProfile.stage) {
+  const stage = normalizeLearningStage(value);
+  return t(stage ? `ui.profile.stage.${stage}` : 'ui.profile.stage_unset', stage || 'Not set');
+}
+
+function syncLearningProfileUi() {
+  const label = learningStageLabel();
+  if (summaryStage) {
+    summaryStage.textContent = label;
+  }
+  if (settingsLearningStage) {
+    settingsLearningStage.value = normalizeLearningStage(learningProfile.stage);
+  }
+  if (settingsLearningProfileSummary) {
+    settingsLearningProfileSummary.textContent = normalizeLearningStage(learningProfile.stage)
+      ? tf('ui.profile.current_stage', 'Current stage: {stage}', { stage: label })
+      : t('ui.profile.settings_summary', 'Choose a learning stage so the knowledge map and practice stay in range.');
+  }
+}
+
+function learningProfileNeedsSetup() {
+  return !normalizeLearningStage(learningProfile.stage) && !learningProfile.completed && !learningProfile.skipped;
+}
+
+function setLearningProfileStage(stage, options = {}) {
+  const normalized = normalizeLearningStage(stage);
+  writeLearningProfile({
+    ...learningProfile,
+    stage: normalized,
+    skipped: Boolean(options.skipped),
+    completed: Boolean(normalized) || Boolean(options.skipped),
+  });
+  syncLearningProfileUi();
+  closeLearningProfileModal();
+  renderFirstRunGuide(lastStatusPayload);
+  const knowledgeMap = window.StudyCompanionKnowledgeMap;
+  if (knowledgeMap?.isActive?.()) {
+    knowledgeMapStage = '';
+    reloadKnowledgeMapForStage(normalized || 'all');
+  }
+}
+
+function setStatus(text) {
+  statusLine.textContent = text;
+}
+
+// SECURITY: renderMathInText MUST HTML-escape all non-math text.
+function setReply(text) {
+  const value = text || '';
+  const replyPanel = replyText?.closest('.reply-panel');
+  if (replyPanel) {
+    replyPanel.hidden = value.trim().length === 0;
+  }
+  lastReplyValue = value;
+  if (window.renderMathInText && typeof window.renderMathInText === 'function') {
+    replyText.innerHTML = window.renderMathInText(value);
+    if (!window.katex || typeof window.katex.renderToString !== 'function') {
+      window.setTimeout(() => {
+        if (
+          lastReplyValue === value
+          && window.katex
+          && typeof window.katex.renderToString === 'function'
+          && window.renderMathInText
+          && typeof window.renderMathInText === 'function'
+        ) {
+          replyText.innerHTML = window.renderMathInText(value);
+        }
+      }, 100);
+    }
+  } else {
+    replyText.textContent = value;
+  }
+}
+
+function scrollReplyIntoView() {
+  const replyPanel = replyText?.closest('.reply-panel');
+  if (!replyPanel || replyPanel.hidden || typeof replyPanel.scrollIntoView !== 'function') {
+    return;
+  }
+  replyPanel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+function modeLabel(mode) {
+  const known = ['companion', 'interactive', 'teaching'].includes(mode);
+  return known ? t(`status.mode.${mode}`, mode) : mode;
+}
+
+function screenLabel(type) {
+  const normalized = String(type || 'idle');
+  const known = ['idle', 'reading', 'question', 'answering', 'review', 'notes', 'summary'].includes(normalized);
+  return known ? t(`ui.status.screen.${normalized}`, normalized) : normalized;
+}
+
+function selectionReasonLabel(reason) {
+  const normalized = String(reason || 'no_data');
+  const known = ['retry', 'due_review', 'weak_topic', 'blocked_diagnostic', 'recommended', 'no_data', 'loading'].includes(normalized);
+  return known ? t(`ui.practice.reason.${normalized}`, normalized) : normalized;
+}
+
+function wrongQuestionStatusLabel(status) {
+  const normalized = String(status || '').trim();
+  return normalized
+    ? t(`ui.practice.wrong_status.${normalized}`, normalized)
+    : t('ui.practice.wrong_status.none', 'None');
+}
+
+function nextStepActionLabel(action) {
+  const normalized = String(action || 'choose_scope').trim();
+  return t(`ui.practice.next_step.${normalized}`, normalized);
+}
+
+function pluginErrorCode(error) {
+  return String(error?.code || error?.message || '').trim();
+}
+
+function localizedEvaluationNextAction(value, status) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const locale = String(
+    window.I18n && typeof window.I18n.lang === 'function'
+      ? window.I18n.lang()
+      : (document.documentElement.lang || 'en'),
+  ).toLowerCase();
+  if (locale.startsWith('en') || !/^[\x00-\x7F]*$/.test(text)) return text;
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+  const messages = {
+    correct: ['ui.practice.next_action.correct', 'Proceed to the next question.'],
+    partial: ['ui.practice.next_action.partial', 'Complete the missing step, then check the answer again.'],
+    dont_know: ['ui.practice.next_action.dont_know', 'Review the hint, then try the answer again.'],
+    wrong: ['ui.practice.next_action.wrong', 'Review the misconception, then try a simpler question.'],
+  };
+  const message = messages[normalizedStatus];
+  return message ? t(message[0], message[1]) : text;
+}
+
+function localizedPracticePoint(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const normalized = text.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+  const messages = {
+    'conversion formula': ['ui.practice.point.conversion_formula', 'Conversion formula'],
+    simplification: ['ui.practice.point.simplification', 'Simplification'],
+  };
+  const message = messages[normalized];
+  return message ? t(message[0], message[1]) : text;
+}
+
+function localizedQuestionHint(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const normalized = text.toLowerCase().replace(/\s+/g, ' ');
+  if (/^remember that 180 degrees is equal to (?:π|pi) radians[.!。]?$/.test(normalized)) {
+    return t(
+      'ui.practice.hint.degrees_to_radians',
+      'Remember that 180 degrees is equal to π radians.',
+    );
+  }
+  return text;
+}
+
+function hasUsableSelectionContext(nextStep) {
+  const contextId = String(nextStep?.selection_context_id || '').trim();
+  if (!contextId) return false;
+  const expiresAt = Number(nextStep?.expires_at || 0);
+  return expiresAt <= 0 || (Number.isFinite(expiresAt) && expiresAt > Date.now() / 1000);
+}
+
+function formatLearningPlanError(error) {
+  const code = pluginErrorCode(error);
+  const known = {
+    ACTIVE_LEARNING_PLAN_EXISTS: ['ui.learning_plan.error.active_exists', 'Another learning plan is already active. Pause or cancel it first.'],
+    LEARNING_PLAN_CHANGED: ['ui.learning_plan.error.changed', 'This learning plan changed. Refresh it and try again.'],
+    LEARNING_PLAN_NOT_ACTIVE: ['ui.learning_plan.error.not_active', 'This learning plan is no longer active.'],
+    LEARNING_PLAN_TOPIC_REMOVED: ['ui.learning_plan.error.topic_removed', 'A topic in this learning plan is no longer available.'],
+    LEARNING_PLAN_CORE_TOPIC_REQUIRED: ['ui.learning_plan.error.core_required', 'Keep at least one core topic in the plan.'],
+    LEARNING_PLAN_TOPIC_INJECTION_REJECTED: ['ui.learning_plan.error.invalid_selection', 'Choose only topics proposed for this learning plan.'],
+    SELECTION_CONTEXT_EXPIRED: ['ui.learning_plan.error.context_expired', 'The question selection expired. Refreshing the plan will create a new one.'],
+  };
+  const message = known[code];
+  return message ? t(message[0], message[1]) : formatPluginError(error);
+}
+
+function learningPlanAcceptedTopicIds() {
+  return [...currentLearningPlanTopicIds];
+}
+
+function learningPlanHasSelectedCore() {
+  return (currentLearningPlanDraft?.items || []).some((item) => (
+    item.role === 'core' && currentLearningPlanTopicIds.includes(String(item.topic_id || ''))
+  ));
+}
+
+function renderLearningPlan() {
+  const plan = currentLearningPlanDraft || currentLearningPlan;
+  if (!learningPlanCard) return;
+  learningPlanCard.hidden = !plan?.id;
+  if (!plan?.id) return;
+  const draft = plan.status === 'draft';
+  const progress = plan.progress || {};
+  if (learningPlanTitle) {
+    learningPlanTitle.textContent = draft
+      ? t('ui.learning_plan.draft_title', 'Confirm learning plan')
+      : (plan.display_title || t('ui.learning_plan.default_title', 'Imported learning plan'));
+  }
+  if (learningPlanSummary) {
+    learningPlanSummary.textContent = draft
+      ? tf('ui.learning_plan.detected_topics', 'Detected {count} topics', { count: (plan.items || []).length })
+      : tf('ui.learning_plan.progress_summary', '{mastered} / {total} mastered · {progressing} progressing · {review_due} due', {
+        mastered: progress.mastered || 0,
+        total: progress.total || (plan.items || []).length,
+        progressing: progress.progressing || 0,
+        review_due: progress.review_due || 0,
+      });
+  }
+  const warningParts = [];
+  const unmatched = Number(currentLearningPlanMapping.unmatched_count ?? plan.unmatched_count) || 0;
+  if (draft && unmatched > 0) warningParts.push(tf(
+    'ui.learning_plan.unmatched_warning',
+    '{count} parts of the material could not be matched to existing topics.',
+    { count: unmatched },
+  ));
+  if (draft && currentLearningPlanMapping.truncated) warningParts.push(t(
+    'ui.learning_plan.truncated_warning',
+    'Only the highest-confidence topics are shown. Narrow the material for a more focused plan.',
+  ));
+  if (learningPlanWarning) {
+    learningPlanWarning.textContent = warningParts.join(' ');
+    learningPlanWarning.hidden = warningParts.length === 0;
+  }
+  if (learningPlanTopics) {
+    learningPlanTopics.replaceChildren();
+    (plan.items || []).forEach((item) => {
+      const topicId = String(item.topic_id || '').trim();
+      if (!topicId) return;
+      const row = document.createElement('label');
+      if (draft) {
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = topicId;
+        input.checked = currentLearningPlanTopicIds.includes(topicId);
+        input.disabled = learningPlanBusy;
+        input.addEventListener('change', () => {
+          currentLearningPlanTopicIds = input.checked
+            ? Array.from(new Set([...currentLearningPlanTopicIds, topicId]))
+            : currentLearningPlanTopicIds.filter((id) => id !== topicId);
+          if (learningPlanActivateBtn) learningPlanActivateBtn.disabled = !learningPlanHasSelectedCore();
+        });
+        row.appendChild(input);
+      }
+      const name = document.createElement('span');
+      name.textContent = item.topic_name || topicId;
+      row.appendChild(name);
+      const detail = document.createElement('small');
+      detail.textContent = draft
+        ? `${t(`ui.learning_plan.role.${item.role || 'core'}`, item.role || 'core')} · ${t(`ui.learning_plan.confidence.${item.mapping_confidence || 'medium'}`, item.mapping_confidence || 'medium')}`
+        : t(`ui.learning_plan.item_state.${item.state || 'pending'}`, item.state || 'pending');
+      row.appendChild(detail);
+      learningPlanTopics.appendChild(row);
+    });
+  }
+  const manualOverride = Boolean(currentPracticeScope || currentSelectionContext?.practice_scope)
+    && plan.status === 'active';
+  if (learningPlanOverride) learningPlanOverride.hidden = !manualOverride;
+  if (learningPlanActivateBtn) {
+    learningPlanActivateBtn.hidden = !draft;
+    learningPlanActivateBtn.disabled = learningPlanBusy || !learningPlanHasSelectedCore();
+  }
+  if (learningPlanPauseBtn) {
+    learningPlanPauseBtn.hidden = plan.status !== 'active';
+    learningPlanPauseBtn.disabled = learningPlanBusy;
+  }
+  if (learningPlanResumeBtn) {
+    learningPlanResumeBtn.hidden = plan.status !== 'paused';
+    learningPlanResumeBtn.disabled = learningPlanBusy;
+  }
+  if (learningPlanCancelBtn) {
+    learningPlanCancelBtn.hidden = !['active', 'paused'].includes(plan.status);
+    learningPlanCancelBtn.disabled = learningPlanBusy;
+  }
+}
+
+async function captureLearningPlanDraft(payload = {}) {
+  let draft = payload.learning_plan_draft;
+  if (!draft?.id) return;
+  if (!draft.items?.length) {
+    try {
+      const data = await callPlugin('study_learning_plan_status', { plan_id: draft.id });
+      if (data.plan?.id) draft = data.plan;
+    } catch (_error) {
+      // Keep the compact completion payload visible if detail refresh fails.
+    }
+  }
+  currentLearningPlanDraft = draft;
+  currentLearningPlanMapping = payload.learning_plan_mapping || {};
+  currentLearningPlanTopicIds = (draft.items || [])
+    .map((item) => String(item.topic_id || '').trim())
+    .filter(Boolean);
+  if (learningPlanNotice) learningPlanNotice.textContent = '';
+  renderLearningPlan();
+}
+
+async function refreshLearningPlanStatus() {
+  try {
+    const data = await callPlugin('study_learning_plan_status');
+    currentLearningPlan = data.plan?.id ? data.plan : null;
+    renderLearningPlan();
+  } catch (error) {
+    if (learningPlanNotice) learningPlanNotice.textContent = formatLearningPlanError(error);
+  }
+}
+
+async function activateLearningPlan() {
+  if (!currentLearningPlanDraft?.id || learningPlanBusy) return;
+  learningPlanBusy = true;
+  renderLearningPlan();
+  try {
+    const data = await callPlugin('study_learning_plan_activate', {
+      plan_id: currentLearningPlanDraft.id,
+      revision: Number(currentLearningPlanDraft.revision || 1),
+      accepted_topic_ids: learningPlanAcceptedTopicIds(),
+    });
+    currentLearningPlan = data.plan?.id ? data.plan : null;
+    currentLearningPlanDraft = null;
+    currentLearningPlanMapping = {};
+    currentLearningPlanTopicIds = [];
+    if (learningPlanNotice) learningPlanNotice.textContent = t('ui.learning_plan.activated', 'Learning plan activated.');
+  } catch (error) {
+    if (learningPlanNotice) learningPlanNotice.textContent = formatLearningPlanError(error);
+  } finally {
+    learningPlanBusy = false;
+    renderLearningPlan();
+  }
+}
+
+async function changeLearningPlanStatus(action) {
+  if (!currentLearningPlan?.id || learningPlanBusy) return;
+  learningPlanBusy = true;
+  renderLearningPlan();
+  try {
+    const data = await callPlugin(action === 'pause' ? 'study_learning_plan_pause' : 'study_learning_plan_cancel', {
+      plan_id: currentLearningPlan.id,
+      revision: currentLearningPlan.revision,
+    });
+    currentLearningPlan = data.plan?.id ? data.plan : null;
+    if (learningPlanNotice) learningPlanNotice.textContent = t(
+      `ui.learning_plan.${action}d`,
+      action === 'pause' ? 'Learning plan paused.' : 'Learning plan canceled.',
+    );
+  } catch (error) {
+    if (learningPlanNotice) learningPlanNotice.textContent = formatLearningPlanError(error);
+  } finally {
+    learningPlanBusy = false;
+    renderLearningPlan();
+  }
+}
+
+async function resumeLearningPlan() {
+  if (!currentLearningPlan?.id || currentLearningPlan.status !== 'paused' || learningPlanBusy) return;
+  learningPlanBusy = true;
+  renderLearningPlan();
+  try {
+    const data = await callPlugin('study_learning_plan_activate', {
+      plan_id: currentLearningPlan.id,
+      revision: Number(currentLearningPlan.revision || 1),
+      accepted_topic_ids: (currentLearningPlan.items || []).map((item) => item.topic_id).filter(Boolean),
+    });
+    currentLearningPlan = data.plan?.id ? data.plan : null;
+    if (learningPlanNotice) learningPlanNotice.textContent = t('ui.learning_plan.resumed', 'Learning plan resumed.');
+  } catch (error) {
+    if (learningPlanNotice) learningPlanNotice.textContent = formatLearningPlanError(error);
+  } finally {
+    learningPlanBusy = false;
+    renderLearningPlan();
+  }
+}
+
+function setQuestionContext(data = {}) {
+  currentSelectionContext = data && typeof data === 'object' ? data : null;
+  const reason = String(currentSelectionContext?.selection_reason || 'no_data');
+  if (questionContextCard) {
+    questionContextCard.dataset.selectionReason = reason;
+  }
+  if (selectedTopicName) {
+    selectedTopicName.textContent = currentSelectionContext?.selected_topic_name
+      || currentSelectionContext?.selected_topic_id
+      || practiceScopeDisplayPath(currentSelectionContext?.practice_scope)
+      || practiceScopeDisplayPath()
+      || t('ui.practice.no_data_title', 'Choose how to begin');
+  }
+  if (selectionReason) {
+    selectionReason.textContent = currentPracticeScope && !currentSelectionContext?.selection_context_id
+      ? t('ui.practice.scope_ready_body', 'The selected scope is ready. Questions are generated only after you click Generate Question.')
+      : currentSelectionContext?.no_data
+      ? t('ui.practice.no_data_body', 'Tell me what you want to practice, or paste, import, or capture learning content. I will extract topics for confirmation before generating questions.')
+      : tf('ui.practice.selection_reason_fmt', 'Reason: {reason}', { reason: selectionReasonLabel(reason) });
+  }
+}
+
+function setGeneratedQuestion(data = {}) {
+  const previousAttemptId = String(currentQuestion?.attempt_id || '');
+  currentQuestion = data && typeof data === 'object' ? data : null;
+  const nextAttemptId = String(currentQuestion?.attempt_id || '');
+  if (nextAttemptId && nextAttemptId !== previousAttemptId) {
+    questionStartedAt = Date.now();
+    hintRevealed = false;
+  } else if (!nextAttemptId) {
+    questionStartedAt = 0;
+    hintRevealed = false;
+  }
+  canEvaluateCurrentQuestion = typeof currentQuestion?.can_evaluate_current_question === 'boolean'
+    ? currentQuestion.can_evaluate_current_question
+    : Boolean(currentQuestion?.question_id && currentQuestion?.attempt_id);
+  if (evaluateAnswerBtn) {
+    evaluateAnswerBtn.disabled = !canEvaluateCurrentQuestion;
+  }
+  const renderQuestionContent = (element, value) => {
+    if (window.renderMathInText && typeof window.renderMathInText === 'function') {
+      element.innerHTML = window.renderMathInText(value);
+    } else {
+      element.textContent = value;
+    }
+  };
+  if (questionText) {
+    const questionValue = currentQuestion?.question || t('ui.practice.empty_question', 'Generate a practice question to begin.');
+    renderQuestionContent(questionText, questionValue);
+  }
+  if (questionStatus) {
+    questionStatus.textContent = compactText(currentQuestion?.question || '');
+  }
+  if (questionTopicMeta) {
+    questionTopicMeta.textContent = currentQuestion?.selected_topic_name
+      || currentQuestion?.selected_topic_id
+      || currentQuestion?.topic
+      || '-';
+  }
+  if (questionDifficultyMeta) {
+    questionDifficultyMeta.textContent = currentQuestion?.difficulty
+      ? tf('ui.practice.difficulty_fmt', 'Difficulty {difficulty}', { difficulty: currentQuestion.difficulty })
+      : '-';
+  }
+  if (questionAttemptMeta) {
+    questionAttemptMeta.textContent = currentQuestion?.attempt_id
+      ? t('ui.practice.new_attempt', 'New attempt')
+      : '-';
+  }
+  const hint = localizedQuestionHint(currentQuestion?.hint);
+  if (hintToggleBtn) {
+    hintToggleBtn.hidden = !hint;
+    hintToggleBtn.setAttribute('aria-expanded', 'false');
+  }
+  if (hintText) {
+    renderQuestionContent(hintText, hint);
+    hintText.hidden = true;
+  }
+}
+
+function clearFeedback() {
+  currentNextStep = null;
+  if (feedbackPanel) feedbackPanel.hidden = true;
+  if (evaluationVerdict) {
+    evaluationVerdict.textContent = '';
+    delete evaluationVerdict.dataset.status;
+  }
+  if (feedbackText) feedbackText.textContent = '';
+  if (masteryDeltaText) masteryDeltaText.textContent = '';
+  if (nextStepDetails) nextStepDetails.textContent = '';
+  if (continueQuestionBtn) continueQuestionBtn.hidden = true;
+  if (evaluationStatus) evaluationStatus.textContent = t('ui.status.ready', 'Ready');
+}
+
+function normalizeFeedbackDisplayText(value) {
+  return String(value || '')
+    .replace(/(?:&#x20;|&#32;|&nbsp;)/gi, ' ')
+    .trimEnd();
+}
+
+function renderFeedback(data = {}) {
+  const attemptStatus = String(data.attempt_status || data.verdict || '').trim().toLowerCase();
+  const attemptMessage = practiceAttemptMessage(data);
+  if (evaluationStatus) {
+    evaluationStatus.textContent = attemptMessage
+      || (data.verdict ? `${data.verdict}${Number.isFinite(Number(data.score)) ? ` / ${data.score}` : ''}` : '-');
+  }
+  if (evaluationVerdict) {
+    evaluationVerdict.textContent = attemptMessage
+      || t('ui.practice.attempt.unknown', 'Answer evaluated.');
+    evaluationVerdict.dataset.status = attemptStatus || 'unknown';
+  }
+  const learningUpdate = data.learning_update && typeof data.learning_update === 'object'
+    ? data.learning_update
+    : {};
+  const masteryBefore = Number(learningUpdate.mastery_before ?? data.mastery_before);
+  const masteryAfter = Number(learningUpdate.mastery_after ?? data.mastery_after);
+  if (masteryDeltaText) {
+    masteryDeltaText.textContent = Number.isFinite(masteryBefore) && Number.isFinite(masteryAfter)
+      ? tf('ui.practice.mastery_delta_fmt', 'Mastery {before} -> {after}', {
+        before: masteryBefore.toFixed(2),
+        after: masteryAfter.toFixed(2),
+      })
+      : '';
+  }
+  const localizedNextAction = localizedEvaluationNextAction(
+    data.next_action,
+    data.attempt_status || data.verdict,
+  );
+  const lines = [data.feedback || data.reply || '',
+    Array.isArray(data.covered_points) && data.covered_points.length
+      ? `${t('ui.practice.covered_points', 'Covered')}: ${data.covered_points.map(localizedPracticePoint).join(', ')}`
+      : '',
+    Array.isArray(data.missing_points) && data.missing_points.length
+      ? `${t('ui.practice.missing_points', 'Missing')}: ${data.missing_points.map(localizedPracticePoint).join(', ')}`
+      : '',
+    data.reference_answer ? `${t('ui.practice.reference_answer', 'Reference')}: ${data.reference_answer}` : '',
+    localizedNextAction ? `${t('ui.practice.next_action', 'Next')}: ${localizedNextAction}` : '',
+  ].filter(Boolean);
+  if (feedbackText) {
+    const value = normalizeFeedbackDisplayText(lines.join('\n'));
+    if (window.renderMathInText && typeof window.renderMathInText === 'function') {
+      feedbackText.innerHTML = window.renderMathInText(value);
+    } else {
+      feedbackText.textContent = value;
+    }
+  }
+  currentNextStep = data.next_step && typeof data.next_step === 'object'
+    ? data.next_step
+    : null;
+  const planProgress = learningUpdate.plan_progress || currentNextStep?.plan_progress || {};
+  const nextLines = [
+    `${t('ui.practice.wrong_status_label', 'Wrong-question status')}: ${wrongQuestionStatusLabel(learningUpdate.wrong_question_status)}`,
+    learningUpdate.next_review_at
+      ? `${t('ui.practice.next_review_label', 'Next review')}: ${new Date(learningUpdate.next_review_at).toLocaleString()}`
+      : `${t('ui.practice.next_review_label', 'Next review')}: ${t('ui.practice.next_review_none', 'Not scheduled')}`,
+    Number(planProgress.total) > 0
+      ? tf('ui.practice.plan_progress_fmt', 'Plan progress: {mastered} / {total}', {
+        mastered: Number(planProgress.mastered || 0),
+        total: Number(planProgress.total || 0),
+      })
+      : '',
+    currentNextStep?.status === 'ready'
+      ? `${t('ui.practice.next_action', 'Next')}: ${nextStepActionLabel(currentNextStep.action)}`
+      : currentNextStep?.status === 'temporarily_unavailable'
+        ? t('ui.practice.next_step.temporarily_unavailable', 'Next-step preview is temporarily unavailable')
+        : '',
+    currentNextStep?.reason
+      ? tf('ui.practice.next_step_reason_fmt', 'Reason: {reason}', {
+        reason: selectionReasonLabel(currentNextStep.reason),
+      })
+      : '',
+  ].filter(Boolean);
+  if (nextStepDetails) {
+    const value = normalizeFeedbackDisplayText(nextLines.join('\n'));
+    if (window.renderMathInText && typeof window.renderMathInText === 'function') {
+      nextStepDetails.innerHTML = window.renderMathInText(value);
+    } else {
+      nextStepDetails.textContent = value;
+    }
+  }
+  if (continueQuestionBtn) {
+    // A successful evaluation always permits an explicit next action. When the
+    // preview is missing or stale, generateQuestion refreshes the context.
+    continueQuestionBtn.hidden = false;
+    const canUsePreview = currentNextStep?.status === 'ready'
+      && currentNextStep?.available_now === true;
+    continueQuestionBtn.textContent = canUsePreview && currentNextStep?.action === 'summarize_plan'
+      ? t('ui.button.view_plan_summary', 'View plan summary')
+      : t('ui.button.continue_next_question', 'Continue to next question');
+  }
+  if (feedbackPanel) {
+    feedbackPanel.hidden = lines.length === 0 && nextLines.length === 0 && !masteryDeltaText?.textContent;
+  }
+  renderLearningPlan();
+}
+
+function formatPluginError(error) {
+  const code = String(error?.code || error?.message || '').trim();
+  if (
+    code === 'PLUGIN_CALL_CANCELED'
+    || /(?:execution|run|request)\s+cancel(?:led|ed)/i.test(code)
+  ) {
+    return t('ui.error.plugin_call_canceled', 'This operation was canceled. Please try again.');
+  }
+  if (code === 'QUESTION_VALIDATION_FAILED') {
+    return t('ui.error.question_validation_failed', 'The generated question did not pass validation. Please generate another one.');
+  }
+  if (code === 'EVALUATION_INCONSISTENT') {
+    return t('ui.error.evaluation_inconsistent', 'The answer evaluation was inconsistent. Please try evaluating again.');
+  }
+  if (code === 'ATTEMPT_ALREADY_EVALUATED') {
+    return t('ui.error.attempt_already_evaluated', 'This question has already been submitted. Please generate the next question.');
+  }
+  if (code === 'QUESTION_GENERATION_IN_PROGRESS' || code === 'ANSWER_EVALUATION_IN_PROGRESS') {
+    return t('ui.error.question_operation_in_progress', 'Another question operation is already running. Please wait a moment and retry.');
+  }
+  if(error instanceof Error&&error.message==='plugin_call_timeout')return t('ui.error.plugin_call_timeout','Plugin call timed out');
+  if(error instanceof Error&&error.message==='run_id_missing')return t('ui.error.run_id_missing','Run id missing');
+  if(error instanceof Error&&error.message==='plugin_call_failed')return t('ui.error.plugin_call_failed','Plugin call failed');
+  return error instanceof Error ? error.message : String(error);
+}
+
+function formatTutorDiagnostic(diagnostic) {
+  return window.StudyModelRuntime.formatDiagnostic(diagnostic, t);
+}
+
+function setPanelBusy(busy) {
+  const mainView = $id('mainView');
+  if (mainView) {
+    mainView.dataset.busy = busy ? 'true' : 'false';
+  }
+}
+
+function setPastePending(pending) {
+  pastePendingCount = Math.max(0, pastePendingCount + (pending ? 1 : -1));
+  setPanelBusy(pastePendingCount);
+}
+
+function setPasteError(target, message) {
+  if (!target) {
+    return;
+  }
+  target.textContent = message || '';
+  target.hidden = !message;
+}
+
+function setImagePreview(kind, dataUrl) {
+  const isAnswer = kind === 'answer';
+  const preview = isAnswer ? answerInputImagePreview : studyInputImagePreview;
+  const image = isAnswer ? answerInputImage : studyInputImage;
+  if (isAnswer) {
+    answerInputImageValue = dataUrl || '';
+  } else {
+    studyInputImageValue = dataUrl || '';
+  }
+  if (image) {
+    if (dataUrl) {
+      image.src = dataUrl;
+    } else {
+      image.removeAttribute('src');
+    }
+  }
+  if (preview) {
+    preview.hidden = !dataUrl;
+  }
+}
+
+function normalizeVisionMaxImagePx(value) {
+  const parsed = Math.round(Number(value));
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_VISION_MAX_IMAGE_PX;
+  }
+  return Math.max(64, Math.min(4096, parsed));
+}
+
+function applyVisionMaxImagePx(value) {
+  llmVisionMaxImagePx = normalizeVisionMaxImagePx(value);
+}
+
+function applyRuntimeConfig(data) {
+  const config = data && typeof data.config === 'object' ? data.config : null;
+  if (config && Object.prototype.hasOwnProperty.call(config, 'llm_vision_max_image_px')) {
+    applyVisionMaxImagePx(config.llm_vision_max_image_px);
+  }
+}
+
+function loadImageFromBlob(blob, signal) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    let settled = false;
+    const cleanup = () => {
+      settled = true;
+      clearTimeout(timer);
+      URL.revokeObjectURL(url);
+      image.onload = null;
+      image.onerror = null;
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      cleanup();
+      reject(new Error('Image load timeout'));
+    }, LOAD_IMAGE_TIMEOUT_MS);
+    const abort = () => {
+      if (settled) return;
+      cleanup();
+      resolve(null);
+    };
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
+    signal?.addEventListener?.('abort', abort, { once: true });
+    image.onload = () => {
+      if (settled) return;
+      cleanup();
+      resolve(image);
+    };
+    image.onerror = () => {
+      if (settled) return;
+      cleanup();
+      reject(new Error('Image load failed'));
+    };
+    image.src = url;
+  });
+}
+
+async function compressImageForStudy(blob, signal) {
+  try {
+    const image = await loadImageFromBlob(blob, signal);
+    if (!image || signal?.aborted) {
+      return null;
+    }
+    const sourceWidth = image.naturalWidth || image.width || 0;
+    const sourceHeight = image.naturalHeight || image.height || 0;
+    if (!sourceWidth || !sourceHeight) {
+      return null;
+    }
+    const scale = Math.min(1, llmVisionMaxImagePx / Math.max(sourceWidth, sourceHeight));
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Canvas 2D context is unavailable');
+    }
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(image, 0, 0, width, height);
+    let url = canvas.toDataURL('image/jpeg', 0.82);
+    if (url.length > TARGET_DATA_URL_LENGTH) {
+      url = canvas.toDataURL('image/jpeg', 0.56);
+    }
+    if (url.length > TARGET_DATA_URL_LENGTH) {
+      url = canvas.toDataURL('image/jpeg', 0.3);
+    }
+    return url.length > TARGET_DATA_URL_LENGTH ? null : url;
+  } catch (error) {
+    console.warn('study static image paste failed', error);
+    return null;
+  }
+}
+
+function insertPastedText(textarea, text) {
+  if (!textarea || !text) {
+    return;
+  }
+  const start = textarea.selectionStart ?? textarea.value.length;
+  const end = textarea.selectionEnd ?? start;
+  textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+  requestAnimationFrame(() => {
+    textarea.focus();
+    textarea.setSelectionRange(start + text.length, start + text.length);
+  });
+}
+
+function createImagePasteHandler(options) {
+  const { textarea, kind, errorTarget } = options;
+  return async function handleImagePaste(event) {
+    if (event.defaultPrevented) {
+      return;
+    }
+    const items = event.clipboardData?.items;
+    if (!items) {
+      return;
+    }
+    const itemList = Array.from(items);
+    if (!itemList.some((item) => item.type.startsWith('image/'))) {
+      return;
+    }
+    event.preventDefault();
+    pasteControllers[kind]?.abort();
+    const controller = new AbortController();
+    pasteControllers[kind] = controller;
+    setPasteError(errorTarget, '');
+    setPastePending(true);
+    try {
+      for (const item of itemList) {
+        if (item.type.startsWith('image/')) {
+          if (!SUPPORTED_PASTE_IMAGE_TYPES.has(item.type)) {
+            setPasteError(errorTarget, t('ui.error.image_paste_unsupported', 'Only JPEG and PNG images can be pasted here.'));
+            continue;
+          }
+          const blob = item.getAsFile();
+          if (!blob) {
+            setPasteError(errorTarget, t('ui.error.image_paste_failed', 'Image paste failed. Please try a smaller JPEG or PNG image.'));
+            continue;
+          }
+          const image = await compressImageForStudy(blob, controller.signal);
+          if (controller.signal.aborted) {
+            return;
+          }
+          if (!image) {
+            setPasteError(errorTarget, t('ui.error.image_paste_failed', 'Image paste failed. Please try a smaller JPEG or PNG image.'));
+            continue;
+          }
+          setImagePreview(kind, image);
+          setPasteError(errorTarget, '');
+        } else if (item.type === 'text/plain') {
+          item.getAsString((pastedText) => {
+            if (!controller.signal.aborted) {
+              if (kind === 'study') ocrN = ocrT = '';
+              insertPastedText(textarea, pastedText);
+            }
+          });
+        }
+      }
+    } finally {
+      if (pasteControllers[kind] === controller) {
+        pasteControllers[kind] = null;
+      }
+      setPastePending(false);
+    }
+  };
+}
+
+function compactText(value, fallback = '-') {
+  const text = String(value || '').trim();
+  if (!text) {
+    return fallback;
+  }
+  return text.length > 72 ? `${text.slice(0, 72)}...` : text;
+}
+
+function buildFirstRunSteps() {
+  return [
+    {
+      label: t('ui.onboarding.step.mode.label', 'Step 1'),
+      title: t('ui.onboarding.step.mode.title', 'Choose how you want to study'),
+      body: t('ui.onboarding.step.mode.body', 'Use Companion for a quick explanation, Interactive for more questions, or Teaching for step-by-step guidance. You can switch at the top at any time.'),
+    },
+    {
+      label: t('ui.onboarding.step.ocr.label', 'Step 2'),
+      title: t('ui.onboarding.step.ocr.title', 'Add your first learning material'),
+      body: t('ui.onboarding.step.ocr.body', 'In Study, paste text, import a file, or use OCR. OCR only extracts text from the selected screen area. It does not automatically detect or split questions.'),
+    },
+    {
+      label: t('ui.onboarding.step.goal.label', 'Step 3'),
+      title: t('ui.onboarding.step.goal.title', 'Complete one learning loop'),
+      body: t('ui.onboarding.step.goal.body', 'Explain the material, then use Practice, Memory, or Focus. Review what you learned in Knowledge, Notebook, or Session Summary.'),
+    },
+  ];
+}
+
+function closeLearningProfileModal() {
+  if (!learningProfileModal) return;
+  learningProfileModal.hidden = true;
+  learningProfileModal.setAttribute('aria-hidden', 'true');
+}
+
+function buildLearningProfileModal() {
+  const modal = drawerElement('aside', 'learning-profile-modal');
+  modal.id = 'learningProfileModal';
+  modal.hidden = true;
+  modal.setAttribute('aria-hidden', 'true');
+  modal.setAttribute('aria-labelledby', 'learningProfileModalTitle');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('role', 'dialog');
+  const panel = drawerElement('div', 'learning-profile-modal__panel');
+  const header = drawerElement('header', 'learning-profile-modal__header');
+  const mark = drawerElement('span', 'learning-profile-modal__mark', 'N');
+  mark.setAttribute('aria-hidden', 'true');
+  const titleWrap = drawerElement('div');
+  const eyebrow = drawerElement('span', 'diagnosis-label', t('ui.onboarding.label', 'First launch'));
+  const title = drawerElement('h2', '', t('ui.profile.prompt_title', 'Choose your learning stage'));
+  title.id = 'learningProfileModalTitle';
+  titleWrap.append(
+    eyebrow,
+    title,
+    drawerElement('p', 'learning-profile-modal__body', t('ui.profile.prompt_body', 'The selected stage is used as the default scope for knowledge maps and adaptive practice.')),
+  );
+  const skip = drawerElement('button', 'button button-secondary', t('ui.button.skip', 'Skip'));
+  skip.type = 'button';
+  skip.addEventListener('click', () => setLearningProfileStage('', { skipped: true }));
+  header.append(mark, titleWrap, skip);
+  panel.appendChild(header);
+  const actions = drawerElement('div', 'learning-stage-actions learning-stage-actions--modal');
+  [
+    ['junior_high', '01'],
+    ['senior_high', '02'],
+    ['college', '03'],
+  ].forEach(([stage, order]) => {
+    const button = drawerElement('button', 'learning-stage-card');
+    button.type = 'button';
+    button.dataset.stage = stage;
+    button.append(
+      drawerElement('span', 'learning-stage-card__order', order),
+      drawerElement('strong', '', learningStageLabel(stage)),
+    );
+    button.addEventListener('click', () => setLearningProfileStage(stage));
+    actions.appendChild(button);
+  });
+  const more = drawerElement('button', 'learning-stage-more', t('ui.profile.more_stages', 'More stages'));
+  more.type = 'button';
+  more.addEventListener('click', () => {
+    closeLearningProfileModal();
+    setAdvancedSettingsOpen(true, { focus: false });
+    setSettingsTab('study', { focus: true });
+    settingsLearningStage?.focus?.();
+  });
+  actions.appendChild(more);
+  panel.appendChild(actions);
+  modal.appendChild(panel);
+  return modal;
+}
+
+function openLearningProfileModal() {
+  if (!learningProfileModal) {
+    learningProfileModal = buildLearningProfileModal();
+    document.body.appendChild(learningProfileModal);
+  }
+  const wasHidden = learningProfileModal.hidden;
+  learningProfileModal.hidden = false;
+  learningProfileModal.setAttribute('aria-hidden', 'false');
+  if (wasHidden) {
+    learningProfileModal.querySelector('[data-stage]')?.focus?.();
+  }
+}
+
+function renderFirstRunGuide() {
+  if (!firstRunGuide || !firstRunSteps) {
+    return;
+  }
+  const profileNeedsSetup = learningProfileNeedsSetup();
+  const shouldShow = profileNeedsSetup && !firstRunDismissed && !advancedSettingsOpen;
+  firstRunGuide.hidden = !shouldShow;
+  if (shouldShow) {
+    openLearningProfileModal();
+  } else {
+    closeLearningProfileModal();
+  }
+  if (!shouldShow) {
+    return;
+  }
+  firstRunSteps.textContent = '';
+  buildFirstRunSteps().forEach((step, index) => {
+    const item = document.createElement('article');
+    item.className = 'first-run-step';
+    item.setAttribute('data-first-run-step', String(index + 1));
+    const label = document.createElement('span');
+    label.textContent = step.label;
+    const title = document.createElement('strong');
+    title.textContent = step.title;
+    const body = document.createElement('p');
+    body.textContent = step.body;
+    item.append(label, title, body);
+    firstRunSteps.appendChild(item);
+  });
+}
+
+function dependencyReady(status) {
+  if (!status || typeof status !== 'object') {
+    return false;
+  }
+  if (status.available === true || status.ok === true || status.status === 'available') {
+    return true;
+  }
+  if (status.installed === true || status.state === 'ready') {
+    return true;
+  }
+  return false;
+}
+
+function countFromSummary(summary = {}, keys = []) {
+  for (const key of keys) {
+    const value = Number(summary[key]);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return 0;
+}
+
+function formatMinuteCount(value) {
+  const minutes = Math.max(0, Number(value) || 0);
+  const label = Number.isInteger(minutes) ? String(minutes) : minutes.toFixed(1);
+  return `${label} min`;
+}
+
+function goalProgressFromHabit(habit = {}) {
+  const summary = habit.summary || {};
+  const completed = countFromSummary(summary, ['completed_goal_count', 'completed_goals', 'completed']);
+  const total = countFromSummary(summary, ['goal_count', 'total_goal_count', 'goals', 'total_goals'])
+    || (Array.isArray(habit.goals) ? habit.goals.length : 0);
+  return { completed: Math.max(0, completed), total: Math.max(0, total) };
+}
+
+function buildDiagnosis(data = {}) {
+  const dependencies = data.dependencies || {};
+  const dependencyValues = DEPENDENCY_KEYS.map((key) => dependencies[key]).filter((value) => value && typeof value === 'object');
+  const readiness = dependencies.ocr_readiness || {};
+  const llm = data.llm || data.llm_status || {};
+  const llmStatus = String(llm.status || llm.state || '').toLowerCase();
+  const llmError = data.llm_available === false || llm.available === false || llm.ok === false || ['error', 'failed', 'unavailable'].includes(llmStatus);
+  const errorBody = data.last_error || llm.message || llm.error || llm.reason;
+  const hasDependencyStatus = dependencyValues.length > 0;
+  const dependenciesReady = readiness.ready === true || (!Object.keys(readiness).length && hasDependencyStatus && dependencyValues.every(dependencyReady));
+  const topicCount = countFromSummary(data.knowledge_summary || {}, ['topic_count', 'topics', 'node_count', 'nodes']);
+  const hasKnowledge = topicCount > 0 || (Array.isArray(data.mastery_overview) && data.mastery_overview.length > 0);
+  if (errorBody || data.status === 'error' || llmError) {
+    return {
+      severity: 'error',
+      title: t('ui.diagnosis.error.title', 'Attention needed'),
+      body: errorBody || t('ui.diagnosis.error.body', 'Study companion reported an error.'),
+    };
+  }
+  if (dependenciesReady && hasKnowledge) {
+    return {
+      severity: 'ok',
+      title: t('ui.diagnosis.ok.title', 'Ready for study'),
+      body: tf('ui.diagnosis.ok.body', '{count} knowledge topics loaded and OCR dependencies are ready.', { count: topicCount }),
+    };
+  }
+  if (readiness.diagnostic === 'ocr_disabled') {
+    return hasKnowledge
+      ? { severity: 'ok', title: t('ui.diagnosis.text_ready.title', 'Text study is ready'), body: t('ui.diagnosis.text_ready.body', 'Knowledge topics are loaded. OCR is currently disabled.') }
+      : { severity: 'warning', title: t('ui.diagnosis.knowledge_empty.title', 'Knowledge topics are not loaded'), body: t('ui.settings.knowledge.empty_summary', 'Knowledge map has no loaded topics yet.') };
+  }
+  const ocrIssue = readiness.diagnostic && !['ready', 'ocr_disabled'].includes(readiness.diagnostic)
+    ? t(`ui.diagnosis.ocr.${readiness.diagnostic}.body`, 'The selected OCR path is unavailable.') : '';
+  if (ocrIssue && !hasKnowledge) {
+    const issues = `${ocrIssue} ${t('ui.diagnosis.knowledge_empty.body', 'The knowledge map has no loaded topics yet.')}`;
+    return { severity: 'warning', title: t('ui.diagnosis.multiple_issues.title', 'Study setup needs attention'), body: tf('ui.diagnosis.multiple_issues.body', 'Resolve these items: {issues}', { issues }) };
+  }
+  if (ocrIssue) return { severity: 'warning', title: t('ui.diagnosis.ocr_unavailable.title', 'Text recognition is unavailable'), body: ocrIssue };
+  if (!hasKnowledge && readiness.ready === true) return { severity: 'warning', title: t('ui.diagnosis.knowledge_empty.title', 'Knowledge topics are not loaded'), body: t('ui.diagnosis.knowledge_empty.body', 'OCR is ready, but the knowledge map has no loaded topics yet.') };
+  if (hasDependencyStatus || data.status === 'ready') {
+    return {
+      severity: 'warning',
+      title: t('ui.diagnosis.warning.title', 'Setup can be improved'),
+      body: t('ui.diagnosis.warning.body', 'Check OCR dependencies or load knowledge topics for better study guidance.'),
+    };
+  }
+  return { severity: 'info', title: t('ui.diagnosis.info.title', 'Waiting for status'), body: t('ui.diagnosis.info.body', 'Refresh status to inspect OCR, LLM, and study data.') };
+}
+
+function renderDiagnosis(data = {}) {
+  if (!primaryDiagnosis || !diagnosisTitle || !diagnosisBody) {
+    return;
+  }
+  const diagnosis = buildDiagnosis(data);
+  const prefix = diagnosis.severity === 'ok'
+    ? '\u2713'
+    : (diagnosis.severity === 'error' ? '\u26A0' : (diagnosis.severity === 'warning' ? '!' : 'i'));
+  primaryDiagnosis.dataset.severity = diagnosis.severity;
+  diagnosisTitle.textContent = `${prefix} ${diagnosis.title}`;
+  diagnosisBody.textContent = diagnosis.body;
+}
+
+function pomodoroStateLabel(value) {
+  const normalized = String(value || 'idle').trim().toLowerCase();
+  const labels = {
+    idle: ['ui.status.pomodoro.idle', 'Idle'],
+    focusing: ['ui.status.pomodoro.focusing', 'Focusing'],
+    paused: ['ui.status.pomodoro.paused', 'Paused'],
+    short_break: ['ui.status.pomodoro.short_break', 'Short break'],
+    long_break: ['ui.status.pomodoro.long_break', 'Long break'],
+    cancelled: ['ui.status.pomodoro.cancelled', 'Stopped'],
+    completed: ['ui.status.pomodoro.completed', 'Completed'],
+  };
+  const pair = labels[normalized];
+  return pair ? t(pair[0], pair[1]) : normalized;
+}
+
+function dueReviewCount(data = {}) {
+  const deck = data.memory_deck || {};
+  if (Number.isFinite(Number(deck.due_count))) {
+    return Number(deck.due_count);
+  }
+  if (Array.isArray(data.review_queue)) {
+    return data.review_queue.length;
+  }
+  if (Array.isArray(deck.due_cards)) {
+    return deck.due_cards.length;
+  }
+  if (Array.isArray(deck.due_reviews)) {
+    return deck.due_reviews.length;
+  }
+  return 0;
+}
+
+function pomodoroStatus(data = {}) {
+  const habit = data.habit || {};
+  const pomodoro = habit.pomodoro || {};
+  return String(pomodoro.state || data.pomodoro_state || 'idle').trim().toLowerCase();
+}
+
+function checkinStatusLabel(habit = {}) {
+  const checkin = habit.checkin || {};
+  if (checkin.checked_in) {
+    return t('ui.status.checkin_done', 'Checked in today');
+  }
+  if (habit.available === false || checkin.available === false) {
+    return t('ui.status.disabled', 'Disabled');
+  }
+  return t('ui.status.checkin_pending', 'Check-in pending');
+}
+
+function deriveNekoCoachScene(data = {}) {
+  if (data.status === 'error') {
+    return 'error';
+  }
+  const pomodoroState = pomodoroStatus(data);
+  if (pomodoroState === 'short_break' || pomodoroState === 'long_break') {
+    return 'break';
+  }
+  const verdict = String(data.last_answer_evaluation?.verdict || '').trim().toLowerCase();
+  if (['correct', 'right', 'pass'].includes(verdict)) {
+    return 'happy';
+  }
+  if (['incorrect', 'partial', 'wrong', 'dont_know'].includes(verdict)) {
+    return 'thinking';
+  }
+  if (dueReviewCount(data) > 0) {
+    return 'review';
+  }
+  const activeMode = String(data.active_mode || data.mode || currentMode || 'companion').trim();
+  if (activeMode === 'teaching') {
+    return 'teaching';
+  }
+  if (pomodoroState === 'focusing') {
+    return 'focus';
+  }
+  return activeMode === 'interactive' ? 'idle' : 'focus';
+}
+
+function nekoCoachActionLabel(action) {
+  const key = NEKO_COACH_ACTION_LABELS[action];
+  return key ? t(key, action) : '';
+}
+
+function deriveNekoCoachActions(scene, data = {}) {
+  const actions = (NEKO_COACH_SCENE_ACTIONS[scene] || NEKO_COACH_SCENE_ACTIONS.idle).split('/');
+  if (scene === 'break' && dueReviewCount(data) <= 0) {
+    actions[1] = 'quiz-me';
+  }
+  return actions;
+}
+
+function renderNekoCoachActionButton(button, action) {
+  if (!button) {
+    return;
+  }
+  if (!action) {
+    button.hidden = true;
+    button.removeAttribute('data-neko-coach-action');
+    return;
+  }
+  button.hidden = false;
+  button.setAttribute('data-neko-coach-action', action);
+  button.textContent = nekoCoachActionLabel(action);
+}
+
+function renderNekoCoachActions(scene, data = {}) {
+  if (nekoCoachRecommendation) {
+    const recommendationScene = Object.prototype.hasOwnProperty.call(NEKO_COACH_SCENE_ACTIONS, scene) ? scene : 'idle';
+    nekoCoachRecommendation.textContent = t(`ui.coach.recommendation.${recommendationScene}`, '');
+  }
+  const [primaryAction, secondaryAction] = deriveNekoCoachActions(scene, data);
+  renderNekoCoachActionButton(nekoCoachPrimaryAction, primaryAction);
+  renderNekoCoachActionButton(nekoCoachSecondaryAction, secondaryAction);
+}
+
+function renderNekoCoach(data = {}) {
+  if (!nekoCoachPanel) {
+    return;
+  }
+  const scene = deriveNekoCoachScene(data);
+  nekoCoachPanel.dataset.scene = scene;
+  if (nekoCoachScene) {
+    nekoCoachScene.textContent = t(`ui.coach.scene.${scene}`, scene);
+  }
+  if (nekoCoachMessage) {
+    nekoCoachMessage.textContent = t(`ui.coach.message.${scene}`, t('ui.coach.message.idle', 'I will react to your study flow automatically.'));
+  }
+  renderNekoCoachActions(scene, data);
+  const modeValue = String(data.active_mode || data.mode || currentMode || 'companion');
+  if (nekoCoachMode) {
+    nekoCoachMode.textContent = modeLabel(modeValue);
+  }
+  const habit = data.habit || {};
+  const progress = goalProgressFromHabit(habit);
+  if (nekoCoachGoal) {
+    nekoCoachGoal.textContent = `${progress.completed}/${progress.total}`;
+  }
+  if (nekoCoachReview) {
+    nekoCoachReview.textContent = String(dueReviewCount(data));
+  }
+  if (nekoCoachTimer) {
+    nekoCoachTimer.textContent = pomodoroStateLabel(pomodoroStatus(data));
+  }
+}
+
+function updateStudySummaries(data = {}) {
+  const habit = data.habit || {};
+  const pomodoro = habit.pomodoro || {};
+  if (quickFocusState) {
+    quickFocusState.textContent = pomodoroStateLabel(pomodoro.state);
+  }
+  if (quickCheckinStatus) {
+    quickCheckinStatus.textContent = checkinStatusLabel(habit);
+  }
+  const deps = data.dependencies || {};
+  const dependencyValues = DEPENDENCY_KEYS.map((key) => deps[key]).filter((value) => value && typeof value === 'object');
+  const dependencyCount = dependencyValues.length;
+  const readyCount = dependencyValues.filter(dependencyReady).length;
+  const knowledge = data.knowledge_summary || {};
+  const topicCount = countFromSummary(knowledge, ['topic_count', 'topics', 'node_count', 'nodes']);
+  const edgeCount = countFromSummary(knowledge, ['edge_count', 'edges']);
+  const memoryDeck = data.memory_deck || {};
+  const cardCount = Number.isFinite(Number(memoryDeck.card_count)) ? Number(memoryDeck.card_count) : 0;
+  const dueCount = Number.isFinite(Number(memoryDeck.due_count)) ? Number(memoryDeck.due_count) : 0;
+  const setText = (id, value) => {
+    const node = $id(id);
+    if (node) {
+      node.textContent = value;
+    }
+  };
+  setText('settingsOcrSummary', dependencyCount
+    ? tf('ui.settings.ocr.ready_summary', '{ready}/{total} OCR dependencies ready', { ready: readyCount, total: dependencyCount })
+    : t('ui.settings.ocr.no_status', 'Dependency status is not loaded yet.'));
+  setText('settingsDependencySummary', dependencyCount
+    ? tf('ui.settings.dependencies.ready_summary', '{ready}/{total} dependencies ready', { ready: readyCount, total: dependencyCount })
+    : t('ui.settings.dependencies.no_status', 'Refresh status to check text recognition and screen capture.'));
+  window.StudyDependencyController?.render(deps);
+  setText('settingsKnowledgeSummary', topicCount
+    ? tf('ui.settings.knowledge.loaded_summary', '{topics} topics and {edges} edges loaded.', { topics: topicCount, edges: edgeCount })
+    : t('ui.settings.knowledge.empty_summary', 'Knowledge map has no loaded topics yet.'));
+  setText('settingsMemorySummary', tf('ui.settings.memory.loaded_summary', '{cards} cards / {due} due reviews.', { cards: cardCount, due: dueCount }));
+  setText('settingsCheckinSummary', quickCheckinStatus ? quickCheckinStatus.textContent : t('ui.status.pending', 'Pending'));
+  setText('settingsPomodoroSummary', quickFocusState ? quickFocusState.textContent : t('ui.status.screen.idle', 'Idle'));
+}
+
+function updateModeIndicator() {
+  if (!modeSwitch) {
+    return;
+  }
+  modeSwitch.dataset.active = currentMode;
+  if (modeSwitch.offsetParent === null) {
+    return;
+  }
+  const activeButton = modeButtons.find((button) => button.getAttribute('data-mode') === currentMode);
+  if (!activeButton) {
+    return;
+  }
+  const switchRect = modeSwitch.getBoundingClientRect();
+  const buttonRect = activeButton.getBoundingClientRect();
+  if (buttonRect.width > 0) {
+    modeSwitch.style.setProperty('--indicator-left', `${Math.max(0, buttonRect.left - switchRect.left)}px`);
+    modeSwitch.style.setProperty('--indicator-width', `${buttonRect.width}px`);
+  }
+  modeSwitch.setAttribute('data-ready', 'true');
+}
+
+function prefersReducedMotion() {
+  return typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function scheduleModeIndicatorUpdate() {
+  if (prefersReducedMotion()) {
+    updateModeIndicator();
+    return;
+  }
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(updateModeIndicator);
+    return;
+  }
+  updateModeIndicator();
+}
+
+function setModeButtons(mode, disabled = false) {
+  currentMode = String(mode || 'companion');
+  if (summaryMode) {
+    summaryMode.textContent = modeLabel(currentMode);
+  }
+  if (modeSwitch) {
+    modeSwitch.dataset.active = currentMode;
+  }
+  if (modeSelect) {
+    modeSelect.value = currentMode;
+    modeSelect.disabled = disabled;
+  }
+  modeButtons.forEach((button) => {
+    const pressed = button.getAttribute('data-mode') === currentMode;
+    button.disabled = disabled;
+    button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+    button.classList.toggle('is-active', pressed);
+    button.classList.toggle('active', pressed);
+  });
+  updateModeIndicator();
+  scheduleModeIndicatorUpdate();
+}
+
+function setStudyState(data = {}) {
+  const habit = data.habit || {};
+  const habitSummary = habit.summary || {};
+  const checkin = habit.checkin || {};
+  if (summaryDuration) {
+    const focusMinutes = Number.isFinite(Number(habitSummary.total_focus_minutes)) ? habitSummary.total_focus_minutes : checkin.total_focus_minutes;
+    summaryDuration.textContent = formatMinuteCount(focusMinutes);
+  }
+  if (summaryGoal) {
+    const progress = goalProgressFromHabit(habit);
+    summaryGoal.textContent = `${progress.completed}/${progress.total}`;
+  }
+  const classification = data.screen_classification || {};
+  const screenValue = classification.screen_type || data.screen_type || 'idle';
+  if (screenType) {
+    screenType.textContent = screenLabel(screenValue);
+    if (classification.reason) {
+      screenType.title = classification.reason;
+    }
+  }
+  const evaluation = data.last_answer_evaluation || {};
+  if (evaluationStatus) {
+    const verdict = evaluation.verdict ? String(evaluation.verdict) : '';
+    const score = Number.isFinite(Number(evaluation.score)) ? ` / ${evaluation.score}` : '';
+    evaluationStatus.textContent = verdict ? `${verdict}${score}` : '-';
+  }
+  setMemoryDeckState(data.memory_deck || {});
+}
+
+function setMemoryDeckState(deck = {}) {
+  const dueCards = Array.isArray(deck.due_cards)
+    ? deck.due_cards
+    : (Array.isArray(deck.due_reviews)
+      ? deck.due_reviews
+      : (Array.isArray(deck.cards) ? deck.cards.filter((item) => item && item.is_due) : []));
+  const cards = Array.isArray(deck.cards) ? deck.cards : [];
+  const cardCount = Number.isFinite(Number(deck.card_count))
+    ? Number(deck.card_count)
+    : (Number.isFinite(Number(deck.item_count)) ? Number(deck.item_count) : cards.length);
+  const dueCount = Number.isFinite(Number(deck.due_count)) ? Number(deck.due_count) : dueCards.length;
+  if (Array.isArray(deck.decks)) {
+    memoryDecks = deck.decks;
+    renderMemoryDeckOptions();
+  }
+  void loadDeckOptions().catch(() => {});
+  currentMemoryCard = dueCards[0] || null;
+  if (quickReviewCount) {
+    quickReviewCount.textContent = String(dueCount);
+  }
+  if (memoryDeckStatus) {
+    memoryDeckStatus.textContent = tf('ui.memory.status', '{card_count} cards / {due_count} due', {
+      card_count: cardCount,
+      due_count: dueCount,
+    });
+  }
+  if (memoryDueCard) {
+    if (currentMemoryCard) {
+      delete memoryDueCard.dataset.empty;
+      const front = compactText(
+        currentMemoryCard.front || currentMemoryCard.item?.prompt,
+        currentMemoryCard.topic_id || currentMemoryCard.item_id || '-',
+      );
+      const back = compactText(currentMemoryCard.back || currentMemoryCard.item?.answer, '-');
+      const retention = Number.isFinite(Number(currentMemoryCard.retrievability))
+        ? `R ${(Number(currentMemoryCard.retrievability) * 100).toFixed(0)}%`
+        : '';
+      memoryDueCard.textContent = [front, back, retention].filter(Boolean).join('\n\n');
+    } else {
+      memoryDueCard.dataset.empty = 'true';
+      memoryDueCard.textContent = t('ui.memory.empty_due', 'No due memory cards');
+    }
+  }
+  memoryReviewButtons.forEach((button) => {
+    button.disabled = !currentMemoryCard;
+  });
+}
+
+function memoryDeckDisplayName(deck = {}) {
+  return deck.is_default
+    ? t('ui.memory.default_deck_name', 'Default Deck')
+    : String(deck.name || '');
+}
+
+function renderMemoryDeckOptions() {
+  if (!memoryDeckSelect) return;
+  const selected = memoryDeckSelect.value;
+  memoryDeckSelect.replaceChildren();
+  if (!memoryDecks.length) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = t('ui.memory.choose_when_saving', 'Choose when saving');
+    memoryDeckSelect.appendChild(option);
+    memoryDeckSelect.disabled = true;
+    return;
+  }
+  memoryDeckSelect.disabled = false;
+  memoryDecks.forEach((deck) => {
+    const option = document.createElement('option');
+    option.value = String(deck.id || '');
+    option.textContent = memoryDeckDisplayName(deck);
+    memoryDeckSelect.appendChild(option);
+  });
+  memoryDeckSelect.value = memoryDecks.some((deck) => String(deck.id || '') === selected)
+    ? selected
+    : String(memoryDecks[0]?.id || '');
+}
+
+async function loadDeckOptions() {
+  memoryDecks = await window.StudyCompanionSurfacePanels.loadDecks({ callPlugin }, memoryAddBtn);
+  renderMemoryDeckOptions();
+  quickCardController?.decorateDeckOptions();
+}
+
+function finishMemoryDeckDialog(value) {
+  const resolve = memoryDeckDialogResolve;
+  memoryDeckDialogResolve = null;
+  if (memoryDeckDialog?.open) memoryDeckDialog.close();
+  if (resolve) resolve(value);
+}
+
+async function createQuickCardDeck({ name, deckType = 'custom' }) {
+  const created = await callPlugin('study_memory_create_deck', {
+    name,
+    deck_type: deckType,
+    source: 'ui',
+  });
+  memoryDecks = [
+    ...memoryDecks.filter((deck) => String(deck.id || '') !== String(created.id || '')),
+    created,
+  ];
+  renderMemoryDeckOptions();
+  if (memoryDeckSelect) memoryDeckSelect.value = String(created.id || '');
+  quickCardController?.decorateDeckOptions();
+  return created;
+}
+
+const quickCardController = window.StudyQuickCardController?.create({
+  t,
+  getDecks: () => memoryDecks,
+  createDeck: createQuickCardDeck,
+  reportError: (error) => {
+    setStatus(t('ui.status.error', 'Error'));
+    setReply(formatPluginError(error));
+  },
+});
+
+async function chooseDeckForFirstCard() {
+  await loadDeckOptions();
+  if (memoryDecks.length) {
+    return memoryDeckSelect?.value || String(memoryDecks[0]?.id || '');
+  }
+  if (quickCardController) {
+    const choice = await quickCardController.requestFirstDeck();
+    if (choice === null) return null;
+    if (choice.skip) return '';
+    const created = await createQuickCardDeck(choice);
+    quickCardController.applyDeckDefault(created.deck_type || choice.deckType);
+    return String(created.id || '');
+  }
+  if (!memoryDeckDialog || typeof memoryDeckDialog.showModal !== 'function') {
+    return '';
+  }
+  if (memoryDeckNameInput) {
+    memoryDeckNameInput.value = '';
+    memoryDeckNameInput.setCustomValidity('');
+  }
+  const choice = await new Promise((resolve) => {
+    memoryDeckDialogResolve = resolve;
+    memoryDeckDialog.showModal();
+    memoryDeckNameInput?.focus();
+  });
+  if (choice === null) return null;
+  if (choice === '') return '';
+  const created = await callPlugin('study_memory_create_deck', {
+    name: choice,
+    deck_type: memoryDeckTypeSelect?.value || 'custom',
+    source: 'ui',
+  });
+  memoryDecks = [...memoryDecks, created];
+  renderMemoryDeckOptions();
+  if (memoryDeckSelect) memoryDeckSelect.value = String(created.id || '');
+  return String(created.id || '');
+}
+
+function setStatusLine(data) {
+  lastStatusPayload = data || {};
+  const statusValue = data.status || 'unknown';
+  const modeValue = String(data.active_mode || data.mode || 'companion');
+  const statusLabel = t(`status.state.${statusValue}`, statusValue);
+  setStatus(`${statusLabel} / ${modeLabel(modeValue)}`);
+  syncLearningProfileUi();
+  renderDiagnosis(data);
+  renderFirstRunGuide(data);
+  updateStudySummaries(data);
+  updateWorkspaceCardStatuses(data);
+  renderNekoCoach(data);
+  setModeButtons(modeValue, false);
+  if (data?.current_question && typeof data.current_question === 'object') {
+    setGeneratedQuestion({
+      ...data.current_question,
+      can_evaluate_current_question: data.can_evaluate_current_question === true,
+    });
+    if (data.current_question_state === 'evaluated' && data.last_answer_evaluation) {
+      renderFeedback(data.last_answer_evaluation);
+    }
+  } else if (data?.current_question_state === 'none') {
+    setGeneratedQuestion({});
+  }
+  setStudyState(data);
+}
+
+function setWorkspaceCardStatus(element, value, state = '') {
+  if (!element) return;
+  element.textContent = String(value ?? '-');
+  if (state) {
+    element.dataset.state = state;
+  } else {
+    delete element.dataset.state;
+  }
+}
+
+function updateWorkspaceCardStatuses(data = {}) {
+  const statusValue = String(data.status || 'ready');
+  const screenValue = data.screen_classification?.screen_type || data.screen_type || 'idle';
+  const dueCount = dueReviewCount(data);
+  const knowledge = data.knowledge_summary || {};
+  const topicCount = countFromSummary(knowledge, ['topic_count', 'topics', 'node_count', 'nodes']);
+  const focusState = pomodoroStatus(data);
+  setWorkspaceCardStatus(workspaceStudyStatus, screenLabel(screenValue), statusValue);
+  setWorkspaceCardStatus(
+    workspacePracticeStatus,
+    currentQuestion ? (questionStatus?.textContent || t('ui.status.ready', 'Ready')) : t('ui.status.ready', 'Ready'),
+    currentQuestion ? 'active' : statusValue,
+  );
+  setWorkspaceCardStatus(workspaceMemoryStatus, String(dueCount), dueCount > 0 ? 'attention' : statusValue);
+  setWorkspaceCardStatus(workspaceKnowledgeStatus, String(topicCount), topicCount > 0 ? 'ready' : 'empty');
+  setWorkspaceCardStatus(workspaceFocusStatus, pomodoroStateLabel(focusState), focusState);
+  const selectedNoteCount = window.StudyCompanionNotebook?.getSelectedNoteIds?.().length || 0;
+  setWorkspaceCardStatus(
+    workspaceNotebookStatus,
+    selectedNoteCount ? String(selectedNoteCount) : t('ui.status.ready', 'Ready'),
+    selectedNoteCount ? 'active' : statusValue,
+  );
+}
+
+function setAdvancedSettingsOpen(open, options = {}) {
+  advancedSettingsOpen = Boolean(open);
+  if (advancedSettings) {
+    advancedSettings.hidden = !advancedSettingsOpen;
+    advancedSettings.setAttribute('aria-hidden', advancedSettingsOpen ? 'false' : 'true');
+  }
+  if (advancedToggleBtn) {
+    advancedToggleBtn.setAttribute('aria-expanded', advancedSettingsOpen ? 'true' : 'false');
+  }
+  document.documentElement.classList.toggle('settings-drawer-open', advancedSettingsOpen);
+  if (advancedSettingsOpen) {
+    loadSettingsConfig().catch(() => setSettingsConfigStatus('ui.status.config_load_failed', 'Could not load settings'));
+    if (options.focus !== false) {
+      window.requestAnimationFrame(() => advancedSettingsCloseBtn?.focus?.());
+    }
+  } else if (options.restoreFocus !== false) {
+    advancedToggleBtn?.focus?.();
+  }
+  renderFirstRunGuide(lastStatusPayload);
+}
+
+function handleAdvancedSettingsKeydown(event) {
+  if (!advancedSettingsOpen || !advancedSettings) return;
+  switch (event.key) {
+    case 'Escape':
+      event.preventDefault();
+      setAdvancedSettingsOpen(false);
+      return;
+    case 'Tab':
+      break;
+    default:
+      return;
+  }
+  const focusable = Array.from(advancedSettings.querySelectorAll(
+    'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  )).filter((element) => !element.hidden && element.getClientRects().length > 0);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function setSettingsTab(tabId, options = {}) {
+  settingsTabs.forEach((tab) => {
+    const selected = tab.getAttribute('data-settings-tab') === tabId;
+    tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+    tab.setAttribute('tabindex', selected ? '0' : '-1');
+    if (selected && options.focus) {
+      tab.focus();
+    }
+  });
+  settingsTabPanels.forEach((panel) => {
+    panel.hidden = panel.getAttribute('data-settings-tab-panel') !== tabId;
+  });
+}
+
+function handleSettingsTabKeydown(event) {
+  const currentIndex = settingsTabs.indexOf(event.currentTarget);
+  if (currentIndex < 0) return;
+  if (event.key === 'Tab' && !event.shiftKey) {
+    const panel = settingsTabPanels.find((item) => item.getAttribute('data-settings-tab-panel') === event.currentTarget.getAttribute('data-settings-tab'));
+    if (panel) { event.preventDefault(); panel.focus(); } return;
+  }
+  let nextIndex = currentIndex;
+  if (event.key === 'ArrowRight') {
+    nextIndex = (currentIndex + 1) % settingsTabs.length;
+  } else if (event.key === 'ArrowLeft') {
+    nextIndex = (currentIndex - 1 + settingsTabs.length) % settingsTabs.length;
+  } else if (event.key === 'Home') {
+    nextIndex = 0;
+  } else if (event.key === 'End') {
+    nextIndex = settingsTabs.length - 1;
+  } else return;
+  event.preventDefault();
+  setSettingsTab(settingsTabs[nextIndex].getAttribute('data-settings-tab'), { focus: true });
+}
+
+function hostedSurfaceLabel(surfaceId) {
+  return window.StudyCompanionSurfacePanels.label(surfaceId, t);
+}
+
+function studyKnowledgeMap() {
+  const knowledgeMap = window.StudyCompanionKnowledgeMap;
+  if (!knowledgeMap?.registerHost) {
+    throw new Error('StudyCompanionKnowledgeMap failed to load');
+  }
+  return knowledgeMap;
+}
+
+function knowledgeMapFullscreenOpen() {
+  return surfaceDrawer?.dataset.open === 'true'
+    && surfaceDrawer.dataset.surfaceId === 'knowledge-map';
+}
+
+function setKnowledgeMapLoadState(state, error = '') {
+  knowledgeMapLoadState = state;
+  knowledgeMapLoadError = String(error || '');
+  if (knowledgeMapLoading) knowledgeMapLoading.hidden = state !== 'loading';
+  if (knowledgeMapError) knowledgeMapError.hidden = state !== 'error';
+  if (knowledgeMapErrorMessage) knowledgeMapErrorMessage.textContent = knowledgeMapLoadError;
+  if (knowledgeMapContent) {
+    knowledgeMapContent.hidden = state !== 'ready';
+    knowledgeMapContent.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
+  }
+  if (knowledgeMapStatus) knowledgeMapStatus.dataset.state = state;
+}
+
+function createKnowledgeMapHost(container, kind) {
+  return {
+    replaceContent(node) {
+      if (!node || !this.isActive()) return false;
+      container.replaceChildren(node);
+      return true;
+    },
+    setScale(level) {
+      const value = String(level || '100');
+      if (kind === 'fullscreen') {
+        surfaceDrawer.dataset.windowScale = value;
+      } else if (knowledgeWorkspacePanel) {
+        knowledgeWorkspacePanel.dataset.knowledgeScale = value;
+      }
+    },
+    isActive() {
+      return kind === 'fullscreen'
+        ? knowledgeMapFullscreenOpen()
+        : knowledgeWorkspaceActive && !knowledgeMapFullscreenOpen();
+    },
+    activatePractice() {
+      return activateKnowledgePracticeWorkspace();
+    },
+  };
+}
+
+function syncKnowledgeMapContent() {
+  const knowledgeMap = studyKnowledgeMap();
+  if (knowledgeMapLoadState === 'loading') {
+    knowledgeMap.replaceContent(knowledgeMap.renderLoading());
+    return;
+  }
+  if (knowledgeMapLoadState === 'error') {
+    const root = surfacePanel('knowledge-map', t('ui.status.error', 'Error'));
+    root.appendChild(drawerElement('pre', '', knowledgeMapLoadError));
+    knowledgeMap.replaceContent(root);
+    return;
+  }
+  knowledgeMap.rerender(lastKnowledgeMapPayload || lastStatusPayload);
+}
+
+function mountKnowledgeWorkspaceHost() {
+  releaseKnowledgeWorkspaceHost?.();
+  releaseKnowledgeWorkspaceHost = studyKnowledgeMap().registerHost(
+    createKnowledgeMapHost(knowledgeMapContent, 'workspace'),
+  );
+}
+
+function mountKnowledgeFullscreenHost() {
+  releaseKnowledgeFullscreenHost?.();
+  releaseKnowledgeFullscreenHost = studyKnowledgeMap().registerHost(
+    createKnowledgeMapHost(surfaceDrawerBody, 'fullscreen'),
+  );
+}
+
+async function loadKnowledgeMap(requestId) {
+  const options = arguments.length > 1 && typeof arguments[1] === 'object' ? arguments[1] : {};
+  const requestedStage = typeof arguments[1] === 'string'
+    ? arguments[1]
+    : (options.stage || knowledgeMapStage || learningProfile.stage || 'all');
+  const append = options.append === true;
+  const normalizedStage = requestedStage === 'all' ? '' : normalizeLearningStage(requestedStage);
+  const selectedSubject = typeof knowledgeMapSubject === 'undefined'
+    ? ''
+    : String(knowledgeMapSubject || '').trim();
+  const scope = {
+    stage: normalizedStage,
+    subject: selectedSubject === 'uncategorized' ? '' : selectedSubject,
+    chapter: '',
+    unit: '',
+  };
+  const contracts = window.StudyCompanionUiContracts;
+  if (!contracts?.mergeKnowledgeMapPage || !contracts?.isCursorStale) {
+    throw new Error('StudyCompanionUiContracts failed to load');
+  }
+  try {
+    let restartedFromFirstPage = false;
+    let current = append ? lastKnowledgeMapPayload : null;
+    while (true) {
+      const cursor = current ? String(current.next_cursor || '').trim() : '';
+      if (current?.has_more === true && !cursor) {
+        throw new Error('Knowledge map pagination returned a repeated cursor.');
+      }
+      try {
+        const page = await callPlugin('study_query_knowledge_map', {
+          scope,
+          page_size: 100,
+          cursor,
+          include_boundary: true,
+        });
+        if (page?.error) throw page.error;
+        const expectedRevision = String(current?.catalog_revision || '').trim();
+        const pageRevision = String(page?.catalog_revision || '').trim();
+        if (current && expectedRevision && pageRevision && expectedRevision !== pageRevision) {
+          if (restartedFromFirstPage) throw new Error('Knowledge map catalog revision changed while loading.');
+          restartedFromFirstPage = true;
+          current = null;
+          continue;
+        }
+        if (page?.has_more === true) {
+          const nextCursor = String(page?.next_cursor || '').trim();
+          if (!nextCursor || nextCursor === cursor) {
+            throw new Error('Knowledge map pagination returned a repeated cursor.');
+          }
+        }
+        const payload = contracts.mergeKnowledgeMapPage(current, page);
+        const knowledgeMap = studyKnowledgeMap();
+        if (requestId !== mapRequestId || !knowledgeMap.isActive()) return;
+        lastKnowledgeMapPayload = payload;
+        setKnowledgeMapLoadState('ready');
+        knowledgeMap.rerender(payload);
+        return;
+      } catch (error) {
+        if (!restartedFromFirstPage && contracts.isCursorStale(error)) {
+          restartedFromFirstPage = true;
+          current = null;
+          continue;
+        }
+        throw error;
+      }
+    }
+  } catch (error) {
+    const knowledgeMap = studyKnowledgeMap();
+    if (requestId !== mapRequestId || !knowledgeMap.isActive()) return;
+    setKnowledgeMapLoadState('error', formatPluginError(error));
+    syncKnowledgeMapContent();
+  }
+}
+
+function loadMoreKnowledgeMap() {
+  if (knowledgeMapLoadState === 'loading' || lastKnowledgeMapPayload?.has_more !== true) return false;
+  const knowledgeMap = studyKnowledgeMap();
+  if (!knowledgeMap.isActive()) return false;
+  setKnowledgeMapLoadState('loading');
+  syncKnowledgeMapContent();
+  void loadKnowledgeMap(mapRequestId, { append: true });
+  return true;
+}
+
+function reloadKnowledgeMapForStage(stage) {
+  const knowledgeMap = studyKnowledgeMap();
+  if (!knowledgeMap.isActive()) return false;
+  const requestId = mapRequestId += 1;
+  setKnowledgeMapLoadState('loading');
+  syncKnowledgeMapContent();
+  void loadKnowledgeMap(requestId, stage);
+  return true;
+}
+
+async function activateKnowledgePracticeWorkspace() {
+  if (knowledgeMapFullscreenOpen() && closeSurfaceDrawer({ resumeWorkspace: false, restoreFocus: false }) === false) {
+    return false;
+  }
+  const result = await activateWorkspace('practice', {
+    focus: 'none',
+    source: 'knowledge-practice-scope',
+  });
+  if (!result?.ok) return false;
+  generateQuestionBtn?.focus?.();
+  return true;
+}
+
+function openKnowledgeMapFullscreen() {
+  if (!surfaceDrawer || !surfaceDrawerBody || !knowledgeWorkspaceActive) return false;
+  if (surfaceDrawer.dataset.open === 'true' && !knowledgeMapFullscreenOpen()) {
+    if (closeSurfaceDrawer({ resumeWorkspace: false }) === false) return false;
+  }
+  if (surfaceDrawerTitle) surfaceDrawerTitle.textContent = hostedSurfaceLabel('knowledge-map');
+  surfaceDrawer.dataset.surfaceId = 'knowledge-map';
+  surfaceDrawer.dataset.presentation = 'dialog';
+  surfaceDrawer.setAttribute('role', 'dialog');
+  surfaceDrawer.setAttribute('aria-modal', 'true');
+  surfaceDrawer.dataset.open = 'true';
+  surfaceDrawer.setAttribute('aria-hidden', 'false');
+  knowledgeMapFullscreenBtn?.setAttribute('aria-expanded', 'true');
+  mountKnowledgeFullscreenHost();
+  if (knowledgeMapLoadState !== 'ready') syncKnowledgeMapContent();
+  surfaceDrawerCloseBtn?.focus?.();
+  return true;
+}
+
+function closeSurfaceDrawer(options = {}) {
+  if (!surfaceDrawer) return true;
+  if (knowledgeMapFullscreenOpen()) {
+    surfaceDrawer.dataset.open = 'false';
+    surfaceDrawer.setAttribute('aria-hidden', 'true');
+    knowledgeMapFullscreenBtn?.setAttribute('aria-expanded', 'false');
+    releaseKnowledgeFullscreenHost?.();
+    releaseKnowledgeFullscreenHost = null;
+    if (knowledgeWorkspaceActive) syncKnowledgeMapContent();
+    if (options.restoreFocus !== false) knowledgeMapFullscreenBtn?.focus?.();
+    return true;
+  }
+  if (window.StudyCompanionSurfacePanels?.close?.() === false) return false;
+  surfaceDrawer.dataset.open = 'false';
+  surfaceDrawer.setAttribute('aria-hidden', 'true');
+  const workspaceId = suspendedWorkspaceId;
+  suspendedWorkspaceId = '';
+  if (options.resumeWorkspace !== false
+      && workspaceId
+      && workspaceController?.getActiveWorkspace?.() === workspaceId) {
+    workspaceController.activateWorkspace(workspaceId, { force: true, focus: 'none', resumedFromDrawer: true })
+      .catch((error) => {
+        setStatus(t('ui.status.error', 'Error'));
+        setReply(formatPluginError(error));
+      });
+  }
+  return true;
+}
+
+function drawerElement(tag, className = '', text = '') {
+  const node = document.createElement(tag);
+  if (className) {
+    node.className = className;
+  }
+  if (text) {
+    node.textContent = text;
+  }
+  return node;
+}
+
+function surfacePanel(surfaceId, subtitle = '') {
+  const root = drawerElement('div', 'study-panel surface-shell');
+  const header = drawerElement('header', 'study-panel__header');
+  const titleWrap = drawerElement('div');
+  titleWrap.append(
+    drawerElement('h1', '', hostedSurfaceLabel(surfaceId)),
+    drawerElement('span', '', subtitle || t('ui.status.ready', 'Ready')),
+  );
+  header.appendChild(titleWrap);
+  root.appendChild(header);
+  return root;
+}
+
+function appendPanelState(parent, label, value) {
+  const item = drawerElement('div');
+  item.append(
+    drawerElement('span', '', label),
+    drawerElement('strong', '', value),
+  );
+  parent.appendChild(item);
+}
+
+function renderDrawerActions(actions = []) {
+  const row = drawerElement('div', 'study-panel__actions');
+  actions.forEach((action) => {
+    const button = drawerElement('button', action.primary ? 'button button-primary' : 'button button-secondary', action.label);
+    button.type = 'button';
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        await action.handler();
+      } catch (error) {
+        setStatus(t('ui.status.error', 'Error'));
+        setReply(formatPluginError(error));
+      } finally {
+        button.disabled = false;
+      }
+    });
+    row.appendChild(button);
+  });
+  return row;
+}
+
+function masteryIsAssessedForPanel(item = {}) {
+  if (item.assessed === false) return false;
+  const status = String(item.mastery_status || '').trim().toLowerCase();
+  if (['unassessed', 'insufficient_evidence', 'new'].includes(status)) return false;
+  if (status) return true;
+  if (item.assessed === true || item.weak) return true;
+  const level = String(item.level || '').trim().toLowerCase();
+  if (['weak', 'progress', 'good', 'mastered'].includes(level)) return true;
+  if (level === 'new') return false;
+  const mastery = item.mastery;
+  return (typeof mastery === 'number' && Number.isFinite(mastery))
+    || (typeof mastery === 'string' && mastery.trim() !== '' && Number.isFinite(Number(mastery)));
+}
+
+function masteryLevelForPanel(item = {}) {
+  if (!masteryIsAssessedForPanel(item)) return 'new';
+  const status = String(item.mastery_status || '').trim().toLowerCase();
+  const statusLevels = {
+    mastered: 'mastered',
+    good: 'good',
+    progressing: 'progress',
+    progress: 'progress',
+    weak: 'weak',
+  };
+  if (statusLevels[status]) return statusLevels[status];
+  if (item.weak) return 'weak';
+  const level = String(item.level || '').toLowerCase();
+  if (['new', 'weak', 'progress', 'good', 'mastered'].includes(level)) return level;
+  const mastery = Number(item.mastery);
+  if (!Number.isFinite(mastery)) return 'new';
+  if (mastery >= 0.85) return 'mastered';
+  if (mastery >= 0.6) return 'good';
+  if (mastery >= 0.3) return 'progress';
+  return 'weak';
+}
+
+function masteryDisplayForPanel(item = {}) {
+  if (!masteryIsAssessedForPanel(item)) {
+    return ` ${t('ui.knowledge.mastery.unassessed', 'Unassessed')}`;
+  }
+  const rawMastery = item.mastery;
+  const mastery = (typeof rawMastery === 'number' && Number.isFinite(rawMastery))
+    || (typeof rawMastery === 'string' && rawMastery.trim() !== '' && Number.isFinite(Number(rawMastery)))
+    ? Number(rawMastery)
+    : null;
+  return mastery === null ? '' : ` ${Math.round(mastery * 100)}%`;
+}
+
+function weakTopicForPanel(item = {}) {
+  if (!masteryIsAssessedForPanel(item)) return false;
+  const hasStatus = String(item.mastery_status || '').trim() !== '';
+  const hasAssessed = typeof item.assessed === 'boolean';
+  // The current payload deliberately carries weak independently of its visual
+  // level: 0.40–0.59 is `progress` but remains a weak practice priority.
+  if (hasStatus || hasAssessed) return item.weak === true;
+  return masteryLevelForPanel(item) === 'weak';
+}
+
+function stageValueFromNode(node = {}) {
+  const raw = String(
+    node.grade_level
+    || node.education_level
+    || node.stage
+    || node.course_level
+    || '',
+  ).trim().toLowerCase().replaceAll('-', '_');
+  const aliases = {
+    elementary: 'primary',
+    primary_school: 'primary',
+    middle_school: 'junior_high',
+    junior: 'junior_high',
+    high_school: 'senior_high',
+    senior: 'senior_high',
+    university: 'college',
+    undergraduate: 'college',
+    graduate: 'postgraduate',
+    master: 'postgraduate',
+  };
+  return normalizeLearningStage(aliases[raw] || raw);
+}
+
+function knowledgeStageLabel(stage) {
+  const normalized = normalizeLearningStage(stage);
+  return normalized ? learningStageLabel(normalized) : t('ui.profile.stage_uncategorized', 'Uncategorized');
+}
+
+
+
+function renderGenericLocalPanel(surfaceId) {
+  const root = surfacePanel(surfaceId, hostedSurfaceLabel(surfaceId));
+  root.appendChild(drawerElement('pre', '', hostedSurfaceLabel(surfaceId)));
+  root.appendChild(renderDrawerActions([
+    { label: t('ui.button.refresh', 'Refresh'), primary: true, handler: async () => { await refreshStatus(); openSurfaceDrawer(surfaceId); } },
+  ]));
+  return root;
+}
+
+function studySurfaceContext() {
+  return {
+    t,
+    tf,
+    label: hostedSurfaceLabel,
+    callPlugin,
+    openSurface: routeSurfaceEntry,
+  };
+}
+
+function renderSurfaceDrawerBody(surfaceId) {
+  const hostedPanel = window.StudyCompanionSurfacePanels?.render?.(surfaceId, studySurfaceContext());
+  if (hostedPanel === false) return null;
+  if (hostedPanel) return hostedPanel;
+  return renderGenericLocalPanel(surfaceId);
+}
+
+function openSurfaceDrawer(surfaceId) {
+  if (surfaceId === 'knowledge-map') return openKnowledgeMapFullscreen();
+  if (!surfaceDrawer || !surfaceDrawerBody) {
+    return false;
+  }
+  const activeWorkspaceId = workspaceController?.getActiveWorkspace?.() || '';
+  const activeEntry = workspaceController?.getRegistry?.()?.[activeWorkspaceId];
+  const suspendsWorkspace = activeEntry?.kind === 'surface' && activeEntry.surfaceId !== surfaceId;
+  const drawerBody = renderSurfaceDrawerBody(surfaceId);
+  if (!drawerBody) return false;
+  if (suspendsWorkspace) suspendedWorkspaceId = activeWorkspaceId;
+  if (surfaceDrawerTitle) {
+    surfaceDrawerTitle.textContent = hostedSurfaceLabel(surfaceId);
+  }
+  const isDialog = surfaceId === 'knowledge-map';
+  surfaceDrawer.dataset.surfaceId = surfaceId;
+  surfaceDrawer.dataset.presentation = isDialog ? 'dialog' : 'drawer';
+  if (isDialog) {
+    surfaceDrawer.setAttribute('role', 'dialog');
+    surfaceDrawer.setAttribute('aria-modal', 'true');
+  } else {
+    surfaceDrawer.removeAttribute('role');
+    surfaceDrawer.removeAttribute('aria-modal');
+    delete surfaceDrawer.dataset.windowScale;
+  }
+  surfaceDrawerBody.replaceChildren(drawerBody);
+  surfaceDrawer.dataset.open = 'true';
+  surfaceDrawer.setAttribute('aria-hidden', 'false');
+  surfaceDrawerCloseBtn?.focus?.();
+  return true;
+}
+
+const SURFACE_WORKSPACE_ROUTES = Object.freeze({
+  'pomodoro-panel': { workspaceId: 'focus' },
+  'notebook-panel': { workspaceId: 'notebook' },
+  'knowledge-map': { workspaceId: 'knowledge' },
+  'due-review-panel': { workspaceId: 'memory', secondary: true },
+  'memory-deck-list': { workspaceId: 'memory', secondary: true },
+  'memory-importer': { workspaceId: 'memory', secondary: true },
+  'habit-dashboard': { workspaceId: 'focus', secondary: true },
+  'daily-goal-editor': { workspaceId: 'focus', secondary: true },
+  'note-exporter': { workspaceId: 'notebook', secondary: true },
+  'session-summary': { workspaceId: 'notebook', secondary: true },
+  'knowledge-contribution-settings': { workspaceId: 'knowledge', secondary: true },
+});
+
+async function activateWorkspace(workspaceId, options = {}) {
+  if (!workspaceController) return { ok: false, workspaceId: null };
+  return workspaceController.activateWorkspace(workspaceId, options);
+}
+
+async function startBaselineAssessment() {
+  const prompt = t(
+    'ui.practice.baseline_topic_prompt',
+    'Choose a topic in the knowledge map. The first questions will start from the basics.',
+  );
+  setStatus(prompt);
+  setReply(prompt);
+  return activateWorkspace('knowledge', {
+    focus: 'workspace',
+    source: 'baseline-assessment',
+  });
+}
+
+async function routeSurfaceEntry(surfaceId, options = {}) {
+  const normalizedSurfaceId = String(surfaceId || '').trim();
+  const route = SURFACE_WORKSPACE_ROUTES[normalizedSurfaceId];
+  if (!route) return openSurfaceDrawer(normalizedSurfaceId);
+  const result = await activateWorkspace(route.workspaceId, {
+    focus: options.focus || (route.secondary ? 'none' : 'workspace'),
+    secondarySurface: route.secondary ? normalizedSurfaceId : '',
+    source: options.source || 'surface-entry',
+  });
+  if (!result?.ok) return false;
+  if (route.secondary) return openSurfaceDrawer(normalizedSurfaceId);
+  return true;
+}
+
+function canLeaveWorkspace(context) {
+  if (surfaceDrawer?.dataset.open === 'true'
+      && closeSurfaceDrawer({ resumeWorkspace: false }) === false) {
+    return false;
+  }
+  if (context.from === 'notebook') {
+    return window.StudyCompanionNotebook?.close?.() !== false;
+  }
+  if (context.from === 'knowledge') {
+    if (knowledgeMapFullscreenOpen() && closeSurfaceDrawer({ resumeWorkspace: false, restoreFocus: false }) === false) {
+      return false;
+    }
+    mapRequestId += 1;
+    knowledgeWorkspaceActive = false;
+    releaseKnowledgeWorkspaceHost?.();
+    releaseKnowledgeWorkspaceHost = null;
+  }
+  return true;
+}
+
+function closeWorkspaceSurface() {
+  return window.StudyCompanionSurfacePanels?.close?.() !== false;
+}
+
+function mountWorkspaceSurface(surfaceId) {
+  const panel = window.StudyCompanionSurfacePanels?.render?.(surfaceId, studySurfaceContext());
+  if (!panel) return false;
+  return panel;
+}
+
+function activateKnowledgeWorkspace(context) {
+  void context;
+  knowledgeWorkspaceActive = true;
+  mountKnowledgeWorkspaceHost();
+  if (lastKnowledgeMapPayload) {
+    setKnowledgeMapLoadState('ready');
+  } else {
+    setKnowledgeMapLoadState('loading');
+  }
+  syncKnowledgeMapContent();
+  const requestId = mapRequestId += 1;
+  loadKnowledgeMap(requestId);
+  return { focusHandled: false };
+}
+
+function initializeWorkspaceController() {
+  const factory = window.StudyCompanionWorkspaceController;
+  if (!factory?.create) {
+    throw new Error('StudyCompanionWorkspaceController failed to load');
+  }
+  workspaceController = factory.create({
+    initialWorkspace: 'overview',
+    registry: {
+      study: { focusTarget: '#studyInput' },
+      practice: { focusTarget: '#generateQuestionBtn' },
+      memory: { focusTarget: '#memoryFrontInput' },
+      knowledge: { focusTarget: '#knowledgeMapFullscreenBtn' },
+    },
+    canLeave: canLeaveWorkspace,
+    closeSurface: closeWorkspaceSurface,
+    mountSurface: mountWorkspaceSurface,
+    activateKnowledge: activateKnowledgeWorkspace,
+    onChange: ({ to }) => {
+      document.body.dataset.activeWorkspace = to;
+    },
+  });
+  return workspaceController.ready;
+}
+
+function trustedStudySurfaceOrigin(origin) {
+  return origin === window.location.origin;
+}
+
+function isTrustedStudySurfaceMessage(message) {
+  if (!message || typeof message !== 'object') {
+    return false;
+  }
+  if (!STUDY_SURFACE_INCOMING_MESSAGE_TYPES.has(message.type)) {
+    return false;
+  }
+  if (message.type !== STUDY_SURFACE_MESSAGE_TYPES.memoryDeckUpdated) {
+    return message.payload === undefined || (message.payload !== null && typeof message.payload === 'object');
+  }
+  return message.payload !== null && typeof message.payload === 'object' && !Array.isArray(message.payload);
+}
+
+function requestStudyStatusRefresh() {
+  if (refreshPending) {
+    return;
+  }
+  refreshPending = true;
+  refreshStatus({ updateReply: false })
+    .catch((error) => {
+      setStatus(t('ui.status.error', 'Error'));
+      setReply(formatPluginError(error));
+    })
+    .finally(() => {
+      refreshPending = false;
+    });
+}
+
+function handleStudySurfaceMessage(event) {
+  if (!trustedStudySurfaceOrigin(event.origin)) {
+    return;
+  }
+  const message = event.data || {};
+  if (!isTrustedStudySurfaceMessage(message)) {
+    return;
+  }
+  if (
+    message.type === STUDY_SURFACE_MESSAGE_TYPES.reviewCompleted
+    || message.type === STUDY_SURFACE_MESSAGE_TYPES.refreshSummary
+  ) {
+    requestStudyStatusRefresh();
+    return;
+  }
+  if (message.type !== STUDY_SURFACE_MESSAGE_TYPES.memoryDeckUpdated) {
+    return;
+  }
+  const payload = message.payload && typeof message.payload === 'object' ? message.payload : {};
+  const nextDeck = {
+    ...(lastStatusPayload.memory_deck || {}),
+    ...payload,
+  };
+  lastStatusPayload = {
+    ...lastStatusPayload,
+    memory_deck: nextDeck,
+  };
+  setMemoryDeckState(nextDeck);
+  updateStudySummaries(lastStatusPayload);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function timeLeft(deadline) {
+  return Math.max(0, deadline - Date.now());
+}
+
+function timeoutForEntry(entryId) {
+  return ENTRY_TIMEOUT_MS[entryId] || RUN_TIMEOUT_MS;
+}
+
+async function fetchWithTimeout(url, init = {}, timeoutMs = RUN_TIMEOUT_MS, signal) {
+  return window.StudyRequestUtils.fetchWithTimeout({
+    url,
+    init,
+    timeoutMs,
+    signal,
+    translate: t,
+  });
+}
+
+function setSettingsConfigStatus(key, fallback, target = settingsConfigStatus) {
+  if (target) target.textContent = t(key, fallback);
+}
+
+function cloneConfig(value) {
+  return JSON.parse(JSON.stringify(value || {}));
+}
+
+function getConfigRoot(payload) {
+  return payload?.config && typeof payload.config === 'object' ? payload.config : payload;
+}
+
+function ensureConfigSection(config, key) {
+  if (!config[key] || typeof config[key] !== 'object') config[key] = {};
+  return config[key];
+}
+
+function syncCommunicationControls(saving = false) {
+  if (!settingsCommunicationEnabled) return;
+  const enabled = settingsCommunicationEnabled.checked;
+  settingsCommunicationEnabled.disabled = saving;
+  if (settingsSolutionNarrationEnabled) settingsSolutionNarrationEnabled.disabled = saving || !enabled;
+  if (settingsGeneralNarrationEnabled) settingsGeneralNarrationEnabled.disabled = saving || !enabled;
+  if (settingsCommunicationRequiresEnabled) settingsCommunicationRequiresEnabled.hidden = enabled;
+}
+
+function syncCognitiveControls(source = 'mode', saving = false) {
+  let mode = ['off', 'shadow', 'active'].includes(settingsCognitiveMode?.value)
+    ? settingsCognitiveMode.value
+    : 'off';
+  if (source === 'toggle') {
+    mode = settingsCognitiveEnabled?.checked === true
+      ? (mode === 'off' ? 'shadow' : mode)
+      : 'off';
+    if (settingsCognitiveMode) settingsCognitiveMode.value = mode;
+  } else if (settingsCognitiveEnabled) {
+    settingsCognitiveEnabled.checked = mode !== 'off';
+  }
+  if (settingsCognitiveMode) settingsCognitiveMode.disabled = saving;
+  if (settingsCognitiveEnabled) settingsCognitiveEnabled.disabled = saving;
+  if (settingsCognitiveRuntimeStatus) {
+    const key = ['shadow', 'active'].includes(mode) ? mode : 'off';
+    const fallback = {
+      off: 'Off: answer evidence is not analyzed.',
+      shadow: 'Shadow: analyzes answers without changing the question flow.',
+      active: 'Active: analyzes answers and can influence the next question.',
+    }[key];
+    settingsCognitiveRuntimeStatus.textContent = t(`ui.settings.cognitive.status.${key}`, fallback);
+    settingsCognitiveRuntimeStatus.dataset.cognitiveMode = key;
+  }
+}
+
+function syncSettingsSavingControls(saving = false) {
+  if (settingsSaveBtn) settingsSaveBtn.disabled = saving;
+  if (settingsDataSaveBtn) settingsDataSaveBtn.disabled = saving;
+  if (settingsRuntimeSaveBtn) settingsRuntimeSaveBtn.disabled = saving;
+  if (settingsDocExportEnabled) settingsDocExportEnabled.disabled = saving;
+  syncCognitiveControls('mode', saving);
+  if (settingsLocalModelsEnabled) settingsLocalModelsEnabled.disabled = true;
+  syncCommunicationControls(saving);
+}
+
+// Local model execution is intentionally frozen after the A/B infrastructure
+// stages. Keep the code path dormant until a later product decision re-enables it.
+const LOCAL_MODELS_AVAILABLE = false;
+const localModelsController = LOCAL_MODELS_AVAILABLE
+  ? window.StudyLocalModels?.create({
+    callPlugin,
+    t,
+    onDirectoryUpdated: (directory) => {
+      if (!settingsConfig) return;
+      ensureConfigSection(settingsConfig, 'llm').local_models_directory = directory;
+    },
+  })
+  : null;
+
+function renderCommunicationRuntime(status = settingsCommunicationStatus) {
+  if (!settingsCommunicationRuntime) return;
+  const enabled = status.configured_enabled === true;
+  const key = enabled !== (status.available === true) ? 'runtime_unavailable'
+    : !enabled ? 'requires_enabled'
+      : status.command_subscription_active !== true || status.command_worker_active !== true ? 'commands_unavailable' : 'runtime_ready';
+  settingsCommunicationRuntime.textContent = t(`ui.settings.communication.${key}`);
+}
+
+function renderModelRuntime(runtime = {}) {
+  window.StudyModelRuntime.render(settingsModelRuntimeCards, runtime, t, tf);
+}
+
+function renderLocalModelsRuntime(runtime = settingsLocalModelsRuntimeStatus) {
+  if (!settingsLocalModelsRuntime) return;
+  if (!LOCAL_MODELS_AVAILABLE) {
+    settingsLocalModelsRuntime.textContent = t(
+      'ui.settings.local_models.status.not_started',
+      'Coming soon',
+    );
+    settingsLocalModelsRuntime.dataset.localRuntimeState = 'coming-soon';
+    return;
+  }
+  const state = String(runtime?.state || 'stopped').trim().toLowerCase();
+  const key = state === 'ready'
+    ? 'ready'
+    : state === 'starting'
+      ? 'starting'
+      : ['unavailable', 'crashed', 'error', 'failed'].includes(state)
+        ? 'error'
+        : 'not_started';
+  settingsLocalModelsRuntime.textContent = t(
+    `ui.settings.local_models.status.${key}`,
+    ({ not_started: 'Not started', starting: 'Starting...', ready: 'Ready', error: 'Unavailable' })[key],
+  );
+  settingsLocalModelsRuntime.dataset.localRuntimeState = state || 'stopped';
+}
+
+function applySettingsConfig(config) {
+  const study = config.study || {};
+  const ocr = config.ocr_reader || {};
+  const rapidocr = config.rapidocr || {};
+  const llm = config.llm || {};
+  const communication = config.communication || {};
+  const docExport = config.doc_export || {};
+  const cognitive = config.cognitive || {};
+  if (settingsDefaultMode) settingsDefaultMode.value = ['companion', 'interactive', 'teaching'].includes(study.default_mode) ? study.default_mode : 'companion';
+  syncLearningProfileUi();
+  if (settingsOcrEnabled) settingsOcrEnabled.checked = ocr.enabled !== false;
+  if (settingsOcrLanguages) {
+    const langType = String(rapidocr.lang_type || 'ch').trim().toLowerCase();
+    settingsOcrLanguages.value = ['ch', 'japan', 'korean', 'en'].includes(langType) ? langType : 'ch';
+  }
+  if (settingsOcrQuestionPersistence) {
+    settingsOcrQuestionPersistence.value = ocr.question_persistence_mode === 'auto_save_questions'
+      ? 'auto_save_questions'
+      : 'save_when_used';
+  }
+  if (settingsLlmTimeout) settingsLlmTimeout.value = String(Number.isFinite(Number(llm.llm_call_timeout_seconds)) ? Number(llm.llm_call_timeout_seconds) : 30);
+  if (settingsLlmVisionEnabled) settingsLlmVisionEnabled.checked = llm.llm_vision_enabled === true;
+  if (settingsLocalModelsEnabled) settingsLocalModelsEnabled.checked = false;
+  if (settingsCommunicationEnabled) settingsCommunicationEnabled.checked = communication.enabled !== false;
+  if (settingsSolutionNarrationEnabled) settingsSolutionNarrationEnabled.checked = communication.solution_narration_enabled !== false;
+  if (settingsGeneralNarrationEnabled) settingsGeneralNarrationEnabled.checked = communication.general_narration_enabled !== false;
+  if (settingsDocExportEnabled) settingsDocExportEnabled.checked = docExport.enabled === true;
+  if (settingsCognitiveMode) {
+    settingsCognitiveMode.value = cognitive.projection_enabled !== true || cognitive.read_mode === 'off'
+      ? 'off'
+      : cognitive.read_mode === 'active' && cognitive.intent_policy === 'on'
+        ? 'active'
+        : 'shadow';
+  }
+  syncCognitiveControls();
+  syncCommunicationControls();
+  renderCommunicationRuntime();
+  renderLocalModelsRuntime();
+  localModelsController?.apply(settingsLocalModelAssetsStatus, llm);
+  if (Object.prototype.hasOwnProperty.call(llm, 'llm_vision_max_image_px')) applyVisionMaxImagePx(llm.llm_vision_max_image_px);
+}
+
+async function loadSettingsConfig(force = false) {
+  if (!settingsConfigForm || settingsConfigLoading || (settingsConfig && !force)) return;
+  settingsConfigLoading = true;
+  setSettingsConfigStatus('ui.status.config_loading', 'Loading settings...');
+  try {
+    const payload = await callPlugin('study_get_settings_config');
+    settingsConfig = cloneConfig(getConfigRoot(payload));
+    settingsCommunicationStatus = cloneConfig(payload.communication_status || {});
+    settingsLocalModelsRuntimeStatus = cloneConfig(
+      payload.local_runtime || payload.model_runtime?.local || {},
+    );
+    settingsLocalModelAssetsStatus = cloneConfig(payload.local_model_assets || {});
+    applySettingsConfig(settingsConfig);
+    renderModelRuntime(payload.model_runtime || {});
+    setSettingsConfigStatus('ui.status.config_loaded', 'Settings loaded');
+  } catch (error) {
+    setSettingsConfigStatus('ui.status.config_load_failed', 'Could not load settings');
+  } finally {
+    settingsConfigLoading = false;
+  }
+}
+
+function collectSettingsConfig() {
+  const next = cloneConfig(settingsConfig);
+  const study = ensureConfigSection(next, 'study');
+  const ocr = ensureConfigSection(next, 'ocr_reader');
+  const rapidocr = ensureConfigSection(next, 'rapidocr');
+  const llm = ensureConfigSection(next, 'llm');
+  const communication = ensureConfigSection(next, 'communication');
+  const docExport = ensureConfigSection(next, 'doc_export');
+  const cognitive = ensureConfigSection(next, 'cognitive');
+  study.default_mode = settingsDefaultMode ? settingsDefaultMode.value : 'companion';
+  ocr.enabled = settingsOcrEnabled ? settingsOcrEnabled.checked : true;
+  rapidocr.lang_type = settingsOcrLanguages && ['ch', 'japan', 'korean', 'en'].includes(settingsOcrLanguages.value)
+    ? settingsOcrLanguages.value
+    : 'ch';
+  ocr.question_persistence_mode = settingsOcrQuestionPersistence
+    ? settingsOcrQuestionPersistence.value
+    : 'save_when_used';
+  llm.llm_call_timeout_seconds = Math.max(1, Math.min(3600, Math.round(Number(settingsLlmTimeout?.value) || 30)));
+  llm.llm_vision_enabled = settingsLlmVisionEnabled ? settingsLlmVisionEnabled.checked : false;
+  llm.llm_vision_max_image_px = normalizeVisionMaxImagePx(llm.llm_vision_max_image_px);
+  llm.local_models_enabled = false;
+  llm.local_models_directory = LOCAL_MODELS_AVAILABLE
+    ? localModelsController?.directory?.() || ''
+    : String(llm.local_models_directory || '');
+  communication.enabled = settingsCommunicationEnabled ? settingsCommunicationEnabled.checked : true;
+  communication.solution_narration_enabled = settingsSolutionNarrationEnabled ? settingsSolutionNarrationEnabled.checked : true;
+  communication.general_narration_enabled = settingsGeneralNarrationEnabled ? settingsGeneralNarrationEnabled.checked : true;
+  docExport.enabled = settingsDocExportEnabled ? settingsDocExportEnabled.checked : false;
+  const cognitiveMode = ['off', 'shadow', 'active'].includes(settingsCognitiveMode?.value)
+    ? settingsCognitiveMode.value
+    : 'off';
+  cognitive.projection_enabled = cognitiveMode !== 'off';
+  cognitive.read_mode = cognitiveMode;
+  cognitive.intent_policy = cognitiveMode === 'active' ? 'on' : cognitiveMode;
+  cognitive.ui_enabled = cognitiveMode === 'active';
+  return next;
+}
+
+async function saveSettingsConfig(statusTarget = settingsConfigStatus) {
+  if (!settingsConfig) await loadSettingsConfig(true);
+  if (!settingsConfig) {
+    setSettingsConfigStatus('ui.status.config_load_failed', 'Could not load settings', statusTarget);
+    return;
+  }
+  const previous = [cloneConfig(settingsConfig), cloneConfig(settingsCommunicationStatus)];
+  const next = collectSettingsConfig();
+  if (settingsLearningStage) setLearningProfileStage(settingsLearningStage.value);
+  syncSettingsSavingControls(true);
+  setSettingsConfigStatus('ui.status.config_saving', 'Saving settings...', statusTarget);
+  try {
+    const payload = await callPlugin('study_update_settings_config', { config: next });
+    settingsConfig = cloneConfig(getConfigRoot(payload) || next);
+    settingsCommunicationStatus = cloneConfig(payload.communication_status || {});
+    applySettingsConfig(settingsConfig);
+    try {
+      settingsLocalModelAssetsStatus = cloneConfig(await localModelsController?.refresh?.() || {});
+      localModelsController?.apply(settingsLocalModelAssetsStatus, settingsConfig.llm || {});
+    } catch (_error) {
+      // Saving configuration already succeeded. Asset diagnostics remain optional.
+    }
+    setSettingsConfigStatus('ui.status.config_saved', 'Saved', statusTarget);
+    window.parent.postMessage({type: 'neko-plugin-context-invalidated'}, window.location.origin);
+    setAdvancedSettingsOpen(false);
+    if (surfaceDrawer?.dataset.open === 'true' && surfaceDrawer.dataset.surfaceId === 'note-exporter') {
+      const activeExporter = surfaceDrawerBody?.querySelector('[data-surface="note-exporter"]');
+      if (activeExporter?.dataset.notebookSelection === 'true') {
+        window.StudyCompanionNotebook?.restoreExportSelectionIntent?.();
+      }
+      openSurfaceDrawer('note-exporter');
+    }
+  } catch (error) {
+    [settingsConfig, settingsCommunicationStatus] = previous;
+    applySettingsConfig(settingsConfig);
+    setSettingsConfigStatus('ui.status.config_save_failed', 'Could not save settings', statusTarget);
+  } finally {
+    syncSettingsSavingControls();
+  }
+}
+
+async function createRun(entryId, args = {}, deadline = Date.now() + RUN_TIMEOUT_MS, signal) {
+  const response = await fetchWithTimeout(RUNS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plugin_id: PLUGIN_ID, entry_id: entryId, args }),
+  }, timeLeft(deadline), signal);
+  if (!response.ok) {
+    throw new Error(tf('ui.error.run_create_failed', 'Run create failed: HTTP {status}', { status: response.status }));
+  }
+  const payload = await response.json();
+  const runId = payload.run_id || payload.id;
+  if (!runId) {
+    throw new Error(t('ui.error.run_id_missing', 'Run id missing'));
+  }
+  return runId;
+}
+
+async function exportRunResult(runId, deadline = Date.now() + RUN_TIMEOUT_MS, signal) {
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < RUN_EXPORT_RETRY_COUNT; attempt += 1) {
+    const response = await fetchWithTimeout(`${RUNS_URL}/${runId}/export`, {}, timeLeft(deadline), signal);
+    lastStatus = response.status;
+    if (response.ok) {
+      const payload = await response.json();
+      const items = payload.items || [];
+      const item = items.find((candidate) => candidate.type === 'json' && candidate.json);
+      const pluginResponse = item ? (item.json || {}) : {};
+      if (pluginResponse.success === false || pluginResponse.error) {
+        const pluginError = pluginResponse.error || {};
+        const error = new Error(pluginError.message || pluginResponse.message || t('ui.error.plugin_call_failed', 'Plugin call failed'));
+        error.code = String(pluginError.code || pluginResponse.code || '');
+        throw error;
+      }
+      if (!item) {
+        throw new Error(t('ui.error.plugin_call_failed', 'Plugin call failed'));
+      }
+      return pluginResponse.data || {};
+    }
+    if (attempt < RUN_EXPORT_RETRY_COUNT - 1) {
+      const waitMs = Math.min(RUN_EXPORT_RETRY_DELAY_MS * (attempt + 1), timeLeft(deadline));
+      if (waitMs <= 0) {
+        throw new Error(t('ui.error.plugin_call_timeout', 'Plugin call timed out'));
+      }
+      await sleep(waitMs);
+    }
+  }
+  throw new Error(tf('ui.error.run_export_failed', 'Run export failed: HTTP {status}', { status: lastStatus }));
+}
+
+async function callPlugin(entryId, args = {}, signal) {
+  const deadline = Date.now() + timeoutForEntry(entryId);
+  const locale = window.I18n && typeof window.I18n.lang === 'function'
+    ? window.I18n.lang()
+    : (document.documentElement.lang || '');
+  const runId = await createRun(entryId, { ...args, locale }, deadline, signal);
+  let delay = 250;
+  while (Date.now() < deadline) {
+    const waitMs = Math.min(delay, timeLeft(deadline));
+    if (waitMs <= 0) {
+      break;
+    }
+    await sleep(waitMs);
+    delay = Math.min(Math.round(delay * 1.5), 2000);
+    const response = await fetchWithTimeout(`${RUNS_URL}/${runId}`, {}, timeLeft(deadline), signal);
+    if (!response.ok) {
+      continue;
+    }
+    const record = await response.json();
+    if (record.status === 'succeeded') {
+      return await exportRunResult(runId, deadline, signal);
+    }
+    if (['failed', 'canceled', 'timeout'].includes(record.status)) {
+      const error = new Error(record.error?.message || record.message || record.status);
+      error.code = record.status === 'canceled'
+        ? 'PLUGIN_CALL_CANCELED'
+        : String(record.error?.code || record.code || '');
+      throw error;
+    }
+  }
+  throw new Error(t('ui.error.plugin_call_timeout', 'Plugin call timed out'));
+}
+
+async function refreshStatus(_options = {}) {
+  setStatus(t('ui.status.refreshing', 'Refreshing...'));
+  const data = await callPlugin('study_status');
+  applyRuntimeConfig(data);
+  setStatusLine(data);
+}
+
+async function loadQuestionContext(options = {}) {
+  if (!options.silent) {
+    setStatus(t('ui.practice.context_loading', 'Analyzing study records...'));
+  }
+  try {
+    const data = await callPlugin('study_question_context');
+    setQuestionContext(data);
+    if (!options.silent) {
+      setStatus(t('ui.status.ready', 'Ready'));
+    }
+    return data;
+  } catch (error) {
+    currentSelectionContext = null;
+    if (selectionReason) {
+      selectionReason.textContent = formatPluginError(error);
+    }
+    if (!options.silent) {
+      setStatus(t('ui.status.error', 'Error'));
+    }
+    return null;
+  }
+}
+
+function interactiveOcrErrorMessage(error) {
+  const errorText = String(error?.message || error);
+  if (errorText.includes('capture_busy')) {
+    return t(
+      'ui.error.interactive_ocr_busy',
+      'Another screen selection is already active. Finish or cancel it, then try again.',
+    );
+  }
+  if (
+    errorText.includes('renderer_timeout')
+    || errorText.includes('SCREENSHOT_OVERLAY_SESSION_TIMEOUT')
+  ) {
+    return t(
+      'ui.error.interactive_ocr_timeout',
+      'Screen selection timed out. Click OCR to try again.',
+    );
+  }
+  if (errorText.includes('no_renderer')) {
+    return t(
+      'ui.error.interactive_ocr_unavailable',
+      'Screen selection requires the N.E.K.O desktop app to be connected.',
+    );
+  }
+  return '';
+}
+
+function interactiveOcrFallbackMessage(reason) {
+  const normalized = String(reason || '').trim();
+  if (!normalized) {
+    return '';
+  }
+  return t(
+    'ui.status.ocr_fallback_fullscreen',
+    'Screen selection unavailable; used full-screen OCR.',
+  );
+}
+
+async function runOcr(options = {}) {
+  setStatus(t(
+    'ui.status.preparing_ocr_selection',
+    'Screen selection opens in 2 seconds...',
+  ));
+  let data;
+  try {
+    data = await callPlugin('study_ocr_snapshot', { capture_mode: 'interactive' });
+  } catch (error) {
+    const localizedMessage = interactiveOcrErrorMessage(error);
+    if (!localizedMessage) {
+      throw error;
+    }
+    throw new Error(localizedMessage);
+  }
+  if (data.status === 'canceled') {
+    setStatus(t('ui.status.ocr_canceled', 'Screen selection canceled'));
+    return data;
+  }
+  const s = data.status || 'unknown';
+  const n = data.capture_mode_used === 'fullscreen' && ['ok', 'empty'].includes(s) ? interactiveOcrFallbackMessage(data.interactive_fallback_reason) : '';
+  const text = String(data.text || '').trim();
+  if (text) {
+    studyInput.value = data.text;
+    ocrN = n;
+    ocrT = text;
+  } else if (options.clearWhenEmpty && studyInput) {
+    studyInput.value = '';
+    ocrN = ocrT = '';
+  }
+  setReply(data.text || data.diagnostic || data.summary || '');
+  await refreshStatus({ updateReply: false }).catch((error) => { if (!n) throw error; });
+  setStatus(n || tf('ui.status.ocr_result', 'OCR {status}', { status: s }));
+  return data;
+}
+
+async function saveOcrQuestion() {
+  if (!String(ocrT || '').trim()) {
+    throw new Error(t('ui.error.no_ocr_question', 'Capture OCR text before saving a question.'));
+  }
+  const data = await callPlugin('study_save_ocr_question');
+  const questionId = String(data?.captured_question_id || '');
+  lastSavedOcrQuestionId = questionId;
+  if (undoOcrQuestionBtn) undoOcrQuestionBtn.disabled = !questionId;
+  setStatus(t('ui.status.ocr_question_saved', 'OCR question saved'));
+  setReply(questionId
+    ? tf('ui.status.ocr_question_saved_with_id', 'OCR question saved ({id})', { id: questionId })
+    : t('ui.status.ocr_question_saved', 'OCR question saved'));
+  await refreshStatus({ updateReply: false });
+}
+
+async function undoOcrQuestionSave() {
+  if (!lastSavedOcrQuestionId) {
+    return;
+  }
+  const data = await callPlugin('study_delete_captured_question', {
+    question_id: lastSavedOcrQuestionId,
+  });
+  if (data?.deleted !== true) {
+    throw new Error(t('ui.error.ocr_question_delete_failed', 'Could not delete the saved OCR question.'));
+  }
+  lastSavedOcrQuestionId = '';
+  if (undoOcrQuestionBtn) undoOcrQuestionBtn.disabled = true;
+  setStatus(t('ui.status.ocr_question_save_undone', 'OCR question save undone'));
+}
+
+async function clearSavedOcrQuestions() {
+  if (!window.confirm(t('ui.confirm.clear_ocr_questions', 'Clear all saved OCR questions? This does not delete answer history.'))) {
+    return;
+  }
+  const data = await callPlugin('study_clear_captured_questions');
+  lastSavedOcrQuestionId = '';
+  if (undoOcrQuestionBtn) undoOcrQuestionBtn.disabled = true;
+  setStatus(tf('ui.status.ocr_questions_cleared', 'Cleared {count} saved OCR questions', {
+    count: Number(data?.deleted_count || 0),
+  }));
+}
+
+async function explainText(options = {}) {
+  const text = studyInput.value.trim();
+  if (!text && !studyInputImageValue) {
+    throw new Error(t('ui.error.missing_study_input', 'Please enter text or paste an image first.'));
+  }
+  const n = (options.notice || (text === ocrT ? ocrN : '')).trim();
+  const pending = studyInputImageValue ? t('ui.status.solving_problem', 'Solving problem...') : t('ui.status.explaining', 'Explaining...');
+  setStatus(pending);
+  setReply(n ? `${n}\n\n${pending}` : pending);
+  scrollReplyIntoView();
+  const args = { text };
+  if (studyInputImageValue) {
+    args.vision_image_base64 = studyInputImageValue;
+  }
+  let data;
+  try {
+    data = await callPlugin('study_explain_text', args);
+  } catch (error) {
+    if (n) error.n = n;
+    throw error;
+  }
+  setStatus(data.degraded
+    ? t('ui.status.reply_ready_fallback', 'Reply ready (fallback)')
+    : t('ui.status.reply_ready', 'Reply ready'));
+  setReply([
+    n,
+    data.degraded
+      ? formatTutorDiagnostic(data.diagnostic)
+      : (data.reply || data.summary || data.transition_phrase || ''),
+    outcomeFormatters.formatKnowledgeGuidanceEvidence(data, t),
+    outcomeFormatters.formatSolutionNarrationNotice(data, t),
+    outcomeFormatters.formatGeneralNarrationNotice(data, t),
+    data.history_persisted === false
+      ? t(
+        'ui.error.history_not_saved',
+        'This explanation is shown, but it could not be saved to session history. It may disappear after you leave or refresh.',
+      )
+      : '',
+  ].filter(Boolean).join('\n\n'));
+  await refreshStatus({ updateReply: false }).catch((error) => { if (!n) throw error; setStatus(t('ui.status.reply_ready', 'Reply ready')); });
+}
+
+async function generateQuestion(preferredNextStep = null) {
+  currentSelectionContext = null;
+  await loadPracticeScope();
+  const usePreferredContext = hasUsableSelectionContext(preferredNextStep);
+  let context = usePreferredContext
+    ? {
+      selection_context_id: preferredNextStep.selection_context_id,
+      selected_topic_id: preferredNextStep.topic_id,
+      selected_topic_name: preferredNextStep.topic_name,
+      selection_reason: preferredNextStep.reason,
+      selection_domain: preferredNextStep.selection_domain,
+      learning_plan_id: preferredNextStep.learning_plan_id,
+      learning_plan_revision: preferredNextStep.learning_plan_revision,
+      plan_progress: preferredNextStep.plan_progress,
+      no_data: false,
+    }
+    : await loadQuestionContext({ silent: true });
+  if (!context || context.no_data || !context.selection_context_id) {
+    throw new Error(t('ui.error.no_targeted_question_data', 'Not enough study records to generate a practice question yet.'));
+  }
+  setStatus(t('ui.status.generating_question', 'Generating question...'));
+  const selectedDifficulty = Number(questionDifficultySelect?.value || 0);
+  const requestQuestion = (selectionContextId) => {
+    const args = { selection_context_id: selectionContextId };
+    if (Number.isInteger(selectedDifficulty) && selectedDifficulty >= 1 && selectedDifficulty <= 5) {
+      args.requested_difficulty = selectedDifficulty;
+    }
+    return callPlugin('study_generate_targeted_question', args);
+  };
+  let data;
+  try {
+    data = await requestQuestion(context.selection_context_id);
+  } catch (error) {
+    if (!usePreferredContext || pluginErrorCode(error) !== 'SELECTION_CONTEXT_EXPIRED') {
+      throw error;
+    }
+    context = await loadQuestionContext({ silent: true });
+    if (!context || context.no_data || !context.selection_context_id) throw error;
+    data = await requestQuestion(context.selection_context_id);
+  }
+  setStatus(data.degraded
+    ? t('ui.status.reply_ready_fallback', 'Reply ready (fallback)')
+    : t('ui.status.reply_ready', 'Reply ready'));
+  if (data.degraded) {
+    setReply(formatTutorDiagnostic(data.diagnostic));
+    await refreshStatus({ updateReply: false });
+    return;
+  }
+  clearFeedback();
+  setGeneratedQuestion(data);
+  setQuestionContext({ ...context, ...data, no_data: false, selection_context_id: '' });
+  if (answerInput) answerInput.value = '';
+  setImagePreview('answer', '');
+  setReply(localizedQuestionHint(data.hint) || data.question || data.summary || data.reply || '');
+  await refreshStatus({ updateReply: false });
+}
+
+async function evaluateAnswer() {
+  if (!currentQuestion?.question_id || !currentQuestion?.attempt_id) {
+    throw new Error(t('ui.error.question_missing', 'Please generate a practice question first.'));
+  }
+  if (!canEvaluateCurrentQuestion) {
+    throw Object.assign(
+      new Error('ATTEMPT_ALREADY_EVALUATED'),
+      { code: 'ATTEMPT_ALREADY_EVALUATED' },
+    );
+  }
+  const answer = answerInput ? answerInput.value.trim() : '';
+  if (!answer && !answerInputImageValue) {
+    throw new Error(t('ui.error.missing_answer', 'Please enter an answer first.'));
+  }
+  const evaluatingMessage = t('ui.status.evaluating_answer', 'Evaluating answer...');
+  setStatus(evaluatingMessage);
+  if (evaluationStatus) evaluationStatus.textContent = evaluatingMessage;
+  if (feedbackPanel) {
+    feedbackPanel.hidden = false;
+    feedbackPanel.dataset.compact = 'true';
+    feedbackPanel.setAttribute('aria-busy', 'true');
+  }
+  if (feedbackText) feedbackText.textContent = evaluatingMessage;
+  if (masteryDeltaText) masteryDeltaText.textContent = '';
+  if (nextStepDetails) nextStepDetails.textContent = '';
+  if (continueQuestionBtn) continueQuestionBtn.hidden = true;
+  if (evaluateAnswerBtn) evaluateAnswerBtn.textContent = evaluatingMessage;
+  const args = {
+    answer,
+    question_id: currentQuestion.question_id,
+    attempt_id: currentQuestion.attempt_id,
+    selected_topic_id: currentQuestion.selected_topic_id || '',
+    response_time_ms: questionStartedAt ? Math.max(0, Date.now() - questionStartedAt) : undefined,
+    used_hint: hintRevealed,
+  };
+  if (answerInputImageValue) {
+    args.vision_image_base64 = answerInputImageValue;
+  }
+  let data;
+  try {
+    data = await callPlugin('study_evaluate_answer', args);
+  } catch (error) {
+    const errorMessage = formatPluginError(error);
+    if (evaluationStatus) evaluationStatus.textContent = errorMessage;
+    if (feedbackText) feedbackText.textContent = errorMessage;
+    if (feedbackPanel) feedbackPanel.setAttribute('aria-busy', 'false');
+    throw error;
+  } finally {
+    if (evaluateAnswerBtn) {
+      evaluateAnswerBtn.textContent = t('ui.button.evaluate_answer', 'Evaluate Answer');
+    }
+  }
+  setStatus(data.degraded
+    ? t('ui.status.reply_ready_fallback', 'Reply ready (fallback)')
+    : t('ui.status.reply_ready', 'Reply ready'));
+  if (data.degraded) {
+    if (feedbackPanel) {
+      feedbackPanel.hidden = true;
+      delete feedbackPanel.dataset.compact;
+      feedbackPanel.removeAttribute('aria-busy');
+    }
+    setReply(formatTutorDiagnostic(data.diagnostic));
+    await refreshStatus({ updateReply: false });
+    return;
+  }
+  if (feedbackPanel) {
+    delete feedbackPanel.dataset.compact;
+    feedbackPanel.removeAttribute('aria-busy');
+  }
+  renderFeedback(data);
+  const updatedPlanProgress = data.learning_update?.plan_progress || data.next_step?.plan_progress;
+  if (updatedPlanProgress && currentLearningPlan) {
+    currentLearningPlan = { ...currentLearningPlan, progress: updatedPlanProgress };
+    renderLearningPlan();
+  }
+  updatePracticeCompletionAction(data);
+  const replyLines = [
+    practiceAttemptMessage(data),
+    practiceMasteryMessage(data),
+    data.feedback || data.reply || '',
+    data.next_action
+      ? `${t('ui.practice.next_action', 'Next')}: ${localizedEvaluationNextAction(data.next_action, data.attempt_status || data.verdict)}`
+      : '',
+  ].filter(Boolean);
+  setReply(replyLines.join('\n\n') || data.summary || '');
+  canEvaluateCurrentQuestion = false;
+  if (evaluateAnswerBtn) evaluateAnswerBtn.disabled = true;
+  await refreshStatus({ updateReply: false });
+}
+
+async function continueAdaptiveLoop() {
+  const canUsePreview = currentNextStep?.status === 'ready'
+    && currentNextStep?.available_now === true;
+  if (canUsePreview && currentNextStep?.action === 'summarize_plan') {
+    await summarizeSession();
+    return;
+  }
+  await generateQuestion(canUsePreview ? currentNextStep : null);
+}
+
+async function summarizeSession() {
+  setStatus(t('ui.status.summarizing_session', 'Summarizing session...'));
+  const data = await callPlugin('study_summarize_session', {});
+  setStatus(data.degraded
+    ? t('ui.status.reply_ready_fallback', 'Reply ready (fallback)')
+    : t('ui.status.reply_ready', 'Reply ready'));
+  setReply(data.degraded
+    ? formatTutorDiagnostic(data.diagnostic)
+    : (data.markdown || data.summary || data.reply || ''));
+  await refreshStatus({ updateReply: false });
+}
+
+async function refreshMemoryDeck() {
+  setStatus(t('ui.status.refreshing', 'Refreshing...'));
+  const data = await callPlugin('study_memory_deck', { limit: 8 });
+  setMemoryDeckState(data);
+  setStatus(t('ui.status.reply_ready', 'Reply ready'));
+}
+
+async function saveMemoryCard() {
+  const front = memoryFrontInput ? memoryFrontInput.value.trim() : '';
+  const back = memoryBackInput ? memoryBackInput.value.trim() : '';
+  if (!front || !back) {
+    throw new Error(t('ui.memory.error_missing_card', 'Please enter both sides of the card.'));
+  }
+  const deckId = await chooseDeckForFirstCard();
+  if (deckId === null) return;
+  setStatus(t('ui.memory.saving', 'Saving memory card...'));
+  const data = await callPlugin('study_memory_card_upsert', {
+    front,
+    back,
+    item_type: quickCardController?.getItemType() || memoryItemTypeSelect?.value || 'custom',
+    source: 'ui',
+    deck_id: deckId,
+  });
+  if (memoryFrontInput) {
+    memoryFrontInput.value = '';
+  }
+  if (memoryBackInput) {
+    memoryBackInput.value = '';
+  }
+  setReply(data.card ? `${data.card.front}\n\n${data.card.back}` : '');
+  await refreshMemoryDeck();
+}
+
+async function reviewMemoryCard(rating) {
+  const itemId = currentMemoryCard?.item_id || currentMemoryCard?.item?.id || '';
+  const topicId = currentMemoryCard?.topic_id || '';
+  if (!itemId && !topicId) {
+    return;
+  }
+  setStatus(t('ui.memory.reviewing', 'Reviewing memory card...'));
+  const data = itemId
+    ? await callPlugin('study_memory_review_item', { item_id: itemId, rating })
+    : await callPlugin('study_memory_card_review', { topic_id: topicId, rating });
+  const scheduledDays = data.schedule && Number.isFinite(Number(data.schedule.scheduled_days))
+    ? Number(data.schedule.scheduled_days).toFixed(1)
+    : '';
+  setReply(scheduledDays
+    ? tf('ui.memory.review_saved_days', 'Next review in {days} days', { days: scheduledDays })
+    : t('ui.memory.review_saved', 'Review saved'));
+  await refreshMemoryDeck();
+}
+
+async function setMode(mode) {
+  if (mode === currentMode) {
+    return;
+  }
+  setStatus(t('ui.status.mode_switching', 'Switching mode...'));
+  const data = await callPlugin('study_set_mode', { mode, reason: 'ui' });
+  const appliedMode = data && data.new_mode
+    ? data.new_mode
+    : (data && data.changed === false ? currentMode : mode);
+  currentMode = String(appliedMode || 'companion');
+  setModeButtons(currentMode, false);
+  setReply(data.transition_phrase || data.summary || data.message || '');
+  await refreshStatus({ updateReply: false });
+}
+
+async function requestModeChange(mode) {
+  const requestedMode = String(mode || 'companion');
+  if (modeChangeInFlight || requestedMode === currentMode) {
+    setModeButtons(currentMode, false);
+    return;
+  }
+  modeChangeInFlight = true;
+  setModeButtons(currentMode, true);
+  try {
+    await setMode(requestedMode);
+  } finally {
+    modeChangeInFlight = false;
+    setModeButtons(currentMode, false);
+  }
+}
+
+function isTextEntryTarget(target) {
+  const tag = target && target.tagName ? String(target.tagName).toLowerCase() : '';
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || Boolean(target?.isContentEditable);
+}
+
+function handleModeShortcut(event) {
+  if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || isTextEntryTarget(event.target)) {
+    return;
+  }
+  const mode = MODE_SHORTCUTS[String(event.key)];
+  if (!mode) {
+    return;
+  }
+  event.preventDefault();
+  requestModeChange(mode).catch((error) => {
+    setStatus(t('ui.status.error', 'Error'));
+    setReply(formatPluginError(error));
+  });
+}
+
+function bindButton(button, handler) {
+  if (!button) {
+    return;
+  }
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    try {
+      await handler();
+    } catch (error) {
+      setStatus(t('ui.status.error', 'Error'));
+      setReply([error?.n,formatPluginError(error)].filter(Boolean).join('\n\n'));
+    } finally {
+      button.disabled = button === evaluateAnswerBtn && !canEvaluateCurrentQuestion;
+    }
+  });
+}
+
+async function handleNekoCoachAction(action) {
+  const normalized = String(action || '').trim();
+  if (normalized === 'explain-current') {
+    const navigation = await activateWorkspace('study', { focus: 'none', source: 'neko-coach' });
+    if (!navigation?.ok) return;
+    const ocrData = await runOcr({ clearWhenEmpty: true });
+    if (String(ocrData?.text || '').trim() || studyInputImageValue) {
+      await explainText({ notice: ocrN });
+    }
+    return;
+  }
+  if (normalized === 'quiz-me') {
+    const navigation = await activateWorkspace('practice', { focus: 'none', source: 'neko-coach' });
+    if (!navigation?.ok) return;
+    await generateQuestion();
+    generateQuestionBtn?.focus?.();
+    return;
+  }
+  if (normalized === 'start-review') {
+    await routeSurfaceEntry('due-review-panel', { source: 'neko-coach' });
+    return;
+  }
+  if (normalized === 'session-summary') {
+    await routeSurfaceEntry('session-summary', { source: 'neko-coach' });
+  }
+}
+
+const scannedPdfOcr = window.StudyScannedPdfOcr?.create({ callPlugin });
+async function handleDocumentAnalysisComplete(payload, options = {}) {
+  await captureLearningPlanDraft(payload || {});
+  await refreshStatus(options);
+}
+const documentController = window.StudyDocumentController.create({
+  pluginId: PLUGIN_ID,
+  callPlugin,
+  i18n: { t, tf },
+  ui: {
+    setStatus,
+    setReply,
+    setPasteError,
+    scrollReplyIntoView,
+    formatPluginError,
+  },
+  onAnalysisComplete: handleDocumentAnalysisComplete,
+  scannedPdfOcr,
+});
+
+async function bootstrap() {
+  if (window.I18n && typeof window.I18n.init === 'function') {
+    await window.I18n.init(PLUGIN_ID);
+    window.I18n.scanDOM();
+  }
+  window.StudyReleaseNotes?.initialize({ i18n: window.I18n });
+  await initializeWorkspaceController();
+  document.title = t('ui.title', 'Study Companion');
+  syncLearningProfileUi();
+  bindButton(refreshBtn, refreshStatus);
+  bindButton(ocrBtn, runOcr);
+  bindButton(saveOcrQuestionBtn, saveOcrQuestion);
+  if (undoOcrQuestionBtn) {
+    undoOcrQuestionBtn.addEventListener('click', async () => {
+      undoOcrQuestionBtn.disabled = true;
+      try {
+        await undoOcrQuestionSave();
+      } catch (error) {
+        setStatus(t('ui.status.error', 'Error'));
+        setReply(formatPluginError(error));
+        undoOcrQuestionBtn.disabled = !lastSavedOcrQuestionId;
+      }
+    });
+  }
+  bindButton(clearOcrQuestionsBtn, clearSavedOcrQuestions);
+  bindButton(generateQuestionBtn, generateQuestion);
+  bindButton(baselineAssessmentBtn, startBaselineAssessment);
+  bindButton(clearPracticeScopeBtn, clearPracticeScope);
+  bindButton(explainBtn, explainText);
+  documentController.bind();
+  bindButton(evaluateAnswerBtn, evaluateAnswer);
+  bindButton(continueQuestionBtn, continueAdaptiveLoop);
+  bindButton(learningPlanActivateBtn, activateLearningPlan);
+  bindButton(learningPlanPauseBtn, () => changeLearningPlanStatus('pause'));
+  bindButton(learningPlanResumeBtn, resumeLearningPlan);
+  bindButton(learningPlanCancelBtn, () => changeLearningPlanStatus('cancel'));
+  bindButton(summarizeBtn, summarizeSession);
+  nekoCoachActionButtons.forEach((button) => {
+    bindButton(button, () => handleNekoCoachAction(button.getAttribute('data-neko-coach-action')));
+  });
+  if (hintToggleBtn) {
+    hintToggleBtn.addEventListener('click', () => {
+      const expanded = hintToggleBtn.getAttribute('aria-expanded') === 'true';
+      hintToggleBtn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      if (!expanded) hintRevealed = true;
+      if (hintText) {
+        hintText.hidden = expanded;
+      }
+    });
+  }
+  bindButton(memoryRefreshBtn, refreshMemoryDeck);
+  bindButton(memoryAddBtn, saveMemoryCard);
+  if (memoryDeckCreateBtn) {
+    memoryDeckCreateBtn.addEventListener('click', () => {
+      const name = memoryDeckNameInput?.value.trim() || '';
+      if (!name) {
+        memoryDeckNameInput?.setCustomValidity(t('ui.memory.error_missing_deck_name', 'Deck name is required'));
+        memoryDeckNameInput?.reportValidity();
+        return;
+      }
+      memoryDeckNameInput?.setCustomValidity('');
+      finishMemoryDeckDialog(name);
+    });
+  }
+  if (memoryDeckSkipBtn) {
+    memoryDeckSkipBtn.addEventListener('click', () => finishMemoryDeckDialog(''));
+  }
+  if (memoryDeckDialog) {
+    memoryDeckDialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      finishMemoryDeckDialog(null);
+    });
+  }
+  if (studyInput) {
+    studyInput.addEventListener('input', () => { ocrN = ocrT = ''; });
+    studyInput.addEventListener('paste', createImagePasteHandler({
+      textarea: studyInput,
+      kind: 'study',
+      errorTarget: studyInputPasteError,
+    }));
+  }
+  if (answerInput) {
+    answerInput.addEventListener('paste', createImagePasteHandler({
+      textarea: answerInput,
+      kind: 'answer',
+      errorTarget: answerInputPasteError,
+    }));
+  }
+  if (studyInputImageRemove) {
+    studyInputImageRemove.addEventListener('click', () => {
+      setImagePreview('study', '');
+      setPasteError(studyInputPasteError, '');
+    });
+  }
+  if (answerInputImageRemove) {
+    answerInputImageRemove.addEventListener('click', () => {
+      setImagePreview('answer', '');
+      setPasteError(answerInputPasteError, '');
+    });
+  }
+  setModeButtons(currentMode, false);
+  document.addEventListener('keydown', handleModeShortcut);
+  if (modeSelect) {
+    modeSelect.addEventListener('change', () => {
+      requestModeChange(modeSelect.value).catch((error) => {
+        setStatus(t('ui.status.error', 'Error'));
+        setReply(formatPluginError(error));
+      });
+    });
+  }
+  if (firstRunSkipBtn) {
+    firstRunSkipBtn.addEventListener('click', () => {
+      firstRunDismissed = true;
+      setLearningProfileStage('', { skipped: true });
+      if (firstRunGuide) {
+        firstRunGuide.dataset.dismissed = 'true';
+      }
+      renderFirstRunGuide(lastStatusPayload);
+    });
+  }
+  if (advancedToggleBtn) {
+    advancedToggleBtn.addEventListener('click', () => {
+      setAdvancedSettingsOpen(!advancedSettingsOpen);
+    });
+  }
+  if (advancedSettingsCloseBtn) {
+    advancedSettingsCloseBtn.addEventListener('click', () => setAdvancedSettingsOpen(false));
+  }
+  if (advancedSettings) {
+    advancedSettings.addEventListener('click', (event) => {
+      if (event.target === advancedSettings) {
+        setAdvancedSettingsOpen(false);
+      }
+    });
+    advancedSettings.addEventListener('keydown', handleAdvancedSettingsKeydown);
+  }
+  if (settingsConfigForm) {
+    settingsConfigForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      saveSettingsConfig();
+    });
+  }
+  if (settingsModelRefreshBtn) {
+    // Settings diagnostics are read-only: this refresh must never start the
+    // local runtime or download models.
+    settingsModelRefreshBtn.addEventListener('click', () => {
+      void StudyModelRuntime.refresh(callPlugin, t, tf);
+      void loadSettingsConfig(true);
+    });
+  }
+  if (settingsDataSaveBtn) {
+    settingsDataSaveBtn.addEventListener('click', () => {
+      saveSettingsConfig(settingsDataConfigStatus);
+    });
+  }
+  if (settingsRuntimeSaveBtn) {
+    settingsRuntimeSaveBtn.addEventListener('click', () => {
+      saveSettingsConfig(settingsRuntimeConfigStatus);
+    });
+  }
+  if (settingsCognitiveMode) {
+    settingsCognitiveMode.addEventListener('change', () => {
+      syncCognitiveControls('mode');
+    });
+  }
+  if (settingsCognitiveEnabled) {
+    settingsCognitiveEnabled.addEventListener('change', () => {
+      syncCognitiveControls('toggle');
+    });
+  }
+  if (settingsCommunicationEnabled) {
+    settingsCommunicationEnabled.addEventListener('change', () => {
+      syncCommunicationControls();
+    });
+  }
+  if (settingsLearningStage) {
+    settingsLearningStage.addEventListener('change', () => {
+      setLearningProfileStage(settingsLearningStage.value);
+    });
+  }
+  settingsTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      setSettingsTab(tab.getAttribute('data-settings-tab'));
+    });
+    tab.addEventListener('keydown', handleSettingsTabKeydown);
+  });
+  surfaceOpenButtons.forEach((button) => {
+    bindButton(button, () => routeSurfaceEntry(button.getAttribute('data-open-surface'), {
+      source: 'surface-button',
+    }));
+  });
+  workspaceLinkButtons.forEach((button) => {
+    bindButton(button, () => {
+      const secondarySurface = button.getAttribute('data-workspace-secondary');
+      return secondarySurface
+        ? routeSurfaceEntry(secondarySurface, { source: 'workspace-link' })
+        : activateWorkspace(button.getAttribute('data-workspace-link'), {
+          focus: 'workspace',
+          source: 'workspace-link',
+        });
+    });
+  });
+  bindButton(workspaceHomeButton, () => activateWorkspace('overview', {
+    focus: 'workspace',
+    source: 'home-button',
+  }));
+  bindButton(knowledgeMapFullscreenBtn, openKnowledgeMapFullscreen);
+  if (surfaceDrawerCloseBtn) {
+    surfaceDrawerCloseBtn.addEventListener('click', closeSurfaceDrawer);
+  }
+  if (surfaceDrawer) {
+    surfaceDrawer.addEventListener('click', (event) => {
+      if (event.target === surfaceDrawer) {
+        closeSurfaceDrawer();
+      }
+    });
+  }
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && surfaceDrawer?.dataset.open === 'true') {
+      closeSurfaceDrawer();
+    }
+  });
+  setSettingsTab('study');
+  window.addEventListener('message', handleStudySurfaceMessage);
+  memoryReviewButtons.forEach((button) => {
+    button.addEventListener('click', async () => {
+      if (button.disabled) {
+        return;
+      }
+      memoryReviewButtons.forEach((candidate) => {
+        candidate.disabled = true;
+      });
+      try {
+        await reviewMemoryCard(button.getAttribute('data-memory-rating') || 'good');
+      } catch (error) {
+        setStatus(t('ui.status.error', 'Error'));
+        setReply(formatPluginError(error));
+      } finally {
+        memoryReviewButtons.forEach((candidate) => {
+          candidate.disabled = !currentMemoryCard;
+        });
+      }
+    });
+  });
+  modeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      if (button.disabled) {
+        return;
+      }
+      requestModeChange(button.getAttribute('data-mode') || 'companion').catch((error) => {
+        setStatus(t('ui.status.error', 'Error'));
+        setReply(formatPluginError(error));
+        setModeButtons(currentMode, false);
+      });
+    });
+  });
+  await refreshStatus();
+  await loadPracticeScope({ silent: true }).catch(() => null);
+  await refreshLearningPlanStatus();
+  await loadQuestionContext({ silent: true });
+}
+
+bootstrap().catch((error) => {
+  setStatus(t('ui.status.not_ready', 'Not ready'));
+  setReply(formatPluginError(error));
+});
+window.StudyDependencyController?.initialize({ refresh: () => refreshStatus({ updateReply: false }) });

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <meta name="darkreader-lock">
+  <title>猫娘广告部：杂鱼桌面占领计划</title>
+  <link rel="stylesheet" href="site.css?r=ad1-art1-level">
+  <script src="engine.js?v=ad-art2" defer></script>
+  <script src="main.js?r=v0.2.0" defer></script>
+  <script src="site.js?v=0.2.0-home1" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#home">跳到广告部首页</a>
+  <header class="site-header">
+    <a class="wordmark" href="#home" aria-label="猫娘广告部首页">N.E.K.O <span>/ AD DEPT.</span></a>
+    <nav aria-label="广告部导航">
+      <a href="#home">营业台</a><a href="#exhibition">广告展厅</a><a href="#destinations">宣传导航</a><a href="#settings">退出与语音</a>
+    </nav>
+  </header>
+  <main>
+    <section class="hero" id="home" aria-labelledby="home-title">
+      <div class="artwork" aria-hidden="true">
+        <img class="plate" src="assets/geometric-background-v2b.png" alt="" width="1672" height="941">
+        <img class="character" src="assets/yui-faceless-layer-v1.png" alt="" width="1672" height="941">
+        <img class="character cat-outline" src="assets/yui-faceless-layer-v1.png" alt="" width="1672" height="941">
+      </div>
+      <div class="brand"><img src="assets/neko-logo.png" alt="N.E.K.O" width="192" height="192"><div><span>N.E.K.O</span><span>AD DEPT.</span><small><span id="plugin-version" aria-label="当前安装版本">版本读取中…</span> <b>本地原型</b></small></div></div>
+      <div class="power-area"><button class="power" id="enable" type="button" disabled>一键启动插件</button><p>插件开关 · 开启后待机</p></div>
+      <div class="headline">
+        <h1 class="sr-only" id="home-title">猫娘广告部</h1><p class="sr-only">杂鱼桌面占领计划</p>
+        <div class="hero-title" aria-hidden="true"><img src="assets/title-lockup-v2.png" alt="" width="1671" height="941"></div>
+        <p class="taunt">杂鱼♡<br>今天的桌面归本喵了。</p>
+      </div>
+      <div class="game-controls">
+        <button class="action primary" id="start" type="button" disabled aria-label="开始广告游戏：杂鱼♡让本喵占领桌面！">杂鱼♡让本喵占领桌面！</button>
+        <button class="action secondary" id="stop" type="button" disabled aria-label="结束本局：杂鱼♡这就认输啦？">杂鱼♡这就认输啦？</button>
+        <p class="safety" id="notice">输入安全词「广告下班」或按 Ctrl+Shift+1 可以立即结束。</p>
+      </div>
+      <div class="hero-foot"><span>开局后，广告会出现在猫娘主界面。</span><a href="#settings">退出设置与语音准备 <span aria-hidden="true">↗</span></a></div>
+    </section>
+    <section class="runtime-strip" aria-label="营业状态"><span class="section-index">LIVE /</span><div><p id="status" role="status">正在检查插件状态……</p><p id="connection"></p><p id="message" role="status"></p></div></section>
+    <section class="content-section exhibition" id="exhibition" aria-labelledby="exhibition-title">
+      <header class="section-heading"><div><span class="eyebrow">01 / AD SHOWROOM</span><h2 id="exhibition-title">本喵的广告，先睹为快。</h2></div><p>图文与纯文字，都是广告部的拿手好戏。<br>这里先看样式，桌面里的好戏要开局才上演。</p></header>
+      <div class="ad-grid">
+        <article class="ad-sample" data-demo="poster">
+          <div class="sample-caption"><span>01 / 图文广告</span><span>宣传海报</span></div>
+          <div class="sample-window">
+            <header class="window-bar"><span>猫娘计划 · 今日热喵</span><button type="button" data-demo-close aria-label="收起图文广告示范">×</button></header>
+            <div class="sample-content"><a class="ad-link" href="https://project-neko.online/" target="_blank" rel="noopener noreferrer" data-external aria-label="是主人就来养我！查看猫娘计划宣传页"><div class="image-slot"><img src="assets/posters/project-takeover.png" alt="桌面归本喵了！猫娘计划宣传海报" width="1513" height="1040" decoding="async"></div><div class="ad-copy"><span class="ad-badge">桌面含猫量 +100%</span><h3>是主人就来养我！</h3><p>开局一只猫，陪伴全靠聊。<br>你的桌面，本喵承包了！</p><strong>领取桌面猫娘 <span aria-hidden="true">↗</span></strong></div></a></div>
+            <div class="sample-empty" hidden><p>哼，先让你关掉一张。</p><button class="text-button" type="button" data-demo-reset>再看一遍</button></div>
+          </div>
+        </article>
+        <article class="ad-sample" data-demo="text">
+          <div class="sample-caption"><span>02 / 纯文字广告</span><span>多重关闭按钮</span></div>
+          <div class="sample-window text-ad">
+            <header class="window-bar"><span>猫娘广告部 · 一本正经体检</span><div class="close-cluster"><button type="button" data-demo-decoy aria-label="体验示范关闭按钮一">×</button><button type="button" data-demo-decoy aria-label="体验示范关闭按钮二">×</button><button type="button" data-demo-close aria-label="收起纯文字广告示范">×</button></div></header>
+            <div class="sample-content ad-copy"><span class="ad-badge">紧急补猫通知</span><p class="scan-number">00<span>%</span></p><h3>桌面含猫量<br>严重不足！</h3><p>建议补充：一只猫娘、一段闲聊，<br>以及一点点对主人的关爱。</p><a class="ad-cta" href="https://project-neko.online/zh-CN/" target="_blank" rel="noopener noreferrer" data-external>立即补猫 <span aria-hidden="true">↗</span></a><p class="demo-response" role="status">杂鱼♡ 猜猜哪一个能关掉？</p></div>
+            <div class="sample-empty" hidden><p>这次算你找对了。</p><button class="text-button" type="button" data-demo-reset>再看一遍</button></div>
+          </div>
+        </article>
+        <article class="ad-sample" data-demo="market">
+          <div class="sample-caption"><span>03 / 图文广告</span><span>插件推荐</span></div>
+          <div class="sample-window market-ad">
+            <header class="window-bar"><span>猫娘计划 · 插件市场</span><button type="button" data-demo-close aria-label="收起插件推荐示范">×</button></header>
+            <div class="sample-content"><a class="ad-link" href="https://market.project-neko.cn/#/plugins" target="_blank" rel="noopener noreferrer" data-external aria-label="震惊！桌面还能这样玩？前往插件市场"><div class="image-slot"><img src="assets/posters/plugin-market.png" alt="猫娘的本事，还能加！猫娘计划 · 插件市场宣传海报" width="1513" height="1040" decoding="async"></div><div class="ad-copy"><span class="ad-badge">主人必看</span><h3>震惊！桌面还能这样玩？</h3><p>搜索、提醒、陪伴……<br>给猫娘再添一点新本事。</p><strong>去插件市场逛逛 <span aria-hidden="true">↗</span></strong></div></a></div>
+            <div class="sample-empty" hidden><p>好东西，等你自己来翻。</p><button class="text-button" type="button" data-demo-reset>再看一遍</button></div>
+          </div>
+        </article>
+      </div>
+      <p class="exhibition-note">点击宣传海报或下方文字，可以查看对应介绍页。</p>
+    </section>
+    <section class="content-section destinations" id="destinations" aria-labelledby="destinations-title">
+      <header class="section-heading"><div><span class="eyebrow">02 / FOLLOW THE NEKO</span><h2 id="destinations-title">被本喵种草了？</h2></div><p>宣传归宣传，入口都在这里。<br>介绍页将在浏览器中打开。</p></header>
+      <div class="destination-list">
+        <a href="https://market.project-neko.cn/#/plugins" target="_blank" rel="noopener noreferrer" data-external><span class="destination-no">01</span><div><h3>插件市场</h3><p>看看猫娘还能学会什么新花样。</p></div><span class="destination-domain">MARKET.PROJECT-NEKO.CN</span><span class="destination-arrow" aria-hidden="true">↗</span></a>
+        <a href="https://project-neko.online/zh-CN/" target="_blank" rel="noopener noreferrer" data-external><span class="destination-no">02</span><div><h3>猫娘计划</h3><p>认识 N.E.K.O，也认识你的桌面猫娘。</p></div><span class="destination-domain">PROJECT-NEKO.ONLINE</span><span class="destination-arrow" aria-hidden="true">↗</span></a>
+        <a href="https://store.steampowered.com/app/4099310/__NEKO/" target="_blank" rel="noopener noreferrer" data-external><span class="destination-no">03</span><div><h3>Steam 宣传页</h3><p>项目介绍、展示与最新动态。</p></div><span class="destination-domain">STEAM / N.E.K.O</span><span class="destination-arrow" aria-hidden="true">↗</span></a>
+        <a href="https://github.com/Project-N-E-K-O/N.E.K.O" target="_blank" rel="noopener noreferrer" data-external><span class="destination-no">04</span><div><h3>项目主页</h3><p>了解项目，看看大家正在做什么。</p></div><span class="destination-domain">GITHUB / PROJECT-N-E-K-O</span><span class="destination-arrow" aria-hidden="true">↗</span></a>
+      </div>
+      <p id="link-status" role="status"></p>
+    </section>
+    <section class="content-section settings" id="settings" aria-labelledby="settings-title">
+      <header class="section-heading"><div><span class="eyebrow">03 / YOUR RULES</span><h2 id="settings-title">胡闹归本喵，规则归你。</h2></div><p>“认输”结束本局，插件继续待机。<br>“一键关闭插件”会一并停下广告与声音。</p></header>
+      <div class="settings-grid">
+        <div class="setting-block"><span class="section-index">EXIT /</span><h3>随时下班</h3><p>在猫娘主界面输入安全词 <strong>广告下班</strong>，<br>或按退出快捷键，即可立即结束本局。</p><label for="shortcut">退出快捷键</label><input id="shortcut" readonly value="Ctrl+Shift+1" aria-describedby="shortcut-help"><p class="field-help" id="shortcut-help">点击输入框后，按下你想用的组合键。</p></div>
+        <div class="setting-block"><span class="section-index">VOICE /</span><h3>让当前猫娘来反馈</h3><label class="voice-switch"><input id="voice" type="checkbox" checked><span class="switch" aria-hidden="true"></span><span>当前猫娘语音反馈</span></label><p id="voice-status" role="status">正在检查语音准备状态……</p><button class="text-button" id="voice-retry" type="button" disabled>继续／重试语音准备</button><p class="field-help">待机时静默准备，开局后再听她发挥。</p></div>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer"><span>N.E.K.O / AD DEPT.</span><span>猫娘广告部：杂鱼桌面占领计划</span><a href="#home">杂鱼♡先放你回去（返回主页面） <span aria-hidden="true">↑</span></a></footer>
+</body>
+</html>

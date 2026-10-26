@@ -1,0 +1,82 @@
+{
+  "plugin_id": "openrails_copilot",
+  "name": "Open Rails 副驾驶",
+  "version": "0.1.0",
+  "description": "Open Rails 火车模拟器实时监控插件",
+  "author": "N.E.K.O Community",
+  "category": "game_integration",
+  "tags": ["openrails", "simulator", "monitoring", "game"],
+  "requires": {
+    "python": ">=3.10",
+    "packages": ["httpx"]
+  },
+  "external_service": {
+    "name": "Open Rails REST API",
+    "url": "http://localhost:2150",
+    "required": true,
+    "description": "需要在 Open Rails 游戏设置中启用 Web Server"
+  },
+  "features": [
+    "实时监控游戏状态",
+    "异常情况自动告警",
+    "速度、油门、刹车监控",
+    "紧急制动检测",
+    "超速告警"
+  ],
+  "entries": {
+    "start_monitoring": {
+      "name": "开始监控",
+      "description": "开始监控 Open Rails 游戏状态",
+      "type": "action"
+    },
+    "stop_monitoring": {
+      "name": "停止监控",
+      "description": "停止监控 Open Rails 游戏状态",
+      "type": "action"
+    },
+    "get_status": {
+      "name": "获取当前状态",
+      "description": "获取 Open Rails 当前的游戏状态",
+      "type": "query"
+    },
+    "check_api": {
+      "name": "检查 API 连接",
+      "description": "检查 Open Rails REST API 是否可用",
+      "type": "diagnostic"
+    }
+  },
+  "timers": {
+    "monitor_openrails": {
+      "interval_seconds": 2,
+      "description": "每2秒监控一次游戏状态",
+      "auto_start": true
+    }
+  },
+  "configuration": {
+    "api_base_url": {
+      "type": "string",
+      "default": "http://localhost:2150",
+      "description": "Open Rails REST API 地址"
+    },
+    "api_timeout": {
+      "type": "float",
+      "default": 3.0,
+      "description": "API 请求超时时间（秒）"
+    },
+    "speed_change_threshold": {
+      "type": "float",
+      "default": 20.0,
+      "description": "速度变化告警阈值（km/h）"
+    },
+    "emergency_brake_threshold": {
+      "type": "float",
+      "default": 0.8,
+      "description": "紧急制动阈值（0-1）"
+    }
+  },
+  "links": {
+    "openrails_website": "http://www.openrails.org/",
+    "openrails_api_docs": "http://www.openrails.org/api/index.html",
+    "plugin_source": "E:\\n.e.k.o_plugin_or\\openrails_copilot"
+  }
+}

@@ -1,0 +1,69 @@
+[plugin]
+id = "neko_sous"
+name = "NekoSous"
+description = "连接 N.E.K.O 与《胡闹厨房 2》游戏端 NekoSous，准备好让悠怡陪你一起玩了吗？"
+version = "0.1.0"
+type = "plugin"
+passive = true
+entry = "plugin.plugins.neko_sous:NekoSousPlugin"
+
+[plugin.author]
+name = "沫儿 - Channel"
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "en"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[broadcast]
+events_enabled = true
+delivery_enabled = true
+expiry_enabled = true
+failure_enabled = true
+combo_enabled = true
+fire_enabled = true
+ready_enabled = true
+overcooking_enabled = true
+mixing_ready_enabled = true
+mixing_warning_enabled = true
+mixing_ruined_enabled = true
+chatter_enabled = true
+frequency = "balanced"
+locale = "zh-CN"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "NekoSous"
+entry = "ui/panel.tsx"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+# Source discovery must retain UI entry IDs without importing the plugin.
+[[entries]]
+id = "connect"
+name = { "$i18n" = "actions.connect", default = "Connect" }
+description = { "$i18n" = "entries.connect", default = "Check the game and connect to NekoWsServer." }
+
+[[entries]]
+id = "disconnect"
+name = { "$i18n" = "actions.disconnect", default = "Disconnect" }
+description = { "$i18n" = "entries.disconnect", default = "Disconnect and stop automatic reconnection." }
+
+[[entries]]
+id = "set_mode"
+name = { "$i18n" = "actions.setMode", default = "Switch mode" }
+description = { "$i18n" = "entries.setMode", default = "Request and confirm a game mode change. No game controls are enabled." }
+
+[[entries]]
+id = "update_settings"
+name = { "$i18n" = "actions.settings", default = "Companion settings" }
+description = { "$i18n" = "entries.settings", default = "Save event subscription and companion preferences." }

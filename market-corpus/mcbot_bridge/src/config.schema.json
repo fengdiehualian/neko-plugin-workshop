@@ -1,0 +1,378 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "plugin_runtime": {
+      "type": "object",
+      "title": "Runtime settings",
+      "description": "Plugin availability and automatic startup settings.",
+      "x-title-i18n": {
+        "zh-CN": "运行设置",
+        "zh-TW": "執行設定",
+        "en": "Runtime settings",
+        "ja": "実行設定",
+        "ko": "실행 설정",
+        "ru": "Настройки запуска",
+        "es": "Ajustes de ejecución",
+        "pt": "Configurações de execução"
+      },
+      "x-description-i18n": {
+        "zh-CN": "插件的启用与自动启动设置。",
+        "zh-TW": "外掛程式的啟用與自動啟動設定。",
+        "en": "Plugin availability and automatic startup settings.",
+        "ja": "プラグインの有効化と自動起動の設定。",
+        "ko": "플러그인 활성화 및 자동 시작 설정입니다.",
+        "ru": "Доступность плагина и его автоматический запуск.",
+        "es": "Disponibilidad del complemento e inicio automático.",
+        "pt": "Disponibilidade do plugin e inicialização automática."
+      },
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "title": "Enable plugin",
+          "description": "Allow this plugin to be loaded.",
+          "x-title-i18n": {
+            "zh-CN": "启用插件",
+            "zh-TW": "啟用外掛程式",
+            "en": "Enable plugin",
+            "ja": "プラグインを有効化",
+            "ko": "플러그인 활성화",
+            "ru": "Включить плагин",
+            "es": "Activar complemento",
+            "pt": "Ativar plugin"
+          },
+          "x-description-i18n": {
+            "zh-CN": "是否允许加载此插件。",
+            "zh-TW": "是否允許載入此外掛程式。",
+            "en": "Allow this plugin to be loaded.",
+            "ja": "このプラグインの読み込みを許可します。",
+            "ko": "이 플러그인을 로드할 수 있도록 합니다.",
+            "ru": "Разрешить загрузку этого плагина.",
+            "es": "Permitir que se cargue este complemento.",
+            "pt": "Permitir o carregamento deste plugin."
+          },
+          "default": true
+        },
+        "auto_start": {
+          "type": "boolean",
+          "title": "Start automatically",
+          "description": "Start this plugin when the plugin system starts. The mcbot bridge expects Minecraft to already be running, so this is off by default.",
+          "x-title-i18n": {
+            "zh-CN": "自动启动",
+            "zh-TW": "自動啟動",
+            "en": "Start automatically",
+            "ja": "自動起動",
+            "ko": "자동 시작",
+            "ru": "Автозапуск",
+            "es": "Inicio automático",
+            "pt": "Iniciar automaticamente"
+          },
+          "x-description-i18n": {
+            "zh-CN": "插件系统启动时自动启动此插件。mcbot 桥接需要 Minecraft 已经开着，因此默认关闭。",
+            "zh-TW": "外掛系統啟動時自動啟動此外掛程式。mcbot 橋接需要 Minecraft 已經開著，因此預設關閉。",
+            "en": "Start this plugin when the plugin system starts. The mcbot bridge expects Minecraft to already be running, so this is off by default.",
+            "ja": "プラグインシステムの起動時にこのプラグインを自動で開始します。mcbot ブリッジは Minecraft が起動済みであることを前提とするため、既定ではオフです。",
+            "ko": "플러그인 시스템이 시작될 때 이 플러그인을 자동으로 시작합니다. mcbot 브리지는 Minecraft 가 이미 실행 중일 것을 전제하므로 기본값은 꺼짐입니다.",
+            "ru": "Запускать этот плагин вместе с системой плагинов. Мост mcbot рассчитан на уже запущенный Minecraft, поэтому по умолчанию выключено.",
+            "es": "Iniciar este complemento cuando arranca el sistema de complementos. El puente mcbot espera que Minecraft ya esté abierto, así que está desactivado por defecto.",
+            "pt": "Iniciar este plugin junto com o sistema de plugins. A ponte mcbot espera que o Minecraft já esteja aberto, por isso vem desligado."
+          },
+          "default": false
+        }
+      }
+    },
+    "mcbot": {
+      "type": "object",
+      "title": "MCBot bridge settings",
+      "description": "How this plugin reaches the local mcbot companion.",
+      "x-title-i18n": {
+        "zh-CN": "MCBot 桥接设置",
+        "zh-TW": "MCBot 橋接設定",
+        "en": "MCBot bridge settings",
+        "ja": "MCBot ブリッジ設定",
+        "ko": "MCBot 브리지 설정",
+        "ru": "Настройки моста MCBot",
+        "es": "Ajustes del puente MCBot",
+        "pt": "Configurações da ponte MCBot"
+      },
+      "x-description-i18n": {
+        "zh-CN": "本插件连接本地 mcbot 同伴的方式。",
+        "zh-TW": "此外掛程式連接本機 mcbot 同伴的方式。",
+        "en": "How this plugin reaches the local mcbot companion.",
+        "ja": "このプラグインがローカルの mcbot 相棒に接続する方法。",
+        "ko": "이 플러그인이 로컬 mcbot 동료에 연결하는 방식입니다.",
+        "ru": "Как этот плагин подключается к локальному спутнику mcbot.",
+        "es": "Cómo se conecta este complemento al compañero mcbot local.",
+        "pt": "Como este plugin se conecta ao companheiro mcbot local."
+      },
+      "properties": {
+        "base_url": {
+          "type": "string",
+          "title": "Bridge address",
+          "description": "Loopback address of the mcbot bridge. It only listens while Minecraft is in a world, and stops when you leave.",
+          "x-title-i18n": {
+            "zh-CN": "桥接地址",
+            "zh-TW": "橋接位址",
+            "en": "Bridge address",
+            "ja": "ブリッジのアドレス",
+            "ko": "브리지 주소",
+            "ru": "Адрес моста",
+            "es": "Dirección del puente",
+            "pt": "Endereço da ponte"
+          },
+          "x-description-i18n": {
+            "zh-CN": "mcbot 桥接的回环地址。它只在 Minecraft 进入世界时才开始监听，离开世界即停止。",
+            "zh-TW": "mcbot 橋接的回環位址。它只在 Minecraft 進入世界時才開始監聽，離開世界即停止。",
+            "en": "Loopback address of the mcbot bridge. It only listens while Minecraft is in a world, and stops when you leave.",
+            "ja": "mcbot ブリッジのループバックアドレス。Minecraft がワールドに入っている間だけ待ち受け、抜けると停止します。",
+            "ko": "mcbot 브리지의 루프백 주소입니다. Minecraft 가 월드에 들어가 있는 동안만 대기하며, 나가면 멈춥니다.",
+            "ru": "Локальный адрес моста mcbot. Он слушает только пока Minecraft находится в мире и останавливается при выходе.",
+            "es": "Dirección local del puente mcbot. Solo escucha mientras Minecraft está en un mundo y se detiene al salir.",
+            "pt": "Endereço local da ponte mcbot. Ela só escuta enquanto o Minecraft está em um mundo e para ao sair."
+          },
+          "default": "http://127.0.0.1:17897"
+        },
+        "game_dir": {
+          "type": "string",
+          "title": "Minecraft game directory",
+          "description": "Where the bridge.token file lives, inside a mcbot subfolder. Leave empty to use the platform default location.",
+          "x-title-i18n": {
+            "zh-CN": "Minecraft 游戏目录",
+            "zh-TW": "Minecraft 遊戲目錄",
+            "en": "Minecraft game directory",
+            "ja": "Minecraft ゲームディレクトリ",
+            "ko": "Minecraft 게임 디렉터리",
+            "ru": "Каталог игры Minecraft",
+            "es": "Directorio del juego Minecraft",
+            "pt": "Diretório do jogo Minecraft"
+          },
+          "x-description-i18n": {
+            "zh-CN": "bridge.token 所在的位置，其下的 mcbot 子目录里放的就是它。留空则用平台默认目录（Windows 为 AppData 下的 .minecraft）。",
+            "zh-TW": "bridge.token 所在的位置，其下的 mcbot 子目錄裡放的就是它。留空則用平台預設目錄（Windows 為 AppData 下的 .minecraft）。",
+            "en": "Where the bridge.token file lives, inside a mcbot subfolder. Leave empty to use the platform default location.",
+            "ja": "bridge.token がある場所。その下の mcbot サブフォルダーに置かれます。空にするとプラットフォームの既定の場所を使います。",
+            "ko": "bridge.token 파일이 있는 위치이며, 그 아래 mcbot 하위 폴더에 들어 있습니다. 비워 두면 플랫폼 기본 위치를 사용합니다.",
+            "ru": "Где находится файл bridge.token, внутри подпапки mcbot. Оставьте пустым, чтобы использовать расположение по умолчанию.",
+            "es": "Dónde está el archivo bridge.token, dentro de una subcarpeta mcbot. Déjalo vacío para usar la ubicación predeterminada.",
+            "pt": "Onde fica o arquivo bridge.token, dentro de uma subpasta mcbot. Deixe vazio para usar o local padrão da plataforma."
+          },
+          "default": ""
+        },
+        "token_file": {
+          "type": "string",
+          "title": "Token file path",
+          "description": "Explicit full path to bridge.token. When set, the game directory is not consulted. The token is only ever read from this file and is never stored in this plugin's settings.",
+          "x-title-i18n": {
+            "zh-CN": "Token 文件路径",
+            "zh-TW": "Token 檔案路徑",
+            "en": "Token file path",
+            "ja": "トークンファイルのパス",
+            "ko": "토큰 파일 경로",
+            "ru": "Путь к файлу токена",
+            "es": "Ruta del archivo de token",
+            "pt": "Caminho do arquivo de token"
+          },
+          "x-description-i18n": {
+            "zh-CN": "直接指定 bridge.token 的完整路径。填了就不再从游戏目录推算。token 只从这个文件读，不会写进本插件的配置。",
+            "zh-TW": "直接指定 bridge.token 的完整路徑。填了就不再從遊戲目錄推算。token 只從這個檔案讀，不會寫進此外掛程式的設定。",
+            "en": "Explicit full path to bridge.token. When set, the game directory is not consulted. The token is only ever read from this file and is never stored in this plugin's settings.",
+            "ja": "bridge.token の完全なパスを直接指定します。設定するとゲームディレクトリからは推算しません。トークンはこのファイルからのみ読み、このプラグインの設定には保存しません。",
+            "ko": "bridge.token 의 전체 경로를 직접 지정합니다. 설정하면 게임 디렉터리에서 추정하지 않습니다. 토큰은 이 파일에서만 읽으며 이 플러그인 설정에 저장되지 않습니다.",
+            "ru": "Прямой полный путь к bridge.token. Если задан, каталог игры не используется. Токен читается только из этого файла и никогда не сохраняется в настройках плагина.",
+            "es": "Ruta completa explícita a bridge.token. Si se define, no se consulta el directorio del juego. El token solo se lee de este archivo y nunca se guarda en los ajustes del complemento.",
+            "pt": "Caminho completo explícito para bridge.token. Quando definido, o diretório do jogo não é consultado. O token é lido apenas deste arquivo e nunca é guardado nas configurações deste plugin."
+          },
+          "default": ""
+        },
+        "reconnect_interval_seconds": {
+          "type": "number",
+          "title": "Reconnect interval",
+          "description": "How many seconds to wait before re-attaching the event stream after it drops.",
+          "x-title-i18n": {
+            "zh-CN": "重连间隔",
+            "zh-TW": "重連間隔",
+            "en": "Reconnect interval",
+            "ja": "再接続の間隔",
+            "ko": "재연결 간격",
+            "ru": "Интервал переподключения",
+            "es": "Intervalo de reconexión",
+            "pt": "Intervalo de reconexão"
+          },
+          "x-description-i18n": {
+            "zh-CN": "事件流断开后，等多久再连回去（秒）。",
+            "zh-TW": "事件流斷開後，等多久再連回去（秒）。",
+            "en": "How many seconds to wait before re-attaching the event stream after it drops.",
+            "ja": "イベントストリームが切れたあと、再接続するまで待つ秒数。",
+            "ko": "이벤트 스트림이 끊긴 뒤 다시 연결하기까지 기다리는 초입니다.",
+            "ru": "Сколько секунд ждать перед повторным подключением потока событий.",
+            "es": "Cuántos segundos esperar antes de reconectar el flujo de eventos.",
+            "pt": "Quantos segundos esperar antes de reconectar o fluxo de eventos."
+          },
+          "minimum": 0.5,
+          "default": 5.0
+        },
+        "http_timeout_seconds": {
+          "type": "number",
+          "title": "Request timeout",
+          "description": "Timeout in seconds for the short bridge calls: dispatching a task, cancelling, answering and status.",
+          "x-title-i18n": {
+            "zh-CN": "请求超时",
+            "zh-TW": "請求逾時",
+            "en": "Request timeout",
+            "ja": "リクエストのタイムアウト",
+            "ko": "요청 시간 초과",
+            "ru": "Тайм-аут запроса",
+            "es": "Tiempo límite de petición",
+            "pt": "Tempo limite de requisição"
+          },
+          "x-description-i18n": {
+            "zh-CN": "短的桥接调用（派活、取消、答复、查状态）的超时（秒）。",
+            "zh-TW": "短的橋接呼叫（派活、取消、答覆、查狀態）的逾時（秒）。",
+            "en": "Timeout in seconds for the short bridge calls: dispatching a task, cancelling, answering and status.",
+            "ja": "短いブリッジ呼び出し（タスク投入、中止、返答、状態取得）のタイムアウト秒数。",
+            "ko": "짧은 브리지 호출(작업 투입, 취소, 답변, 상태 조회)의 시간 초과(초)입니다.",
+            "ru": "Тайм-аут в секундах для коротких вызовов моста: постановка задачи, отмена, ответ и статус.",
+            "es": "Tiempo límite en segundos para las llamadas cortas: enviar tarea, cancelar, responder y consultar estado.",
+            "pt": "Tempo limite em segundos para as chamadas curtas: enviar tarefa, cancelar, responder e consultar status."
+          },
+          "minimum": 0.5,
+          "default": 10.0
+        },
+        "ask_timeout_seconds": {
+          "type": "number",
+          "title": "Question timeout",
+          "description": "Timeout in seconds for asking the companion a question and waiting for her answer. Must exceed mcbot's own 135 second ceiling.",
+          "x-title-i18n": {
+            "zh-CN": "提问超时",
+            "zh-TW": "提問逾時",
+            "en": "Question timeout",
+            "ja": "質問のタイムアウト",
+            "ko": "질문 시간 초과",
+            "ru": "Тайм-аут вопроса",
+            "es": "Tiempo límite de pregunta",
+            "pt": "Tempo limite de pergunta"
+          },
+          "x-description-i18n": {
+            "zh-CN": "直接向同伴提问、等待她回答的超时（秒）。必须大于 mcbot 自身的 135 秒上限。",
+            "zh-TW": "直接向同伴提問、等待她回答的逾時（秒）。必須大於 mcbot 本身的 135 秒上限。",
+            "en": "Timeout in seconds for asking the companion a question and waiting for her answer. Must exceed mcbot's own 135 second ceiling.",
+            "ja": "相棒に直接質問して答えを待つタイムアウト秒数。mcbot 自身の 135 秒の上限より大きくする必要があります。",
+            "ko": "동료에게 직접 질문하고 답을 기다리는 시간 초과(초)입니다. mcbot 자체의 135초 상한보다 커야 합니다.",
+            "ru": "Тайм-аут в секундах для прямого вопроса спутнице и ожидания ответа. Должен превышать собственный предел mcbot в 135 секунд.",
+            "es": "Tiempo límite en segundos para preguntar al compañero y esperar su respuesta. Debe superar el tope de 135 segundos del propio mcbot.",
+            "pt": "Tempo limite em segundos para perguntar ao companheiro e esperar a resposta. Deve exceder o teto de 135 segundos do próprio mcbot."
+          },
+          "minimum": 5.0,
+          "default": 150.0
+        },
+        "task_wait_timeout_seconds": {
+          "type": "number",
+          "title": "Completion wait budget",
+          "description": "How many seconds to hold the task slot waiting for a completion event. On timeout the slot is released and the user is told no reply came, so a task whose completion event was lost cannot wedge the slot forever.",
+          "x-title-i18n": {
+            "zh-CN": "完成等待预算",
+            "zh-TW": "完成等待預算",
+            "en": "Completion wait budget",
+            "ja": "完了待ちの上限",
+            "ko": "완료 대기 예산",
+            "ru": "Бюджет ожидания завершения",
+            "es": "Presupuesto de espera de fin",
+            "pt": "Orçamento de espera de conclusão"
+          },
+          "x-description-i18n": {
+            "zh-CN": "派活之后等完成事件的上限（秒）。超时就会放开任务槽并告诉用户没等到回音，避免一个丢了完成事件的任务把槽位永久占住。",
+            "zh-TW": "派活之後等完成事件的上限（秒）。逾時就會放開任務槽並告訴使用者沒等到回音，避免一個丟了完成事件的任務把槽位永久佔住。",
+            "en": "How many seconds to hold the task slot waiting for a completion event. On timeout the slot is released and the user is told no reply came, so a task whose completion event was lost cannot wedge the slot forever.",
+            "ja": "タスク投入後、完了イベントを待つ上限秒数。超過すると枠を解放して「返事が来なかった」と伝えます。完了イベントを失ったタスクが枠を占め続けるのを防ぎます。",
+            "ko": "작업을 투입한 뒤 완료 이벤트를 기다리는 상한(초)입니다. 초과하면 슬롯을 풀고 '응답이 없었다'고 알려, 완료 이벤트를 잃은 작업이 슬롯을 영구히 차지하지 않게 합니다.",
+            "ru": "Сколько секунд удерживать слот задачи в ожидании события завершения. По тайм-ауту слот освобождается, а пользователю сообщается, что ответа не было, — потерянное событие не заблокирует слот навсегда.",
+            "es": "Cuántos segundos mantener el turno de tarea esperando un evento de finalización. Al agotarse se libera y se avisa que no hubo respuesta, para que una tarea cuyo evento se perdió no bloquee el turno para siempre.",
+            "pt": "Quantos segundos manter o slot de tarefa aguardando um evento de conclusão. Ao esgotar, o slot é liberado e o usuário é avisado de que não houve resposta, para que uma tarefa cujo evento se perdeu não trave o slot para sempre."
+          },
+          "minimum": 5.0,
+          "default": 900.0
+        },
+        "stream_events": {
+          "type": "boolean",
+          "title": "Subscribe to companion events",
+          "description": "Receive the companion's progress, questions and completions as they happen. Turning this off leaves only dispatching and queries — she will never speak up on her own — so it is rarely worth disabling.",
+          "x-title-i18n": {
+            "zh-CN": "订阅同伴事件",
+            "zh-TW": "訂閱同伴事件",
+            "en": "Subscribe to companion events",
+            "ja": "相棒のイベントを購読",
+            "ko": "동료 이벤트 구독",
+            "ru": "Подписка на события спутницы",
+            "es": "Suscribirse a eventos del compañero",
+            "pt": "Assinar eventos do companheiro"
+          },
+          "x-description-i18n": {
+            "zh-CN": "实时接收同伴的进展、反问和完成。关掉后只剩派活与查询，同伴不会主动开口，一般不该关。",
+            "zh-TW": "即時接收同伴的進展、反問和完成。關掉後只剩派活與查詢，同伴不會主動開口，一般不該關。",
+            "en": "Receive the companion's progress, questions and completions as they happen. Turning this off leaves only dispatching and queries — she will never speak up on her own — so it is rarely worth disabling.",
+            "ja": "相棒の進捗・質問・完了をリアルタイムで受け取ります。切るとタスク投入と照会だけになり、相棒から話しかけてこなくなるため、通常は切るべきではありません。",
+            "ko": "동료의 진행, 질문, 완료를 실시간으로 받습니다. 끄면 작업 투입과 조회만 남고 동료가 먼저 말을 걸지 않으므로 보통 끌 일이 없습니다.",
+            "ru": "Получать прогресс, вопросы и завершения спутницы по мере их появления. При отключении останутся только задачи и запросы — она больше не заговорит первой, — поэтому выключать это почти никогда не стоит.",
+            "es": "Recibir el progreso, las preguntas y los finales del compañero a medida que ocurren. Al desactivarlo solo quedan el envío de tareas y las consultas, y ella nunca hablará por su cuenta, así que rara vez conviene desactivarlo.",
+            "pt": "Receber o progresso, as perguntas e as conclusões do companheiro conforme acontecem. Desligar deixa apenas o envio de tarefas e as consultas — ela nunca falará por conta própria —, então raramente vale desligar."
+          },
+          "default": true
+        },
+        "progress_min_interval_seconds": {
+          "type": "number",
+          "title": "Progress throttle",
+          "description": "Shortest gap in seconds between progress updates forwarded to the character. The companion reports every step, and without a floor a busy task floods the conversation context.",
+          "x-title-i18n": {
+            "zh-CN": "进展节流",
+            "zh-TW": "進展節流",
+            "en": "Progress throttle",
+            "ja": "進捗のスロットル",
+            "ko": "진행 조절",
+            "ru": "Ограничение частоты прогресса",
+            "es": "Limitador de progreso",
+            "pt": "Limitador de progresso"
+          },
+          "x-description-i18n": {
+            "zh-CN": "两次进展播报之间的最短间隔（秒）。同伴每走一步都会报一次，不设闸会把上下文灌满。",
+            "zh-TW": "兩次進展播報之間的最短間隔（秒）。同伴每走一步都會報一次，不設閘會把上下文灌滿。",
+            "en": "Shortest gap in seconds between progress updates forwarded to the character. The companion reports every step, and without a floor a busy task floods the conversation context.",
+            "ja": "進捗を知らせる間隔の最小秒数。相棒は一手ごとに報告するため、下限を設けないと忙しいタスクで会話コンテキストがあふれます。",
+            "ko": "진행 상황을 전달하는 최소 간격(초)입니다. 동료는 한 단계마다 보고하므로 하한이 없으면 바쁜 작업이 대화 컨텍스트를 가득 채웁니다.",
+            "ru": "Минимальный интервал в секундах между сообщениями о прогрессе. Спутница отчитывается на каждом шаге, и без нижней границы занятая задача переполнит контекст разговора.",
+            "es": "Intervalo mínimo en segundos entre avisos de progreso. El compañero informa de cada paso y, sin un mínimo, una tarea ajetreada satura el contexto de la conversación.",
+            "pt": "Intervalo mínimo em segundos entre avisos de progresso. O companheiro relata cada passo e, sem um piso, uma tarefa movimentada inunda o contexto da conversa."
+          },
+          "minimum": 1.0,
+          "default": 6.0
+        },
+        "state_min_interval_seconds": {
+          "type": "number",
+          "title": "State throttle",
+          "description": "Shortest gap in seconds between state updates forwarded to the character. The companion reports her state often, and without a floor those updates crowd out the conversation.",
+          "x-title-i18n": {
+            "zh-CN": "状态节流",
+            "zh-TW": "狀態節流",
+            "en": "State throttle",
+            "ja": "状態のスロットル",
+            "ko": "상태 조절",
+            "ru": "Ограничение частоты состояния",
+            "es": "Limitador de estado",
+            "pt": "Limitador de estado"
+          },
+          "x-description-i18n": {
+            "zh-CN": "两次状态播报之间的最短间隔（秒）。同伴的状态变化很频繁，不设闸会挤占对话上下文。",
+            "zh-TW": "兩次狀態播報之間的最短間隔（秒）。同伴的狀態變化很頻繁，不設閘會擠佔對話上下文。",
+            "en": "Shortest gap in seconds between state updates forwarded to the character. The companion reports her state often, and without a floor those updates crowd out the conversation.",
+            "ja": "状態を知らせる間隔の最小秒数。相棒の状態は頻繁に変わるため、下限がないと会話を圧迫します。",
+            "ko": "상태 정보를 전달하는 최소 간격(초)입니다. 동료의 상태는 자주 바뀌므로 하한이 없으면 대화를 밀어냅니다.",
+            "ru": "Минимальный интервал в секундах между обновлениями состояния. Спутница часто сообщает о своём состоянии, и без нижней границы эти обновления вытесняют разговор.",
+            "es": "Intervalo mínimo en segundos entre actualizaciones de estado. El compañero informa a menudo de su estado y, sin un mínimo, esas actualizaciones desplazan la conversación.",
+            "pt": "Intervalo mínimo em segundos entre atualizações de estado. O companheiro informa o estado com frequência e, sem um piso, essas atualizações atropelam a conversa."
+          },
+          "minimum": 1.0,
+          "default": 6.0
+        }
+      }
+    }
+  }
+}

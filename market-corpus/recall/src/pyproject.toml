@@ -1,0 +1,9 @@
+[project]
+name = "recall"
+version = "0.2.0"
+dependencies = []
+
+[tool.neko.build]
+exclude_dirs = [".vscode", "media", "tests"]
+exclude_files = [".gitignore", "MARKET_SUBMISSION.md", "README.md", "ruff.toml"]
+

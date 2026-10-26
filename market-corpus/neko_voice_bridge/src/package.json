@@ -1,0 +1,12 @@
+{
+  "name": "neko-voice-bridge-source",
+  "version": "0.7.1",
+  "private": true,
+  "scripts": {
+    "start": "electron app",
+    "test:plugin": "python -m unittest discover -s tests -v"
+  },
+  "devDependencies": {
+    "electron": "44.4.4"
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "id": "qiandengji-items-1.21.1",
+  "minecraftVersion": "1.21.1",
+  "source": {
+    "repository": "https://github.com/jcs130/mc-visual-console",
+    "revision": "b5a41c37d8f503df5344762bd5df5e61c1734f4b",
+    "path": "packages/modern-viewer/asset-packs/qiandengji-items-1.20.6",
+    "originalCatalogSha256": "eebfa4a2c424d6a28b65605dd040c825cb88df54c6449677a1c4add9f0f4493d",
+    "note": "Original authored server models/textures/icons; no conversion or substitute. The independent protocol-767 custom_model_data selectors bind each exact base item; this is not a vanilla resource override."
+  },
+  "items": [
+    {
+      "id": "frost_sword",
+      "name": "寒霜剑",
+      "baseId": "minecraft:iron_sword",
+      "customModelData": 731001,
+      "icon": "icons/frost_sword.png",
+      "model": "models/frost_sword.json",
+      "texture": "textures/frost_sword.png"
+    },
+    {
+      "id": "blink_dagger",
+      "name": "赤铜柄·闪现匕首",
+      "baseId": "minecraft:iron_sword",
+      "customModelData": 731002,
+      "icon": "icons/blink_dagger.png",
+      "model": "models/blink_dagger.json",
+      "texture": "textures/blink_dagger.png"
+    },
+    {
+      "id": "mechanical_crossbow",
+      "name": "机关弩",
+      "baseId": "minecraft:crossbow",
+      "customModelData": 731003,
+      "icon": "icons/mechanical_crossbow.png",
+      "model": "models/mechanical_crossbow.json",
+      "texture": "textures/mechanical_crossbow.png"
+    },
+    {
+      "id": "focus_wand",
+      "name": "灵纹法杖",
+      "baseId": "minecraft:blaze_rod",
+      "customModelData": 731004,
+      "icon": "icons/focus_wand.png",
+      "model": "models/focus_wand.json",
+      "texture": "textures/focus_wand.png"
+    },
+    {
+      "id": "abyss_verdict",
+      "name": "深渊裁决",
+      "baseId": "minecraft:iron_sword",
+      "customModelData": 731005,
+      "icon": "icons/abyss_verdict.png",
+      "model": "models/abyss_verdict.json",
+      "texture": "textures/abyss_verdict.png"
+    },
+    {
+      "id": "backpack_shortcut",
+      "name": "大背包",
+      "baseId": "minecraft:player_head",
+      "profileTextureHash": "8dcc6eb40f3bada41e4339888d6d207437598bdbd175c2e731191d5a9a42d3c8",
+      "icon": "textures/backpack-profile.png"
+    }
+  ],
+  "assets": {
+    "models/frost_sword.json": {
+      "sha256": "e010db2de0074ef5da6c01269c5b5a0f43d823ab49a38269bb5363834b067705",
+      "bytes": 5266
+    },
+    "textures/frost_sword.png": {
+      "sha256": "43497cc7d47c7e1cea03a7ddc86d1ffd9a432859e6c0f9da48ae1169f11f28d4",
+      "bytes": 211
+    },
+    "icons/frost_sword.png": {
+      "sha256": "0d8cece432c0c97e849d390087a136f5ad5e7dd1b2cb39cd5543247b7444e985",
+      "bytes": 928
+    },
+    "models/blink_dagger.json": {
+      "sha256": "7e19ae49d30491f53003e3a96e4d3fdb9e2e0438cedde1c1bd36b83f19e81d74",
+      "bytes": 4947
+    },
+    "textures/blink_dagger.png": {
+      "sha256": "41c18f86ba4c04c6483c8051078269e54c5a43e1acc329633f5107c5494ff4f7",
+      "bytes": 185
+    },
+    "icons/blink_dagger.png": {
+      "sha256": "86f55ca9d885e10ce985d279df032bd9f5f0b4c102485a7f3459aed928196043",
+      "bytes": 1074
+    },
+    "models/mechanical_crossbow.json": {
+      "sha256": "324c28e6ec37250e13b77acbd2b58d94e85871fc5e00b9909bfd392c7e721b69",
+      "bytes": 6150
+    },
+    "textures/mechanical_crossbow.png": {
+      "sha256": "9515f314930ffcc6e8a0b2e2db1dbd613582a80239beb608f38c92d4b3d86244",
+      "bytes": 166
+    },
+    "icons/mechanical_crossbow.png": {
+      "sha256": "1a25d7374f4e09ede6c04803ae9a4280c217e4844bebd266d1f3dcc36ff33515",
+      "bytes": 1835
+    },
+    "models/focus_wand.json": {
+      "sha256": "2e5c5d075330c9137a3c64b5568c449bdfc3b4f99d628d0af51a2628010230e2",
+      "bytes": 5765
+    },
+    "textures/focus_wand.png": {
+      "sha256": "561adc6baba0986342976655f9a7a5e5a114631d1e21ba0c707d813da2e477ea",
+      "bytes": 182
+    },
+    "icons/focus_wand.png": {
+      "sha256": "cfb116521a64044d3ea5284a72283ea79215e9d6d3683f459afcff33dde177f9",
+      "bytes": 974
+    },
+    "models/abyss_verdict.json": {
+      "sha256": "c1bec61ba72cd886b26b0e10f377d046831d39e811056e2c1abe4a0e0ce5992a",
+      "bytes": 6155
+    },
+    "textures/abyss_verdict.png": {
+      "sha256": "c5188155097155c94083226507480c537568cdcdbcae98aba948876a1eb1a2a5",
+      "bytes": 169
+    },
+    "icons/abyss_verdict.png": {
+      "sha256": "07876ee027415735dcee903cd99701e95685bdf8e1e8cec97c96b8ae3d4eed9e",
+      "bytes": 1124
+    },
+    "textures/backpack-profile.png": {
+      "sha256": "8dcc6eb40f3bada41e4339888d6d207437598bdbd175c2e731191d5a9a42d3c8",
+      "bytes": 697,
+      "sourceUrl": "https://textures.minecraft.net/texture/8dcc6eb40f3bada41e4339888d6d207437598bdbd175c2e731191d5a9a42d3c8",
+      "sourceEvidence": "BackpackShortcutMigration.java TEXTURE, minecraft-ai-friend 22e0eb1f4657e1d24fe606dedfb49a9c91434412; actual profile hash selector required"
+    }
+  }
+}

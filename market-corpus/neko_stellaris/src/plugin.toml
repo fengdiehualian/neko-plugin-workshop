@@ -1,0 +1,115 @@
+[plugin]
+id = "neko_stellaris"
+name = "星辰喵语"
+description = "把 N.E.K.O 接进《群星》：用你自己的音色生成游戏内顾问语音包，并尾随 game.log 让角色实时解说你在打的那一局。"
+short_description = "Stellaris advisor voice pack built from your own N.E.K.O voice, plus live event commentary driven by game.log."
+keywords = [
+    "stellaris", "群星", "paradox", "顾问", "advisor", "语音包", "voice pack",
+    "voice", "game", "游戏", "实时解说", "commentary", "mod",
+    "ステラリス", "アドバイザー", "ストラテジー",
+    "스텔라리스", "어드바이저",
+    "stellaris advisor",
+]
+version = "0.1.0"
+entry = "plugin.plugins.neko_stellaris:NekoStellarisPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+# 手动启动：默认不应该自动去跑几分钟的 TTS 批量合成。
+auto_start = false
+
+[plugin.store]
+enabled = true
+
+# ---------------------------------------------------------------------------
+# 模型声明。实时台词要调用模型，而插件的 model 参数填的是**这里的 usage ID**，
+# 不是真实模型名。宿主按你在插件详情页里绑定的「模型槽位」解析。
+# required = false：没绑定的时候实时台词自动停用，其余功能照常，不会让插件起不来。
+# ---------------------------------------------------------------------------
+[plugin.models.analysis]
+label = "顾问台词创作"
+required = false
+capabilities = ["text"]
+
+# ---------------------------------------------------------------------------
+# 每项都可以被环境变量覆盖：NEKO_STELLARIS_<大写的键名>，例如
+# NEKO_STELLARIS_VOICE_ID。读取顺序是 plugin.toml > 环境变量 > 代码默认值，
+# 实际生效来源会显示在 stellaris_status 的 settings_source 里。
+# ---------------------------------------------------------------------------
+[stellaris]
+# 留空 = 用 N.E.K.O core_config.json 里你正在用的音色（含克隆音色）。
+voice_id = ""
+# 留空 = 按 region 选免费端点：cn -> www.lanlan.tech，intl -> www.lanlan.app
+tts_url = ""
+tts_api_key = ""
+region = "cn"
+
+# 启动时是否自动开始实时解说。
+live_enabled = false
+# 尾随 game.log 的轮询间隔（秒）。
+poll_interval_s = 2.0
+# 以下四项是实时解说的防刷屏刹车，四个一起才管得住爆发式事件。
+urgent_cooldown_s = 45.0
+digest_interval_s = 120.0
+max_per_minute = 2
+min_gap_s = 12.0
+# 丢掉 AI 国家的事件。关掉会让角色开始播报别人家的战报。
+ignore_ai_events = true
+
+# 每个事件最多几条不同录音（按组另有分档，这里是全局上限）。
+variants = 4
+# 生成完是否自动安装到 Stellaris mod 目录。
+auto_install = true
+
+# ---------------------------------------------------------------------------
+# 运行时再生：游戏开着的时候改写顾问将要说的话。
+# 引擎按需读盘是实测结论，所以声音名不变、文件内容可变——
+# 不需要 reload、不需要控制台、不抢焦点。
+# ---------------------------------------------------------------------------
+# 关掉就退回纯静态语音包。
+live_voice_enabled = true
+# 对应 [plugin.models.analysis]，在插件详情页绑定一个模型槽位才会生效。
+live_model_usage = "analysis"
+# 每分钟最多生成几条。事件每 10~30 秒一个，池宽 4，全池重写要 4 倍开销，
+# 所以每次事件只轮换重写一个槽位，4 次事件覆盖整池。
+live_budget_per_minute = 4
+live_min_seconds_between = 8.0
+
+# ---------------------------------------------------------------------------
+# 启动自检：游戏里那份语音包，和 N.E.K.O 现在用的音色对得上吗？
+# 换了音色但游戏里还是旧声音，这件事本来是完全静默的。
+# ---------------------------------------------------------------------------
+check_on_startup = true
+# 发现不一致就后台重建。只补缓存没命中的部分：
+# 改一行台词是秒级，换音色是 248 条、几分钟。
+auto_refresh_voice = true
+
+# --------------------------------------------------------------------------- #
+# 面板（Hosted UI）
+# 声明 ui/panel.tsx；状态由 @ui.context(id="dashboard") 提供，按钮是挂了
+# @ui.action 的四个入口。面板只读状态 + 调现有入口，不新增任何旁路逻辑。
+# --------------------------------------------------------------------------- #
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "星辰喵语"
+entry = "ui/panel.tsx"
+context = "dashboard"
+permissions = [
+    "state:read",
+    "config:read",
+    "action:call",
+]

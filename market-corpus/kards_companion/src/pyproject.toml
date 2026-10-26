@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kards-companion"
+version = "6.1.0"
+description = "KARDS screen-reading companion plugin for N.E.K.O"
+requires-python = ">=3.11"
+
+[tool.neko.build]
+exclude_dirs = [".mimosa", ".venv311", "tests", "docs", "scripts", ".vscode", "__pycache__"]
+exclude_files = [
+  "pytest.ini",
+  "requirements-bundle.txt",
+  "bundle-manifest.schema.json",
+  "worker-runtime.schema.json",
+  "THIRD_PARTY_NOTICES.md",
+]

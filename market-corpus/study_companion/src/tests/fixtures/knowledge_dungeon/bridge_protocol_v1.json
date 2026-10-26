@@ -1,0 +1,66 @@
+{
+  "bootstrap": {
+    "bridge_protocol_version": 1,
+    "engine_protocol_version": 1,
+    "public_projection_version": 1,
+    "application_service_version": "knowledge-dungeon-v0.2-c0",
+    "scenarios": [
+      {
+        "scenario_id": "calculus_v0_1",
+        "title": "极限森林",
+        "map_subject_id": "math",
+        "content_status": "simulated"
+      },
+      {
+        "scenario_id": "forest_v0_2",
+        "title": "极限森林 · 远征",
+        "map_subject_id": "math",
+        "content_status": "simulated"
+      }
+    ],
+    "capabilities": {
+      "action_id_only_submission": true,
+      "server_generated_run_id": true,
+      "server_generated_command_id": true,
+      "server_generated_seed": true,
+      "real_learning_data": false,
+      "learning_writeback": false
+    }
+  },
+  "create_run_contract": {
+    "available_action_ids": [
+      "select_node:battle_1",
+      "select_node:trap_1"
+    ],
+    "event_types": [
+      "run_started",
+      "deck_frozen"
+    ],
+    "run_id": "run-401beed3e9e15a3170cd9fec",
+    "state_hash": "9415143913d5e026384efc74b690182ac14f9de032f815430892fd1d1aabe5c9",
+    "state_version": 1
+  },
+  "fixture_version": 1,
+  "requests": [
+    {
+      "bridge_protocol_version": 1,
+      "request_id": "create-run-001",
+      "subject_id": "math",
+      "scenario_id": "calculus_v0_1"
+    },
+    {
+      "bridge_protocol_version": 1,
+      "run_id": "run-401beed3e9e15a3170cd9fec"
+    },
+    {
+      "action_id": "select_node:battle_1",
+      "expected_state_version": 1,
+      "bridge_protocol_version": 1,
+      "request_id": "select-battle-001",
+      "run_id": "run-401beed3e9e15a3170cd9fec"
+    },
+    {
+      "bridge_protocol_version": 1
+    }
+  ]
+}

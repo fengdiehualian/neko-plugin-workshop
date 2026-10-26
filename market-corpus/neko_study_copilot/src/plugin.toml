@@ -1,0 +1,131 @@
+[plugin]
+name = "学习辅助猫娘"
+description = "面向高考 / 中考 / 四六级 / 考研 / 期末的学习辅助插件。支持在面板里连接本人学习平台账号同步真实进度与作业，检索国家智慧教育平台、中国大学MOOC、学堂在线、B站学习区等免费公开资源；据此生成长短期学习计划、按知识点命题规律出三段式例题（基础定义 → 中等易错 → 综合创新）、对试卷与地区做薄弱点诊断并给出保守 / 最可能 / 理想三档分数预期，支持在聊天框直接发题目/试卷截图做识图诊断（无需手打），也支持一键降低人设影响的教学模式；免费资源检索会抓取正文并按你的需求做内容判断，而不是只给链接。两级记忆（短期对话记忆 7 天自动清理、长期进度与薄弱点记忆）让讲解、诊断可以接着上一次继续聊。同时按考试类型与临考阶段做个性化心理疏导。全程本地存储、只读同步。"
+short_description = "A study copilot plugin: sync your own learning-platform progress, search free open course resources, plan study schedules, diagnose weak points, generate staged practice questions, forecast score ranges and give personalized exam counseling."
+keywords = ["学习", "study", "识图", "OCR", "截图", "vision", "教学模式", "人设", "teaching", "记忆", "memory", "背景", "background", "等级", "level", "头衔", "徽章", "badge", "钢琴", "piano", "解压", "切水果", "小游戏", "game", "Mikutap", "电子板", "音游", "资源", "resource", "高考", "gaokao", "中考", "zhongkao", "四六级", "CET", "考研", "kaoyan", "计划", "plan", "诊断", "diagnose", "出题", "quiz", "知识点", "knowledge", "错题", "mistake", "心理", "psychology", "疏导", "counseling", "爬虫", "crawler", "MOOC", "学习通", "chaoxing", "智慧树", "知到", "中国大学MOOC", "学堂在线", "勉強", "学習", "공부", "학습"]
+version = "0.18.0"
+type = "plugin"
+id = "neko_study_copilot"
+entry = "plugin.plugins.neko_study_copilot:StudyCopilotPlugin"
+
+[plugin.author]
+name = "MENGYAOYUE"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+# 面板声明：缺这一段宿主不会在插件管理里给出「打开界面」入口
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "学习面板"
+entry = "static/index.html"
+context = "neko_study_copilot"
+permissions = ["state:read", "action:call"]
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[neko_study_copilot]
+# ── 学习者档案（面板里可改，改后写入 data/panel_state.json 覆盖此处）──────────
+# 目标考试：
+#   gaokao 高考 / zhongkao 中考 / cet4 四级 / cet6 六级 / kaoyan 考研 / final 校内通用
+#   university 大学期末（学分制 GPA）/ cert_teacher 教资 / cert_soft 软考 / cert_cpa 注会
+#   cert_law 法考 / ielts 雅思 / toefl 托福 / ncse 全国计算机等级考试
+exam_type = "gaokao"
+# 地区（省份 / 直辖市），用于推断卷种、分数线与命题风格，例如 广东 / 山东 / 河南
+region = "广东"
+# 学校与年级，用于推断教学进度与校内难度
+school = ""
+grade = "高三"
+# 选考科目，逗号分隔；留空则按 exam_type 使用默认科目组
+subjects = ""
+# 目标分（总分，或该考试的满分制分数）；0 表示未设定，由 AI 询问
+target_score = 0
+# 考试日期 YYYY-MM-DD；留空则按 exam_type 使用常规考期估算
+exam_date = ""
+# 每天可用于该考试的有效学习分钟数
+daily_minutes = 180
+# 大学学分制专用：各科对应的学分，形如 "math_adv:5,english:3,politics:3"。
+# 填了它，时间分配与绩点预估才会按学分加权；非大学考试可留空。
+credits = ""
+
+# ── 人设 / 教学模式 ─────────────────────────────────────────
+# full 猫娘人格（默认）/ light 轻度人设（知识为主）/ off 教学模式（人设影响最低）
+# 面板顶栏的「教学模式」开关、聊天里说『开启教学模式』都会改它。
+persona_level = "full"
+
+# ── 记忆（两级，全部落在本机 data/study.db，不上传）──────────────
+# 短期记忆 = 对话回合、截图转写、当次讲解与诊断的原话 → 到期自动清理
+# 长期记忆 = 进度、薄弱点、错因、偏好、诊断结论        → 不自动删
+# 清理前会先把这一周压成一条「进度」长期事实：删的是原话，留下的是结论。
+# 修行等级：经验只来自真实学习行为（答题 / 诊断 / 讲解 / 复习），没有打卡刷分。
+# 小游戏（切水果）：成绩/等级/记录/成就自成一套，**不给修行经验**。
+game_enabled = true
+progress_enabled = true
+memory_enabled = true
+# 短期记忆保留天数（默认 7 天）
+memory_short_days = 7
+# 每次调用模型时召回多少条最近的短期记忆
+memory_recall_turns = 8
+
+# ── 识图（聊天框发截图 → 视觉模型转写 → 诊断 / 讲解）────────────
+# 开启后，用户在聊天框发题目 / 试卷 / 成绩单截图，再说一句
+# 『识图诊断』『讲讲这道题』即可，不用手打复制。
+# 用宿主的 vision 档模型；该档没配就自动退回 conversation 档。
+vision_enabled = true
+
+# ── 教学与出题 ────────────────────────────────────────────────
+# 讲解风格：gentle 鼓励式 / strict 严格式 / concise 极简式
+teach_style = "gentle"
+# 出题默认阶段：basic 定义题 / medium 中等易错 / hard 综合创新 / auto 按掌握度自动
+quiz_stage = "auto"
+# 单次出题数量
+quiz_count = 3
+# 是否对每道题附易错点提示
+quiz_with_traps = true
+
+# ── 联网与平台同步 ────────────────────────────────────────────
+# 联网总开关：关掉后只使用本地数据与大模型自身知识
+network_enabled = true
+# 免费公开资源检索（国家智慧教育平台 / 中国大学MOOC / 学堂在线 / B站学习区）
+free_source_search = true
+# 平台连接总开关：仅允许访问本人账号，只读不写
+platform_sync_enabled = true
+# 同一站点两次请求的最小间隔（毫秒）。调大更安全，调小有被风控的风险
+crawl_interval_ms = 1500
+# 是否尊重 robots.txt
+crawl_respect_robots = true
+# 单次检索最多抓取的页面数
+crawl_max_pages = 6
+# 单页抓取超时（秒）
+crawl_timeout = 15
+
+# ── 心理疏导 ──────────────────────────────────────────────────
+# 是否开启心理暗示与疏导
+psychology_enabled = true
+# 疏导强度：light 点到为止 / normal / deep 深度长谈
+psychology_level = "normal"
+
+# ── 其它 ──────────────────────────────────────────────────────
+# 管理员密码（必填）。涉及账号凭据写入、删除学习记录等敏感操作需要 /su 提权
+admin_password = "CHANGE_ME"
+# 面板端口
+panel_port = 15880
+# 大模型调用超时（秒）
+llm_timeout = 60
+# 单次网络请求 / 跨插件调用超时（秒）
+request_timeout = 20
+# AI 回复署名用的猫娘名字
+catgirl_name = "猫娘"

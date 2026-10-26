@@ -1,0 +1,20 @@
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[broadcast]
+events_enabled = true
+delivery_enabled = true
+expiry_enabled = true
+failure_enabled = true
+combo_enabled = true
+fire_enabled = true
+ready_enabled = true
+overcooking_enabled = true
+mixing_ready_enabled = true
+mixing_warning_enabled = true
+mixing_ruined_enabled = true
+chatter_enabled = true
+frequency = "balanced" # quiet、balanced、lively
+# 播报提示语言：zh-CN 或 en；不影响面板语言。
+locale = "zh-CN"

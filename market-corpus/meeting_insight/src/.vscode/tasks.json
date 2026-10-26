@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check meeting_insight",
+      "type": "shell",
+      "command": "uv run neko-plugin check meeting_insight",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync meeting_insight",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync meeting_insight --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r meeting_insight",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r meeting_insight",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build meeting_insight",
+      "type": "shell",
+      "command": "uv run neko-plugin build meeting_insight",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

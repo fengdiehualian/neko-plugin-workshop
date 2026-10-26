@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "selfie": {
+      "x-description-i18n": {
+        "en": "Configure one provider and a fixed character reference. Chat accepts a v1 base URL or complete chat endpoint. Relative reference paths are resolved from this plugin directory. Target character also scopes the AI tool.",
+        "zh-CN": "配置一种服务商和固定角色参考图。聊天接口支持 v1 基础地址或完整聊天端点；参考图相对路径基于插件目录解析。目标角色也会限定 AI 工具的可见范围。",
+        "zh-TW": "設定一種服務商和固定角色參考圖。聊天介面支援 v1 基礎網址或完整聊天端點；參考圖相對路徑以外掛程式目錄解析。目標角色也會限定 AI 工具的可見範圍。",
+        "ja": "プロバイダーと固定の参照画像を設定します。チャットは v1 ベース URL または完全なエンドポイントに対応します。相対パスはこのプラグインのフォルダーを基準に解決します。対象キャラクターは AI ツールの公開範囲も限定します。",
+        "ko": "제공업체와 고정 참조 이미지를 설정하세요. 채팅은 v1 기본 URL 또는 전체 엔드포인트를 지원합니다. 상대 경로는 플러그인 디렉터리를 기준으로 해석합니다. 대상 캐릭터는 AI 도구 공개 범위도 제한합니다.",
+        "ru": "Настройте провайдера и постоянный образец персонажа. Чат принимает базовый URL v1 или полный адрес. Относительные пути отсчитываются от каталога плагина. Выбор персонажа также ограничивает доступность инструмента ИИ.",
+        "es": "Configura un proveedor y una referencia fija. El chat acepta una URL base v1 o una dirección completa. Las rutas relativas parten del directorio del complemento. El personaje destino también limita la visibilidad de la herramienta de IA.",
+        "pt": "Configure um provedor e uma referência fixa. O chat aceita uma URL base v1 ou um endereço completo. Caminhos relativos partem do diretório do plugin. O personagem de destino também limita a visibilidade da ferramenta de IA."
+      },
+      "type": "object",
+      "title": "Selfie settings",
+      "properties": {
+        "provider": {
+          "x-title-i18n": {
+            "en": "Provider",
+            "zh-CN": "服务商",
+            "zh-TW": "服務商",
+            "ja": "プロバイダー",
+            "ko": "제공업체",
+            "ru": "Провайдер",
+            "es": "Proveedor",
+            "pt": "Provedor"
+          },
+          "type": "string",
+          "default": "volcengine",
+          "enum": [
+            "volcengine",
+            "chat"
+          ],
+          "title": "Provider"
+        },
+        "base_url": {
+          "x-title-i18n": {
+            "en": "HTTPS API base URL or complete endpoint",
+            "zh-CN": "HTTPS 接口基础地址或完整端点",
+            "zh-TW": "HTTPS 介面基礎網址或完整端點",
+            "ja": "HTTPS API のベース URL または完全なエンドポイント",
+            "ko": "HTTPS API 기본 URL 또는 전체 엔드포인트",
+            "ru": "Базовый HTTPS URL API или полный адрес",
+            "es": "URL base HTTPS de la API o dirección completa",
+            "pt": "URL base HTTPS da API ou endereço completo"
+          },
+          "type": "string",
+          "default": "https://ark.cn-beijing.volces.com/api/v3",
+          "title": "HTTPS API base URL or complete endpoint"
+        },
+        "model": {
+          "x-title-i18n": {
+            "en": "Image-to-image model or endpoint ID",
+            "zh-CN": "图生图模型或端点 ID",
+            "zh-TW": "圖生圖模型或端點 ID",
+            "ja": "画像編集モデルまたはエンドポイント ID",
+            "ko": "이미지 편집 모델 또는 엔드포인트 ID",
+            "ru": "Модель редактирования или ID конечной точки",
+            "es": "Modelo de edición o ID del endpoint",
+            "pt": "Modelo de edição ou ID do endpoint"
+          },
+          "type": "string",
+          "default": "",
+          "title": "Image-to-image model or endpoint ID",
+          "maxLength": 200
+        },
+        "api_key": {
+          "x-title-i18n": {
+            "en": "API key",
+            "zh-CN": "API 密钥",
+            "zh-TW": "API 金鑰",
+            "ja": "API キー",
+            "ko": "API 키",
+            "ru": "Ключ API",
+            "es": "Clave API",
+            "pt": "Chave API"
+          },
+          "type": "string",
+          "default": "",
+          "title": "API key",
+          "format": "password",
+          "writeOnly": true
+        },
+        "reference_image": {
+          "x-title-i18n": {
+            "en": "Reference image path or HTTPS URL",
+            "zh-CN": "参考图路径或 HTTPS 地址",
+            "zh-TW": "參考圖路徑或 HTTPS 網址",
+            "ja": "参照画像のパスまたは HTTPS URL",
+            "ko": "참조 이미지 경로 또는 HTTPS URL",
+            "ru": "Путь к образцу или HTTPS URL",
+            "es": "Ruta de la referencia o URL HTTPS",
+            "pt": "Caminho da referência ou URL HTTPS"
+          },
+          "type": "string",
+          "default": "",
+          "title": "Reference image path or HTTPS URL"
+        },
+        "size": {
+          "x-title-i18n": {
+            "en": "Ark image size",
+            "zh-CN": "方舟图片尺寸",
+            "zh-TW": "方舟圖片尺寸",
+            "ja": "Ark の画像サイズ",
+            "ko": "Ark 이미지 크기",
+            "ru": "Размер изображения Ark",
+            "es": "Tamaño de imagen Ark",
+            "pt": "Tamanho da imagem Ark"
+          },
+          "type": "string",
+          "default": "2K",
+          "title": "Ark image size"
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "minimum": 5,
+          "title": "Total request timeout (seconds)",
+          "default": 120,
+          "maximum": 240,
+          "x-title-i18n": {
+            "en": "Total request timeout (seconds)",
+            "zh-CN": "请求总超时（秒）",
+            "zh-TW": "請求總逾時（秒）",
+            "ja": "全体のタイムアウト（秒）",
+            "ko": "전체 요청 제한 시간(초)",
+            "ru": "Общий тайм-аут запроса (сек.)",
+            "es": "Tiempo máximo total (segundos)",
+            "pt": "Tempo limite total (segundos)"
+          }
+        },
+        "cooldown_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "title": "Generation cooldown (seconds)",
+          "default": 60,
+          "maximum": 3600,
+          "x-title-i18n": {
+            "en": "Generation cooldown (seconds)",
+            "zh-CN": "生成冷却时间（秒）",
+            "zh-TW": "產生冷卻時間（秒）",
+            "ja": "生成の待機時間（秒）",
+            "ko": "생성 대기 시간(초)",
+            "ru": "Пауза между генерациями (сек.)",
+            "es": "Espera entre generaciones (segundos)",
+            "pt": "Intervalo entre gerações (segundos)"
+          }
+        },
+        "target_lanlan": {
+          "x-title-i18n": {
+            "en": "Target character (blank uses host default)",
+            "zh-CN": "目标角色（留空使用宿主默认路由）",
+            "zh-TW": "目標角色（留空使用宿主預設路由）",
+            "ja": "対象キャラクター（空欄でホストの既定）",
+            "ko": "대상 캐릭터(비워 두면 호스트 기본값)",
+            "ru": "Персонаж (пусто — выбор хоста)",
+            "es": "Personaje destino (vacío usa el predeterminado)",
+            "pt": "Personagem de destino (vazio usa o padrão)"
+          },
+          "type": "string",
+          "default": "",
+          "title": "Target character (blank uses host default)"
+        },
+        "locale": {
+          "x-title-i18n": {
+            "en": "Language",
+            "zh-CN": "语言",
+            "zh-TW": "語言",
+            "ja": "言語",
+            "ko": "언어",
+            "ru": "Язык",
+            "es": "Idioma",
+            "pt": "Idioma"
+          },
+          "type": "string",
+          "default": "en",
+          "enum": [
+            "en",
+            "zh-CN",
+            "zh-TW",
+            "ja",
+            "ko",
+            "ru",
+            "es",
+            "pt"
+          ],
+          "title": "Language"
+        }
+      },
+      "description": "Configure one provider and a fixed character reference. Chat accepts a v1 base URL or complete chat endpoint. Relative reference paths are resolved from this plugin directory. Target character also scopes the AI tool.",
+      "x-title-i18n": {
+        "en": "Selfie settings",
+        "zh-CN": "自拍设置",
+        "zh-TW": "自拍設定",
+        "ja": "自撮り設定",
+        "ko": "셀카 설정",
+        "ru": "Настройки селфи",
+        "es": "Ajustes de autofotos",
+        "pt": "Configurações de selfie"
+      }
+    },
+    "plugin_runtime": {
+      "x-title-i18n": {
+        "en": "Runtime settings",
+        "zh-CN": "运行设置",
+        "zh-TW": "執行設定",
+        "ja": "実行設定",
+        "ko": "실행 설정",
+        "ru": "Настройки запуска",
+        "es": "Ajustes de ejecución",
+        "pt": "Configurações de execução"
+      },
+      "properties": {
+        "auto_start": {
+          "x-title-i18n": {
+            "en": "Start automatically",
+            "zh-CN": "自动启动",
+            "zh-TW": "自動啟動",
+            "ja": "自動起動",
+            "ko": "자동 시작",
+            "ru": "Автоматический запуск",
+            "es": "Iniciar automáticamente",
+            "pt": "Iniciar automaticamente"
+          },
+          "type": "boolean",
+          "default": true,
+          "title": "Start automatically"
+        },
+        "enabled": {
+          "x-title-i18n": {
+            "en": "Enable plugin",
+            "zh-CN": "启用插件",
+            "zh-TW": "啟用外掛程式",
+            "ja": "プラグインを有効化",
+            "ko": "플러그인 활성화",
+            "ru": "Включить плагин",
+            "es": "Activar complemento",
+            "pt": "Ativar plugin"
+          },
+          "type": "boolean",
+          "default": true,
+          "title": "Enable plugin"
+        }
+      },
+      "type": "object",
+      "title": "Runtime settings"
+    }
+  }
+}

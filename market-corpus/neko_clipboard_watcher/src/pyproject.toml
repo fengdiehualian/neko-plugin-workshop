@@ -1,0 +1,8 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+consider_namespace_packages = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

@@ -1,0 +1,8 @@
+[project]
+name = "neko_voice_bridge"
+version = "0.7.1"
+dependencies = []
+
+[tool.neko.build]
+exclude_files = ["bridge.local.json", "bridge.json", "package.json", "package-lock.json"]
+exclude_dirs = ["tests", "app", "docs", "scripts", "node_modules", "output", ".pytest_cache", ".ruff_cache"]

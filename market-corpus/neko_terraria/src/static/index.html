@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>泰拉瑞亚猫娘 · N.E.K.O</title>
+<style>
+/* ═══════════════════ 米色液态玻璃主题 ═══════════════════ */
+:root {
+  /* 米色基底 */
+  --bg-0: #f7f2ea;
+  --bg-1: #f1e9dc;
+  --bg-2: #ebe0d0;
+  --text: #3d352b;
+  --text-soft: #6d6253;
+  --text-mute: #a89a87;
+  --line: rgba(255, 255, 255, 0.75);
+
+  /* 强调——暖金/焦糖 */
+  --gold: #c69a5b;
+  --gold-deep: #a87f45;
+  --gold-soft: rgba(198, 154, 91, 0.16);
+  --olive: #8f8a68;
+  --moss: #7a8063;
+
+  --green: #6f9d6a;
+  --red: #c07a6a;
+
+  --glass: rgba(255, 253, 249, 0.52);
+  --glass-strong: rgba(255, 253, 250, 0.72);
+  --glass-hover: rgba(255, 255, 255, 0.66);
+
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 26px;
+  --r-xl: 34px;
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* 米色氛围底——大范围柔和光晕 + 极淡颗粒 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse 70% 55% at 18% 8%, rgba(255, 250, 240, 0.9) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 45% at 85% 92%, rgba(235, 224, 208, 0.85) 0%, transparent 55%),
+    radial-gradient(circle at 55% 45%, rgba(248, 241, 229, 0.9) 0%, transparent 62%),
+    linear-gradient(168deg, var(--bg-0) 0%, var(--bg-1) 55%, var(--bg-2) 100%);
+}
+
+/* 极淡的网格纹理，提升层次 */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(150, 132, 108, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(150, 132, 108, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  pointer-events: none;
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 20%, #000 0%, transparent 90%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 20%, #000 0%, transparent 90%);
+}
+
+.page {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 44px 36px 90px;
+  position: relative;
+}
+
+/* ═══════════════════ 液态玻璃基元 ═══════════════════ */
+.glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(28px) saturate(165%) brightness(1.04);
+  backdrop-filter: blur(28px) saturate(165%) brightness(1.04);
+  border: 1px solid var(--line);
+  border-top-color: rgba(255, 255, 255, 0.92);
+  border-left-color: rgba(255, 255, 255, 0.84);
+  border-right-color: rgba(214, 200, 182, 0.22);
+  border-bottom-color: rgba(200, 185, 164, 0.30);
+  box-shadow:
+    0 18px 54px rgba(90, 74, 55, 0.08),
+    0 4px 16px rgba(90, 74, 55, 0.045),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(200, 186, 168, 0.16);
+  border-radius: var(--r-lg);
+  position: relative;
+  transition: box-shadow .45s var(--ease), transform .45s var(--ease), background .45s var(--ease);
+}
+
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 46%;
+  border-radius: inherit;
+  background: linear-gradient(178deg, rgba(255, 255, 255, 0.42) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.glass > * { position: relative; }
+
+/* ═══════════════════ 头部 ═══════════════════ */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 26px 34px;
+  border-radius: var(--r-xl);
+  margin-bottom: 30px;
+}
+
+.brand {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: linear-gradient(150deg, #fdf6ea, #f3e7d3);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 10px 28px rgba(150, 122, 84, 0.16),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(200, 178, 148, 0.25);
+}
+
+.head-main { flex: 1; min-width: 0; }
+
+.head-main h1 {
+  font-size: 1.42rem;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+.head-main .sub {
+  font-size: 0.80rem;
+  color: var(--text-mute);
+  margin-top: 3px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 520;
+}
+
+.head-right { display: flex; align-items: center; gap: 14px; }
+
+/* 连接徽章 */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 18px;
+  border-radius: 40px;
+  font-size: 0.82rem;
+  font-weight: 620;
+  background: rgba(255, 253, 249, 0.6);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  color: var(--text-soft);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--text-mute);
+  opacity: .45;
+}
+.dot.on {
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(111, 157, 106, 0.45);
+  animation: breathe 2.4s var(--ease) infinite;
+  opacity: 1;
+}
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(111,157,106,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(111,157,106,0); }
+}
+
+.icon-btn {
+  width: 44px; height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 253, 249, 0.55);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--text-soft);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all .35s var(--ease);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+}
+.icon-btn:hover { transform: translateY(-2px); background: var(--glass-strong); box-shadow: 0 10px 28px rgba(120, 96, 66, 0.12); }
+
+/* ═══════════════════ 主状态 Hero ═══════════════════ */
+.hero {
+  padding: 36px 40px;
+  border-radius: var(--r-xl);
+  margin-bottom: 26px;
+  overflow: hidden;
+}
+
+.hero-label {
+  font-size: 0.78rem;
+  font-weight: 640;
+  letter-spacing: 0.16em;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hero-label::before {
+  content: '';
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--gold), var(--gold-deep));
+  box-shadow: 0 0 12px rgba(198, 154, 91, 0.6);
+}
+
+.hero-text {
+  font-size: clamp(1.55rem, 3.2vw, 2.35rem);
+  font-weight: 720;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.25;
+  min-height: 1.3em;
+  text-wrap: balance;
+}
+
+.hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 40px;
+  font-size: 0.84rem;
+  font-weight: 560;
+  background: rgba(255, 253, 249, 0.55);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  color: var(--text-soft);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  transition: transform .3s var(--ease);
+}
+.chip:hover { transform: translateY(-2px); }
+.chip.gold { color: var(--gold-deep); background: rgba(255, 252, 246, 0.6); }
+.chip .k { font-size: 0.74rem; color: var(--text-mute); }
+
+/* ═══════════════════ 指挥台 ═══════════════════ */
+.command {
+  padding: 28px 32px;
+  border-radius: var(--r-xl);
+  margin-bottom: 26px;
+}
+
+.cmd-row {
+  display: flex;
+  gap: 14px;
+}
+
+.cmd-row input {
+  flex: 1;
+  padding: 16px 22px;
+  font-size: 1rem;
+  color: var(--text);
+  background: rgba(255, 253, 249, 0.6);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1.4px solid rgba(214, 200, 182, 0.45);
+  border-radius: var(--r-md);
+  outline: none;
+  transition: all .35s var(--ease);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.cmd-row input::placeholder { color: var(--text-mute); }
+.cmd-row input:hover { background: rgba(255, 255, 255, 0.72); border-color: rgba(190, 172, 148, 0.55); }
+.cmd-row input:focus {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgba(198, 154, 91, 0.16), 0 6px 22px rgba(120, 96, 66, 0.08);
+}
+
+.btn {
+  padding: 14px 26px;
+  border: none;
+  border-radius: var(--r-md);
+  font-size: 0.92rem;
+  font-weight: 620;
+  cursor: pointer;
+  transition: all .35s var(--ease);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 50%;
+  background: linear-gradient(178deg, rgba(255,255,255,0.28) 0%, transparent 100%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(0); }
+
+.btn-gold {
+  background: linear-gradient(145deg, #dfb878, var(--gold), var(--gold-deep));
+  color: #fff;
+  box-shadow: 0 8px 26px rgba(168, 127, 69, 0.34), 0 2px 8px rgba(168, 127, 69, 0.2), inset 0 1.5px 0 rgba(255,255,255,0.3);
+}
+.btn-gold:hover { box-shadow: 0 12px 34px rgba(168, 127, 69, 0.44), 0 4px 14px rgba(168, 127, 69, 0.26); }
+
+.btn-green {
+  background: linear-gradient(145deg, #8dbb88, var(--green));
+  color: #fff;
+  box-shadow: 0 8px 26px rgba(111, 157, 106, 0.32), inset 0 1.5px 0 rgba(255,255,255,0.28);
+}
+
+.btn-red {
+  background: linear-gradient(145deg, #d19587, var(--red));
+  color: #fff;
+  box-shadow: 0 8px 26px rgba(192, 122, 106, 0.30), inset 0 1.5px 0 rgba(255,255,255,0.26);
+}
+
+.btn-ghost {
+  background: rgba(255, 253, 249, 0.55);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  color: var(--text-soft);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+}
+.btn-ghost:hover { background: var(--glass-strong); box-shadow: 0 10px 28px rgba(120, 96, 66, 0.1); }
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* ═══════════════════ 信息卡片 ═══════════════════ */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 26px;
+}
+@media (max-width: 860px) { .info-grid { grid-template-columns: 1fr; } }
+
+.info-card {
+  padding: 22px 26px;
+  border-radius: var(--r-lg);
+}
+
+.info-label {
+  font-size: 0.72rem;
+  font-weight: 640;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  margin-bottom: 10px;
+}
+
+.info-value {
+  font-size: 1.12rem;
+  font-weight: 660;
+  color: var(--text);
+  line-height: 1.35;
+  min-height: 1.4em;
+}
+.info-value.small { font-size: 0.92rem; font-weight: 580; color: var(--text-soft); }
+
+.info-sub { font-size: 0.78rem; color: var(--text-mute); margin-top: 4px; }
+
+/* ═══════════════════ 日志 ═══════════════════ */
+.log-section {
+  padding: 28px 32px;
+  border-radius: var(--r-xl);
+}
+
+.section-title {
+  font-size: 0.78rem;
+  font-weight: 640;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title::before {
+  content: '';
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--gold), var(--gold-deep));
+  box-shadow: 0 0 10px rgba(198, 154, 91, 0.5);
+}
+
+.log-list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-empty {
+  text-align: center;
+  padding: 44px;
+  color: var(--text-mute);
+  font-size: 0.88rem;
+}
+
+.log-item {
+  padding: 11px 16px;
+  background: rgba(255, 253, 249, 0.42);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-left: 3px solid rgba(198, 154, 91, 0.55);
+  border-radius: var(--r-sm);
+  font-size: 0.82rem;
+  color: var(--text-soft);
+  line-height: 1.5;
+  font-family: 'SF Mono', 'JetBrains Mono', 'Consolas', monospace;
+  transition: all .25s var(--ease);
+}
+.log-item:hover { background: rgba(255, 255, 255, 0.55); transform: translateX(3px); }
+.log-item.k-task { border-left-color: var(--gold); }
+.log-item.k-nav { border-left-color: var(--olive); }
+.log-item.k-item { border-left-color: var(--moss); }
+.log-item.k-warn { border-left-color: var(--red); color: #a05f4f; }
+
+/* ═══════════════════ 设置抽屉 ═══════════════════ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(60, 48, 34, 0.28);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .4s var(--ease), visibility .4s var(--ease);
+  z-index: 50;
+}
+.overlay.show { opacity: 1; visibility: visible; }
+
+.drawer {
+  position: fixed;
+  top: 0; right: 0;
+  height: 100%;
+  width: min(520px, 92vw);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: blur(36px) saturate(180%);
+  backdrop-filter: blur(36px) saturate(180%);
+  border-left: 1px solid var(--line);
+  box-shadow: -24px 0 70px rgba(90, 74, 55, 0.18);
+  transform: translateX(105%);
+  transition: transform .5s var(--ease);
+  z-index: 60;
+  padding: 34px 32px;
+  overflow-y: auto;
+}
+.drawer.show { transform: translateX(0); }
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.drawer-head h2 { font-size: 1.18rem; font-weight: 720; letter-spacing: -0.01em; }
+
+.field { margin-bottom: 20px; }
+.field label {
+  display: block;
+  font-size: 0.80rem;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+  font-weight: 580;
+}
+.field input[type="text"],
+.field input[type="password"],
+.field input[type="number"] {
+  width: 100%;
+  padding: 13px 16px;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: rgba(255, 253, 249, 0.62);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1.3px solid rgba(214, 200, 182, 0.45);
+  border-radius: var(--r-sm);
+  outline: none;
+  transition: all .3s var(--ease);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+}
+.field input:focus {
+  border-color: var(--gold);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 4px rgba(198, 154, 91, 0.14);
+}
+.field .hint { font-size: 0.74rem; color: var(--text-mute); margin-top: 6px; }
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.check-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--gold); }
+.check-row span { font-size: 0.86rem; color: var(--text-soft); font-weight: 560; }
+
+.drawer-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+/* ═══════════════════ Toast ═══════════════════ */
+.toast {
+  position: fixed;
+  top: 30px;
+  right: 30px;
+  min-width: 280px;
+  padding: 16px 22px;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: 0 18px 54px rgba(90, 74, 55, 0.16), inset 0 1.5px 0 rgba(255,255,255,0.9);
+  z-index: 999;
+  font-size: 0.9rem;
+  font-weight: 560;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: toastIn .45s var(--ease);
+  border-left: 4px solid var(--gold);
+}
+.toast.success { border-left-color: var(--green); }
+.toast.error { border-left-color: var(--red); }
+@keyframes toastIn {
+  from { transform: translateX(120%) scale(0.96); opacity: 0; }
+  to { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(200, 186, 168, 0.12); border-radius: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(170, 148, 120, 0.4); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(170, 148, 120, 0.6); }
+
+/* 响应式 */
+@media (max-width: 720px) {
+  .page { padding: 24px 16px 70px; }
+  .header { flex-wrap: wrap; padding: 20px 22px; }
+  .cmd-row { flex-direction: column; }
+  .hero { padding: 26px 24px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 头部 -->
+  <header class="header glass">
+    <div class="brand">🐱</div>
+    <div class="head-main">
+      <h1>泰拉瑞亚猫娘</h1>
+      <div class="sub">Terraria · N.E.K.O</div>
+    </div>
+    <div class="head-right">
+      <div class="status-pill" id="statusBadge">
+        <span class="dot off" id="statusDot"></span>
+        <span id="statusText">未连接</span>
+      </div>
+      <button class="icon-btn" onclick="toggleSettings(true)" title="连接设置">⚙️</button>
+    </div>
+  </header>
+
+  <!-- 主状态 Hero -->
+  <section class="hero glass">
+    <div class="hero-label">猫娘正在</div>
+    <div class="hero-text" id="doingText">等待指令，想和我一起冒险吗？</div>
+    <div class="hero-chips">
+      <div class="chip gold"><span class="k">🎯 目标</span><span id="goalChip">无</span></div>
+      <div class="chip"><span class="k">⚡ 任务</span><span id="taskChip">空闲</span></div>
+    </div>
+  </section>
+
+  <!-- 指挥台 -->
+  <section class="command glass">
+    <div class="cmd-row">
+      <input type="text" id="cmdInput"
+             placeholder="对猫娘说：去挖 10 个铁矿 / 跟着我 / 给我一瓶药水…"
+             autocomplete="off"
+             onkeydown="if(event.key==='Enter')sendCommand()">
+      <button class="btn btn-gold" onclick="sendCommand()">发送</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-green" onclick="connect()">🔗 连接游戏</button>
+      <button class="btn btn-red" onclick="disconnect()">✂️ 断开</button>
+      <button class="btn btn-ghost" onclick="refreshState()">🔄 刷新</button>
+    </div>
+  </section>
+
+  <!-- 信息卡片 -->
+  <div class="info-grid">
+    <div class="info-card glass">
+      <div class="info-label">🌍 世界</div>
+      <div class="info-value" id="worldName">-</div>
+      <div class="info-sub" id="worldDetail">-</div>
+    </div>
+    <div class="info-card glass">
+      <div class="info-label">⏳ 时间</div>
+      <div class="info-value" id="timeValue">-</div>
+    </div>
+    <div class="info-card glass">
+      <div class="info-label">🐾 长期任务</div>
+      <div class="info-value small" id="longtermText">无</div>
+    </div>
+  </div>
+
+  <!-- 日志 -->
+  <section class="log-section glass">
+    <div class="section-title">📋 猫娘的行为日志</div>
+    <div class="log-list" id="logList">
+      <div class="log-empty">连接游戏后，猫娘的行动会显示在这里</div>
+    </div>
+  </section>
+
+</div>
+
+<!-- 设置遮罩 + 抽屉 -->
+<div class="overlay" id="overlay" onclick="toggleSettings(false)"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h2>⚙️ 连接设置</h2>
+    <button class="icon-btn" onclick="toggleSettings(false)">✕</button>
+  </div>
+
+  <div class="section-title" style="margin-bottom:14px;">🎮 游戏客户端</div>
+  <div class="field">
+    <label>tModLoader 路径</label>
+    <input type="text" id="gamePath" placeholder="留空自动查找">
+    <div class="hint">AI 的 tModLoader.exe 路径（不同于你的游戏）</div>
+  </div>
+  <div class="field">
+    <label>AI 角色名</label>
+    <input type="text" id="characterName" placeholder="如 Neko">
+    <div class="hint">需先在游戏里创建好这个角色</div>
+  </div>
+  <div class="section-title" style="margin-bottom:14px;">🌐 加入你的服务器</div>
+  <div class="field">
+    <label>服务器 IP</label>
+    <input type="text" id="serverHost" value="127.0.0.1">
+    <div class="hint">你开服的 IP，本机填 127.0.0.1</div>
+  </div>
+  <div class="field">
+    <label>服务器端口</label>
+    <input type="number" id="serverPort" value="7777">
+  </div>
+  <div class="field">
+    <label>服务器密码</label>
+    <input type="text" id="serverPassword" placeholder="无密码则留空">
+  </div>
+
+  <div class="section-title" style="margin-bottom:14px;">🔌 Mod 接口</div>
+  <div class="field">
+    <label>Mod IP</label>
+    <input type="text" id="modHost" value="127.0.0.1">
+  </div>
+  <div class="field">
+    <label>Mod 端口</label>
+    <input type="number" id="modPort" value="9877">
+  </div>
+
+  <div class="section-title" style="margin-bottom:14px;">🤖 LLM 配置（主模型：对话交互）</div>
+  <div class="field">
+    <label>Provider</label>
+    <select id="llmMainProvider" style="width:100%;padding:13px 16px;font-size:0.9rem;color:var(--text);background:rgba(255,253,249,0.62);border:1.3px solid rgba(214,200,182,0.45);border-radius:var(--r-sm);outline:none;">
+      <option value="">未配置（使用宿主 LLM）</option>
+      <option value="openai">OpenAI</option>
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="gemini">Google Gemini</option>
+      <option value="openai_compatible">兼容 OpenAI API（本地模型）</option>
+    </select>
+    <div class="hint">对话、人格、情感表达（高质量模型）</div>
+  </div>
+  <div class="field">
+    <label>模型名称</label>
+    <input type="text" id="llmMainModel" placeholder="如 gpt-4, claude-3-5-sonnet-20241022">
+  </div>
+  <div class="field">
+    <label>API Key</label>
+    <input type="text" id="llmMainApiKey" placeholder="留空使用宿主 API Key">
+    <div class="hint">显示 **** 表示已配置，留空或输入新值更新</div>
+  </div>
+  <div class="field">
+    <label>Base URL (可选)</label>
+    <input type="text" id="llmMainBaseUrl" placeholder="自定义 API 地址（Azure/中转/本地）">
+  </div>
+
+  <div class="section-title" style="margin-bottom:14px;">⚡ LLM 配置（意图模型：任务推理）</div>
+  <div class="field">
+    <label>Provider</label>
+    <select id="llmIntentProvider" style="width:100%;padding:13px 16px;font-size:0.9rem;color:var(--text);background:rgba(255,253,249,0.62);border:1.3px solid rgba(214,200,182,0.45);border-radius:var(--r-sm);outline:none;">
+      <option value="">未配置（使用主模型）</option>
+      <option value="openai">OpenAI</option>
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="gemini">Google Gemini</option>
+      <option value="openai_compatible">兼容 OpenAI API（本地模型）</option>
+    </select>
+    <div class="hint">指令解析、任务规划（快速便宜模型）</div>
+  </div>
+  <div class="field">
+    <label>模型名称</label>
+    <input type="text" id="llmIntentModel" placeholder="如 gpt-4o-mini, claude-3-5-haiku-20241022">
+  </div>
+  <div class="field">
+    <label>API Key</label>
+    <input type="text" id="llmIntentApiKey" placeholder="留空使用主模型 API Key">
+    <div class="hint">显示 **** 表示已配置，留空或输入新值更新</div>
+  </div>
+  <div class="field">
+    <label>Base URL (可选)</label>
+    <input type="text" id="llmIntentBaseUrl" placeholder="自定义 API 地址">
+  </div>
+
+  <div class="field">
+    <label>限流阈值（次/分钟）</label>
+    <input type="number" id="llmMaxCalls" value="15" min="5" max="100">
+    <div class="hint">防止 API 过载，建议 15-30</div>
+  </div>
+
+  <div class="drawer-actions">
+    <button class="btn btn-gold" style="flex:1; justify-content:center;" onclick="saveConfig()">💾 保存配置</button>
+    <button class="btn btn-ghost" onclick="toggleSettings(false)">关闭</button>
+  </div>
+</aside>
+
+<script>
+// ══════════════════════ 常量 ══════════════════════
+const PLUGIN_ID = 'neko_terraria';
+const RUNS_URL = '/runs';
+const RUN_POLL_MS = 300;
+const RUN_TIMEOUT_MS = 30000;
+
+// ══════════════════════ 状态 ══════════════════════
+let state = {
+  connected: false,
+  connection: {},
+  world: {},
+  log: [],
+  current_goal: "",
+  doing: "",
+  task: null,
+  longterm: [],
+  thinking: {}
+};
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ══════════════════════ API ══════════════════════
+async function callEntry(entryId, params = {}) {
+  var argObj = params || {};
+  var resp = await fetch(RUNS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plugin_id: PLUGIN_ID, entry_id: entryId, args: argObj })
+  });
+  if (!resp.ok) { console.error('runs POST failed:', resp.status); return { ok: false, error: 'runs create ' + resp.status }; }
+  var data = await resp.json();
+  var runId = data.run_id;
+  if (!runId) { console.error('no run_id', data); return { ok: false, error: 'no run_id' }; }
+
+  var deadline = Date.now() + RUN_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    var poll = await fetch(RUNS_URL + '/' + runId);
+    if (!poll.ok) { await delay(RUN_POLL_MS); continue; }
+    var rec = await poll.json();
+    if (rec.status === 'succeeded') {
+      var exp = await fetch(RUNS_URL + '/' + runId + '/export');
+      if (!exp.ok) { await delay(RUN_POLL_MS); continue; }
+      var ed = await exp.json();
+      var items = ed.items || [];
+      var ti = items.find(function(x) { return x.label === 'trigger_response'; });
+      if (!ti) ti = items.find(function(x) { return x.type === 'json' && x.json; });
+      if (!ti) ti = items[0] || {};
+      var jsonData = ti.json || {};
+      var pr = jsonData.plugin_response || jsonData;
+      if (pr && pr.success) {
+        var actual = pr.data;
+        while (actual && typeof actual === 'object' && !Array.isArray(actual) &&
+               Object.keys(actual).length === 1 && actual.value !== undefined) {
+          actual = actual.value;
+        }
+        return actual;
+      }
+      if (pr && pr.success === false) {
+        return { ok: false, error: pr.error || pr.message || pr.data || '插件返回错误' };
+      }
+      return pr;
+    }
+    if (rec.status === 'failed' || rec.status === 'canceled' || rec.status === 'timeout') {
+      console.error('run', rec.status, rec.error);
+      return { ok: false, error: (rec.error && rec.error.message) || rec.status };
+    }
+    await delay(RUN_POLL_MS);
+  }
+  console.error('run timeout');
+  return { ok: false, error: 'timeout' };
+}
+
+// ══════════════════════ 渲染 ══════════════════════
+async function refreshState() {
+  try {
+    const r = await callEntry('get_dashboard_state', {});
+    if (r && typeof r === 'object' && !Array.isArray(r)) state = r;
+    render();
+    // 设置抽屉开着时，同步刷新配置输入框（否则保存后/启动后 UI 显示硬编码旧值）
+    const drawer = document.getElementById('drawer');
+    if (drawer && drawer.classList.contains('show')) loadConfig();
+  } catch (e) {
+    console.error('刷新状态失败:', e);
+  }
+}
+
+function render() {
+  // 连接状态
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  if (state.connected) {
+    dot.className = 'dot on';
+    txt.textContent = '已连接';
+  } else {
+    dot.className = 'dot off';
+    txt.textContent = '未连接';
+  }
+
+  // 猫娘正在做什么
+  document.getElementById('doingText').textContent =
+    state.doing || (state.connected ? '待命中…' : '等待指令，想和我一起冒险吗？');
+
+  // 目标
+  document.getElementById('goalChip').textContent = state.current_goal || '无';
+
+  // 前台任务
+  const t = state.task;
+  if (t && state.connected) {
+    const step = t.step ? ` · ${t.step}` : '';
+    const phase = { think: '思考中', plan: '规划中', act: '执行中' }[t.phase] || '';
+    document.getElementById('taskChip').textContent =
+      `${t.name || '任务'}${step}${phase ? '（' + phase + '）' : ''}`;
+  } else {
+    document.getElementById('taskChip').textContent = '空闲';
+  }
+
+  // 世界信息
+  const w = state.world || {};
+  document.getElementById('worldName').textContent = w.world_name || '-';
+  const parts = [];
+  if (w.game_mode) parts.push(w.game_mode);
+  if (w.world_size) parts.push(w.world_size);
+  if (w.evil_type) parts.push(w.evil_type === 'Corruption' ? '腐化' : w.evil_type === 'Crimson' ? '猩红' : w.evil_type);
+  document.getElementById('worldDetail').textContent = parts.join(' · ') || '-';
+  document.getElementById('timeValue').textContent = w.time || '-';
+
+  // 长期任务
+  const lts = state.longterm || [];
+  if (lts.length) {
+    document.getElementById('longtermText').textContent =
+      lts.map(x => x.say || x.name).join('；');
+  } else {
+    document.getElementById('longtermText').textContent = '无';
+  }
+
+  // 日志
+  renderLog(state.log || []);
+}
+
+function renderLog(logs) {
+  const el = document.getElementById('logList');
+  if (!state.connected || logs.length === 0) {
+    el.innerHTML = '<div class="log-empty">连接游戏后，猫娘的行动会显示在这里</div>';
+    return;
+  }
+  el.innerHTML = logs.map(log => {
+    const kind = log.kind || '';
+    const text = (typeof log === 'string') ? log : log.msg;
+    return `<div class="log-item k-${kind}">${text || ''}</div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ══════════════════════ 指令 ══════════════════════
+async function sendCommand() {
+  const input = document.getElementById('cmdInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  const r = await callEntry('nt_command', { text: text });
+  if (r && r.ok === false) {
+    showToast('❌ ' + (r.msg || r.error || '指令未执行'), 'error');
+  } else if (r && r.msg) {
+    showToast('📨 ' + r.msg, 'info');
+  } else {
+    showToast('❌ 指令发送失败', 'error');
+  }
+  await refreshState();
+}
+
+async function connect() {
+  showToast('正在连接游戏…', 'info');
+  const r = await callEntry('nt_connect', {});
+  if (r && r.ok === false) {
+    showToast('❌ ' + (r.msg || r.error || '连接失败'), 'error');
+  } else if (r && r.msg) {
+    showToast('📨 ' + r.msg, 'info');
+  } else {
+    showToast('❌ 连接失败（无响应）', 'error');
+  }
+  await refreshState();
+}
+
+async function disconnect() {
+  const r = await callEntry('nt_stop', {});
+  if (r && r.ok === false) {
+    showToast('❌ ' + (r.msg || r.error || '断开失败'), 'error');
+  } else if (r && r.msg) {
+    showToast('✅ ' + r.msg, 'success');
+  } else {
+    showToast('❌ 断开失败（无响应）', 'error');
+  }
+  await refreshState();
+}
+
+// ══════════════════════ 配置 ══════════════════════
+function loadConfig() {
+  const c = state.connection || {};
+  document.getElementById('gamePath').value = c.game_path || '';
+  document.getElementById('characterName').value = c.character_name || 'Neko';
+  document.getElementById('serverHost').value = c.server_host || '127.0.0.1';
+  document.getElementById('serverPort').value = c.server_port || 7777;
+  document.getElementById('serverPassword').value = c.server_password || '';
+  document.getElementById('modHost').value = c.mod_host || '127.0.0.1';
+  document.getElementById('modPort').value = c.mod_port || 9877;
+  document.getElementById('llmMainProvider').value = c.llm_main_provider || '';
+  document.getElementById('llmMainModel').value = c.llm_main_model || '';
+  document.getElementById('llmMainApiKey').value = c.llm_main_api_key_masked || '';
+  document.getElementById('llmMainBaseUrl').value = c.llm_main_base_url || '';
+  document.getElementById('llmIntentProvider').value = c.llm_intent_provider || '';
+  document.getElementById('llmIntentModel').value = c.llm_intent_model || '';
+  document.getElementById('llmIntentApiKey').value = c.llm_intent_api_key_masked || '';
+  document.getElementById('llmIntentBaseUrl').value = c.llm_intent_base_url || '';
+  document.getElementById('llmMaxCalls').value = c.llm_max_calls_per_minute || 15;
+}
+
+async function saveConfig() {
+  const params = {
+    game_path: document.getElementById('gamePath').value,
+    character_name: document.getElementById('characterName').value,
+    server_host: document.getElementById('serverHost').value,
+    server_port: parseInt(document.getElementById('serverPort').value),
+    server_password: document.getElementById('serverPassword').value,
+    mod_host: document.getElementById('modHost').value,
+    mod_port: parseInt(document.getElementById('modPort').value),
+    llm_main_provider: document.getElementById('llmMainProvider').value,
+    llm_main_model: document.getElementById('llmMainModel').value,
+    llm_main_api_key: document.getElementById('llmMainApiKey').value,
+    llm_main_base_url: document.getElementById('llmMainBaseUrl').value,
+    llm_intent_provider: document.getElementById('llmIntentProvider').value,
+    llm_intent_model: document.getElementById('llmIntentModel').value,
+    llm_intent_api_key: document.getElementById('llmIntentApiKey').value,
+    llm_intent_base_url: document.getElementById('llmIntentBaseUrl').value,
+    llm_max_calls_per_minute: parseInt(document.getElementById('llmMaxCalls').value),
+  };
+  const r = await callEntry('nt_save_config', params);
+  if (r && r.saved) {
+    showToast('✅ ' + (r.msg || '配置已保存！'), 'success');
+    await refreshState();
+  } else {
+    showToast('❌ 保存失败', 'error');
+  }
+}
+
+function toggleSettings(show) {
+  const drawer = document.getElementById('drawer');
+  const overlay = document.getElementById('overlay');
+  if (show === undefined) show = !drawer.classList.contains('show');
+  drawer.classList.toggle('show', show);
+  overlay.classList.toggle('show', show);
+  if (show) loadConfig();
+}
+
+// ══════════════════════ Toast ══════════════════════
+function showToast(msg, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = 'all .3s ease';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(120%)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3200);
+}
+
+// ══════════════════════ 初始化 ══════════════════════
+refreshState();
+setInterval(refreshState, 2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>B站接入桥 (Edge)</title>
+<style>
+  body{width:280px;font-family:'Microsoft YaHei',sans-serif;padding:14px;background:#1a1a2e;color:#eee;margin:0}
+  h1{font-size:15px;color:#8ecae6;margin:0 0 10px}
+  .row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}
+  .ok{color:#7ae582;font-weight:bold} .bad{color:#ef476f}
+  button{width:100%;margin-top:6px;background:#3a86ff;color:#fff;border:none;border-radius:8px;padding:9px 0;font-size:14px;cursor:pointer}
+  button:hover{background:#2f6fd6} button.off{background:#555}
+  button.off:hover{background:#444}
+  .tip{font-size:11px;color:#999;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+<h1>🅱️ B站接入桥 (Edge)</h1>
+<div class="row"><span>推送状态</span><span id="st">检测中…</span></div>
+<div class="row"><span>最近推送</span><span id="at">—</span></div>
+<div class="row"><span>当前标签</span><span id="tab">—</span></div>
+<div class="row"><span>声音捕获</span><span id="au">—</span></div>
+<button id="btn">开启声音（让 YUI 听到直播/视频）</button>
+<div class="tip">声音捕获开启后：后台静默采集当前 B站 标签页的声音（含直播/视频），由本机插件转成文字让 YUI 听懂；浏览器顶部会出现「正在捕获标签页」提示，属正常现象。数据仅推送 127.0.0.1 本机，不上外网。开关状态会记住，重启浏览器后自动恢复。</div>
+<script src="popup.js"></script>
+</body>
+</html>

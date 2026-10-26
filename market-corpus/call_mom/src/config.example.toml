@@ -1,0 +1,7 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[call_mom]
+# 每句话自动加在前面的前缀（长度上限 12 字符）
+prefix = "妈妈，"

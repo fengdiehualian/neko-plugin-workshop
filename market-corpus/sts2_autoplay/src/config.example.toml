@@ -1,0 +1,25 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[sts2]
+# 游戏内弹幕总开关。false = 插件完全不推 POST /danmaku（也不生成 LLM 点评、不拉头像），
+# 自动游玩与状态读取不受影响。运行时等价动作：sts2_set_danmaku(enabled=false)。
+# 不要再指望 catgirl_llm_enabled=false 来关弹幕——那只是把 LLM 点评降级成启发式文本，弹幕照旧。
+danmaku_enabled = true
+
+# 游玩模式：
+#   "serious"（默认）= 认真打，行为与改动前逐字相同；
+#   "mischievous"    = 20% 概率把最优操作换成次优合法选择；
+#   "silly"          = 60% 概率把最优操作换成评分最差的合法选择。
+# 运行时等价动作：sts2_set_play_style(style=...)。
+play_style = "serious"
+
+# 地图投票策略，决定猫娘会不会自己抢路线：
+#   "wait"（默认）= 多人局里彻底等待：不投票、也不自动跟票，路线完全留给玩家，直到玩家通过
+#                   NEKO 说话下令（说“定个路线”/“来选这个”/“你选中间”）。
+#   "follow"      = 队友先投了就跟着投同一个；无人投票时等 map_vote_wait_seconds 再自己选。
+#   "auto"        = 不等，立即按自己的偏好选。
+# 旧的布尔配置 map_follow_player 仍被识别（true -> follow，false -> auto）。
+map_policy = "wait"
+map_vote_wait_seconds = 20

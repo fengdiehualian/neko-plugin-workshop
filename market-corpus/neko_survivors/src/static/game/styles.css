@@ -1,0 +1,1966 @@
+/* ============================================================
+   猫娘姐妹 / NEKO Sisters — 样式
+   占位图形阶段：纯几何色块 + 简洁深色 UI
+   ============================================================ */
+
+:root {
+  --bg: #12141c;
+  --bg-2: #1a1d29;
+  --panel: #212534;
+  --panel-2: #2a2f42;
+  --line: #383e54;
+  --text: #e8ecf6;
+  --text-dim: #9aa3bb;
+  --pink: #ff7bac;
+  --pink-dim: #d95f8c;
+  --cyan: #5fd3e8;
+  --gold: #ffc857;
+  --green: #6ee7a8;
+  --red: #ff5f6d;
+  --purple: #b794f6;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app { position: fixed; inset: 0; }
+
+canvas#game {
+  display: block;
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  background: var(--bg);
+}
+
+.hidden { display: none !important; }
+
+/* ===================== HUD ===================== */
+
+#hud {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud-top {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 12px 16px;
+  gap: 12px;
+}
+
+/* 第一百三十九轮质感升级：磨砂玻璃底座（半透明深紫 + 拉丝高光内缘） */
+.hud-wave {
+  display: flex; align-items: baseline; gap: 6px;
+  background: linear-gradient(165deg, rgba(52,42,78,.66), rgba(22,18,36,.82));
+  border: 1px solid rgba(180,150,255,.22);
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  backdrop-filter: blur(10px) saturate(1.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.16),   /* 顶缘 1px 内发光 */
+    inset 0 -1px 0 rgba(0,0,0,.45),
+    0 4px 18px rgba(0,0,0,.35);
+}
+/* "WAVE" 速度感斜体 */
+.hud-wave .hud-label {
+  font-style: italic; font-weight: 800; letter-spacing: .18em;
+  color: rgba(214,196,255,.85);
+}
+.hud-wave #hud-wave-num {
+  font-size: 24px; font-weight: 800; color: var(--pink);
+  text-shadow: 0 2px 0 rgba(42,8,24,.85), 0 0 14px rgba(255,123,172,.45);
+}
+.hud-label { font-size: 11px; letter-spacing: .14em; color: var(--text-dim); }
+.hud-sub { font-size: 13px; color: var(--text-dim); }
+
+/* 第九十九轮：绝对居中 —— 原来是 space-between 的中间项，左右两盒不等宽
+   会把计时器顶得偏离屏幕中线，右缘压到 Boss 血条。现在钉死在屏幕正中
+   （= 血条长度中点，用户："计时器正好在血条的长度中间"），
+   左右两盒照旧占两端。 */
+.hud-timer {
+  position: absolute; top: 12px; left: 50%;
+  transform: translateX(-50%);
+  width: 260px; text-align: center;
+}
+#hud-timer-text {
+  font-size: 30px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 10px rgba(0,0,0,.6);
+  line-height: 1;
+}
+.hud-timer-bar {
+  margin-top: 6px; height: 6px;
+  background: rgba(0,0,0,.5);
+  border: 1px solid var(--line);
+  border-radius: 99px; overflow: hidden;
+}
+#hud-timer-fill {
+  height: 100%; width: 100%;
+  background: linear-gradient(90deg, var(--cyan), var(--pink));
+  transform-origin: 0 50%;
+}
+/* 第九十七轮：芙兰战分段倒计时（顶中，与波次计时同位）——
+   小标签（？？？ / 符卡 n/4 / EP n/3）+ 数字染成她的粉 */
+#hud-timer-label {
+  font-size: 12px; font-weight: 700; letter-spacing: .18em;
+  color: var(--pink); margin-bottom: 2px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.6);
+}
+.hud-timer.flandre #hud-timer-text { color: var(--pink); }
+
+.hud-materials {
+  display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(165deg, rgba(52,42,78,.66), rgba(22,18,36,.82));
+  border: 1px solid rgba(180,150,255,.22);
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  backdrop-filter: blur(10px) saturate(1.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.16),
+    inset 0 -1px 0 rgba(0,0,0,.45),
+    0 4px 18px rgba(0,0,0,.35);
+}
+.hud-materials #hud-materials {
+  font-size: 20px; font-weight: 800; color: var(--gold);
+  /* 数字"浮"出来：深色投影 + 金色微光 */
+  text-shadow:
+    0 2px 0 rgba(40,24,4,.9),
+    0 3px 8px rgba(0,0,0,.5),
+    0 0 12px rgba(255,210,58,.35);
+}
+/* 第五十八轮：芙兰战时材料框下移 —— 右上角让给画布层的符卡名（y≈18）、
+   消弹提示（y≈46）、EP 倒计时（y≈66），材料框挪到这三行下面 */
+body.flandre-hud .hud-materials { margin-top: 88px; }
+/* 第一百三十九轮：金币菱形 → 有厚度的"猫爪硬币"（SVG 内嵌爪印） */
+.mat-icon {
+  width: 18px; height: 18px; display: inline-block;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23f6c343' stroke='%23936612' stroke-width='1.6'/%3E%3Ccircle cx='12' cy='12' r='8.6' fill='none' stroke='%23d9a52e' stroke-width='1'/%3E%3Cg fill='%23845a10'%3E%3Cellipse cx='12' cy='14.8' rx='4.2' ry='3.3'/%3E%3Ccircle cx='7.6' cy='9.6' r='1.8'/%3E%3Ccircle cx='12' cy='8' r='1.9'/%3E%3Ccircle cx='16.4' cy='9.6' r='1.8'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;
+  border-radius: 50%;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.55));
+}
+
+.hud-bottom {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 12px 16px 18px;   /* 底 18：血条底座与经验条之间留出缝 */
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.hud-hp { display: flex; align-items: center; gap: 10px; max-width: 520px; }
+/* 第一百三十八轮：血条本体改 Canvas 绘制，DOM 壳只做占位（不可见），
+   保住武器栏/属性栏的布局位置。 */
+.hud-hp-bar {
+  flex: 1; height: 16px;
+  visibility: hidden;
+}
+#hud-hp-ghost { width: 78px; height: 15px; visibility: hidden; }
+
+.hud-weapons { display: flex; gap: 6px; flex-wrap: wrap; }
+.hud-weapon {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(33,37,52,.86);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  font-size: 10px; font-weight: 700;
+  color: var(--text-dim);
+}
+.hud-weapon .w-tag {
+  position: absolute; right: 2px; bottom: 1px;
+  font-size: 8px; color: var(--gold); font-weight: 800;
+}
+.hud-weapon .w-glyph { font-size: 18px; line-height: 1; }
+.hud-weapon.tier-1 { border-color: #6b7280; background: linear-gradient(180deg, rgba(130,138,152,.30), rgba(33,37,52,.88)); }
+.hud-weapon.tier-2 { border-color: #5fd3e8; background: linear-gradient(180deg, rgba(95,211,232,.26), rgba(26,42,52,.88)); }
+.hud-weapon.tier-3 { border-color: #b794f6; background: linear-gradient(180deg, rgba(183,148,246,.28), rgba(40,30,58,.88)); }
+.hud-weapon.tier-4 {
+  border-color: #ffc857; box-shadow: 0 0 10px rgba(255,200,87,.35);
+  background: linear-gradient(180deg, rgba(255,200,87,.30), rgba(56,40,14,.9));
+}
+
+.hud-stats {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  font-size: 11px; font-weight: 700; color: var(--text-dim);
+  letter-spacing: 0.3px;
+}
+/* 第一百三十八轮：机甲/魔法面板数据感 —— 关键词加粗、数值亮金高亮 */
+.hud-stat b {
+  color: #ffd23a; font-weight: 800;
+  text-shadow: 0 0 6px rgba(255,210,58,.35);
+}
+
+/* 第一百三十八轮：经验条/Lv 改纯 Canvas 绘制（renderer._drawHudBars），
+   DOM 样式退役。 */
+
+.hud-toast {
+  position: absolute; top: 84px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 4px;
+  align-items: center;
+  font-size: 13px; font-weight: 600;
+  /* 第四十八轮：提示框要浮在商店（#overlay z-index 20）上层，
+     否则买东西时的"已出售/购买"提示全被商店页面盖住看不见。 */
+  z-index: 40;
+  pointer-events: none;
+}
+.hud-toast .toast {
+  /* 第八十二轮：背景透明度 50%（用户："所有框的背景透明度调到50%"） */
+  background: rgba(33,37,52,.5);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 5px 16px;
+  animation: toastIn .22s ease;
+}
+.hud-toast .toast.bad { border-color: var(--red); color: #ffb3b8; }
+.hud-toast .toast.good { border-color: var(--green); color: #b6f5d4; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ===================== 覆盖层 ===================== */
+
+#overlay {
+  position: absolute; inset: 0;
+  z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  overflow-y: auto;
+  padding: 24px;
+}
+#overlay:empty { display: none; }
+
+.screen {
+  width: min(980px, 100%);
+  /* 第一百三十九轮：暗紫径向渐变底 + 哥特金粉描边（替代扁平纯色） */
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(74,46,112,.50), rgba(0,0,0,0) 62%),
+    radial-gradient(120% 100% at 50% 110%, rgba(38,28,74,.45), rgba(0,0,0,0) 58%),
+    linear-gradient(180deg, var(--panel), var(--bg-2));
+  border: 1px solid rgba(255,150,200,.28);
+  border-radius: 16px;
+  padding: 28px 32px 26px;
+  box-shadow:
+    0 24px 70px rgba(0,0,0,.55),
+    0 0 0 1px rgba(255,210,120,.07),
+    inset 0 1px 0 rgba(255,255,255,.07);
+  animation: screenIn .2s ease;
+}
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(10px) scale(.99); }
+  to { opacity: 1; transform: none; }
+}
+.screen.narrow { width: min(560px, 100%); }
+
+.screen h1 {
+  margin: 0 0 6px;
+  font-size: 40px; font-weight: 900;
+  letter-spacing: .02em;
+  background: linear-gradient(90deg, var(--pink), var(--purple), var(--cyan));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.screen h2 { margin: 0 0 4px; font-size: 24px; font-weight: 800; }
+/* 第一百三十九轮：暂停标题 —— 粉红霓虹光晕 + 前置猫爪印装饰 */
+.screen h2.pause-title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 30px; font-weight: 900; letter-spacing: .12em;
+  color: #ffd9ec;
+  text-shadow:
+    0 0 6px rgba(255,123,172,.65),
+    0 0 18px rgba(255,123,172,.45),
+    0 0 36px rgba(216,115,239,.35);
+}
+.screen h2.pause-title::before {
+  content: '';
+  width: 26px; height: 26px; flex: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='%23ff7bac'%3E%3Cellipse cx='12' cy='15.5' rx='5' ry='4'/%3E%3Ccircle cx='6.5' cy='9.5' r='2.2'/%3E%3Ccircle cx='12' cy='7.5' r='2.3'/%3E%3Ccircle cx='17.5' cy='9.5' r='2.2'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;
+  filter: drop-shadow(0 0 6px rgba(255,123,172,.6));
+}
+.screen .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 18px; line-height: 1.6; }
+
+.btn {
+  appearance: none; border: 1px solid var(--line);
+  /* 第一百三十九轮：次要按钮压暗半透明，不抢主按钮风头 */
+  background: rgba(30,33,48,.62);
+  color: var(--text-dim);
+  font: inherit; font-size: 14px; font-weight: 700;
+  padding: 10px 20px; border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform .08s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+.btn:hover:not(:disabled) { background: rgba(51,57,82,.8); border-color: #4a5270; color: var(--text); }
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.primary {
+  /* 第一百三十九轮：主按钮粉→紫渐变 + 外发光 */
+  background: linear-gradient(135deg, #ff7bac 0%, #d873ef 55%, #a06bf5 100%);
+  border-color: rgba(255,170,210,.5); color: #2a0d24;
+  box-shadow: 0 0 16px rgba(255,123,172,.35), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.btn.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ff90bb 0%, #e58af5 55%, #b082ff 100%);
+  box-shadow: 0 0 26px rgba(255,123,172,.55), inset 0 1px 0 rgba(255,255,255,.4);
+}
+.btn.small { padding: 7px 14px; font-size: 13px; }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+
+/* -------- 角色选择 -------- */
+.char-grid, .item-grid {
+  display: grid; gap: 12px;
+  /* 第一百六十轮：卡片稍加宽（190→212），配合字号微调消灭滚动条 */
+  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+}
+.card {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  transition: transform .1s ease, border-color .12s ease, background .12s ease, opacity .12s ease, box-shadow .12s ease;
+  position: relative;
+}
+.card:hover { border-color: var(--pink-dim); background: #313750; transform: translateY(-2px); }
+/* ---- 第一百六十轮：强化选中对比（用户："选中的卡片放大 1.05 倍 + 提高
+      背景亮度 + 粉紫发光边框；未选中降低透明度形成强烈对比"）---- */
+.card.selected {
+  border-color: rgba(255, 150, 200, .85);
+  background: #3a3054;
+  transform: scale(1.05);
+  z-index: 1;
+  box-shadow:
+    0 0 0 2px rgba(255, 123, 172, .45),
+    0 0 22px rgba(255, 123, 172, .35),
+    0 0 44px rgba(183, 148, 246, .22),
+    inset 0 0 18px rgba(255, 123, 172, .12);
+}
+.char-grid .card:not(.selected) { opacity: .74; }
+.char-grid .card:not(.selected):hover { opacity: 1; }
+.card .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.card .avatar {
+  width: 42px; height: 42px; border-radius: 10px; flex: 0 0 42px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  border: 1px solid var(--line);
+}
+.card .card-name { font-size: 15px; font-weight: 800; }
+.card .card-role {
+  /* 第一百六十轮：定位做成带底色圆角小标签（用户："做成一个带底色的
+     圆角小标签，不要只是一行小字"）—— 底色由 ui.js 按角色色内联注入 */
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  margin-top: 2px;
+}
+.card .card-desc { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
+.card .card-stats { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.card .stat-line { display: flex; justify-content: space-between; font-size: 11px; }
+.card .stat-line .v {
+  /* 第一百六十轮：优缺点一眼可见（用户："正负属性数值使用更粗的字体，
+     或加上微光"） */
+  font-weight: 800;
+  text-shadow: 0 0 6px currentColor;
+}
+.card .stat-line .v.up { color: var(--green); }
+.card .stat-line .v.down { color: var(--red); }
+
+/* -------- 商店 / 升级 -------- */
+.shop-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.shop-money {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 22px; font-weight: 800; color: var(--gold);
+}
+.price-tag {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 12px; font-weight: 800; color: var(--gold);
+  background: rgba(0,0,0,.35); border-radius: 99px; padding: 2px 9px;
+}
+.card.cant-afford { opacity: .45; cursor: not-allowed; }
+.card.cant-afford:hover { transform: none; border-color: var(--line); background: var(--panel-2); }
+.tier-badge {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 10px; font-weight: 800; letter-spacing: .06em;
+  border-radius: 99px; padding: 2px 9px;
+  background: rgba(0,0,0,.4);
+}
+.tier-1 .tier-badge, .tier-badge.t1 { color: #b6bdcc; }
+.tier-2 .tier-badge, .tier-badge.t2 { color: var(--cyan); }
+.tier-3 .tier-badge, .tier-badge.t3 { color: var(--purple); }
+.tier-4 .tier-badge, .tier-badge.t4 { color: var(--gold); }
+.card .kind-tag {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 1px 7px; border-radius: 99px;
+  border: 1px solid var(--line); color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.shop-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 18px; flex-wrap: wrap;
+}
+.hint { font-size: 12px; color: var(--text-dim); }
+
+/* ============================================================
+   第一百六十轮：主界面视觉大重构（神秘 × 魔法 × 猫娘）
+   只作用于 .title-* 前缀类，其它界面（选人/商店/结算）不动。
+   ============================================================ */
+.title-scene {
+  position: relative;
+  width: 100%;
+  display: flex; align-items: center; justify-content: center;
+  min-height: min(92vh, 760px);
+}
+/* 全屏容器要盖住 canvas 的星空（overlay 本身已居中，这里放宽） */
+#overlay .title-scene { flex: 1; }
+
+/* ---- 上升魔法光点（DOM 粒子，参数由 ui.js 内联给出）---- */
+.title-stars { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+.title-stars i {
+  position: absolute; bottom: -12px;
+  border-radius: 50%;
+  opacity: 0;
+  animation-name: titleRise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  box-shadow: 0 0 6px currentColor, 0 0 14px currentColor;
+}
+.title-stars .t-pink   { color: #ff7bac; background: #ffc2dd; }
+.title-stars .t-cyan   { color: #5fd3e8; background: #c2f0fb; }
+.title-stars .t-violet { color: #b794f6; background: #e2d3ff; }
+@keyframes titleRise {
+  0%   { transform: translateY(0); opacity: 0; }
+  8%   { opacity: .85; }
+  85%  { opacity: .5; }
+  100% { transform: translateY(-108vh); opacity: 0; }
+}
+
+/* ---- 暗角：极暗紫红，压住四边把焦点让给面板 ---- */
+.title-vignette {
+  position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 105% at 50% 46%,
+    rgba(0,0,0,0) 52%, rgba(30,3,26,.34) 78%, rgba(46,4,38,.62) 100%);
+}
+
+/* ---- 面板：毛玻璃 + 哥特细边框微光 + 四角发光小猫爪 ---- */
+.title-panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(34,22,64,.60), rgba(16,10,34,.66)),
+    radial-gradient(120% 90% at 50% 0%, rgba(90,50,150,.28), rgba(0,0,0,0) 60%);
+  border: 1px solid rgba(255,150,200,.34);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    0 24px 80px rgba(0,0,0,.6),
+    0 0 0 1px rgba(255,170,215,.10),
+    0 0 26px rgba(183,148,246,.16),
+    inset 0 0 34px rgba(122,66,180,.14),
+    inset 0 1px 0 rgba(255,255,255,.09);
+}
+/* 哥特内衬细线（双框质感） */
+.title-panel::after {
+  content: ''; position: absolute; inset: 6px;
+  border: 1px solid rgba(255,170,215,.13);
+  border-radius: 12px; pointer-events: none;
+}
+/* 四角发光小猫爪（复用 index.html 的 #i-paw symbol） */
+.title-panel .corner-paw {
+  position: absolute; width: 20px; height: 20px;
+  color: #ff9dcb; opacity: .75;
+  filter: drop-shadow(0 0 5px rgba(255,123,172,.75));
+  pointer-events: none;
+}
+.title-panel .corner-paw:nth-of-type(1) { top: 7px; left: 7px; transform: rotate(-18deg); }
+.title-panel .corner-paw:nth-of-type(2) { top: 7px; right: 7px; transform: rotate(18deg) scaleX(-1); }
+.title-panel .corner-paw:nth-of-type(3) { bottom: 7px; left: 7px; transform: rotate(15deg) scaleY(-1); }
+.title-panel .corner-paw:nth-of-type(4) { bottom: 7px; right: 7px; transform: rotate(-15deg) scale(-1); }
+
+/* ---- 猫耳标题：粗黑描边（下层重影字）+ 粉紫外发光（上层渐变字）---- */
+.title-head {
+  display: flex; align-items: flex-start; justify-content: center;
+  gap: 14px; margin-bottom: 6px;
+}
+/* ---- 猫耳标题：粗黑描边 + 亮白/粉渐变字芯 + 粉色外发光 ----
+   层序要点（第一百六十轮二调实证）：background-clip:text 的渐变画在元素
+   背景层（最底），若描边放在 ::before 会把渐变字芯整个盖黑 —— 像素检测
+   亮色占比 0%。所以反过来：本体扛 6px 纯黑 stroke（fill 透明 = 空心黑框
+   字），渐变 clip 放到 z-index:1 的 ::before 上层 —— 字芯露出、边缘留
+   黑描边。用户："主标题颜色太暗，完全看不清。填充改成亮白色/粉色渐变，
+   加上 4px 的纯黑粗描边（strokeText），再加粉色外发光。"（6px stroke
+   居中于字形边缘 = 视觉外扩约 3px；8px 对 46px 中文密笔画会粘连成块。） */
+.title-head h1 {
+  position: relative; margin: 0;
+  font-size: 46px; font-weight: 900; letter-spacing: .06em;
+  color: transparent;
+  -webkit-text-stroke: 6px rgba(0, 0, 0, .95);
+  text-stroke: 6px rgba(0, 0, 0, .95);
+  filter:
+    drop-shadow(0 0 10px rgba(255, 158, 203, .75))
+    drop-shadow(0 0 30px rgba(255, 123, 172, .45));
+}
+.title-head h1::before {
+  content: attr(data-text);
+  position: absolute; left: 0; top: 0; width: 100%;
+  z-index: 1;
+  background: linear-gradient(180deg, #ffffff 0%, #ffe3f0 30%, #ffb3d4 58%, #ff8ac0 82%, #e08af0 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0;
+  text-stroke: 0;
+}
+/* 两侧小猫耳：外层深色描边 + 内层粉色绒 + 发光 */
+.title-head .ear {
+  position: relative; width: 34px; height: 30px; margin-top: -6px;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: linear-gradient(180deg, #6b3f9e, #2a1244);
+  filter: drop-shadow(0 0 8px rgba(255,123,172,.45));
+}
+.title-head .ear::after {
+  content: ''; position: absolute; left: 50%; bottom: 3px;
+  width: 16px; height: 14px; transform: translateX(-50%);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: linear-gradient(180deg, #ff9dcb, #d95f8c);
+}
+.title-head .ear.left  { transform: rotate(-14deg); }
+.title-head .ear.right { transform: rotate(14deg); }
+
+/* ---- 主按钮：独占一行、更大、悬停发光放大 ---- */
+.btn-row-main { margin-top: 16px; }
+.btn-start {
+  width: 100%;
+  font-size: 17px; font-weight: 900; letter-spacing: .22em;
+  padding: 14px 20px;
+  text-shadow: 0 1px 0 rgba(255,255,255,.25);
+  transition: transform .12s ease, box-shadow .15s ease, filter .15s ease;
+}
+.btn-start:hover:not(:disabled) {
+  transform: scale(1.045) translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow:
+    0 0 34px rgba(255,123,172,.6),
+    0 0 70px rgba(183,148,246,.35),
+    inset 0 1px 0 rgba(255,255,255,.45);
+}
+/* ---- 次要按钮：深色半透明细边框，悬停亮起 ---- */
+.title-panel .btn:not(.primary) {
+  background: rgba(18,12,36,.55);
+  border-color: rgba(190,160,230,.22);
+  color: var(--text-dim);
+}
+.title-panel .btn:not(.primary):hover:not(:disabled) {
+  background: rgba(52,36,88,.72);
+  border-color: rgba(255,150,200,.55);
+  color: var(--text);
+  box-shadow: 0 0 14px rgba(255,123,172,.28);
+}
+
+/* ---- 操作提示沉底：更小、更暗 ---- */
+.title-panel .keys { margin-top: 20px; gap: 6px 14px; }
+.title-panel .key { font-size: 11px; opacity: .5; }
+
+/* ---- 版本 + 种子：屏幕右下角极暗位 ---- */
+.title-meta {
+  position: fixed; right: 14px; bottom: 10px;
+  font-size: 11px; letter-spacing: .5px;
+  color: var(--text-dim); opacity: .32;
+  pointer-events: none;
+}
+
+/* -------- 武器栏（商店内） -------- */
+.weapon-tray { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 16px; }
+.weapon-slot {
+  width: 58px; height: 58px; border-radius: 10px;
+  border: 1px dashed var(--line);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; font-size: 22px;
+  background: rgba(0,0,0,.18);
+}
+.weapon-slot.filled { border-style: solid; background: var(--panel-2); }
+.weapon-slot .slot-name {
+  position: absolute; bottom: -17px; left: 0; right: 0;
+  text-align: center; font-size: 9.5px; color: var(--text-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.weapon-tray { margin-bottom: 26px; }
+.weapon-slot .w-tag {
+  position: absolute; right: 3px; bottom: 3px;
+  font-size: 9px; font-weight: 800; color: var(--gold);
+}
+.weapon-slot.combinable { border-color: var(--green); box-shadow: 0 0 10px rgba(110,231,168,.4); }
+
+/* -------- 武器品质发光描边（第五轮）--------
+   用户反馈："显示商店里自己的 6 个武器的稀有度，可以用发光边框
+   白蓝紫金来定……不然有时候搞不懂自己的武器到底啥品质。"
+   颜色由 --tier-color 注入（来自 TIER_COLORS），四档：
+   1 普通=灰白 / 2 精良=蓝 / 3 史诗=紫 / 4 传说=金 */
+.weapon-slot.tier-1 { border-color: var(--tier-color); box-shadow: 0 0 7px -1px var(--tier-color); }
+.weapon-slot.tier-2 { border-color: var(--tier-color); box-shadow: 0 0 11px -1px var(--tier-color); }
+.weapon-slot.tier-3 { border-color: var(--tier-color); box-shadow: 0 0 15px 0 var(--tier-color); }
+.weapon-slot.tier-4 {
+  border-color: var(--tier-color); border-width: 2px;
+  box-shadow: 0 0 20px 1px var(--tier-color);
+}
+/* 品质名显示在格子底部（悬停看出售价时会盖住，所以压低层级） */
+.weapon-slot .slot-tier {
+  position: absolute; top: 2px; left: 0; right: 0;
+  text-align: center; font-size: 8.5px; font-weight: 800;
+  letter-spacing: .2px; opacity: .9;
+}
+.weapon-slot.filled:hover .slot-tier { opacity: 0; }
+
+/* -------- 武器出售 -------- */
+.weapon-slot.filled { cursor: pointer; transition: transform .12s, border-color .12s; }
+.weapon-slot.filled:hover { transform: translateY(-2px); border-color: var(--pink); }
+.weapon-slot .slot-sell {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  font-size: 9px; font-weight: 700; text-align: center;
+  padding: 2px 0; color: #fff;
+  background: rgba(255,95,109,.85);
+  opacity: 0; transition: opacity .12s;
+  border-radius: 0 0 9px 9px;
+}
+.weapon-slot.filled:hover .slot-sell { opacity: 1; }
+.weapon-slot.selected {
+  border-color: var(--red);
+  box-shadow: 0 0 14px rgba(255,95,109,.55);
+}
+.sell-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: -14px 0 22px; padding: 10px 14px;
+  border: 1px solid var(--red); border-radius: 10px;
+  background: rgba(255,95,109,.10);
+  font-size: 13px;
+}
+.sell-bar .btn.danger {
+  border-color: var(--red); color: #ffd7da;
+  background: rgba(255,95,109,.22);
+}
+.sell-bar .btn.danger:hover { background: rgba(255,95,109,.38); }
+
+/* -------- 结算 -------- */
+.result-stats {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px; margin: 16px 0;
+}
+/* 第一百三十九轮质感：属性方块 = 图标 + 名(小/暗) + 值(大/亮) 双行层级 */
+.result-stat {
+  display: flex; align-items: center; gap: 9px;
+  background: linear-gradient(165deg, rgba(52,42,78,.45), rgba(22,18,36,.62));
+  border: 1px solid rgba(180,150,255,.16);
+  border-radius: 10px; padding: 8px 11px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+.rs-icon { width: 20px; height: 20px; flex: none; }
+.result-stat.tone-gold .rs-icon { color: #cfa055; filter: drop-shadow(0 0 4px rgba(207,160,85,.4)); }
+.result-stat.tone-violet .rs-icon { color: #b794f6; filter: drop-shadow(0 0 4px rgba(183,148,246,.4)); }
+
+/* 第一百六十轮：升级选项卡片的 SVG 图标（跟随选项色的 currentColor 描边） */
+.card .avatar .up-icon { display: block; margin: auto; }
+.card .avatar { display: grid; place-items: center; }
+.result-stat .rs-txt { min-width: 0; }
+.result-stat .k { font-size: 10px; letter-spacing: .06em; color: var(--text-dim); opacity: .8; }
+.result-stat .v { font-size: 20px; font-weight: 800; line-height: 1.15; }
+.result-stat.tone-gold .v { color: #ffd23a; text-shadow: 0 0 10px rgba(255,210,58,.35); }
+.result-stat.tone-violet .v { color: #7ee7ff; text-shadow: 0 0 10px rgba(126,231,255,.35); }
+/* 进阶：局内刚吃过对应道具，下次暂停时该数值闪一下绿光 */
+.result-stat.rs-flash { animation: statFlash 1.1s ease-out; }
+@keyframes statFlash {
+  0%   { background: rgba(84,222,140,.42); border-color: rgba(120,255,170,.8); }
+  60%  { background: rgba(84,222,140,.16); }
+  100% { background: linear-gradient(165deg, rgba(52,42,78,.45), rgba(22,18,36,.62)); }
+}
+
+/* 第一百三十九轮：暂停面板的特效滑块 —— 内凹轨道 + 玻璃高光圆钮 */
+input[type="range"].fx-slider {
+  -webkit-appearance: none; appearance: none;
+  height: 18px; background: transparent; flex: 1; cursor: pointer;
+}
+input[type="range"].fx-slider::-webkit-slider-runnable-track {
+  height: 8px; border-radius: 99px;
+  background: linear-gradient(180deg, #14101f, #241d38);
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,.75),
+    inset 0 -1px 0 rgba(255,255,255,.06),
+    0 1px 0 rgba(255,255,255,.05);
+}
+input[type="range"].fx-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; margin-top: -5px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255,255,255,.85) 0 18%, rgba(255,255,255,.12) 40%, rgba(0,0,0,0) 60%),
+    linear-gradient(180deg, #ffd98f, #f0a83c);
+  border: 1px solid #8a5f14;
+  box-shadow: 0 2px 6px rgba(0,0,0,.55), 0 0 10px rgba(255,210,58,.3);
+}
+input[type="range"].fx-slider::-moz-range-track {
+  height: 8px; border-radius: 99px;
+  background: linear-gradient(180deg, #14101f, #241d38);
+  box-shadow: inset 0 2px 5px rgba(0,0,0,.75);
+}
+input[type="range"].fx-slider::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255,255,255,.85) 0 18%, rgba(255,255,255,.12) 40%, rgba(0,0,0,0) 60%),
+    linear-gradient(180deg, #ffd98f, #f0a83c);
+  border: 1px solid #8a5f14;
+}
+
+/* -------- 键位提示 -------- */
+.keys { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.key {
+  font-size: 11px; color: var(--text-dim);
+  background: rgba(0,0,0,.3); border: 1px solid var(--line);
+  border-radius: 6px; padding: 3px 9px;
+}
+.key b { color: var(--text); }
+
+/* -------- 滚动条 -------- */
+#overlay::-webkit-scrollbar { width: 10px; }
+#overlay::-webkit-scrollbar-thumb { background: #333952; border-radius: 99px; }
+#overlay::-webkit-scrollbar-track { background: transparent; }
+
+/* =========================================================
+   NEKO 猫娘区域
+   只有 NEKO 宿主提供了 avatar-renderer / speech-output 时才有内容。
+   独立运行时整块是空的，用 :empty 自动隐藏，绝不挡住游戏画面。
+   ========================================================= */
+/* 猫娘面板（右下角）。
+   用户第四轮反馈："右下角的猫娘 Live2d 左移一点点，目前有点挡住小地图。"
+   小地图是 canvas 画的，占位是「右 14 + 宽 116」→ 左边缘在距右边 130px 处。
+   面板原本 right:14，220px 宽的 Live2D 会把小地图整个盖住，
+   所以这里把 right 推到 140，留 10px 空隙，刚好不挡。 */
+.neko-panel {
+  position: fixed; right: 140px; bottom: 14px; z-index: 20;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  pointer-events: none;            /* 默认不抢鼠标事件 */
+}
+
+/* 猫娘的 Live2D 容器（名字由宿主决定） */
+.neko-avatar-slot {
+  width: 220px; height: 320px;
+  pointer-events: auto;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .45));
+}
+/* 里面什么都没挂时整块隐藏（独立运行时不会留个空框） */
+.neko-avatar-slot:empty { display: none; }
+
+/* 独立模式下的 canvas 要撑满槽位，否则 PIXI 按 canvas 自身尺寸算 viewport */
+.neko-avatar-slot > canvas {
+  width: 100%; height: 100%; display: block;
+}
+
+/* 第九轮：读不到猫娘信息时的本地保底立绘（Yui）。
+   纯静态图，不依赖 NEKO，所以一定能显示。
+   用 contain 保证不变形；底对齐贴合 Live2D 的 align: bottom-center。 */
+.neko-avatar-fallback {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* 台词气泡 */
+.neko-bubble-slot {
+  max-width: 260px;
+  pointer-events: none;
+}
+.neko-bubble-slot:empty { display: none; }
+
+/* 气泡跟到宠物头上（用户要求：把猫娘的对话框挪到宠物头上）。
+   用 fixed + 每帧写 left/top，再用 transform 把气泡底边抬到头顶上方。 */
+.neko-bubble-slot.anchored {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -100%);
+  z-index: 30;
+  max-width: 220px;
+  transition: opacity .2s ease;
+}
+.neko-bubble-slot > * {
+  /* 第八十二轮：背景透明度 50%（用户："所有框的背景透明度调到50%，
+     方便玩家看清框后面的东西，2个框叠在一起会挡住芙兰的弹幕"） */
+  background: rgba(20, 24, 33, .5);
+  border: 1px solid var(--pink);
+  border-radius: 12px;
+  padding: 9px 13px;
+  font-size: 13px; line-height: 1.5;
+  color: var(--text);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .4);
+  animation: neko-bubble-in .22s ease-out;
+}
+@keyframes neko-bubble-in {
+  from { opacity: 0; transform: translateY(6px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 第五十六轮：游戏侧自绘的猫娘台词框 —— SDK 的 presentation.bubble 是
+   纯白大框不受控（用户多次反馈），游戏层现在直接塞 .neko-line。
+   样式与小小猫娘头顶的画布气泡、粉色 toast 统一：
+   暗底 + 粉框 + 13px + 280px 上限，绝不挡弹幕。 */
+.neko-line {
+  /* 第八十二轮：同上 —— 台词框背景 50% 透明，弹幕可辨 */
+  background: rgba(20, 24, 33, .5);
+  border: 1px solid var(--pink);
+  border-radius: 12px;
+  padding: 9px 13px;
+  font-size: 13px; line-height: 1.5;
+  color: var(--text);
+  max-width: 280px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .4);
+  animation: neko-bubble-in .22s ease-out;
+}
+/* 保险丝：别的什么东西就算往槽里塞元素，也不许超过这个宽度 */
+#neko-bubble-slot > * { max-width: 280px !important; }
+
+/* 连接状态徽标 */
+.neko-status {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: rgba(95, 211, 232, .14);
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  pointer-events: auto;
+}
+.neko-status.warn {
+  background: rgba(255, 107, 107, .14);
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+}
+.neko-status.hidden { display: none; }
+
+/* 小屏时缩小，避免遮挡（同时把左移量收一点，别把画面挤没了） */
+@media (max-width: 860px) {
+  .neko-avatar-slot { width: 150px; height: 220px; }
+  .neko-bubble-slot { max-width: 200px; }
+  .neko-panel { right: 112px; }
+}
+
+/* 升级卡片的稀有度角标（用户要求：升级分 4 档稀有度，效果 ×1/×2/×3/×4） */
+.card-rarity {
+  display: inline-block;
+  margin: 6px 0 2px;
+  padding: 2px 9px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+.card--rare { border-width: 2px; }
+
+/* ============================================================
+   难度选择
+   ============================================================ */
+.diff-block {
+  margin: 16px 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .02);
+}
+.diff-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: .1em;
+  margin-bottom: 10px;
+}
+.diff-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.diff-btn {
+  flex: 1 1 0;
+  min-width: 76px;
+  padding: 9px 6px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all .16s;
+}
+.diff-btn:hover { background: rgba(255, 255, 255, .07); color: var(--text); }
+.diff-btn.active { background: rgba(255, 255, 255, .09); }
+.diff-desc {
+  margin-top: 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  min-height: 2.4em;
+}
+
+/* ============================================================
+   商店：左侧商品 + 右侧常驻数值面板
+   ============================================================ */
+/* 第十二轮（用户反馈）：
+   "把商店宽度变宽能容下 4 个商店道具，我们现在第一行 3 个道具第二行
+    1 个道具太怪了，直接变宽一行 4 个。"
+
+   根因：商品容器复用了 .char-grid，而它是
+   `repeat(auto-fill, minmax(190px, 1fr))` —— 4 张卡要 4×190+3×12 = 796px，
+   但左侧栏只有 1180-268-20 ≈ 892px 可用，再减去内边距就只剩 3 列的宽度，
+   于是第 4 张卡掉到第二行。
+
+   ★ 第十四轮修正（用户反馈）：
+   "商店 UI 问题，你改到 1 行 4 个之后其实挤了很多，要不把商店的宽度拉高
+    一些（目前左右两边还空着不少）要不改成一行 2 个，2x2 的格式。"
+
+   上一轮写的是 `max-width: 1440px` —— 那是个**空操作**，根本没生效。
+   因为 .screen 用的是 `width: min(980px, 100%)`，而 max-width **只能收窄、
+   不能放宽**：980 < 1440，所以这一行从来没有起过作用，商店一直被锁在 980px。
+   于是左侧商品栏只有 980-268-20-64(内边距) ≈ 628px，4 列每列仅 ~148px ——
+   正是用户说的"挤了很多"，而"左右两边还空着不少"就是那 980px 之外的空间。
+
+   这次改成直接放宽 `width`（不是 max-width），并同步抬高 .shop-body 的
+   最小列宽，让 4 张卡各自拿到 ≥ 205px 的舒适宽度：
+     1440(容器) - 64(内边距) = 1376 可用
+     1376 - 268(数值面板) - 20(间距) = 1088 给商品栏
+     (1088 - 3×12(卡间距)) / 4 = 263px/卡 —— 比 148px 宽了 78%。
+   窄屏仍然优雅退回 2 列（下面的 @media 负责）。 */
+.shop-screen { width: min(1440px, 100%); }
+.shop-body {
+  display: grid;
+  /* 第二十轮：加最左边的角色栏（120px）—— 头像 + 悬浮看能力/技能 */
+  grid-template-columns: 120px minmax(0, 1fr) 268px;
+  gap: 20px;
+  align-items: start;
+  margin-top: 14px;
+}
+.shop-main { min-width: 0; }
+
+/* 第二十轮：商店左侧角色栏。用户要求头像 + 鼠标悬浮显示能力/技能，
+   防止玩家忘记自己角色加成的具体数值。悬停走 _bindTips 的 data-tip。 */
+.shop-char {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  cursor: help;
+}
+.shop-char:hover { border-color: var(--pink); }
+.shop-char .shop-char-avatar {
+  width: 84px;
+  height: 84px;
+  font-size: 38px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 12px;
+}
+.shop-char-name { font-size: 13px; font-weight: 600; }
+.shop-char .hint { font-size: 10px; text-align: center; }
+
+/* 商店商品固定 4 列（一行放满 4 个道具）。
+   用 repeat(4, ...) 而不是 auto-fill：auto-fill 会随宽度变成 3 列或 5 列，
+   而"一行 4 个"是用户明确要的版式。 */
+.shop-screen .char-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* 窄屏（笔记本 1366 之类）放不下 4 列时退回 2 列，
+   而不是让卡片被压到看不清内容。 */
+@media (max-width: 1280px) {
+  .shop-screen .char-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.sec-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 6px 0 8px;
+  letter-spacing: .06em;
+}
+
+/* ---- 常驻数值面板 ---- */
+.stat-panel {
+  position: sticky;
+  top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(12, 14, 24, .82);
+  padding: 14px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  font-size: 12.5px;
+}
+.sp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 9px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.sp-name { font-size: 15px; font-weight: 700; color: var(--pink); }
+.sp-lv { font-size: 12px; color: var(--cyan); font-weight: 700; }
+
+.sp-hp { margin-bottom: 12px; }
+.sp-hp-bar {
+  height: 7px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, .08);
+  overflow: hidden;
+}
+.sp-hp-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--red), #ff9f68);
+  transition: width .2s;
+}
+.sp-hp-text {
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.sp-sec { margin-bottom: 12px; }
+.sp-title {
+  font-size: 11px;
+  letter-spacing: .12em;
+  color: var(--cyan);
+  margin-bottom: 5px;
+  opacity: .85;
+}
+.sp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 2.5px 0;
+  line-height: 1.4;
+}
+.sp-k { color: var(--text-dim); }
+/* 数值靠右对齐；加了 ? 徽标后 sp-v 不再是最后一个元素，
+   所以用 margin-left:auto 把「数值 + ?」整体推到右边 */
+.sp-v { font-weight: 700; font-variant-numeric: tabular-nums; margin-left: auto; }
+.sp-total { border-top: 1px dashed var(--line); margin-top: 5px; padding-top: 5px; }
+.sp-total .sp-v { color: var(--gold); }
+
+/* ---- 属性详情悬浮提示（第五轮）----
+   用户反馈："增加详细数值查看，比如商店页面鼠标放在自己的信息上
+   可以查看部分模糊的信息详情，比如护甲多少数值有多少减伤。"
+   实现放在 UI._bindTips：气泡是挂在 <body> 上的浮动层，
+   跟随鼠标定位。不用 CSS ::after 是因为数值面板有 overflow-y: auto，
+   绝对定位的气泡会被裁掉。 */
+.sp-row.has-tip { cursor: help; }
+.sp-row.has-tip:hover { color: var(--pink); }
+.sp-info {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px; margin-left: 5px; flex: none;
+  border-radius: 50%; font-size: 9px; font-weight: 800;
+  border: 1px solid var(--line); color: var(--text-dim);
+  opacity: .5;
+}
+.sp-row.has-tip:hover .sp-info { opacity: 1; border-color: var(--pink); color: var(--pink); }
+
+/* 武器格子：可悬浮看详细数据 */
+.weapon-slot.filled[data-tip] { cursor: pointer; }
+
+/* 浮动提示本体（JS 定位，挂 body 上） */
+.tip-float {
+  position: fixed;
+  left: 0; top: 0;
+  max-width: 290px;
+  padding: 9px 12px;
+  background: rgba(14, 17, 24, .98);
+  border: 1px solid var(--pink);
+  border-radius: 9px;
+  font-size: 11.5px; font-weight: 400; line-height: 1.6;
+  color: var(--text);
+  text-align: left;
+  white-space: pre-line;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0; visibility: hidden;
+  transition: opacity .1s ease;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .6);
+}
+.tip-float.show { opacity: 1; visibility: visible; }
+
+/* ---- 商品卡上的锁定标记 ---- */
+.card { position: relative; }
+.card.locked { border-color: var(--gold) !important; box-shadow: 0 0 0 1px rgba(255, 200, 87, .35) inset; }
+.lock-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10.5px;
+  padding: 3px 7px;
+  border-radius: 99px;
+  background: rgba(255, 200, 87, .16);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-weight: 700;
+}
+
+/* ---- 第十五轮 ③：小小猫娘的猫爪印记 ----
+   盖在"她免费帮你拿到的"那件道具的图标上。
+   位置选左下角而不是右上角：右上角已经被 tier-badge / lock-badge 占了，
+   三者叠在一起会糊成一团。左下角是卡片上唯一常年空着的位置。 */
+.paw-mark {
+  position: absolute;
+  left: 8px;
+  bottom: 10px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  /* 粉色底 + 白爪，和"小小猫娘"的配色一致（她的主题色是 #ff7bac） */
+  background: radial-gradient(circle at 35% 30%, #ffa6cd, #ff5fa2 70%);
+  box-shadow: 0 2px 6px rgba(255, 95, 162, .45), 0 0 0 2px rgba(255, 255, 255, .7) inset;
+  color: #fff;
+  pointer-events: none;   /* 不挡住下面的按钮点击 */
+  /* 轻轻歪一点，看起来像"啪"地盖上去的印章，而不是排版的方块 */
+  transform: rotate(-14deg);
+  z-index: 3;
+}
+.paw-mark svg { display: block; fill: currentColor; }
+
+/* 已售出 / 被偷走的卡片整张变淡，但**猫爪印记除外**。
+   ---------------------------------------------------------------
+   第十八轮 ⑧（用户反馈："小小猫娘偷东西没在道具上标爪印，
+   是素材有问题还是啥问题？"）
+
+   素材和 DOM 都没问题 —— 问题在**透明度**：
+   被偷走的道具 `sold = true`，而原来卡片是内联 `opacity:.3`
+   （再叠 `.card.cant-afford` 的 .45），父级透明度会**无差别**
+   作用到所有子元素，所以那个粉色爪子也一起淡到几乎看不见了。
+
+   CSS 的 opacity 有个硬限制：父级设了透明度，子元素**无法**还原回来。
+   所以改法是"不给卡片本身设透明度，改成只淡它除爪子外的子元素"：
+     .card.sold > :not(.paw-mark) { opacity: .3 }
+   这样爪子保持全彩，其它内容照旧变灰。
+
+   爪印是"这件是小小猫娘给你拿的"唯一凭证，跟着淡掉就等于没有。 */
+.card.sold { opacity: 1; }
+.card.sold > :not(.paw-mark) { opacity: .3; }
+/* 爪子本身再提亮一点：它现在压在一张已经变灰的卡上，
+   不加一点外发光会和背景糊在一起。 */
+.card.sold .paw-mark {
+  box-shadow: 0 2px 8px rgba(255, 95, 162, .7), 0 0 0 2px rgba(255, 255, 255, .85) inset;
+  filter: saturate(1.15) brightness(1.05);
+}
+
+/* ---- 第十六轮：角色选择卡上的「能力 + 技能」 ----
+   用户要求："改好了写在角色介绍里，如果不够展示加个小滚动条"。
+
+   为什么滚动条加在**这一块**而不是整张卡：
+     整卡滚动的话，"滚动"和"点击选中"会抢同一个手势 ——
+     玩家想滑动看文案，结果把角色选中了（或者反过来）。
+     只滚技能框，卡片本身的高度由内容撑开，点击区域始终稳定。
+
+   max-height 取 132px ≈ 4 行文案（技能描述通常 2 行）+ 两个小标题。
+   超出就出现细滚动条；不足 132px 时是自然高度，不会留一片空白。 */
+/* 第一百六十轮：坚决消灭滚动条（用户："所有角色卡片里的描述、能力、技能
+   文本，不能出现滚动条……玩家需要一眼看完角色的核心机制"）
+   —— 去掉 max-height/overflow（内容自然撑开卡片），配合卡片加宽、
+   字号 -0.5px、行高收紧，全部文案一眼收纳。 */
+.char-skill-box {
+  margin-top: 10px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid rgba(255, 255, 255, .09);
+}
+
+.skill-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* 第二个 skill-row（技能那一行）上方留出和上一段文案的间距 */
+  margin-top: 6px;
+}
+.skill-row:first-child { margin-top: 0; }
+
+.skill-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: .5px;
+  flex: none;
+}
+/* 能力 = 常驻被动，用中性青；技能 = 有名字的机制，用金 */
+.skill-tag.ability { background: rgba(95, 211, 232, .18); color: #7fe0f0; }
+.skill-tag.skill   { background: rgba(255, 200, 87, .18); color: var(--gold); }
+
+.skill-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #e8ecf6;
+}
+.skill-text {
+  font-size: 10px;
+  line-height: 1.42;
+  color: #a7b0c4;
+  margin-top: 3px;
+}
+
+/* 窄屏：面板移到下方 */
+@media (max-width: 980px) {
+  .shop-body { grid-template-columns: minmax(0, 1fr); }
+  .stat-panel { position: static; max-height: none; }
+  /* 第二十轮：窄屏时角色栏横过来当一条，不再占一整块竖栏 */
+  .shop-char { flex-direction: row; justify-content: flex-start; }
+  .shop-char .shop-char-avatar { width: 56px; height: 56px; font-size: 26px; }
+}
+
+/* HUD 上的难度徽标 —— 第一百三十九轮：危险徽章（渐变底 + 呼吸发光） */
+.hud-difficulty {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 9px;
+  border: 1px solid currentColor;
+  border-radius: 99px;
+  vertical-align: middle;
+  letter-spacing: .08em;
+  background: linear-gradient(135deg, rgba(255,64,64,.30), rgba(255,150,60,.20));
+  animation: badgePulse 1.9s ease-in-out infinite;
+}
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(255,80,60,.25), inset 0 0 4px rgba(255,120,80,.18); }
+  50%      { box-shadow: 0 0 14px rgba(255,80,60,.55), inset 0 0 6px rgba(255,120,80,.30); }
+}
+/* ============================================================
+   贴图（美术资源）
+   任何加上 data-sprite 的容器在渲染后会被 _applySprites 扫描；
+   有对应贴图就插入 <img class="sprite-img"> 盖住原来的字形。
+   没有贴图时这里所有规则都不生效，界面与从前完全一致。
+   ============================================================ */
+.sprite-img {
+  user-select: none;
+  -webkit-user-drag: none;
+}
+/* 字形被隐藏后，容器仍保持原来的尺寸与背景色，布局不会跳动 */
+.has-sprite .w-glyph,
+.has-sprite .glyph,
+.has-sprite .slot-glyph { visibility: hidden; }
+/* HUD 武器格里的贴图稍微收紧一点，40px 的格子留白太多会显小 */
+.hud-weapon.has-sprite .sprite-img { inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); }
+
+
+/* ============================================================
+   UI v2 设计层（第一百八十五轮 · 全局美化第 8 步）
+   用户："整体 ui 变好看一些，比如我们的倒计时表还是很一般，其他 ui 可能也不如你的能力。"
+   "UI 没有特别的要求，整体统一好看就行。"
+   做法：纯加法覆盖（不改 DOM / JS 逻辑，只多一个 .urgent 类）。
+   统一语言 = 「板件」：深紫玻璃底 + 粉金细边 + 内高光 + 左侧发光色条；
+   猫耳（计时器）/ 四角金色括号（面板）/ 扫光（按钮）是三处点题的装饰。
+   ============================================================ */
+:root {
+  --plate-bg: linear-gradient(168deg, rgba(62,42,92,.80), rgba(20,13,36,.92));
+  --plate-edge: rgba(255,160,205,.40);
+  --plate-shadow: inset 0 1px 0 rgba(255,255,255,.20), inset 0 -1px 0 rgba(0,0,0,.50), 0 6px 22px rgba(0,0,0,.42);
+  --glow-pink: 0 0 20px rgba(255,123,172,.22);
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+}
+
+/* ---- HUD 板件：波次 / 材料 ---- */
+.hud-wave, .hud-materials {
+  position: relative;
+  background: var(--plate-bg);
+  border: 1px solid var(--plate-edge);
+  border-radius: 12px 12px 12px 4px;
+  box-shadow: var(--plate-shadow), var(--glow-pink);
+}
+.hud-wave::before, .hud-materials::before {
+  content: ''; position: absolute; left: -1px; top: 8px; bottom: 8px; width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #ffd0e6, var(--pink) 50%, #a06bf5);
+  box-shadow: 0 0 10px rgba(255,123,172,.7);
+}
+.hud-materials::before {
+  background: linear-gradient(180deg, #fff0b8, var(--gold) 55%, #d98a1a);
+  box-shadow: 0 0 10px rgba(255,200,87,.7);
+}
+
+/* ---- 倒计时：猫耳板 + 大号渐变数字 + 刻度光条 ---- */
+.hud-timer {
+  top: 9px;                       /* 整板高 ≈ 52px，下沿 ≤ 61：不压 Boss 血条(y=62)与提示条(y=84) */
+  width: 280px;
+  padding: 4px 20px 6px;
+  background: var(--plate-bg);
+  border: 1px solid var(--plate-edge);
+  border-radius: 16px 16px 22px 22px;
+  box-shadow: var(--plate-shadow), var(--glow-pink);
+}
+.hud-timer::before, .hud-timer::after {
+  content: ''; position: absolute; top: -8px; width: 20px; height: 11px;
+  background: linear-gradient(180deg, #ff9fc8, #6a3f9a 80%);
+  clip-path: polygon(0 100%, 50% 0, 100% 100%);
+}
+.hud-timer::before { left: 30px; transform: rotate(-8deg); }
+.hud-timer::after { right: 30px; transform: rotate(8deg); }
+#hud-timer-text {
+  font-size: 28px; font-weight: 900; letter-spacing: .04em; line-height: 1.05;
+  background: linear-gradient(180deg, #ffffff 10%, #ffd6ea 55%, #ff9fc8);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.6)) drop-shadow(0 0 10px rgba(255,123,172,.35));
+}
+.hud-timer.flandre #hud-timer-text { background-image: linear-gradient(180deg, #ffffff 5%, #ffb0d0 50%, #ff6f9e); }
+#hud-timer-label {
+  font-size: 10px; letter-spacing: .3em; text-indent: .3em; line-height: 1.1;
+  color: #ffc4dc; text-shadow: 0 0 8px rgba(255,123,172,.5), 0 2px 6px rgba(0,0,0,.6);
+}
+.hud-timer-bar {
+  position: relative; margin-top: 4px; height: 7px;
+  background: rgba(0,0,0,.6);
+  border: 1px solid rgba(255,160,205,.30);
+  border-radius: 99px; overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.7);
+}
+#hud-timer-fill {
+  position: relative;
+  background: linear-gradient(90deg, #5fd3e8, #b794f6 55%, #ff7bac);
+  box-shadow: 0 0 10px rgba(255,123,172,.55);
+}
+#hud-timer-fill::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.45), rgba(255,255,255,0) 55%);
+}
+.hud-timer-bar::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(0,0,0,.55) calc(10% - 1px) 10%);
+}
+/* 最后 5 秒：数字变红、光条变红、板件红光脉动 */
+.hud-timer.urgent { border-color: rgba(255,95,109,.75); animation: timerPulse .6s ease-in-out infinite; }
+.hud-timer.urgent #hud-timer-text { background-image: linear-gradient(180deg, #ffffff 5%, #ff9aa4 50%, #ff3a4c); }
+.hud-timer.urgent #hud-timer-fill { background: linear-gradient(90deg, #ff3a4c, #ff7a6a); box-shadow: 0 0 12px rgba(255,60,80,.8); }
+@keyframes timerPulse {
+  0%, 100% { box-shadow: var(--plate-shadow), 0 0 14px rgba(255,60,80,.25); }
+  50%      { box-shadow: var(--plate-shadow), 0 0 30px rgba(255,60,80,.62); }
+}
+
+/* ---- 武器格 / 提示条 ---- */
+.hud-weapon { border-radius: 9px; box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 2px 8px rgba(0,0,0,.45); }
+.hud-weapon.tier-4 { animation: tierGlow 2.4s ease-in-out infinite; }
+@keyframes tierGlow {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 8px rgba(255,200,87,.3); }
+  50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 16px rgba(255,200,87,.6); }
+}
+.hud-toast .toast {
+  background: var(--plate-bg); border: 1px solid var(--plate-edge);
+  box-shadow: var(--plate-shadow); backdrop-filter: blur(8px);
+}
+
+/* ---- 面板：双层细框 + 四角金色括号 ---- */
+.screen { position: relative; border-radius: 18px; border-color: var(--plate-edge); }
+.screen::before {
+  content: ''; position: absolute; inset: 6px; border-radius: 13px; pointer-events: none;
+  border: 1px solid rgba(255,210,120,.12);
+}
+.screen::after {
+  content: ''; position: absolute; inset: 11px; pointer-events: none;
+  --b: rgba(255,214,130,.78);
+  background:
+    linear-gradient(var(--b), var(--b)) top left / 20px 2px no-repeat,
+    linear-gradient(var(--b), var(--b)) top left / 2px 20px no-repeat,
+    linear-gradient(var(--b), var(--b)) top right / 20px 2px no-repeat,
+    linear-gradient(var(--b), var(--b)) top right / 2px 20px no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom left / 20px 2px no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom left / 2px 20px no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom right / 20px 2px no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom right / 2px 20px no-repeat;
+  filter: drop-shadow(0 0 4px rgba(255,200,100,.45));
+}
+
+/* ---- 按钮：扫光 ---- */
+.btn { position: relative; overflow: hidden; }
+.btn::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.30) 50%, transparent 70%);
+  transform: translateX(-120%); transition: transform .55s var(--ease-out);
+}
+.btn:hover:not(:disabled)::after { transform: translateX(120%); }
+.btn.primary { text-shadow: 0 1px 0 rgba(255,255,255,.25); }
+
+/* ---- 卡片：左上高光 + 悬停抬起发光 ---- */
+.card::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,.075), rgba(255,255,255,0) 42%);
+}
+.card:hover:not(.cant-afford) { box-shadow: 0 12px 28px rgba(0,0,0,.42), 0 0 20px rgba(255,123,172,.2); }
+
+/* ---- 浮动提示 / 数值面板 ---- */
+.tip-float { background: var(--plate-bg); border: 1px solid var(--plate-edge); box-shadow: var(--plate-shadow); }
+.stat-panel { background: var(--plate-bg); border-color: var(--plate-edge); box-shadow: var(--plate-shadow); }
+
+::selection { background: rgba(255,123,172,.4); }
+:focus-visible { outline: 2px solid rgba(255,214,130,.8); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .hud-timer.urgent, .hud-weapon.tier-4 { animation: none; }
+  .btn::after { transition: none; }
+}
+
+/* =====================================================================
+   UI v3 精修层（第二百零一轮 · 用户："UI 目前只是能用，和好看勾不上边……有好想法就动"）
+   原则：全部是追加覆盖，不改任何 DOM 结构与逻辑；每一条都来自「量化体检」(tools/_ui-audit.js)，不是凭感觉：
+     ① 真 bug：面板高于视口时顶部被裁到负坐标且滚不上去（#overlay 用 align-items:center + overflow:auto）；
+     ② 文字：138 处 ≤11px、card-role 对比度 3.6~4.3（<4.5）；
+     ③ 点击目标：2P/3P/4P 按钮只有 27px 高；
+     ④ 层次/质感：标题渐变描边、卡片选中态更清晰、焦点环、统一的柔和阴影。
+   ===================================================================== */
+
+/* ① 溢出居中：用 margin:auto 居中——空间够就居中，不够就顶对齐并可滚动（flex 居中会把上半部分裁到负坐标） */
+#overlay { align-items: flex-start; justify-content: flex-start; scrollbar-gutter: stable both-edges; }
+#overlay > .screen, #overlay > .title-scene, #overlay > .shop-screen { margin: auto; }
+#overlay > :not(.screen):not(.title-scene):not(.shop-screen) { margin: auto; }
+
+/* ② 文字下限与对比度 */
+.card .card-role { font-size: 12px; padding: 2px 10px; letter-spacing: .02em; text-shadow: 0 1px 2px rgba(0,0,0,.55); filter: saturate(1.1) brightness(1.18); }
+.card .card-desc { font-size: 12.5px; line-height: 1.55; color: #b4bcd2; }
+.card .stat-line { font-size: 12px; }
+.card .stat-line .k { color: #aeb7cf; }
+.card .stat-line .v { font-size: 12.5px; }
+.card .stat-line .v.down { color: #ff7f8b; }
+.card .card-name { font-size: 16px; letter-spacing: .01em; }
+:root { --text-dim: #aab3ca; }
+
+/* ③ 点击目标 ≥ 36px（含 2P/3P/4P、小按钮） */
+#overlay .btn, #overlay button { min-height: 36px; }
+#overlay .btn.small { padding-top: 7px; padding-bottom: 7px; }
+
+/* ④ 选中卡：更清楚的"我选了这个"——柔和外发光 + 顶部高光条 + 轻微抬起；未选中卡不再靠透明度发灰 */
+.char-grid .card:not(.selected) { opacity: .88; filter: saturate(.9); }
+.char-grid .card.selected {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px rgba(0,0,0,.5), 0 0 0 1px rgba(255,150,200,.55), 0 0 26px rgba(255,123,172,.28);
+}
+.char-grid .card.selected::after {
+  content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 3px; border-radius: 0 0 4px 4px;
+  background: linear-gradient(90deg, transparent, var(--pink), var(--gold), var(--pink), transparent); opacity: .95;
+}
+
+/* ⑤ 键盘焦点环（原先没有，Tab 键切换时完全看不出焦点在哪） */
+#overlay .btn:focus-visible, #overlay button:focus-visible, .card:focus-visible {
+  outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 10px;
+}
+
+/* ⑥ 窄/矮窗口：面板边距收紧，避免 800px 以下的窗口上有一半内容在滚动区外 */
+@media (max-height: 860px) {
+  #overlay { padding: 14px; }
+  .screen { padding: 20px 24px 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen { animation: none; }
+  .char-grid .card.selected { transform: none; }
+}
+
+/* ⑦ 角色卡的「能力/技能」说明是卡片里最重要的内容，却只有 10px / 9.5px —— 提到可读尺寸 */
+.card .skill-text { font-size: 11.5px; line-height: 1.5; color: #c3cadd; }
+.card .skill-tag { font-size: 10.5px; padding: 1px 7px; letter-spacing: .02em; }
+/* ⑧ 标题页操作提示被 opacity:.5 压到 3.1:1 —— 抬到 ≥4.5:1 */
+.title-panel .key { font-size: 12px; opacity: .82; }
+.title-panel .keys { opacity: 1; }
+
+/* ⑨ 商店的小字：9px / 8.5px 的「出售 +6」「普通」「?」在 1080p 以下基本读不出来，统一抬到 ≥10px */
+.weapon-slot .slot-name { font-size: 10.5px; }
+.weapon-slot .slot-tier { font-size: 10px; letter-spacing: .02em; }
+.weapon-slot .slot-sell { font-size: 10.5px; }
+.tier-badge, .tier-badge.t1 { font-size: 11px; }
+.hint { font-size: 12px; }
+.sp-title { font-size: 12px; }
+.sp-info { font-size: 10.5px; }
+/* UI v4 社区风主题层 —— 205 轮（浅蓝白 / 圆角 / 卡片化，最后叠加） */
+/* ============================================================
+   第二百零五轮：界面换肤 —— 向「猫娘计划社区」的风格靠拢
+   ------------------------------------------------------------
+   用户："你看这是猫娘计划的社区ui，配色啊之类的你都可以参考参考……
+        风格上可以更多靠近社区效果一些。反正可爱好看一些就行，
+        目前的很多ui就是单纯的功能性，和好看不是很挂钩呢。"
+
+   做法：只在这里覆盖 token 与组件外观，不动 ui.js 的 DOM 结构与游戏画布。
+     · 浅蓝白卡片 + 24px 圆角 + 柔和投影（社区那套）
+     · 强调色用社区蓝 #3f9df8 / 青 #5fd3e8，点缀粉 #ff86b8
+     · 主按钮 = 蓝青渐变胶囊；次要按钮 = 白底蓝边
+     · 顶部 HUD 也换成白色玻璃胶囊（原来是深紫方块）
+   ============================================================ */
+
+:root {
+  --bg: #eef6ff;
+  --bg-2: #f7fbff;
+  --panel: #ffffff;
+  --panel-2: #f2f8ff;
+  --line: #d8e8fa;
+  --text: #1b2a41;
+  --text-dim: #6d8099;
+  --pink: #ff86b8;
+  --pink-dim: #ff5d9e;
+  --cyan: #5fd3e8;
+  --gold: #ffc23d;
+  --green: #2fc98a;
+  --red: #ff5f6d;
+  --purple: #a98bff;
+  --blue: #3f9df8;
+  --blue-2: #67d3f0;
+  --radius: 14px;
+  --nk-shadow: 0 18px 44px rgba(26, 62, 120, .18), 0 2px 8px rgba(26, 62, 120, .08);
+  --nk-shadow-sm: 0 6px 18px rgba(26, 62, 120, .12);
+}
+
+/* ---------- 遮罩：给浅色面板垫一层淡蓝雾，画面不打架 ---------- */
+#overlay {
+  background: radial-gradient(120% 120% at 50% 0%, rgba(150, 200, 255, .30), rgba(10, 26, 54, .46));
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+/* ---------- 屏幕面板 ---------- */
+.screen {
+  background:
+    radial-gradient(120% 80% at 50% 0%, #ffffff, rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #ffffff, #f4faff);
+  border: 1px solid #e2eefb;
+  border-radius: 24px;
+  box-shadow: var(--nk-shadow), inset 0 1px 0 #ffffff;
+  color: var(--text);
+}
+
+.screen h1 {
+  background: linear-gradient(92deg, var(--blue), var(--blue-2) 45%, var(--pink));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: .01em;
+}
+.screen h2 { color: #14243c; letter-spacing: .01em; }
+.screen .sub { color: var(--text-dim); }
+.screen h2.pause-title {
+  color: #ff6ba6;
+  text-shadow: 0 2px 10px rgba(255, 134, 184, .35);
+}
+.screen h2.pause-title::before { filter: hue-rotate(-8deg) saturate(1.15); }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  background: #ffffff;
+  border: 1.5px solid #cfe4fb;
+  color: #3d5570;
+  border-radius: 999px;
+  font-weight: 800;
+  padding: 10px 22px;
+  box-shadow: 0 2px 6px rgba(30, 80, 150, .06);
+}
+.btn:hover:not(:disabled) {
+  background: #eef7ff;
+  border-color: var(--blue);
+  color: #1d3c63;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(63, 157, 248, .22);
+}
+.btn.primary {
+  background: linear-gradient(135deg, #4aa8ff, #67d3f0);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(63, 157, 248, .35), inset 0 1px 0 rgba(255, 255, 255, .5);
+}
+.btn.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #379bff, #4fc8ec);
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(63, 157, 248, .45);
+}
+.btn.danger {
+  background: #fff2f4;
+  border-color: #ffc9d2;
+  color: #d93a55;
+}
+.btn.danger:hover:not(:disabled) { background: #ffe6ea; border-color: #ff8fa3; color: #c0243f; }
+.btn:disabled { opacity: .45; }
+
+/* ---------- 卡片（选人 / 商店 / 升级）---------- */
+.card {
+  background: #ffffff;
+  border: 1.5px solid #e3eefb;
+  border-radius: 18px;
+  box-shadow: var(--nk-shadow-sm);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.card:hover {
+  border-color: rgba(63, 157, 248, .55);
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgba(45, 110, 190, .20);
+  transform: translateY(-3px);
+}
+.card.selected {
+  border-color: var(--blue);
+  background: linear-gradient(180deg, #ffffff, #eef7ff);
+  box-shadow: 0 0 0 3px rgba(63, 157, 248, .18), 0 18px 36px rgba(45, 110, 190, .20);
+}
+.card.cant-afford { opacity: .5; }
+.card.cant-afford:hover { transform: none; border-color: #e3eefb; box-shadow: var(--nk-shadow-sm); }
+
+.card .card-name { color: #14243c; letter-spacing: .01em; }
+.card .card-role,
+.card .kind-tag {
+  background: #e8f3ff;
+  color: #2f7fd0;
+  border: 1px solid #cfe6ff;
+  border-radius: 999px;
+  font-weight: 800;
+  padding: 2px 10px;
+}
+.card .card-desc { color: var(--text-dim); }
+.card .stat-line { color: #55677f; }
+.card .stat-line .v { color: #1d3c63; }
+.card .stat-line .v.up { color: #17a86e; }
+.card .stat-line .v.down { color: #e05070; }
+
+/* ---------- 小节标题 / 提示 ---------- */
+.sec-label {
+  color: #3d87d4;
+  letter-spacing: .14em;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.hint { color: var(--text-dim); }
+.key {
+  background: #eef6ff;
+  border: 1px solid #d3e7fb;
+  color: #3d6f9e;
+  border-radius: 7px;
+}
+.screen .corner-paw, .title-panel .corner-paw { opacity: .18; filter: saturate(.6); }
+
+/* ---------- 属性小表 ---------- */
+.sp-sec { color: #2f7fd0; font-weight: 800; }
+.sp-row { border-bottom: 1px dashed #e4eefa; }
+.sp-k { color: var(--text-dim); }
+.sp-v { color: #1d3c63; font-weight: 800; }
+.sp-v.up { color: #17a86e; }
+.sp-v.down { color: #e05070; }
+
+/* ---------- 商店 ---------- */
+.shop-head { border-bottom: 1px solid #e6f0fb; }
+.shop-money { color: #e39a12; font-weight: 900; }
+.shop-foot { border-top: 1px solid #e6f0fb; color: var(--text-dim); }
+
+/* ---------- 结算 ---------- */
+.result-stat {
+  background: #f4faff;
+  border: 1px solid #e0eefb;
+  border-radius: 16px;
+}
+.result-stat .rs-txt { color: #3d5570; }
+.result-stat .rs-num { color: #14243c; }
+
+/* ---------- 武器栏 ---------- */
+.weapon-slot {
+  background: #f5faff;
+  border: 1.5px dashed #d6e8fa;
+  border-radius: 14px;
+}
+.weapon-slot.filled {
+  background: #ffffff;
+  border-style: solid;
+  border-color: #dbeafa;
+  box-shadow: 0 4px 12px rgba(30, 80, 150, .07);
+}
+.weapon-slot.filled:hover { border-color: var(--blue); box-shadow: 0 8px 20px rgba(63, 157, 248, .22); }
+.weapon-slot .slot-name { color: #1d3c63; }
+.weapon-slot.combinable { border-color: #ffb8d3; box-shadow: 0 0 0 2px rgba(255, 134, 184, .18); }
+.weapon-slot.selected { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(63, 157, 248, .2); }
+
+/* ---------- 顶部 HUD：白色玻璃胶囊 ---------- */
+.hud-wave,
+.hud-timer,
+.hud-materials {
+  background: rgba(255, 255, 255, .92);
+  border: 1px solid rgba(214, 232, 250, .95);
+  border-radius: 999px;
+  box-shadow: 0 8px 22px rgba(14, 40, 80, .18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.hud-wave .hud-label { color: #7d93ad; }
+.hud-wave #hud-wave-num { color: #2f7fd0; }
+.hud-sub { color: #93a7bf; }
+.hud-difficulty { background: #ffe9f2; color: #e0507f; border-radius: 999px; }
+.hud-materials { color: #1d3c63; }
+.hud-materials #hud-materials { color: #e39a12; }
+#hud-timer-text { color: #1d3c63; }
+.hud-timer-bar { background: rgba(120, 160, 210, .22); border-radius: 999px; }
+#hud-timer-fill { background: linear-gradient(90deg, #4aa8ff, #67d3f0); border-radius: 999px; }
+.hud-timer.urgent #hud-timer-text { color: #e05070; }
+.hud-timer.urgent #hud-timer-fill { background: linear-gradient(90deg, #ff8fa3, #ff5f6d); }
+
+/* ---------- 标题页：从暗紫哥特搬到「明亮天空」 ---------- */
+.title-scene {
+  background:
+    radial-gradient(70% 55% at 50% 6%, #ffffff 0%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, #d9ecff 0%, #c6e2ff 38%, #eaf6ff 100%);
+}
+.title-vignette {
+  background: radial-gradient(120% 105% at 50% 46%,
+    rgba(255, 255, 255, 0) 52%, rgba(150, 195, 240, .12) 78%, rgba(120, 170, 225, .22) 100%);
+}
+.title-stars .t-pink   { color: #ffb3d4; background: #ffe0ef; }
+.title-stars .t-cyan   { color: #a8e8f8; background: #dcf6fd; }
+.title-stars .t-violet { color: #c9b3ff; background: #ece2ff; }
+
+.title-panel {
+  background: linear-gradient(180deg, #ffffff, #f3faff);
+  border: 1px solid #dcebfb;
+  box-shadow: var(--nk-shadow), inset 0 1px 0 #ffffff;
+}
+.title-panel::after { border-color: #e6f1fd; border-radius: 18px; }
+.title-panel .corner-paw { color: #9ecdff; opacity: .9; filter: drop-shadow(0 2px 4px rgba(63, 157, 248, .25)); }
+
+/* 标题字：去掉 6px 黑描边（那套是为深色霓虹底做的，浅底上会糊成一团） */
+.title-head h1 {
+  -webkit-text-stroke: 0;
+  text-stroke: 0;
+  background: linear-gradient(180deg, #8fd0ff 0%, #56b0f8 42%, #2f7ed8 78%, #4a63d8 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 2px 0 rgba(255, 255, 255, .95))
+    drop-shadow(0 10px 20px rgba(63, 157, 248, .38));
+}
+.title-head h1::before { display: none; }
+.title-head .ear {
+  background: linear-gradient(180deg, #bfe3ff, #4aa8ff);
+  filter: drop-shadow(0 4px 10px rgba(63, 157, 248, .45));
+}
+.title-head .ear::after { background: linear-gradient(180deg, #ffffff, #ffd6e8); }
+
+/* 标题页次要按钮：白底蓝边（原来 .title-panel .btn:not(.primary) 是深色半透明） */
+.title-panel .btn:not(.primary) {
+  background: #ffffff;
+  border-color: #cfe4fb;
+  color: #3d5570;
+}
+.title-panel .btn:not(.primary):hover:not(:disabled) {
+  background: #eef7ff;
+  border-color: var(--blue);
+  color: #1d3c63;
+  box-shadow: 0 8px 20px rgba(63, 157, 248, .22);
+}
+.btn-start:hover:not(:disabled) {
+  box-shadow: 0 16px 34px rgba(63, 157, 248, .45);
+  filter: brightness(1.04);
+}
+
+/* ---------- 浅底上的文字对比度收尾 ---------- */
+.skill-name { color: #1d3c63; }
+.skill-text, .card .skill-text { color: #5b6f88; }
+.skill-tag.ability {
+  background: #e2f6fb;
+  color: #17758f;
+  border: 1px solid #bfeaf4;
+  border-radius: 6px;
+}
+.skill-tag.skill {
+  background: #fff4d9;
+  color: #97660a;
+  border: 1px solid #ffe1a3;
+  border-radius: 6px;
+}
+.result-stat.tone-gold .v { color: #c98600; text-shadow: none; }
+.result-stat.tone-violet .rs-icon { color: #7f5fd0; filter: none; }
+.result-stat.tone-gold .rs-icon { color: #d99b00; }
+
+/* 角色定位标签：去掉旧主题的深色投影/提亮（浅底上会发灰），底色保持各角色本色 */
+.card .card-role { text-shadow: none; filter: none; font-weight: 800; }
+
+/* ---------- 「板子」这一族（属性面板 / 浮窗提示）—— 靠 token 一次性换掉 ---------- */
+:root {
+  --plate-bg: linear-gradient(180deg, #ffffff, #f4faff);
+  --plate-edge: #dbeafb;
+  --plate-shadow: 0 10px 26px rgba(26, 62, 120, .16), inset 0 1px 0 #ffffff;
+}
+.stat-panel { color: #3d5570; }
+.sp-head .sp-name { color: #14243c; }
+.sp-hp-text { color: #5b6f88; }
+.sp-sec {
+  color: #2f7fd0;
+  border-bottom: 1px solid #e6f1fd;
+  padding-bottom: 3px;
+}
+.sp-row { border-bottom: 1px dashed #edf4fc; }
+.sp-k { color: #6d8099; }
+.sp-v { color: #1d3c63; }
+.sp-v.up { color: #17a86e; }
+.sp-v.down { color: #e05070; }
+.sp-q { color: #a8bcd4; }
+.sp-hp-bar { background: #eef4fb; border-radius: 999px; }
+.sp-hp-fill { background: linear-gradient(90deg, #4aa8ff, #67d3f0); border-radius: 999px; }
+.tip-float { color: #3d5570; }
+
+/* ---------- 倒计时数字：原来白→粉的 clip 渐变 + 黑投影，白底上直接消失 ---------- */
+#hud-timer-text {
+  background: linear-gradient(180deg, #8fd0ff 0%, #3f9df8 52%, #2b6fd6 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, .95));
+}
+.hud-timer.flandre #hud-timer-text {
+  background-image: linear-gradient(180deg, #ffb3d4 0%, #ff5d9e 70%, #d93a7a 100%);
+}
+.hud-timer.urgent #hud-timer-text {
+  background-image: linear-gradient(180deg, #ff9aa8 0%, #e0344e 70%, #b81f38 100%);
+}
+#hud-timer-label { color: #7d93ad; text-shadow: none; }
+.hud-timer::before, .hud-timer::after {
+  background: linear-gradient(180deg, #bfe3ff, #4aa8ff);
+}
+
+/* ---------- 玩家特效滑条：黑轨道 → 浅蓝轨道 + 蓝点 ---------- */
+input[type="range"].fx-slider { accent-color: #3f9df8; }
+input[type="range"].fx-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #dbeafa, #eef6ff);
+  border: 1px solid #cfe4fb;
+}
+input[type="range"].fx-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #9fd8ff, #3f9df8);
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(63, 157, 248, .55);
+}
+input[type="range"].fx-slider::-moz-range-track {
+  height: 8px; border-radius: 999px;
+  background: linear-gradient(90deg, #dbeafa, #eef6ff);
+  border: 1px solid #cfe4fb;
+}
+input[type="range"].fx-slider::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #3f9df8; border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(63, 157, 248, .55);
+}
+
+/* ---------- 对比度收尾（页面内实测 < 4.5 的几处） ---------- */
+.screen h2.pause-title { color: #d93d78; text-shadow: 0 2px 8px rgba(217, 61, 120, .22); }
+.hud-sub { color: #6d8099; }
+.hud-wave .hud-label { color: #5b7190; }
+.result-stat.tone-gold .v { color: #a86f00; }
+
+/* ---------- 206 轮：浅底上还读不出来的几处 ---------- */
+
+/* 品质角标（商店卡右上角"普通/精良/稀有"）：原来黑底 + 浅灰字，白卡上糊成一团 */
+.tier-badge {
+  background: #eef4fb;
+  border: 1px solid #dbe6f2;
+  border-radius: 999px;
+  font-weight: 800;
+}
+.tier-1 .tier-badge, .tier-badge.t1 { color: #61728c; }
+.tier-2 .tier-badge, .tier-badge.t2 { color: #1c86a3; }
+.tier-3 .tier-badge, .tier-badge.t3 { color: #7a5ec8; }
+.tier-4 .tier-badge, .tier-badge.t4 { color: #a8730c; }
+
+/* 商店卡里"每升一级 伤害+12% · 冷却-4%"那一行：给它一个小胶囊，别和普通数值混在一起 */
+.card .stat-line .v.up-tip {
+  color: #2f7fd0;
+  background: #eef7ff;
+  border: 1px solid #cfe6ff;
+  border-radius: 7px;
+  padding: 0 6px;
+  font-weight: 800;
+}
+
+/* 小小猫娘 / 系统提示条：原来深底 + 浅绿字，浅色主题下几乎看不见 */
+.hud-toast .toast {
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid #dbe9fa;
+  color: #1d3c63;
+  box-shadow: 0 8px 22px rgba(26, 62, 120, .18);
+  font-weight: 800;
+}
+.hud-toast .toast.good { border-color: #8fe0bb; color: #12855a; }
+.hud-toast .toast.bad { border-color: #ffb8c2; color: #cf2f4a; }
+.hud-toast .toast.info { border-color: #b9d9f7; color: #2f7fd0; }
+
+/* 小小猫娘对话气泡：原来深底 + var(--text)，而 --text 现在是深蓝 —— 深字压深底，直接看不见 */
+.neko-bubble-slot > *,
+#neko-bubble-slot > * {
+  background: rgba(255, 255, 255, .96);
+  border: 1px solid #ffc2dd;
+  color: #1d3c63;
+  box-shadow: 0 8px 22px rgba(26, 62, 120, .16);
+}
+
+/* ---------- 206 轮之二：标题页贴图不再遮住粒子 ----------
+   用户："你新加的淡蓝色贴图其实把背景挡住了，背景有一些粒子效果之类的飞来飞去，
+        能不能把贴图弄到底部……记得放大，不然现在4个角还是黑色的。"
+   做法：那一层 CSS 渐变整块去掉 —— 背景改由画布的 renderIdleBackground 画（浅色天空 + 粒子），
+   这样粒子就在最底层之上、四角也不会再露出黑边。 */
+.title-scene {
+  background: none;
+  width: 100vw;
+  min-height: 100vh;
+  margin: -24px;
+  padding: 24px;
+}
+.title-vignette { display: none; }
+/* DOM 粒子（.title-stars）在浅底上改成更饱和的颜色，并加一点点白边好读 */
+.title-stars .t-pink   { color: #ff4f92; background: #ffd0e4; }
+.title-stars .t-cyan   { color: #1f9fc4; background: #cdf1fa; }
+.title-stars .t-violet { color: #7d5ce8; background: #e2d8ff; }
+
+/* ---------- 206 轮之二：左下角属性小字太暗（它在深色战场上，用的却是浅色主题的 --text-dim） ---------- */
+.hud-stats {
+  color: #dcebfb;
+  text-shadow: 0 1px 3px rgba(6, 16, 34, .9);
+}
+.hud-stats .hud-stat b {
+  color: #ffd23a;
+  text-shadow: 0 1px 3px rgba(6, 16, 34, .9);
+}
+
+/* ---------- 206 轮之二：小小猫娘台词框 ----------
+   用户："小小猫娘不走语音的纯台词对话框还是黑色本体粉色边框，改到和语音框一样，
+        然后给这(个)语音框加个可爱颜色的边框吧。"
+   两条路都堵上：既覆盖 .neko-line 本体（.neko-bubble-slot 的直接子元素继承不到时也有救），
+   也给整族一个可爱的粉蓝渐变描边。 */
+.neko-line,
+#neko-bubble-slot > .neko-line,
+.neko-bubble-slot > .neko-line {
+  background: linear-gradient(180deg, #ffffff, #f2f9ff);
+  border: 2px solid #ffb3d4;
+  border-radius: 14px;
+  color: #1d3c63;
+  box-shadow: 0 10px 24px rgba(26, 62, 120, .18), 0 0 0 3px rgba(255, 179, 212, .18);
+  font-weight: 700;
+}
+/* 语音在念的时候（.speaking / .voice）换一层更亮的天蓝描边，和"在说话"区分开 */
+.neko-line.speaking,
+.neko-line.voice,
+#neko-bubble-slot > .speaking {
+  border-color: #7cc6ff;
+  box-shadow: 0 10px 24px rgba(26, 62, 120, .18), 0 0 0 3px rgba(124, 198, 255, .22);
+}
+
+/* ---------- 207 轮：DOM 台词框也跟着半透明（芙兰战里别挡弹幕） ---------- */
+.neko-line,
+#neko-bubble-slot > .neko-line,
+.neko-bubble-slot > .neko-line {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .82), rgba(240, 249, 255, .72));
+}

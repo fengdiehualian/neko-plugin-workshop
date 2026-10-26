@@ -1,0 +1,49 @@
+[plugin]
+id = "ksp_bridge"
+name = "和猫娘一起坐火箭"
+description = "连接《坎巴拉太空计划 Kerbal Space Program》，让猫娘读取飞行遥测：飞船状态、高度速度、轨道根数、剩余燃料、乘员名单、锁定目标与星系天体。纯只读，不会碰你的飞船，也不接管任何操作。需先在游戏 GameData 目录安装配套模组 Neko Downlink（N.E.K.O-KSP-bridge），下载：https://www.curseforge.com/kerbal/ksp-mods/neko-downlink"
+short_description = "让猫娘陪你玩坎巴拉：读懂轨道、燃料、飞船和目标，全程只读不动手"
+keywords = [
+    "坎巴拉", "KSP", "Kerbal", "Space Program", "航天", "火箭", "轨道",
+    "遥测", "飞船", "对接", "行星", "游戏", "模拟器",
+    "orbit", "telemetry", "vessel", "apollo", "rover", "spaceplane"
+]
+version = "0.2.1"
+type = "plugin"
+entry = "plugin.plugins.ksp_bridge:KspBridgePlugin"
+
+[plugin.author]
+name = "星河拓航Studio"
+email = "contact@xhth.top"
+url = "https://xhth.top/"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[ksp_bridge]
+# N.E.K.O-KSP-bridge 模组在游戏内监听的地址。
+# 注意：改端口要改两处 —— 模组侧的 neko-ksp-bridge.ini 和这里的 bridge_url，
+# 只改一处两边就连不上了。模组侧改完需要重启游戏。
+bridge_url = "http://127.0.0.1:21579"
+
+# 单次请求超时（秒），范围 3-60。
+# KSP 在大存档、高倍时间加速或刚切场景时可能卡顿，读遥测会慢一拍；
+# 模组侧读的是主线程缓存好的快照，正常响应在毫秒级；只有游戏卡住时才会慢。
+# 这里故意设得短一点：宁可快速失败说「读不到」，也不要让角色沉默十几秒
+# 等一个八成会超时的请求。机器慢可以自己调大。
+timeout_seconds = 6
+
+# 自动播报：游戏在跑的时候，插件会自己在后台读遥测，把最新的飞船状况
+# 塞进角色的上下文里（不会打断对话），这样角色不用等你开口才去调工具。
+# 关掉它就退回旧的「问答式」行为：只有你问了才读。
+auto_brief_enabled = true
+
+# 自动播报的轮询间隔（秒），范围 5-300。
+# 同一时刻队列里只保留最新一条（coalesce），所以调小不会把上下文撑爆。
+# 15 秒足够跟得上一次变轨/一次点火，也不会太费；高倍加速时可以调大。
+auto_brief_interval_seconds = 15

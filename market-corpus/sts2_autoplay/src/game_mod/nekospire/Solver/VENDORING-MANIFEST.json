@@ -1,0 +1,2247 @@
+{
+    "schema":  "nekospire-combat-solver-vendoring/1",
+    "generated_by":  "game_mod/scripts/sync-vendor.ps1",
+    "generated_at":  "2026-10-06T21:44:05",
+    "upstream":  {
+                     "repository":  "https://github.com/Torch1230/CombatSolver",
+                     "commit":  "6031deb",
+                     "version":  "0.50.1",
+                     "license":  "MIT",
+                     "holders":  [
+                                     "Copyright (c) 2026 Torch1230 and contributors",
+                                     "Copyright (c) 2026 hotwords123 (portions derived from Random Foreseer)"
+                                 ]
+                 },
+    "local":  {
+                  "engine_root":  "game_mod/nekospire/Solver",
+                  "namespace":  "CombatSolver",
+                  "sdk":  "Microsoft.NET.Sdk (no Godot.NET.Sdk)",
+                  "publicizer":  "none (Krafs.Publicizer is not honored by the mod loader for a plain-SDK plugin mod; private access goes through GameRef reflection)"
+              },
+    "vendor_subtrees":  [
+                            "Engine",
+                            "Prediction",
+                            "Runtime",
+                            "Search"
+                        ],
+    "preserved_local_files":  [
+                                  "Solver/Engine/Common/GameRef.cs",
+                                  "Solver/EntryShim.cs",
+                                  "Solver/SolverPolicyEnums.cs",
+                                  "Solver/CombatSolverFacade.cs",
+                                  "Solver/CombatSolverRuntime.cs"
+                              ],
+    "summary":  {
+                    "Engine":  {
+                                   "vendored":  132,
+                                   "identical_to_upstream":  41,
+                                   "changed_from_upstream":  90,
+                                   "local_only":  1,
+                                   "uses_gameref":  29,
+                                   "upstream_total":  170
+                               },
+                    "Prediction":  {
+                                       "vendored":  41,
+                                       "identical_to_upstream":  6,
+                                       "changed_from_upstream":  35,
+                                       "local_only":  0,
+                                       "uses_gameref":  4,
+                                       "upstream_total":  56
+                                   },
+                    "Runtime":  {
+                                    "vendored":  12,
+                                    "identical_to_upstream":  1,
+                                    "changed_from_upstream":  11,
+                                    "local_only":  0,
+                                    "uses_gameref":  2,
+                                    "upstream_total":  64
+                                },
+                    "Search":  {
+                                   "vendored":  61,
+                                   "identical_to_upstream":  6,
+                                   "changed_from_upstream":  55,
+                                   "local_only":  0,
+                                   "uses_gameref":  5,
+                                   "upstream_total":  252
+                               }
+                },
+    "three_way":  {
+                      "baseline_tag":  "v0.28.0",
+                      "take_upstream_verbatim":  199,
+                      "manual_three_way_merge":  38,
+                      "keep_ours":  8,
+                      "upstream_deleted":  0,
+                      "local_only":  1,
+                      "conflict_files":  [
+                                             {
+                                                 "path":  "Engine/Common/PredictionExtensions.cs",
+                                                 "gameref":  false
+                                             },
+                                             {
+                                                 "path":  "Engine/Common/PredictionUtils.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Cards/OnPlay/BespokeCardMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Cards/OnPlay/CardDrawCardMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Cards/OnPlay/CardSelectionCardMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Cards/CardOnTurnEndInHandMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Enchantments/OnPlay/EnchantmentOnPlayMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Block/ModifyBlockMultiplicativeMirrors.cs",
+                                                 "gameref":  false
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Card/AfterCardDrawnMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Card/AfterCardExhaustedMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Card/AfterCardGeneratedForCombatMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Card/AfterCardPlayedMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Card/BeforeCardPlayedMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Card/CardPlayHookPredictionStates.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Card/ModifyCardPlayCountMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Card/ModifyCardPlayResultLocationMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Card/ModifyEnergyCostInCombatMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Card/ShouldPlayMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Damage/AfterCurrentHpChangedMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/Damage/AfterDamageReceivedMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Hooks/TurnEnd/BeforeSideTurnEndMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Mirrors/Orbs/OrbMirrors.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Simulation/CombatPredictedCardExtensions.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Simulation/CombatPredictionSimulator.Attack.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Engine/InCombat/Simulation/CombatPredictionSimulator.Card.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Prediction/CardEffectSpecRegistry.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Prediction/DeathPowerSupport.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Prediction/MonsterMoveEffects.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Prediction/RelicPredictionStateSupport.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Runtime/CombatRootSnapshot.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Runtime/ContinuationStamp.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Runtime/SolverProgress.cs",
+                                                 "gameref":  false
+                                             },
+                                             {
+                                                 "path":  "Search/CombatBeamSolver.Phases.cs",
+                                                 "gameref":  false
+                                             },
+                                             {
+                                                 "path":  "Search/CombatBeamSolver.StateEvaluation.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Search/SimulatedCombatState.CardLifecycle.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Search/SimulatedCombatState.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Search/SimulatedCombatState.Fork.cs",
+                                                 "gameref":  true
+                                             },
+                                             {
+                                                 "path":  "Search/SimulatedCombatState.Relics.cs",
+                                                 "gameref":  true
+                                             }
+                                         ],
+                      "keep_ours_files":  [
+                                              {
+                                                  "path":  "Engine/InCombat/Extensions/CombatManagerExtensions.cs",
+                                                  "gameref":  false
+                                              },
+                                              {
+                                                  "path":  "Engine/InCombat/Mirrors/Hooks/Card/ModifyStarCostMirrors.cs",
+                                                  "gameref":  true
+                                              },
+                                              {
+                                                  "path":  "Engine/InCombat/Mirrors/Hooks/Damage/ModifyHpLostMirrors.cs",
+                                                  "gameref":  true
+                                              },
+                                              {
+                                                  "path":  "Engine/InCombat/Mirrors/Hooks/Orb/AfterOrbChanneledMirrors.cs",
+                                                  "gameref":  true
+                                              },
+                                              {
+                                                  "path":  "Engine/InCombat/Mirrors/Orbs/DarkOrbMirrors.cs",
+                                                  "gameref":  true
+                                              },
+                                              {
+                                                  "path":  "Engine/InCombat/Mirrors/Orbs/GlassOrbMirrors.cs",
+                                                  "gameref":  true
+                                              },
+                                              {
+                                                  "path":  "Runtime/CombatStateTrackerIsolationPatch.cs",
+                                                  "gameref":  false
+                                              },
+                                              {
+                                                  "path":  "Runtime/PowerDynamicVarMaterializationGuardPatch.cs",
+                                                  "gameref":  false
+                                              }
+                                          ],
+                      "upstream_deleted_files":  [
+
+                                                 ]
+                  },
+    "totals":  {
+                   "vendored":  246,
+                   "identical_to_upstream":  54,
+                   "changed_from_upstream":  191,
+                   "local_only":  1,
+                   "uses_gameref":  40,
+                   "upstream_new_core":  264,
+                   "upstream_new_shell":  33,
+                   "upstream_new_candidate":  0
+               },
+    "files":  [
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/Mirrors/MethodMirrorContext.cs",
+                      "local_lines":  12,
+                      "uses_gameref":  false,
+                      "upstream_lines":  12,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/Mirrors/MethodMirrorRegistry.cs",
+                      "local_lines":  454,
+                      "uses_gameref":  false,
+                      "upstream_lines":  538,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/Mirrors/MethodMirrorRegistryDescriptor.cs",
+                      "local_lines":  26,
+                      "uses_gameref":  false,
+                      "upstream_lines":  26,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/Mirrors/MirrorMethodSpec.cs",
+                      "local_lines":  64,
+                      "uses_gameref":  false,
+                      "upstream_lines":  64,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/BaseLibCloneConcurrency.cs",
+                      "local_lines":  26,
+                      "uses_gameref":  false,
+                      "upstream_lines":  28,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/CombatPredictionRisk.cs",
+                      "local_lines":  10,
+                      "uses_gameref":  false,
+                      "upstream_lines":  10,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/EngineDiagnostics.cs",
+                      "local_lines":  8,
+                      "uses_gameref":  false,
+                      "upstream_lines":  8,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/GameRef.cs",
+                      "local_lines":  188,
+                      "uses_gameref":  true,
+                      "upstream_lines":  null,
+                      "status":  "local-only"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/PredictedCard.cs",
+                      "local_lines":  243,
+                      "uses_gameref":  false,
+                      "upstream_lines":  280,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/PredictedCardExtensions.cs",
+                      "local_lines":  60,
+                      "uses_gameref":  false,
+                      "upstream_lines":  60,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/PredictionExtensions.cs",
+                      "local_lines":  111,
+                      "uses_gameref":  false,
+                      "upstream_lines":  122,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/PredictionForking.cs",
+                      "local_lines":  461,
+                      "uses_gameref":  false,
+                      "upstream_lines":  577,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/PredictionModModelSupport.cs",
+                      "local_lines":  343,
+                      "uses_gameref":  false,
+                      "upstream_lines":  343,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/PredictionRisk.cs",
+                      "local_lines":  18,
+                      "uses_gameref":  false,
+                      "upstream_lines":  18,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/PredictionStateStore.cs",
+                      "local_lines":  227,
+                      "uses_gameref":  false,
+                      "upstream_lines":  367,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/PredictionTrace.cs",
+                      "local_lines":  119,
+                      "uses_gameref":  false,
+                      "upstream_lines":  161,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/PredictionUnsupportedException.cs",
+                      "local_lines":  4,
+                      "uses_gameref":  false,
+                      "upstream_lines":  22,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/PredictionUtils.cs",
+                      "local_lines":  260,
+                      "uses_gameref":  true,
+                      "upstream_lines":  292,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "Common/SimCardPile.cs",
+                      "local_lines":  158,
+                      "uses_gameref":  false,
+                      "upstream_lines":  182,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Extensions/CombatCardGenerationExtensions.cs",
+                      "local_lines":  146,
+                      "uses_gameref":  false,
+                      "upstream_lines":  319,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Extensions/CombatManagerExtensions.cs",
+                      "local_lines":  14,
+                      "uses_gameref":  false,
+                      "upstream_lines":  15,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Extensions/CombatPredictionTraceFrameExtensions.cs",
+                      "local_lines":  44,
+                      "uses_gameref":  false,
+                      "upstream_lines":  44,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Extensions/CombatTargetExtensions.cs",
+                      "local_lines":  58,
+                      "uses_gameref":  false,
+                      "upstream_lines":  58,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Afflictions/OnPlay/AfflictionOnPlayMirrorContext.cs",
+                      "local_lines":  17,
+                      "uses_gameref":  false,
+                      "upstream_lines":  17,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Afflictions/OnPlay/AfflictionOnPlayMirrors.cs",
+                      "local_lines":  39,
+                      "uses_gameref":  false,
+                      "upstream_lines":  39,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/AutoPlayCardMirrors.cs",
+                      "local_lines":  20,
+                      "uses_gameref":  false,
+                      "upstream_lines":  22,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/BespokeCardMirrors.cs",
+                      "local_lines":  189,
+                      "uses_gameref":  true,
+                      "upstream_lines":  280,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/CardDrawCardMirrors.cs",
+                      "local_lines":  150,
+                      "uses_gameref":  true,
+                      "upstream_lines":  228,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/CardEffectRecipe.cs",
+                      "local_lines":  45,
+                      "uses_gameref":  false,
+                      "upstream_lines":  74,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/CardGenerationCardMirrors.cs",
+                      "local_lines":  340,
+                      "uses_gameref":  false,
+                      "upstream_lines":  345,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/CardOnPlayInferrer.cs",
+                      "local_lines":  484,
+                      "uses_gameref":  false,
+                      "upstream_lines":  486,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/CardOnPlayMirrorContext.cs",
+                      "local_lines":  34,
+                      "uses_gameref":  false,
+                      "upstream_lines":  34,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/CardOnPlayMirrorContextExtensions.cs",
+                      "local_lines":  79,
+                      "uses_gameref":  false,
+                      "upstream_lines":  79,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/CardOnPlayMirrors.cs",
+                      "local_lines":  182,
+                      "uses_gameref":  false,
+                      "upstream_lines":  201,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/CardSelectionCardMirrors.cs",
+                      "local_lines":  280,
+                      "uses_gameref":  true,
+                      "upstream_lines":  290,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/GeneralCardMirrors.cs",
+                      "local_lines":  194,
+                      "uses_gameref":  false,
+                      "upstream_lines":  194,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/OrbCardMirrors.cs",
+                      "local_lines":  209,
+                      "uses_gameref":  false,
+                      "upstream_lines":  242,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/PotionGenerationCardMirrors.cs",
+                      "local_lines":  22,
+                      "uses_gameref":  false,
+                      "upstream_lines":  25,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/OnPlay/RandomTargetAttackCardMirrors.cs",
+                      "local_lines":  62,
+                      "uses_gameref":  false,
+                      "upstream_lines":  64,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/CardIsPlayableMirrors.cs",
+                      "local_lines":  80,
+                      "uses_gameref":  false,
+                      "upstream_lines":  80,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/CardOnTurnEndInHandMirrors.cs",
+                      "local_lines":  115,
+                      "uses_gameref":  true,
+                      "upstream_lines":  117,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Cards/CardResultLocationMirrors.cs",
+                      "local_lines":  127,
+                      "uses_gameref":  false,
+                      "upstream_lines":  127,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Enchantments/OnPlay/EnchantmentOnPlayMirrorContext.cs",
+                      "local_lines":  17,
+                      "uses_gameref":  false,
+                      "upstream_lines":  17,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Enchantments/OnPlay/EnchantmentOnPlayMirrors.cs",
+                      "local_lines":  122,
+                      "uses_gameref":  true,
+                      "upstream_lines":  123,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Attack/AfterAttackMirrors.cs",
+                      "local_lines":  156,
+                      "uses_gameref":  false,
+                      "upstream_lines":  187,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Attack/BeforeAttackMirrors.cs",
+                      "local_lines":  40,
+                      "uses_gameref":  false,
+                      "upstream_lines":  40,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Attack/GigantificationPowerMirrors.cs",
+                      "local_lines":  77,
+                      "uses_gameref":  false,
+                      "upstream_lines":  84,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Attack/ModifyAttackHitCountMirrors.cs",
+                      "local_lines":  30,
+                      "uses_gameref":  false,
+                      "upstream_lines":  30,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Attack/VigorPowerMirrors.cs",
+                      "local_lines":  92,
+                      "uses_gameref":  false,
+                      "upstream_lines":  101,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Block/AfterBlockBrokenMirrors.cs",
+                      "local_lines":  59,
+                      "uses_gameref":  false,
+                      "upstream_lines":  65,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Block/AfterBlockGainedMirrors.cs",
+                      "local_lines":  109,
+                      "uses_gameref":  false,
+                      "upstream_lines":  111,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Block/AfterModifyingBlockAmountMirrors.cs",
+                      "local_lines":  72,
+                      "uses_gameref":  false,
+                      "upstream_lines":  73,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Block/BeforeBlockGainedMirrors.cs",
+                      "local_lines":  41,
+                      "uses_gameref":  false,
+                      "upstream_lines":  41,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Block/ModifyBlockMultiplicativeMirrors.cs",
+                      "local_lines":  99,
+                      "uses_gameref":  false,
+                      "upstream_lines":  140,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/AfterCardDiscardedMirrors.cs",
+                      "local_lines":  60,
+                      "uses_gameref":  false,
+                      "upstream_lines":  61,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/AfterCardDrawnMirrors.cs",
+                      "local_lines":  306,
+                      "uses_gameref":  true,
+                      "upstream_lines":  319,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/AfterCardExhaustedMirrors.cs",
+                      "local_lines":  182,
+                      "uses_gameref":  true,
+                      "upstream_lines":  198,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/AfterCardGeneratedForCombatMirrors.cs",
+                      "local_lines":  178,
+                      "uses_gameref":  true,
+                      "upstream_lines":  182,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/AfterCardPlayedMirrors.cs",
+                      "local_lines":  933,
+                      "uses_gameref":  true,
+                      "upstream_lines":  1020,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/AfterShuffleMirrors.cs",
+                      "local_lines":  80,
+                      "uses_gameref":  false,
+                      "upstream_lines":  82,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/BeforeCardPlayedMirrors.cs",
+                      "local_lines":  437,
+                      "uses_gameref":  true,
+                      "upstream_lines":  441,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/CardPlayHookPredictionStates.cs",
+                      "local_lines":  100,
+                      "uses_gameref":  true,
+                      "upstream_lines":  119,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/ModifyCardPlayCountMirrors.cs",
+                      "local_lines":  149,
+                      "uses_gameref":  true,
+                      "upstream_lines":  149,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/ModifyCardPlayResultLocationMirrors.cs",
+                      "local_lines":  180,
+                      "uses_gameref":  true,
+                      "upstream_lines":  175,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/ModifyEnergyCostInCombatMirrors.cs",
+                      "local_lines":  140,
+                      "uses_gameref":  true,
+                      "upstream_lines":  143,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/ModifyShuffleOrderMirrors.cs",
+                      "local_lines":  50,
+                      "uses_gameref":  false,
+                      "upstream_lines":  50,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/ModifyStarCostMirrors.cs",
+                      "local_lines":  76,
+                      "uses_gameref":  true,
+                      "upstream_lines":  76,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/ShouldDrawMirrors.cs",
+                      "local_lines":  64,
+                      "uses_gameref":  false,
+                      "upstream_lines":  64,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Card/ShouldPlayMirrors.cs",
+                      "local_lines":  89,
+                      "uses_gameref":  true,
+                      "upstream_lines":  101,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Damage/AfterCurrentHpChangedMirrors.cs",
+                      "local_lines":  80,
+                      "uses_gameref":  true,
+                      "upstream_lines":  82,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Damage/AfterDamageGivenMirrors.cs",
+                      "local_lines":  173,
+                      "uses_gameref":  false,
+                      "upstream_lines":  182,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Damage/AfterDamageReceivedMirrors.cs",
+                      "local_lines":  366,
+                      "uses_gameref":  true,
+                      "upstream_lines":  396,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Damage/AfterModifyingHpLostAfterOstyMirrors.cs",
+                      "local_lines":  48,
+                      "uses_gameref":  false,
+                      "upstream_lines":  52,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Damage/BeforeDamageReceivedMirrors.cs",
+                      "local_lines":  71,
+                      "uses_gameref":  false,
+                      "upstream_lines":  76,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Damage/ModifyDamageMirrors.cs",
+                      "local_lines":  317,
+                      "uses_gameref":  false,
+                      "upstream_lines":  317,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Damage/ModifyHpLostMirrors.cs",
+                      "local_lines":  211,
+                      "uses_gameref":  true,
+                      "upstream_lines":  211,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Death/AfterDeathMirrors.cs",
+                      "local_lines":  93,
+                      "uses_gameref":  false,
+                      "upstream_lines":  131,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Death/AfterPreventingDeathMirrors.cs",
+                      "local_lines":  40,
+                      "uses_gameref":  false,
+                      "upstream_lines":  40,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Death/BeforeDeathMirrors.cs",
+                      "local_lines":  42,
+                      "uses_gameref":  false,
+                      "upstream_lines":  42,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Death/DeathPreventerMirrors.cs",
+                      "local_lines":  70,
+                      "uses_gameref":  false,
+                      "upstream_lines":  81,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Death/ShouldDieMirrors.cs",
+                      "local_lines":  58,
+                      "uses_gameref":  false,
+                      "upstream_lines":  58,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Orb/AfterOrbChanneledMirrors.cs",
+                      "local_lines":  65,
+                      "uses_gameref":  true,
+                      "upstream_lines":  65,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Orb/AfterOrbEvokedMirrors.cs",
+                      "local_lines":  57,
+                      "uses_gameref":  false,
+                      "upstream_lines":  57,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Orb/ModifyOrbPassiveTriggerCountMirrors.cs",
+                      "local_lines":  51,
+                      "uses_gameref":  false,
+                      "upstream_lines":  51,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/Resources/AfterStarsGainedMirrors.cs",
+                      "local_lines":  55,
+                      "uses_gameref":  false,
+                      "upstream_lines":  55,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/TurnEnd/AfterAutoPostPlayPhaseEnteredMirrors.cs",
+                      "local_lines":  97,
+                      "uses_gameref":  false,
+                      "upstream_lines":  97,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/TurnEnd/BeforeSideTurnEndMirrors.cs",
+                      "local_lines":  285,
+                      "uses_gameref":  true,
+                      "upstream_lines":  290,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/TurnEnd/OrichalcumMirrors.cs",
+                      "local_lines":  39,
+                      "uses_gameref":  false,
+                      "upstream_lines":  39,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/PowerAmountPredictionState.cs",
+                      "local_lines":  40,
+                      "uses_gameref":  false,
+                      "upstream_lines":  40,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Hooks/RupturePredictionState.cs",
+                      "local_lines":  16,
+                      "uses_gameref":  false,
+                      "upstream_lines":  16,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Orbs/DarkOrbMirrors.cs",
+                      "local_lines":  37,
+                      "uses_gameref":  true,
+                      "upstream_lines":  36,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Orbs/FrostOrbMirrors.cs",
+                      "local_lines":  50,
+                      "uses_gameref":  false,
+                      "upstream_lines":  56,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Orbs/GlassOrbMirrors.cs",
+                      "local_lines":  43,
+                      "uses_gameref":  true,
+                      "upstream_lines":  42,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Orbs/LightningOrbMirrors.cs",
+                      "local_lines":  52,
+                      "uses_gameref":  false,
+                      "upstream_lines":  52,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Orbs/OrbMirrorContext.cs",
+                      "local_lines":  14,
+                      "uses_gameref":  false,
+                      "upstream_lines":  14,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Orbs/OrbMirrors.cs",
+                      "local_lines":  130,
+                      "uses_gameref":  true,
+                      "upstream_lines":  129,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Orbs/PlasmaOrbMirrors.cs",
+                      "local_lines":  21,
+                      "uses_gameref":  false,
+                      "upstream_lines":  21,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Potions/OnUse/AutoPlayPotionMirrors.cs",
+                      "local_lines":  16,
+                      "uses_gameref":  false,
+                      "upstream_lines":  16,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Potions/OnUse/CardGenerationPotionMirrors.cs",
+                      "local_lines":  132,
+                      "uses_gameref":  false,
+                      "upstream_lines":  153,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Potions/OnUse/DrawPotionMirrors.cs",
+                      "local_lines":  72,
+                      "uses_gameref":  false,
+                      "upstream_lines":  82,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Potions/OnUse/EntropicBrewMirrors.cs",
+                      "local_lines":  37,
+                      "uses_gameref":  false,
+                      "upstream_lines":  37,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Potions/OnUse/OrbPotionMirrors.cs",
+                      "local_lines":  15,
+                      "uses_gameref":  false,
+                      "upstream_lines":  15,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Potions/OnUse/PotionOnUseMirrorContext.cs",
+                      "local_lines":  23,
+                      "uses_gameref":  false,
+                      "upstream_lines":  23,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/Potions/OnUse/PotionOnUseMirrors.cs",
+                      "local_lines":  83,
+                      "uses_gameref":  false,
+                      "upstream_lines":  83,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/CombatCardMirrorContext.cs",
+                      "local_lines":  19,
+                      "uses_gameref":  false,
+                      "upstream_lines":  19,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/CombatMirrorContext.cs",
+                      "local_lines":  51,
+                      "uses_gameref":  false,
+                      "upstream_lines":  51,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Mirrors/HookMirrors.cs",
+                      "local_lines":  1166,
+                      "uses_gameref":  false,
+                      "upstream_lines":  1544,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/ActionRelicTriggerRecorder.cs",
+                      "local_lines":  35,
+                      "uses_gameref":  false,
+                      "upstream_lines":  63,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictedCardExtensions.cs",
+                      "local_lines":  229,
+                      "uses_gameref":  true,
+                      "upstream_lines":  251,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionDynamicVarExtensions.cs",
+                      "local_lines":  62,
+                      "uses_gameref":  false,
+                      "upstream_lines":  68,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionHistory.cs",
+                      "local_lines":  515,
+                      "uses_gameref":  false,
+                      "upstream_lines":  605,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionHistoryEntry.cs",
+                      "local_lines":  156,
+                      "uses_gameref":  false,
+                      "upstream_lines":  185,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionRngSet.cs",
+                      "local_lines":  51,
+                      "uses_gameref":  false,
+                      "upstream_lines":  103,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.Attack.cs",
+                      "local_lines":  202,
+                      "uses_gameref":  true,
+                      "upstream_lines":  234,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.AutoPlay.cs",
+                      "local_lines":  168,
+                      "uses_gameref":  false,
+                      "upstream_lines":  162,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.Block.cs",
+                      "local_lines":  96,
+                      "uses_gameref":  false,
+                      "upstream_lines":  98,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.Card.cs",
+                      "local_lines":  542,
+                      "uses_gameref":  true,
+                      "upstream_lines":  400,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.CardPile.cs",
+                      "local_lines":  482,
+                      "uses_gameref":  false,
+                      "upstream_lines":  501,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.CardTargeting.cs",
+                      "local_lines":  25,
+                      "uses_gameref":  false,
+                      "upstream_lines":  25,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.cs",
+                      "local_lines":  194,
+                      "uses_gameref":  false,
+                      "upstream_lines":  296,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.Damage.cs",
+                      "local_lines":  386,
+                      "uses_gameref":  false,
+                      "upstream_lines":  500,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.EndTurn.cs",
+                      "local_lines":  113,
+                      "uses_gameref":  false,
+                      "upstream_lines":  134,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.Energy.cs",
+                      "local_lines":  53,
+                      "uses_gameref":  false,
+                      "upstream_lines":  53,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.Heal.cs",
+                      "local_lines":  26,
+                      "uses_gameref":  false,
+                      "upstream_lines":  46,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.Orb.cs",
+                      "local_lines":  165,
+                      "uses_gameref":  false,
+                      "upstream_lines":  187,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.Potion.cs",
+                      "local_lines":  65,
+                      "uses_gameref":  false,
+                      "upstream_lines":  69,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulator.PowerAmounts.cs",
+                      "local_lines":  23,
+                      "uses_gameref":  false,
+                      "upstream_lines":  24,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionSimulatorExtensions.cs",
+                      "local_lines":  34,
+                      "uses_gameref":  false,
+                      "upstream_lines":  36,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/CombatPredictionState.cs",
+                      "local_lines":  239,
+                      "uses_gameref":  false,
+                      "upstream_lines":  252,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/SimCreatureState.cs",
+                      "local_lines":  100,
+                      "uses_gameref":  false,
+                      "upstream_lines":  107,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/SimOrbQueue.cs",
+                      "local_lines":  124,
+                      "uses_gameref":  false,
+                      "upstream_lines":  130,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Engine",
+                      "path":  "InCombat/Simulation/SimPlayerCombatState.cs",
+                      "local_lines":  193,
+                      "uses_gameref":  false,
+                      "upstream_lines":  200,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "BranchMonsterAi.cs",
+                      "local_lines":  351,
+                      "uses_gameref":  false,
+                      "upstream_lines":  351,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CalculatedVarSpecRegistry.cs",
+                      "local_lines":  183,
+                      "uses_gameref":  false,
+                      "upstream_lines":  181,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CardEffectSpecRegistry.cs",
+                      "local_lines":  553,
+                      "uses_gameref":  true,
+                      "upstream_lines":  530,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CardExecutionSupport.cs",
+                      "local_lines":  42,
+                      "uses_gameref":  false,
+                      "upstream_lines":  51,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CardOnPlayCompensationCatalog.cs",
+                      "local_lines":  123,
+                      "uses_gameref":  false,
+                      "upstream_lines":  123,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CardOnPlaySupport.Batch042.cs",
+                      "local_lines":  300,
+                      "uses_gameref":  false,
+                      "upstream_lines":  346,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CardOnPlaySupport.Batch043.cs",
+                      "local_lines":  161,
+                      "uses_gameref":  false,
+                      "upstream_lines":  161,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CardOnPlaySupport.cs",
+                      "local_lines":  204,
+                      "uses_gameref":  false,
+                      "upstream_lines":  217,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CardPileOnPlaySupport.cs",
+                      "local_lines":  127,
+                      "uses_gameref":  false,
+                      "upstream_lines":  133,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CardPowerOnPlaySupport.cs",
+                      "local_lines":  208,
+                      "uses_gameref":  false,
+                      "upstream_lines":  210,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CardPowerOnPlaySupport.SToZ.cs",
+                      "local_lines":  101,
+                      "uses_gameref":  false,
+                      "upstream_lines":  101,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "CorePowerSupport.cs",
+                      "local_lines":  718,
+                      "uses_gameref":  false,
+                      "upstream_lines":  799,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "DeathPowerSupport.cs",
+                      "local_lines":  137,
+                      "uses_gameref":  true,
+                      "upstream_lines":  123,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "EnchantmentLifecycleSupport.cs",
+                      "local_lines":  62,
+                      "uses_gameref":  false,
+                      "upstream_lines":  77,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "EnchantmentStateSupport.cs",
+                      "local_lines":  65,
+                      "uses_gameref":  false,
+                      "upstream_lines":  65,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "EndTurnPowerSupport.Batch048.cs",
+                      "local_lines":  67,
+                      "uses_gameref":  false,
+                      "upstream_lines":  76,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "EndTurnPowerSupport.cs",
+                      "local_lines":  205,
+                      "uses_gameref":  false,
+                      "upstream_lines":  234,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "IncompatibleGameplayModException.cs",
+                      "local_lines":  36,
+                      "uses_gameref":  false,
+                      "upstream_lines":  38,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "IntentForecaster.cs",
+                      "local_lines":  312,
+                      "uses_gameref":  false,
+                      "upstream_lines":  328,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "KnowledgeDemonChoiceSupport.cs",
+                      "local_lines":  91,
+                      "uses_gameref":  false,
+                      "upstream_lines":  92,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "MonsterMoveEffects.cs",
+                      "local_lines":  984,
+                      "uses_gameref":  true,
+                      "upstream_lines":  996,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "MonsterMoveEffects.StaticValues.cs",
+                      "local_lines":  57,
+                      "uses_gameref":  false,
+                      "upstream_lines":  57,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "MonsterMoveSemantics.cs",
+                      "local_lines":  122,
+                      "uses_gameref":  false,
+                      "upstream_lines":  152,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "MonsterRandomBranchResolver.cs",
+                      "local_lines":  77,
+                      "uses_gameref":  false,
+                      "upstream_lines":  77,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "MonsterSpawnSupport.cs",
+                      "local_lines":  109,
+                      "uses_gameref":  false,
+                      "upstream_lines":  111,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "MonsterValueReader.cs",
+                      "local_lines":  65,
+                      "uses_gameref":  false,
+                      "upstream_lines":  65,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "OrbLifecycleSupport.cs",
+                      "local_lines":  18,
+                      "uses_gameref":  false,
+                      "upstream_lines":  21,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "PersistentPowerSupport.cs",
+                      "local_lines":  294,
+                      "uses_gameref":  false,
+                      "upstream_lines":  293,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "PersistentRelicSupport.cs",
+                      "local_lines":  80,
+                      "uses_gameref":  false,
+                      "upstream_lines":  81,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "PlayerTurnEndLifecycle.cs",
+                      "local_lines":  22,
+                      "uses_gameref":  false,
+                      "upstream_lines":  59,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "PotionOnUseSupport.cs",
+                      "local_lines":  327,
+                      "uses_gameref":  false,
+                      "upstream_lines":  333,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "PowerLifecycleSupport.cs",
+                      "local_lines":  162,
+                      "uses_gameref":  false,
+                      "upstream_lines":  181,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "PowerPredictionStateSupport.cs",
+                      "local_lines":  58,
+                      "uses_gameref":  false,
+                      "upstream_lines":  68,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "PredictionCoverage.cs",
+                      "local_lines":  69,
+                      "uses_gameref":  false,
+                      "upstream_lines":  80,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "PredictionModHookSubscriberCapture.cs",
+                      "local_lines":  154,
+                      "uses_gameref":  false,
+                      "upstream_lines":  279,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "RelicPredictionStateSupport.cs",
+                      "local_lines":  528,
+                      "uses_gameref":  true,
+                      "upstream_lines":  549,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "SemanticStateFieldPolicy.cs",
+                      "local_lines":  55,
+                      "uses_gameref":  false,
+                      "upstream_lines":  55,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "TriggeredPowerSupport.cs",
+                      "local_lines":  93,
+                      "uses_gameref":  false,
+                      "upstream_lines":  58,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "TurnStartChoiceSupport.cs",
+                      "local_lines":  376,
+                      "uses_gameref":  false,
+                      "upstream_lines":  443,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "TurnStartPowerSupport.cs",
+                      "local_lines":  355,
+                      "uses_gameref":  false,
+                      "upstream_lines":  488,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Prediction",
+                      "path":  "TurnStartRelicSupport.cs",
+                      "local_lines":  65,
+                      "uses_gameref":  false,
+                      "upstream_lines":  65,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "BattleDamageTracker.cs",
+                      "local_lines":  111,
+                      "uses_gameref":  false,
+                      "upstream_lines":  130,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "CombatRootSnapshot.cs",
+                      "local_lines":  232,
+                      "uses_gameref":  true,
+                      "upstream_lines":  368,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "CombatStateTrackerIsolationPatch.cs",
+                      "local_lines":  22,
+                      "uses_gameref":  false,
+                      "upstream_lines":  26,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "ContinuationStamp.cs",
+                      "local_lines":  460,
+                      "uses_gameref":  true,
+                      "upstream_lines":  508,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "LiveCombatStamp.cs",
+                      "local_lines":  16,
+                      "uses_gameref":  false,
+                      "upstream_lines":  16,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "PowerDynamicVarMaterializationGuardPatch.cs",
+                      "local_lines":  27,
+                      "uses_gameref":  false,
+                      "upstream_lines":  32,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "PowerDynamicVarWarmup.cs",
+                      "local_lines":  27,
+                      "uses_gameref":  false,
+                      "upstream_lines":  95,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "SearchMemoryPressureSignal.cs",
+                      "local_lines":  187,
+                      "uses_gameref":  false,
+                      "upstream_lines":  356,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "SimulationNotificationIsolation.cs",
+                      "local_lines":  42,
+                      "uses_gameref":  false,
+                      "upstream_lines":  52,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "SolverDiagnostics.cs",
+                      "local_lines":  408,
+                      "uses_gameref":  false,
+                      "upstream_lines":  456,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "SolverDisplayNames.cs",
+                      "local_lines":  121,
+                      "uses_gameref":  false,
+                      "upstream_lines":  250,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Runtime",
+                      "path":  "SolverProgress.cs",
+                      "local_lines":  281,
+                      "uses_gameref":  false,
+                      "upstream_lines":  289,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "ActEndingBossPolicy.cs",
+                      "local_lines":  72,
+                      "uses_gameref":  false,
+                      "upstream_lines":  219,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CardChoiceResolution.cs",
+                      "local_lines":  316,
+                      "uses_gameref":  false,
+                      "upstream_lines":  404,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CardChoiceSupport.cs",
+                      "local_lines":  592,
+                      "uses_gameref":  false,
+                      "upstream_lines":  1255,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.BeamRetentionPolicy.cs",
+                      "local_lines":  2521,
+                      "uses_gameref":  false,
+                      "upstream_lines":  1840,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.CrossTurnPlanning.cs",
+                      "local_lines":  154,
+                      "uses_gameref":  false,
+                      "upstream_lines":  150,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.cs",
+                      "local_lines":  163,
+                      "uses_gameref":  false,
+                      "upstream_lines":  211,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.CyclePlanning.cs",
+                      "local_lines":  815,
+                      "uses_gameref":  false,
+                      "upstream_lines":  2976,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.Expansion.cs",
+                      "local_lines":  3431,
+                      "uses_gameref":  false,
+                      "upstream_lines":  307,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.FinalPlanOrdering.cs",
+                      "local_lines":  389,
+                      "uses_gameref":  false,
+                      "upstream_lines":  432,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.Models.cs",
+                      "local_lines":  320,
+                      "uses_gameref":  false,
+                      "upstream_lines":  450,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.ParallelExpansion.cs",
+                      "local_lines":  2207,
+                      "uses_gameref":  false,
+                      "upstream_lines":  1026,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.Phases.cs",
+                      "local_lines":  1649,
+                      "uses_gameref":  false,
+                      "upstream_lines":  2661,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.Retention.cs",
+                      "local_lines":  1397,
+                      "uses_gameref":  false,
+                      "upstream_lines":  2233,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.StateEvaluation.cs",
+                      "local_lines":  1313,
+                      "uses_gameref":  true,
+                      "upstream_lines":  1933,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatBeamSolver.Terminal.cs",
+                      "local_lines":  437,
+                      "uses_gameref":  false,
+                      "upstream_lines":  394,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatPlan.cs",
+                      "local_lines":  1630,
+                      "uses_gameref":  false,
+                      "upstream_lines":  1988,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "CombatSearchCoordinator.cs",
+                      "local_lines":  1712,
+                      "uses_gameref":  false,
+                      "upstream_lines":  1166,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "ForkableCollections.cs",
+                      "local_lines":  295,
+                      "uses_gameref":  false,
+                      "upstream_lines":  313,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "PotionChoiceSupport.cs",
+                      "local_lines":  182,
+                      "uses_gameref":  false,
+                      "upstream_lines":  188,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "PotionStrategySnapshot.cs",
+                      "local_lines":  101,
+                      "uses_gameref":  false,
+                      "upstream_lines":  191,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "PotionUsePolicy.cs",
+                      "local_lines":  116,
+                      "uses_gameref":  false,
+                      "upstream_lines":  154,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "RootCombatCardGenerationPoolSnapshot.cs",
+                      "local_lines":  223,
+                      "uses_gameref":  false,
+                      "upstream_lines":  295,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "RootCombatHistorySnapshot.cs",
+                      "local_lines":  36,
+                      "uses_gameref":  false,
+                      "upstream_lines":  40,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SearchDiagnosticsSink.cs",
+                      "local_lines":  11,
+                      "uses_gameref":  false,
+                      "upstream_lines":  165,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SearchFramePressureSignal.cs",
+                      "local_lines":  113,
+                      "uses_gameref":  false,
+                      "upstream_lines":  113,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SearchPerformanceMetrics.cs",
+                      "local_lines":  97,
+                      "uses_gameref":  false,
+                      "upstream_lines":  142,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SearchPolicySnapshot.cs",
+                      "local_lines":  26,
+                      "uses_gameref":  false,
+                      "upstream_lines":  139,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SearchRequestWorkTotals.cs",
+                      "local_lines":  178,
+                      "uses_gameref":  false,
+                      "upstream_lines":  165,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SearchTransitionException.cs",
+                      "local_lines":  38,
+                      "uses_gameref":  false,
+                      "upstream_lines":  38,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SearchTransitionGuard.cs",
+                      "local_lines":  37,
+                      "uses_gameref":  false,
+                      "upstream_lines":  37,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SearchWorkPacer.cs",
+                      "local_lines":  74,
+                      "uses_gameref":  false,
+                      "upstream_lines":  82,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.ActionChoices.cs",
+                      "local_lines":  193,
+                      "uses_gameref":  false,
+                      "upstream_lines":  229,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.AutoPlay.cs",
+                      "local_lines":  245,
+                      "uses_gameref":  false,
+                      "upstream_lines":  213,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.CardEventHistory.cs",
+                      "local_lines":  294,
+                      "uses_gameref":  false,
+                      "upstream_lines":  365,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.CardLifecycle.cs",
+                      "local_lines":  600,
+                      "uses_gameref":  true,
+                      "upstream_lines":  665,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.CardPowerHistory.cs",
+                      "local_lines":  174,
+                      "uses_gameref":  false,
+                      "upstream_lines":  100,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.cs",
+                      "local_lines":  2452,
+                      "uses_gameref":  true,
+                      "upstream_lines":  3017,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.Dampen.cs",
+                      "local_lines":  150,
+                      "uses_gameref":  false,
+                      "upstream_lines":  150,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.DeathLifecycle.cs",
+                      "local_lines":  245,
+                      "uses_gameref":  false,
+                      "upstream_lines":  347,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.Doom.cs",
+                      "local_lines":  38,
+                      "uses_gameref":  false,
+                      "upstream_lines":  43,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.Fork.cs",
+                      "local_lines":  291,
+                      "uses_gameref":  true,
+                      "upstream_lines":  369,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.KnowledgeDemon.cs",
+                      "local_lines":  37,
+                      "uses_gameref":  false,
+                      "upstream_lines":  36,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.LongTermResources.cs",
+                      "local_lines":  21,
+                      "uses_gameref":  false,
+                      "upstream_lines":  85,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.MonsterAi.cs",
+                      "local_lines":  217,
+                      "uses_gameref":  false,
+                      "upstream_lines":  220,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.MonsterState.cs",
+                      "local_lines":  167,
+                      "uses_gameref":  false,
+                      "upstream_lines":  184,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.Possess.cs",
+                      "local_lines":  76,
+                      "uses_gameref":  false,
+                      "upstream_lines":  76,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.Potions.cs",
+                      "local_lines":  130,
+                      "uses_gameref":  false,
+                      "upstream_lines":  159,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.PowerLifecycle.cs",
+                      "local_lines":  284,
+                      "uses_gameref":  false,
+                      "upstream_lines":  335,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.PowerRelics.cs",
+                      "local_lines":  178,
+                      "uses_gameref":  false,
+                      "upstream_lines":  185,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.ReactiveRelics.cs",
+                      "local_lines":  325,
+                      "uses_gameref":  false,
+                      "upstream_lines":  284,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.RelicResources.cs",
+                      "local_lines":  79,
+                      "uses_gameref":  false,
+                      "upstream_lines":  84,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.Relics.cs",
+                      "local_lines":  401,
+                      "uses_gameref":  true,
+                      "upstream_lines":  422,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.RelicTurnStart.cs",
+                      "local_lines":  434,
+                      "uses_gameref":  false,
+                      "upstream_lines":  540,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.Theft.cs",
+                      "local_lines":  74,
+                      "uses_gameref":  false,
+                      "upstream_lines":  102,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SimulatedCombatState.TurnStartChoices.cs",
+                      "local_lines":  24,
+                      "uses_gameref":  false,
+                      "upstream_lines":  24,
+                      "status":  "identical"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SolverInterimResultOrdering.cs",
+                      "local_lines":  92,
+                      "uses_gameref":  false,
+                      "upstream_lines":  74,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SolverSearchProfile.cs",
+                      "local_lines":  36,
+                      "uses_gameref":  false,
+                      "upstream_lines":  75,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "SolverWeights.cs",
+                      "local_lines":  93,
+                      "uses_gameref":  false,
+                      "upstream_lines":  139,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "StateFingerprint.cs",
+                      "local_lines":  77,
+                      "uses_gameref":  false,
+                      "upstream_lines":  77,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "StrategicEffectModel.cs",
+                      "local_lines":  437,
+                      "uses_gameref":  false,
+                      "upstream_lines":  577,
+                      "status":  "changed"
+                  },
+                  {
+                      "subtree":  "Search",
+                      "path":  "TheftEncounterStrategy.cs",
+                      "local_lines":  25,
+                      "uses_gameref":  false,
+                      "upstream_lines":  35,
+                      "status":  "changed"
+                  }
+              ]
+}

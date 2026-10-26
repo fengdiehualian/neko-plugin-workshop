@@ -1,0 +1,92 @@
+# 学习辅助猫娘（neko_study_copilot）配置示例
+# 安装时作为 config/plugin.toml 的默认值；面板里改动写入 data/panel_state.json 覆盖。
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[neko_study_copilot]
+# 目标考试：
+#   gaokao 高考 / zhongkao 中考 / cet4 四级 / cet6 六级 / kaoyan 考研 / final 校内通用
+#   university 大学期末（学分制 GPA）/ cert_teacher 教资 / cert_soft 软考 / cert_cpa 注会
+#   cert_law 法考 / ielts 雅思 / toefl 托福 / ncse 全国计算机等级考试
+exam_type = "gaokao"
+# 地区（省份 / 直辖市），用于推断卷种、分数线与命题风格
+region = "广东"
+# 学校与年级
+school = ""
+grade = "高三"
+# 选考科目，逗号分隔；留空则按 exam_type 使用默认科目组
+subjects = ""
+# 目标分，0 表示未设定
+target_score = 0
+# 考试日期 YYYY-MM-DD；留空按常规考期估算
+exam_date = ""
+# 每天可用于该考试的有效学习分钟数
+daily_minutes = 180
+# 大学学分制专用：各科对应的学分，形如 "math_adv:5,english:3,politics:3"。
+# 填了它：①时间分配按学分加权；②挂科风险高的科目自动前置；③绩点按学分加权。
+credits = ""
+
+# ── 记忆（两级，全部落在本机 data/study.db，不上传）──────────────
+# 短期记忆 = 对话回合、截图转写、当次讲解与诊断的原话 → 到期自动清理
+# 长期记忆 = 进度、薄弱点、错因、偏好、诊断结论        → 不自动删
+# 清理前会先把这一周压成一条「进度」长期事实：删的是原话，留下的是结论。
+# 修行等级：经验只来自真实学习行为（答题 / 诊断 / 讲解 / 复习），没有打卡刷分。
+# 小游戏（切水果）：成绩/等级/记录/成就自成一套，**不给修行经验**。
+game_enabled = true
+progress_enabled = true
+# 面板偏好（字体/字号/背景/鼠标轨迹）存在 data/panel_prefs.json，不在这里配：
+# ui_trail 默认 auto（跟随系统的减少动态效果），可在面板「外观」里改成开/关。
+memory_enabled = true
+# 短期记忆保留天数（默认 7 天）
+memory_short_days = 7
+# 每次调用模型时召回多少条最近的短期记忆
+memory_recall_turns = 8
+
+# 人设强度：full 猫娘人格（默认）/ light 轻度人设（知识为主）/ off 教学模式
+# 教学模式会去掉口癖与颜文字，要求术语准确、结构优先；疏导场景只降到 light。
+persona_level = "full"
+
+# 识图：开启后用户在聊天框发题目/试卷/成绩单截图，说『识图诊断』即可，
+# 不用手打复制。用宿主的 vision 档模型，没配则退回 conversation 档。
+vision_enabled = true
+
+# 讲解风格：gentle / strict / concise
+teach_style = "gentle"
+# 出题阶段：basic / medium / hard / auto
+quiz_stage = "auto"
+# 单次出题数量
+quiz_count = 3
+# 每题是否附易错点提示
+quiz_with_traps = true
+
+# 联网总开关
+network_enabled = true
+# 免费公开资源检索
+free_source_search = true
+# 平台连接（仅本人账号、只读）
+platform_sync_enabled = true
+# 同站请求最小间隔（毫秒）
+crawl_interval_ms = 1500
+# 是否尊重 robots.txt
+crawl_respect_robots = true
+# 单次检索最多抓取页数
+crawl_max_pages = 6
+# 单页抓取超时（秒）
+crawl_timeout = 15
+
+# 心理疏导开关与强度：light / normal / deep
+psychology_enabled = true
+psychology_level = "normal"
+
+# 管理员密码（必填）
+admin_password = "CHANGE_ME"
+# 面板端口
+panel_port = 15880
+# 大模型调用超时（秒）
+llm_timeout = 60
+# 单次网络请求超时（秒）
+request_timeout = 20
+# 猫娘署名
+catgirl_name = "猫娘"

@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "sources": [
+    {"id": "BV1V2BWBXESU", "uploader": "年轻的花生", "topics": ["快捷键", "操作基础"]},
+    {"id": "BV1MQBMBNEwg", "uploader": "年轻的花生", "topics": ["阵营简称", "识别"]},
+    {"id": "BV1FSBCBpEXC", "uploader": "年轻的花生", "topics": ["反制", "闪虎"]},
+    {"id": "BV19qiDBdECQ", "uploader": "年轻的花生", "topics": ["任务流程", "协同"]},
+    {"id": "BV19pcQzpELp", "uploader": "年轻的花生", "topics": ["运营", "摆位", "开局"]},
+    {"id": "BV1YMSSYxExa", "uploader": "1rua1", "topics": ["PVP基础", "开局"]},
+    {"id": "BV11GDKYdEJK", "uploader": "1rua1", "topics": ["美国", "单位定位"]},
+    {"id": "BV1jSDUYaETW", "uploader": "1rua1", "topics": ["欧洲联盟", "单位定位"]},
+    {"id": "BV1WVm6YVEHs", "uploader": "1rua1", "topics": ["太平洋阵线", "单位定位"]},
+    {"id": "BV1uRmZYuExK", "uploader": "1rua1", "topics": ["盟军科技建筑", "科技"]},
+    {"id": "BV1dkUaY5EvE", "uploader": "1rua1", "topics": ["支援技能", "阵营"]},
+    {"id": "BV1WwBYYNEio", "uploader": "1rua1", "topics": ["实战", "PF", "CN"]},
+    {"id": "BV1aX6UYAEeC", "uploader": "1rua1", "topics": ["厄普西隆", "单位定位"]}
+  ],
+  "rules": [
+    {"id": "economy_first", "tags": ["开局", "运营", "经济"], "priority": 100, "when": {"power_surplus_below": 250}, "actions": ["produce_power", "delay_nonessential_production"], "reason": "电力不足时先恢复电力余量，避免生产链和防御链同时失效。"},
+    {"id": "secure_income", "tags": ["开局", "运营", "经济"], "priority": 90, "when": {"harvester_count_below": 2}, "actions": ["protect_harvesters", "produce_resource_support"], "reason": "经济单位数量不足时先保证采矿和回矿路径。"},
+    {"id": "local_threat", "tags": ["威胁", "防御"], "priority": 95, "when": {"nearby_hostile": true}, "actions": ["defend_local_area", "focus_threat_direction"], "reason": "优先处理基地附近威胁，不因远处低价值目标分散部队。"},
+    {"id": "transport_safety", "tags": ["装载", "运输", "协同"], "priority": 98, "when": {"loading_task": true}, "actions": ["stop_attack_orders_for_passengers", "guard_transport", "verify_passenger_delta"], "reason": "装载期间载具是任务核心，完成前不得把载员误识别成攻击目标。"},
+    {"id": "reachable_target", "tags": ["攻击", "寻敌", "路径"], "priority": 88, "when": {"attack_request": true}, "actions": ["score_path_distance", "cluster_targets", "reject_unreachable_target"], "reason": "目标选择同时考虑威胁、路径距离、可攻击性和集群集中度。"},
+    {"id": "fog_scout", "tags": ["探索", "黑幕"], "priority": 70, "when": {"no_visible_hostile": true}, "actions": ["patrol_waypoints", "reacquire_after_waypoint", "retain_task"], "reason": "没有可见敌人时持续用路径点探查，而不是结束任务或原地重复一步。"},
+    {"id": "base_layout", "tags": ["摆位", "建筑", "基地"], "priority": 80, "when": {"building_ready_to_place": true}, "actions": ["search_native_validated_cells", "place_before_next_building", "wait_for_placement_ack"], "reason": "建筑生产完成但尚未落位时，先完成原生校验的落位，再推进后续建筑。"},
+    {"id": "defense_replacement", "tags": ["防御", "部队"], "priority": 75, "when": {"defense_force_below_target": true}, "actions": ["recruit_replacement", "assign_guard_zone", "return_after_pursuit"], "reason": "防御编组按目标数量持续补充，追击结束后回到防区。"}
+  ],
+  "faction_aliases": {
+    "美国": ["US", "盟军", "美国", "同盟国"],
+    "欧洲联盟": ["EU", "欧洲", "欧盟"],
+    "太平洋阵线": ["PF", "太平洋", "太平洋阵线"],
+    "厄普西隆": ["Epsilon", "EPS", "厄普西隆"],
+    "中国": ["CN", "中国", "天蝎组织"]
+  }
+}

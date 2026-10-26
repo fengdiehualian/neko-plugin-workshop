@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猫爪渔力陪玩</title>
+<style>
+:root {
+  --bg:#070b16; --bg2:#0a101f; --bg3:#0f172a;
+  --glass:rgba(255,255,255,0.045);
+  --glass-hover:rgba(255,255,255,0.08);
+  --border:rgba(255,255,255,0.08);
+  --border-hover:rgba(255,255,255,0.18);
+  --text:#eaf0ff; --text2:#a3b1cc; --text3:#5d6b8a;
+  --accent:#7dd3fc; --accent2:#8b9dff; --accent3:#6ee7d8;
+  --gold:#ffd27a; --green:#4ade80; --red:#f87171; --amber:#fbbf24;
+  --accent-soft:rgba(125,211,252,0.13);
+  --accent-glow:rgba(125,211,252,0.5);
+  --accent-border:rgba(125,211,252,0.35);
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 4px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03);
+  --sidebar-bg:rgba(10,16,31,0.9);
+  --grad-accent:linear-gradient(135deg,#7dd3fc,#8b9dff);
+  --bg-radial-1:rgba(125,211,252,0.09);
+  --bg-radial-2:rgba(139,157,255,0.08);
+  --bg-radial-3:rgba(110,231,216,0.05);
+}
+/* 浅色主题（持久化可切） */
+[data-theme="light"] {
+  --bg:#f4f9fb; --bg2:#eaf3f7; --bg3:#e0edf3;
+  --glass:rgba(255,255,255,0.72);
+  --glass-hover:rgba(255,255,255,0.9);
+  --border:rgba(160,190,205,0.35);
+  --border-hover:rgba(130,170,190,0.55);
+  --text:#22333f; --text2:#5a7483; --text3:#8aa4b3;
+  --accent:#3aa6d4; --accent2:#5a7fd0; --accent3:#2fa89a;
+  --gold:#c98a5a; --green:#3f9e63; --red:#d06666; --amber:#c9923e;
+  --accent-soft:rgba(58,166,212,0.14);
+  --accent-glow:rgba(58,166,212,0.4);
+  --accent-border:rgba(58,166,212,0.4);
+  --shadow:0 4px 24px rgba(80,120,140,0.12), 0 0 0 1px rgba(190,215,228,0.4);
+  --sidebar-bg:rgba(244,249,251,0.9);
+  --grad-accent:linear-gradient(135deg,#3aa6d4,#5a7fd0);
+  --bg-radial-1:rgba(58,166,212,0.12);
+  --bg-radial-2:rgba(90,127,208,0.08);
+  --bg-radial-3:rgba(47,168,154,0.06);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:-apple-system,'PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;
+  background:var(--bg); color:var(--text); min-height:100vh; display:flex; overflow-x:hidden;
+}
+body::before {
+  content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(1100px 600px at 85% -10%, var(--bg-radial-1), transparent 55%),
+    radial-gradient(900px 500px at -8% 108%, var(--bg-radial-2), transparent 50%);
+}
+.sidebar {
+  width:208px; height:100vh; position:fixed; left:0; top:0; z-index:10;
+  background:var(--sidebar-bg); backdrop-filter:blur(24px) saturate(170%);
+  -webkit-backdrop-filter:blur(24px) saturate(170%);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column;
+}
+.sidebar-header { padding:20px 16px 14px; display:flex; align-items:center; gap:11px; border-bottom:1px solid var(--border); }
+.sidebar-logo { width:40px; height:40px; border-radius:12px; background:var(--grad-accent); display:grid; place-items:center; font-size:1.25rem; box-shadow:0 0 18px var(--accent-glow); }
+.sidebar-title { font-size:0.95rem; font-weight:700; }
+.sidebar-sub { font-size:0.64rem; color:var(--text3); margin-top:2px; }
+.sidebar-status { padding:11px 16px; display:flex; align-items:center; gap:8px; font-size:0.72rem; color:var(--text2); border-bottom:1px solid var(--border); }
+.dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.dot.on { background:var(--green); box-shadow:0 0 9px var(--green); }
+.dot.off { background:#4a4a55; }
+.nav-menu { padding:14px 10px; flex:1; overflow-y:auto; }
+.nav-section { padding:10px 10px 6px; font-size:0.62rem; color:var(--text3); letter-spacing:0.08em; }
+.nav-item { display:flex; align-items:center; gap:9px; padding:10px 11px; border-radius:9px; color:var(--text2); font-size:0.8rem; cursor:pointer; margin-bottom:2px; transition:all 0.18s; }
+.nav-item:hover { background:var(--glass); color:var(--text); }
+.nav-item.active { background:var(--accent-soft); color:var(--text); font-weight:600; box-shadow:inset 0 0 0 1px var(--accent-border); }
+.nav-item .icon { font-size:1.02rem; }
+.main { margin-left:208px; flex:1; padding:26px 30px; min-height:100vh; max-width:1100px; }
+.topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+.topbar h1 { font-size:1.3rem; font-weight:700; }
+.pill { display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; background:var(--glass); border:1px solid var(--border); font-size:0.72rem; color:var(--text2); }
+.stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); gap:13px; margin-bottom:22px; }
+.stat-card { background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); padding:17px; backdrop-filter:blur(10px); transition:border-color 0.2s; }
+.stat-card:hover { border-color:var(--border-hover); }
+.stat-card .label { font-size:0.68rem; color:var(--text3); margin-bottom:7px; }
+.stat-card .value { font-size:1.35rem; font-weight:750; font-variant-numeric:tabular-nums; }
+.stat-card .value.green { color:var(--green); }
+.stat-card .value.red { color:var(--red); }
+.stat-card .value.amber { color:var(--amber); }
+.stat-card .value.grad { background:var(--grad-accent); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.stat-card .hint { font-size:0.66rem; color:var(--text3); margin-top:5px; }
+.card { background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; backdrop-filter:blur(10px); }
+.card h2 { font-size:0.92rem; margin-bottom:14px; display:flex; align-items:center; gap:9px; }
+.card h2 .line { flex:1; height:1px; background:var(--border); }
+.row { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:9px 0; border-top:1px solid var(--border); font-size:0.83rem; color:var(--text2); }
+.row:first-of-type { border-top:0; }
+.row .k { color:var(--text3); flex-shrink:0; }
+.row .v { text-align:right; overflow-wrap:anywhere; font-weight:550; color:var(--text); }
+.btn { padding:9px 17px; border-radius:9px; border:1px solid var(--border); background:var(--glass); color:var(--text); cursor:pointer; font-size:0.8rem; transition:all 0.2s; font-family:inherit; }
+.btn:hover { border-color:var(--border-hover); background:var(--glass-hover); }
+.btn-accent { border-color:var(--accent-border); background:var(--accent-soft); }
+.btn-ghost { background:transparent; }
+.btn-danger { border-color:rgba(248,113,113,0.4); color:var(--red); }
+.btn-group { display:flex; gap:9px; flex-wrap:wrap; }
+.mode-chip { padding:7px 15px; border-radius:999px; border:1px solid var(--border); background:var(--glass); color:var(--text2); font-size:0.76rem; cursor:pointer; transition:all 0.18s; font-family:inherit; }
+.mode-chip:hover { border-color:var(--border-hover); }
+.mode-chip.active { border-color:var(--accent); color:var(--text); background:var(--accent-soft); font-weight:600; box-shadow:0 0 12px var(--accent-glow); }
+.act-list { display:grid; gap:8px; }
+.act-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 13px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--glass); font-size:0.78rem; }
+.act-item .t { color:var(--text); font-weight:550; }
+.act-item .d { color:var(--text3); font-size:0.7rem; margin-top:2px; }
+.act-item .tm { color:var(--text3); font-size:0.68rem; flex-shrink:0; }
+.config-field { margin-bottom:13px; }
+.config-field label { display:block; font-size:0.74rem; color:var(--text3); margin-bottom:6px; }
+.config-field input, .config-field select {
+  width:100%; padding:9px 11px; border-radius:var(--radius-sm); border:1px solid var(--border);
+  background:rgba(255,255,255,0.04); color:var(--text); font-size:0.8rem; font-family:inherit;
+}
+.config-field input:focus { outline:none; border-color:var(--accent-border); }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">🎣</div>
+    <div>
+      <div class="sidebar-title">猫爪渔力陪玩</div>
+      <div class="sidebar-sub">neko_fishpower</div>
+    </div>
+  </div>
+  <div class="sidebar-status"><span class="dot" id="connDot"></span><span id="connText">未连接 mod</span></div>
+  <div class="nav-menu">
+    <div class="nav-section">面板</div>
+    <div class="nav-item active" data-tab="overview"><span class="icon">📊</span>总览</div>
+    <div class="nav-item" data-tab="activity"><span class="icon">📜</span>活动记录</div>
+    <div class="nav-item" data-tab="achievements"><span class="icon">🏆</span>成就</div>
+    <div class="nav-section">设置</div>
+    <div class="nav-item" data-tab="voice"><span class="icon">💬</span>口吻</div>
+    <div class="nav-item" data-tab="broadcast"><span class="icon">📢</span>播报</div>
+    <div class="nav-item" data-tab="llm"><span class="icon">🤖</span>LLM 配置</div>
+    <div class="nav-section">诊断</div>
+    <div class="nav-item" data-tab="diag"><span class="icon">🔧</span>测试</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <h1>🎣 猫爪渔力陪玩</h1>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="pill"><span id="dryPill">dry_run</span></div>
+      <button id="themeBtn" title="切换明暗主题" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--glass);color:var(--text2);cursor:pointer;font-size:0.95rem">🌙</button>
+    </div>
+  </div>
+
+  <!-- 总览 -->
+  <div class="tab" id="tab-overview">
+    <div class="stat-grid">
+      <div class="stat-card"><div class="label">当前状态</div><div class="value" id="stPhase">—</div><div class="hint">钓鱼阶段</div></div>
+      <div class="stat-card"><div class="label">所在岛屿</div><div class="value" id="stIsland">—</div><div class="hint">当前水域</div></div>
+      <div class="stat-card"><div class="label">金币</div><div class="value gold" id="stMoney">—</div><div class="hint">钱包</div></div>
+      <div class="stat-card"><div class="label">图鉴</div><div class="value grad" id="stJournal">—</div><div class="hint">收集进度</div></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="label">当前鱼饵</div><div class="value" id="stBait">—</div><div class="hint">正在用的饵</div></div>
+      <div class="stat-card"><div class="label">手持</div><div class="value" id="stHeld">—</div><div class="hint">当前物品</div></div>
+      <div class="stat-card"><div class="label">Boss</div><div class="value" id="stBoss">—</div><div class="hint">Boss 血量</div></div>
+      <div class="stat-card"><div class="label">赌场</div><div class="value" id="stBet">—</div><div class="hint">下注状态</div></div>
+    </div>
+    <div class="card">
+      <h2>🐟 最近渔获 <span class="line"></span></h2>
+      <div id="lastCatch">还没有渔获记录喵~</div>
+    </div>
+    <div class="card">
+      <h2>🐱 猫娘 <span class="line"></span></h2>
+      <div id="catgirlInfo">—</div>
+    </div>
+  </div>
+
+  <!-- 活动记录 -->
+  <div class="tab" id="tab-activity" style="display:none">
+    <div class="card">
+      <h2>📜 最近活动 <span class="line"></span></h2>
+      <div class="act-list" id="activityList"></div>
+    </div>
+  </div>
+
+  <!-- 成就 -->
+  <div class="tab" id="tab-achievements" style="display:none">
+    <div class="card">
+      <h2>🏆 成就（游戏 + 插件里程碑） <span class="line"></span></h2>
+      <div class="act-list" id="achievementList"></div>
+    </div>
+  </div>
+
+  <!-- 口吻 -->
+  <div class="tab" id="tab-voice" style="display:none">
+    <div class="card">
+      <h2>💬 播报口吻（可多选融合） <span class="line"></span></h2>
+      <div class="btn-group" id="voiceChips"></div>
+    </div>
+  </div>
+
+  <!-- 播报 -->
+  <div class="tab" id="tab-broadcast" style="display:none">
+    <div class="card">
+      <h2>📢 播报开关 <span class="line"></span></h2>
+      <div class="row"><span class="k">dry_run（只跑链路不真播报）</span><button class="btn btn-accent" id="dryBtn">切换</button></div>
+      <div class="row"><span class="k">频率</span><span class="v" id="freqText">—</span></div>
+      <div class="btn-group" style="margin-top:8px" id="freqChips"></div>
+      <div class="row" style="margin-top:14px"><span class="k">类别开关</span><span class="v" id="catText">—</span></div>
+      <div class="btn-group" style="margin-top:8px" id="catChips"></div>
+    </div>
+  </div>
+
+  <!-- LLM 配置 -->
+  <div class="tab" id="tab-llm" style="display:none">
+    <div class="card">
+      <h2>🤖 LLM 配置（配置后深度回答，未配置自动降级模板） <span class="line"></span></h2>
+      <div class="config-field"><label>Provider</label><input id="llmProvider" placeholder="openai / deepseek / anthropic / gemini"></div>
+      <div class="config-field"><label>Model</label><input id="llmModel" placeholder="模型名"></div>
+      <div class="config-field"><label>API Key</label><input id="llmKey" type="password" placeholder="sk-..."></div>
+      <div class="config-field"><label>Base URL</label><input id="llmBase" placeholder="https://api.xxx.com/v1"></div>
+      <div class="btn-group">
+        <button class="btn btn-accent" onclick="saveLlm()">💾 保存</button>
+        <button class="btn btn-ghost" onclick="clearLlm()">清空（降级模板）</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 诊断 -->
+  <div class="tab" id="tab-diag" style="display:none">
+    <div class="card">
+      <h2>🔧 测试 <span class="line"></span></h2>
+      <div class="btn-group">
+        <button class="btn btn-accent" onclick="callEntry('test_say',{})">测试开口</button>
+        <button class="btn btn-danger" onclick="callEntry('pause',{})">急停</button>
+        <button class="btn" onclick="callEntry('resume',{})">恢复</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let state = { connected:false, dry_run:true, state:{}, activity:[], achievements:[], catgirl:{}, theme:'dark' };
+const VOICE_STYLES = { default:"自然", tsundere:"傲娇", yandere:"病娇", loli:"萝莉", onee:"御姐", genki:"元气", cold:"冰山", chatty:"话痨", gentle:"温柔", playful:"调皮", strict:"严厉", quiet:"安静", kuudere:"三无", sister:"妹系", ojousama:"大小姐" };
+const CATS = { caught:"钓鱼", casino:"赌场", grill:"烤鱼", boss:"Boss", journal:"图鉴", lifecycle:"启停", chatter:"闲聊" };
+const FREQS = { quiet:"安静", standard:"标准", active:"活跃" };
+
+// ── 明暗主题：localStorage 即时 + 后端持久化（ui_settings.theme） ──
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');
+  document.getElementById('themeBtn').textContent = t==='light' ? '☀️' : '🌙';
+}
+function loadTheme(){
+  const saved = localStorage.getItem('fishpower_theme');
+  if (saved === 'light' || saved === 'dark') { applyTheme(saved); return saved; }
+  applyTheme('dark'); return 'dark';
+}
+async function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  applyTheme(cur);
+  localStorage.setItem('fishpower_theme', cur);
+  state.theme = cur;
+  callEntry('set_theme', {theme: cur});  // 后端持久化（ui_settings.json）
+}
+
+function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── 后端 entry 调用（宿主 /runs 接口：POST 建 run → 轮询状态 → export 取结果，照 pawpilot） ──
+const PLUGIN_ID = 'neko_fishpower', RUNS_URL = '/runs', POLL_MS = 300, TIMEOUT_MS = 10000;
+function delay(ms) { return new Promise(r=>setTimeout(r,ms)); }
+async function callEntry(eid, p, timeoutMs) {
+  try {
+    var r = await fetch(RUNS_URL, { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ plugin_id: PLUGIN_ID, entry_id: eid, args: p || {} }) });
+    if (!r.ok) return {};
+    var d = await r.json(), rid = d.run_id;
+    if (!rid) return {};
+    var dl = Date.now() + (timeoutMs || TIMEOUT_MS);
+    while (Date.now() < dl) {
+      var p2 = await fetch(RUNS_URL + '/' + rid);
+      if (!p2.ok) { await delay(POLL_MS); continue; }
+      var rec = await p2.json();
+      if (rec.status === 'succeeded') {
+        var e = await fetch(RUNS_URL + '/' + rid + '/export');
+        if (!e.ok) { await delay(POLL_MS); continue; }
+        var ed = await e.json(), items = ed.items || [];
+        var ti = items.find(x=>x.label==='trigger_response') || items.find(x=>x.type==='json'&&x.json) || items[0] || {};
+        var jd = ti.json || {}, pr = jd.plugin_response || jd;
+        if (pr && typeof pr==='object' && pr.success !== undefined) {
+          var a = pr.data;
+          while (a && typeof a==='object' && !Array.isArray(a) && Object.keys(a).length===1 && a.value!==undefined) a = a.value;
+          return a || {};
+        }
+        return pr || {};
+      }
+      if (rec.status === 'failed' || rec.status === 'canceled' || rec.status === 'cancelled') return {};
+      await delay(POLL_MS);
+    }
+  } catch (e) { /* 忽略 */ }
+  return {};
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(t => t.style.display = t.id==='tab-'+tab ? '' : 'none');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.tab===tab));
+}
+
+async function refresh(){
+  const r = await callEntry('get_panel_state', {});
+  if (!r || typeof r !== 'object' || Array.isArray(r) || !('connected' in r)) return;
+  state = r;
+  // 后端持久化的主题优先（localStorage 兜底）
+  if (r.theme) { applyTheme(r.theme); localStorage.setItem('fishpower_theme', r.theme); }
+  else { loadTheme(); }
+  const st = r.state||{};
+  const conn = r.connected;
+  document.getElementById('connDot').className = 'dot ' + (conn?'on':'off');
+  document.getElementById('connText').textContent = conn ? '已连接 mod' : (r.telemetry||'未连接 mod');
+  document.getElementById('dryPill').textContent = r.dry_run ? 'dry_run（试运行）' : '正式播报';
+  // 状态卡
+  const phaseMap = { idle:'待机', casting:'抛竿', waiting:'等待', bite:'咬钩！', reeling:'收线', caught:'上钩' };
+  document.getElementById('stPhase').textContent = phaseMap[st.phase]||st.phase||'—';
+  document.getElementById('stIsland').textContent = st.island||'—';
+  document.getElementById('stMoney').textContent = st.money!=null?st.money:'—';
+  document.getElementById('stJournal').textContent = st.journal_total ? (st.journal_count+'/'+st.journal_total) : '—';
+  document.getElementById('stBait').textContent = st.bait||'—';
+  document.getElementById('stHeld').textContent = st.held||'—';
+  document.getElementById('stBoss').textContent = st.boss_active ? (st.boss_hp+'/'+st.boss_max_hp) : '—';
+  document.getElementById('stBet').textContent = st.betting ? ('押 '+st.bet_color) : '—';
+  // 渔获
+  const lc = r.last_catch;
+  document.getElementById('lastCatch').innerHTML = lc
+    ? '🎣 '+escHtml(lc.fish)+' · '+lc.weight+'kg · '+lc.worth+' 金币'+(lc.rarity?' · '+escHtml(lc.rarity):'')+(lc.shiny?' · 🌈':'')
+    : '还没有渔获记录喵~';
+  // 猫娘
+  const cg = r.catgirl||{};
+  document.getElementById('catgirlInfo').innerHTML =
+    '名字：'+escHtml(cg.name||'—')+' ｜ 称呼：'+escHtml(cg.user_call||'—')+' ｜ 口吻：'+
+    escHtml((cg.voice_labels||[]).join('、')||'—');
+  // 活动
+  const act = r.activity||[];
+  document.getElementById('activityList').innerHTML = act.length
+    ? act.map(a=>'<div class="act-item"><div><div class="t">'+escHtml(a.title)+'</div><div class="d">'+escHtml(a.detail||'')+'</div></div><span class="tm">'+escHtml(a.time)+'</span></div>').join('')
+    : '<div class="act-item"><div class="t">暂无活动</div></div>';
+  // 成就
+  const ach = r.achievements||[];
+  document.getElementById('achievementList').innerHTML = ach.length
+    ? ach.map(a=>'<div class="act-item"><div class="t">🏆 '+escHtml(a.name)+'</div><div class="d">'+escHtml(a.key)+'</div></div>').join('')
+    : '<div class="act-item"><div class="t">还没有解锁成就喵~ 多钓鱼多赌鱼就有了！</div></div>';
+  // 频率/类别
+  document.getElementById('freqText').textContent = FREQS[r.broadcast_frequency]||r.broadcast_frequency;
+  renderFreqChips(r.broadcast_frequency);
+  renderCatChips(r.broadcast_categories||{});
+  renderVoiceChips(cg.voice_styles||[]);
+}
+
+function renderFreqChips(cur){
+  const wrap = document.getElementById('freqChips');
+  wrap.innerHTML = Object.keys(FREQS).map(f=>
+    '<button class="freq-chip'+(f===cur?' active':'')+'" onclick="setFreq(\''+f+'\')">'+FREQS[f]+'</button>').join('');
+}
+async function setFreq(f){ await callEntry('set_frequency',{frequency:f}); setTimeout(refresh,500); }
+
+function renderCatChips(cats){
+  const wrap = document.getElementById('catChips');
+  wrap.innerHTML = Object.keys(CATS).map(k=>
+    '<button class="mode-chip'+(cats[k]?' active':'')+'" onclick="setCat(\''+k+'\','+(cats[k]?0:1)+')">'+CATS[k]+'</button>').join('');
+  document.getElementById('catText').textContent = Object.keys(CATS).filter(k=>cats[k]).map(k=>CATS[k]).join('、')||'（全关）';
+}
+async function setCat(k,v){ await callEntry('set_category',{category:k,enabled:!!v}); setTimeout(refresh,500); }
+
+function renderVoiceChips(cur){
+  const wrap = document.getElementById('voiceChips');
+  const list = Array.isArray(cur)?cur:[];
+  wrap.innerHTML = Object.keys(VOICE_STYLES).map(k=>
+    '<button class="mode-chip'+(list.includes(k)?' active':'')+'" onclick="toggleVoice(\''+k+'\')">'+VOICE_STYLES[k]+'</button>').join('');
+}
+async function toggleVoice(k){
+  const cur = (state.catgirl&&state.catgirl.voice_styles)||['default'];
+  const next = cur.includes(k) ? cur.filter(x=>x!==k) : [...cur, k];
+  if (!next.length) next.push('default');
+  await callEntry('set_voice_style',{styles:next});
+  setTimeout(refresh,500);
+}
+
+async function saveLlm(){
+  const cfg = { provider:document.getElementById('llmProvider').value.trim(),
+                model:document.getElementById('llmModel').value.trim(),
+                api_key:document.getElementById('llmKey').value.trim(),
+                base_url:document.getElementById('llmBase').value.trim() };
+  await callEntry('save_llm_config',{config:cfg});
+  alert('已保存喵');
+}
+async function clearLlm(){
+  await callEntry('save_llm_config',{config:{provider:'',model:'',api_key:'',base_url:''}});
+  ['llmProvider','llmModel','llmKey','llmBase'].forEach(id=>document.getElementById(id).value='');
+  alert('已清空，降级为模板喵');
+}
+async function loadLlm(){
+  const r = await callEntry('get_llm_config',{});
+  if (!r || !r.config) return;
+  document.getElementById('llmProvider').value = r.config.provider||'';
+  document.getElementById('llmModel').value = r.config.model||'';
+  document.getElementById('llmKey').value = r.config.api_key||'';
+  document.getElementById('llmBase').value = r.config.base_url||'';
+}
+
+document.querySelectorAll('.nav-item').forEach(n=>n.addEventListener('click',()=>switchTab(n.dataset.tab)));
+document.getElementById('dryBtn').addEventListener('click', async ()=>{
+  await callEntry('set_dry_run',{value:!state.dry_run}); setTimeout(refresh,500);
+});
+document.getElementById('themeBtn').addEventListener('click', toggleTheme);
+loadTheme();
+switchTab('overview');
+refresh();
+loadLlm();
+// 低频轮询（照小游戏插件）：3s + 动作后即时刷新
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

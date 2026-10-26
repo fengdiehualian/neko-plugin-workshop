@@ -1,0 +1,52 @@
+[plugin]
+id = "minecraft_autonomous"
+name = "Minecraft Autonomous / 我的世界自主生存 / マインクラフト自律サバイバル"
+version = "0.6.109"
+type = "plugin"
+entry = "plugin.plugins.minecraft_autonomous:MinecraftAutonomousPlugin"
+description = "Minecraft Java 1.21.1 自主游玩。完整离线包自带运行环境、3D观战、贴图、音效音乐与YUI模型；复用Neko官方模型绑定和当前猫娘声音，连接本人服务器后显式开始。独立框架负责规划与原生队列，服务器扩展按实际数据启用。"
+short_description = "Minecraft 1.21.1 自主游玩与猫娘解说"
+keywords = ["Minecraft", "我的世界", "自主生存"]
+
+[plugin.author]
+name = "jcs130"
+url = "https://github.com/jcs130"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.models.decision]
+label = "Minecraft autonomous decisions / 我的世界自主决策"
+required = false
+capabilities = ["text", "tool_calling"]
+
+[plugin.models.vision]
+label = "Optional Minecraft vision / 可选图像决策（可绑定同一个多模态模型）"
+required = false
+capabilities = ["text", "image_input", "tool_calling"]
+
+[plugin.models.fast]
+label = "Optional fast focus / 可选快速选择（聊天模型槽）"
+required = false
+capabilities = ["text", "tool_calling"]
+
+[plugin.ui]
+enabled = true
+expose_legacy_static_panel = false
+
+[[plugin.ui.panel]]
+id = "main"
+title = "配置与控制"
+entry = "ui/panel.tsx"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.panel]]
+id = "viewer"
+title = "观战与状态"
+mode = "static"
+entry = "static/index.html"
+open_in = "iframe"
+context = "dashboard"
+permissions = ["state:read"]

@@ -1,0 +1,25 @@
+# 这是本插件运行配置的初始模板。
+#
+# N.E.K.O 第一次需要运行配置时，会把这份文件复制到
+#   %LOCALAPPDATA%\N.E.K.O\plugins\agent_bridge\config\plugin.toml
+# 之后**用户实际使用的是那一份**。以后再改这个模板，不会覆盖已经存在的用户配置。
+#
+# 所以：想调整行为请改用户数据目录里的 config/plugin.toml，不是这里。
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[bridge]
+default_timeout_seconds = 600
+max_timeout_seconds = 3600
+max_output_bytes = 400000
+default_cwd = ""
+audit_log = ""
+allow_parallel = true
+max_parallel = 4
+
+# 按需覆盖单个 Agent：
+# [bridge.agents.dsh]
+# enabled = true
+# timeout_seconds = 900

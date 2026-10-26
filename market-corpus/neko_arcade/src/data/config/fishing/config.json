@@ -1,0 +1,13 @@
+{
+  "base_catch_rate": 0.2,
+  "daily_casts": 5,
+  "tank": {
+    "default_capacity": 5,
+    "upgrade_size": 5,
+    "extra_casts": 2,
+    "max_level": 10,
+    "upgrade_cost_base": 300,
+    "upgrade_cost_growth": 1.6
+  },
+  "max_cast_per_command": 10
+}

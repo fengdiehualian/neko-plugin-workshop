@@ -1,0 +1,56 @@
+[plugin]
+id = "ai_learns_to_drive"
+name = "学车助手"
+description = "《AI Learns To Drive》陪玩插件：读取/修改进化超参数（变异率、选择压力、奖励权重、种群大小），检查神经网络基因组，按训练曲线给出下一步调参建议，并能在两次游戏运行之间自动落盘。只读写游戏自己的 gzip+JSON 存档，不注入进程、不模拟输入。每次写入前自动备份。"
+short_description = "Companion for AI Learns To Drive: inspect genomes, tune evolution settings, closed-loop auto-tuning between runs."
+keywords = [
+    "AI Learns To Drive",
+    "AI Learns To Race",
+    "赛车",
+    "神经网络",
+    "进化算法",
+    "调参",
+    "训练",
+    "genome",
+    "training",
+]
+version = "0.1.0"
+type = "plugin"
+entry = "plugin.plugins.ai_learns_to_drive:AiLearnsToDrivePlugin"
+
+[plugin.author]
+name = "local"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+# ---------------------------------------------------------------------------
+# 业务配置：安装后这一段会被复制到用户数据目录 config/plugin.toml。
+# ---------------------------------------------------------------------------
+
+[ald]
+# 游戏用户目录。留空 = %APPDATA%\AI Learns To Drive
+user_dir = ""
+
+# 用来判断游戏是否在运行（运行时写设置会被游戏退出时覆盖，所以默认拒绝）。
+game_exe = "AI Learns To Drive.exe"
+
+# 游戏安装目录。留空 = 自动探测常见 Steam 路径（文件夹名是 AI Learns To Race）。
+game_dir = ""
+
+# 训练控制按键：toggle/start 发 run_key，stop 发 stop_key。
+run_key = "F5"
+stop_key = "Shift+F5"
+
+# 写盘总开关。关闭后所有修改类操作都会拒绝。
+allow_write = true
+
+# 自动巡航：游戏退出后读取最新训练曲线，给出/应用下一步参数。
+autopilot_enabled = false
+auto_apply_after_exit = true
+poll_seconds = 10

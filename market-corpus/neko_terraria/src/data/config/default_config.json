@@ -1,0 +1,20 @@
+{
+  "mod_host": "127.0.0.1",
+  "mod_port": 9877,
+  "server_host": "127.0.0.1",
+  "server_port": 7777,
+  "server_password": "",
+  "game_path": "",
+  "character_name": "Neko",
+  "window_hidden": false,
+  "llm_main_provider": "",
+  "llm_main_model": "",
+  "llm_main_api_key": "",
+  "llm_main_base_url": "",
+  "llm_intent_provider": "",
+  "llm_intent_model": "",
+  "llm_intent_api_key": "",
+  "llm_intent_base_url": "",
+  "llm_max_calls_per_minute": 15,
+  "llm_emergency_reserve": 3
+}

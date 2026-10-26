@@ -1,0 +1,58 @@
+{
+  "image": "juzi-expressions.png",
+  "artSet": "concept-v2",
+  "integratedFloat": true,
+  "frames": [
+    {
+      "name": "idle",
+      "x": 34,
+      "y": 59,
+      "width": 600,
+      "height": 675
+    },
+    {
+      "name": "impact",
+      "x": 711,
+      "y": 59,
+      "width": 600,
+      "height": 675
+    },
+    {
+      "name": "rebound",
+      "x": 1388,
+      "y": 59,
+      "width": 600,
+      "height": 675
+    }
+  ],
+  "drawBox": {
+    "x": -45.7252,
+    "y": -84.7328,
+    "width": 91.6031,
+    "height": 103.0534
+  },
+  "pixelGrid": {
+    "width": 80,
+    "height": 90
+  },
+  "portraitBox": {
+    "x": 2,
+    "y": 0,
+    "width": 76,
+    "height": 76
+  },
+  "portraitResolution": 64,
+  "hud": {
+    "healthY": -100,
+    "nameY": 26
+  },
+  "collisionRadius": 40,
+  "floatReference": {
+    "diameterInSource": 524,
+    "centerInFirstFrame": {
+      "x": 299.5,
+      "y": 555
+    },
+    "diameterInWorld": 80
+  }
+}

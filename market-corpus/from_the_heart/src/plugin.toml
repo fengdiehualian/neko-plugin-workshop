@@ -1,0 +1,18 @@
+[plugin]
+id = "from_the_heart"
+name = "从心开始桥接"
+description = "为《从心开始》提供受控对话槽位桥接。"
+version = "0.1.0"
+type = "plugin"
+entry = "plugin.plugins.from_the_heart:FromTheHeartPlugin"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = false
+
+[plugin_runtime]
+enabled = true
+auto_start = false

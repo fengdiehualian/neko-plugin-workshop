@@ -1,0 +1,67 @@
+[project]
+name = "sticker_manager"
+version = "0.9.5"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = []
+
+# 仅开发/测试依赖，不进运行时；插件本体零第三方依赖的原则不变
+[dependency-groups]
+dev = ["pytest>=8.0", "Pillow>=10.4,<13"]
+
+# 插件根目录自带 __init__.py（它是包本体不是测试），限定只收集 tests/。
+# importlib 导入模式是硬需求：官方市场 CI 会把插件挂到宿主包树内跑测试，
+# 默认 prepend 模式会把根 __init__.py 当包模块解析导致相对导入崩溃。
+# 运行方式：在插件根目录执行 ``uv run python -m pytest tests -q``
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+
+[tool.neko.build]
+# Keep market builds on the same runtime allow-list as tools/build_package.py.
+include = [
+    "__init__.py",
+    "plugin.toml",
+    "pyproject.toml",
+    "config.example.toml",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "MEDIA_NOTICE.md",
+    "core/*.py",
+    "services/*.py",
+    "i18n/*.json",
+    "ui/*.ts",
+    "ui/*.tsx",
+    "ui/components/*.tsx",
+    "official/official_pack.zip.parts.json",
+    "official/official_pack.zip.part[0-9][0-9][0-9]",
+]
+exclude_dirs = [
+    ".github",
+    ".git",
+    ".vscode",
+    ".venv",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".benchmarks",
+    ".mypy_cache",
+    "node_modules",
+    "dist",
+    "build",
+    "__pycache__",
+    "tests",
+    # 研究/方案文档（sticker-system-study 等）：开发期资产，不进发行包
+    "docs",
+    # 开发期工具（五门 release_gate）：依赖仓外宿主，运行时零引用，不进发行包
+    "tools",
+    # 本机 TEMP 对策的落盘目录（pytest basetemp）：任何情况下不得进包
+    ".tmpgate",
+]
+exclude_files = [
+    ".gitignore",
+    "uv.lock",
+    "ruff.toml",
+    "DESIGN.md",
+    "CHANGELOG.md",
+]

@@ -1,0 +1,140 @@
+[plugin]
+id = "source_player"
+name = "半条命 & 传送门 陪玩"
+description = "让 N.E.K.O 亲自玩《半条命》全系列与《传送门》全系列：主人先手动打开游戏，再说「去玩半条命重制版」「玩传送门2」，猫娘会识别当前游戏、截屏观察、制定并执行策略、主动解说判断，玩家可随时接手或让她停手。"
+short_description = "Catgirl plays Half-Life / Portal: sees the screen, plans out loud, yields to you."
+keywords = [
+    "半条命", "半衰期", "半条命重制版", "半条命2", "半条命二", "黑山", "黑山基地",
+    "针锋相对", "蓝色行动", "第一章", "第二章", "消失的海岸线",
+    "传送门", "传送门2", "传送门二", "portal", "portal2", "光圈科技",
+    "去玩", "开始玩", "陪我玩", "帮我玩", "你来玩", "你玩", "代打", "打通", "过关",
+    "别再玩", "别玩了", "停手", "停下", "暂停", "我来", "我接手", "让我来",
+    "继续", "接着玩", "你继续", "交给你", "接着打",
+    "往前走", "往右走", "往左走", "后退", "跳", "蹲下", "按e", "开门", "打",
+    "开火", "射击", "瞄准", "换弹", "手电", "重力枪", "蓝门", "橙门",
+    "现在在干嘛", "打到哪", "什么情况", "看到什么", "检查一下",
+    "half-life", "half life", "hl1", "hl2", "black mesa", "gameplay",
+    "play", "autoplay", "autopilot", "take over", "stop",
+]
+
+version = "1.0.0"
+type = "plugin"
+entry = "plugin.plugins.source_player:SourcePlayerPlugin"
+
+[plugin.author]
+name = "呆萌貔貅"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+# Manual start: enabling the plugin must not hijack the keyboard or begin
+# playing.  The user (or the dialog LLM) calls source_play.
+auto_start = false
+
+# The plugin keeps no persistent key/value data, so [plugin.store] is omitted on
+# purpose: only declare capabilities the plugin actually uses.
+#
+# Entries carry @ui.action metadata for the Plugin Center's action list.  No
+# hosted TSX surface is shipped, so no compiled UI bundle is required.
+[plugin.ui]
+enabled = true
+
+# ---------------------------------------------------------------------------
+# Plugin configuration.
+#
+# The table is named [source] rather than [source_player] on purpose: a table
+# whose name equals the plugin id is migrated into the distribution profile as
+# plugin config, while any other top-level table stays in plugin.toml and is
+# what `plugin.config.dump()` returns.  This mirrors the shipped game plugins.
+# ---------------------------------------------------------------------------
+[source]
+# auto | dxgi | gdi | pil
+#
+# dxgi is our own pure-ctypes Desktop Duplication implementation; it sees
+# exclusive-fullscreen Source games without OpenCV.  GDI is the always-available
+# fallback for windowed/borderless.  A failing backend is quarantined and the
+# next candidate is used.
+capture_backend = "auto"
+capture_monitor = 0
+
+# Smallest believable game window/frame.  A minimised window is parked near
+# (-32000, -32000) with an icon-sized rectangle; cropping to it yields a 1x1
+# image that still looks bright, so it must be rejected explicitly.
+min_capture_edge = 160
+
+# Autopilot cadence and screenshot streaming.
+target_fps = 4.0
+frame_max_edge_px = 1024
+frame_jpeg_quality = 75
+# Raw JPEG byte budget per pushed frame (the wire format base64-encodes it).
+frame_max_bytes = 102400
+stream_frames_to_llm = true
+frame_stream_interval_seconds = 8.0
+# Proactive "here is what I see / here is what I will do" turns.  Each one is a
+# real LLM turn, so keep it comfortable.
+commentary_interval_seconds = 25.0
+problem_cooldown_seconds = 60.0
+
+# Refuse to inject input unless the game window is the foreground window.
+require_foreground = true
+
+# false = enabling the plugin does not start playing; use source_play.
+autopilot_enabled = false
+autopilot_tick_seconds = 0.35
+
+# true = watch and narrate only, never press a key.  Useful for a first run.
+dry_run = false
+
+# The game is opened BY HAND.  This plugin never starts a game on its own: the
+# loop waits, and begins as soon as it sees the selected game's window.
+# Hard stop so an unattended session cannot run forever.
+max_session_minutes = 45.0
+
+# Consecutive all-black frames before the plugin refuses to press keys.
+blind_frame_limit = 8
+
+# Mouse-look calibration.  Source computes yaw as dx * sensitivity * m_yaw;
+# the reference machine's configs use sensitivity 3 and m_yaw 0.022, i.e.
+# 15.15 counts per degree.  Closed-loop aiming tolerates an imperfect value.
+# If turns overshoot, raise this; if they undershoot, lower it.
+look_units_per_degree = 15.15
+horizontal_fov = 90.0
+vertical_fov = 59.0
+invert_y = false
+
+# "Jump in and play together": if the player presses WASD/fire/E etc. (keys the
+# plugin is not holding), the catgirl releases everything and watches.  After
+# this many idle seconds she resumes automatically.  F8 is a hard pause that
+# only "继续"/source_resume/F8 clears.
+yield_on_human_input = true
+human_input_grace_seconds = 12.0
+pause_hotkey_enabled = true
+
+# If the game shows a pause menu (cursor visible) without the player touching
+# the controls, press Escape once to resume.  Never clicks "New Game".
+auto_resume_from_menu = true
+menu_stable_ticks = 3
+
+# If true, the plugin refuses to play until it has actually seen gameplay
+# (cursor hidden).  This is what stops it from blindly clicking around a main
+# menu and starting a new game over the user's save.
+start_in_game_required = true
+
+# Default objective; can be overridden per game by source_play(objective=...).
+objective = ""
+plan_steps = []
+
+# Per-game key overrides.  Keys use the same names as Half-Life's config.cfg
+# (w/a/s/d/e/ctrl/space/r/f/mouse1/mouse2) and are applied on top of the
+# catalogue defaults.  Examples (uncomment to use):
+# forward = "w"
+# use = "e"
+# attack = "mouse1"
+[source.keys]

@@ -1,0 +1,161 @@
+{
+  "observation_id": "ffda7b79ccab",
+  "received_at": "2026-10-16T07:32:27.672Z",
+  "request": {
+    "operation": "query",
+    "arguments": {
+      "from": "thing_defs",
+      "select": {
+        "def_name": true,
+        "label": true
+      },
+      "limit": 100,
+      "where": {
+        "any": [
+          {
+            "def_name": {
+              "eq": "WoodLog",
+              "case_sensitive": false
+            }
+          },
+          {
+            "label": {
+              "eq": "WoodLog",
+              "case_sensitive": false
+            }
+          }
+        ]
+      },
+      "args": {
+        "exact_names": [
+          "WoodLog"
+        ]
+      }
+    }
+  },
+  "response": {
+    "v": 2,
+    "type": "query_result",
+    "connection_epoch": "014f0587813146bea9ab185cf128fee5",
+    "colony_id": "a1774b7b055f4f568f49ee12d164f29c",
+    "load_epoch": "573194022b294cee9073557be1d0bd60",
+    "seq": 13,
+    "request_id": "259fc102fa1f43128718e1c225dcc761",
+    "game_tick": 150001,
+    "snapshot_sequence": 3,
+    "payload": {
+      "status": "partial",
+      "data": {
+        "results": [
+          {
+            "scan_complete": false,
+            "matched_count": null,
+            "known_matches": 0,
+            "page": {
+              "offset": 0,
+              "returned": 0,
+              "has_more": null,
+              "next_offset": null,
+              "consistency": "fresh_observation"
+            },
+            "rows": [],
+            "fields_complete": true,
+            "from": "thing_defs",
+            "scope": {
+              "args": {
+                "exact_names": [
+                  "WoodLog"
+                ]
+              },
+              "description": "Loaded ThingDef definitions, not physical quantities. Filter on declared native properties, not label substring alone. The resolved args and requested where below define this reading; completeness is per aggregate/collection.",
+              "argument_semantics": {
+                "exact_names": "Exact canonical defName OR current localized label, case-insensitive. Retains every matching definition (including ambiguities); duplicates do not duplicate rows. Does not assert any physical instance exists."
+              },
+              "where": {
+                "any": [
+                  {
+                    "def_name": {
+                      "eq": "WoodLog",
+                      "case_sensitive": false
+                    }
+                  },
+                  {
+                    "label": {
+                      "eq": "WoodLog",
+                      "case_sensitive": false
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "relation_semantics": {},
+        "sample": {
+          "load_epoch": "573194022b294cee9073557be1d0bd60",
+          "game_tick": 150001,
+          "sequence": 3,
+          "started_tick": 150001,
+          "finished_tick": 150001,
+          "atomic": false,
+          "meaning": "Cooperative game-thread reads over this interval; retained object handles are released on completion. Enumeration and values are not an atomic world snapshot."
+        }
+      },
+      "issues": [
+        {
+          "code": "deadline_exceeded",
+          "path": [
+            "results",
+            "0"
+          ],
+          "message": "The game read deadline was reached; narrow the query."
+        }
+      ],
+      "execution": {
+        "schema_id": "cefe168392536c8a97960caee07fab0c641362c6c929649e030ca86d6c1b7446",
+        "contract": "public_query.v2",
+        "requests": [
+          {
+            "from": "thing_defs",
+            "select": {
+              "def_name": true,
+              "label": true
+            },
+            "limit": 100,
+            "where": {
+              "any": [
+                {
+                  "def_name": {
+                    "eq": "WoodLog",
+                    "case_sensitive": false
+                  }
+                },
+                {
+                  "label": {
+                    "eq": "WoodLog",
+                    "case_sensitive": false
+                  }
+                }
+              ]
+            },
+            "args": {
+              "exact_names": [
+                "WoodLog"
+              ]
+            }
+          }
+        ],
+        "phases": [
+          {
+            "path": "/results/0",
+            "scan_ms": 40.3358,
+            "aggregate_ms": 6.018500000000003,
+            "output_ms": 5.660400000000003,
+            "known_matches": 0,
+            "returned": 0
+          }
+        ]
+      }
+    }
+  }
+}

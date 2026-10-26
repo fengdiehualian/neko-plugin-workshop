@@ -1,0 +1,98 @@
+[plugin]
+id = "sp2_copilot"
+name = "和猫娘一起开飞机(简单飞机2副驾驶)"
+description = "连接《简单飞机2 SimplePlanes 2》，让猫娘坐在右座当副驾驶：读仪表（空速、高度、升降率、航向姿态、迎角、G 值、马赫数）、判飞行阶段（滑行/起飞/爬升/巡航/下降/进近）、扫告警（失速、超速、过载、地形接近、起落架与襟翼超速、发动机停车、低油量）、跑检查单、做导航引导（航向偏差、距离、预计到达）。纯只读，不会碰你的操纵杆，也不接管任何操作。需要先在游戏里安装配套的 SP2-Bridge 模组（默认监听 127.0.0.1:21580），协议见 docs/bridge-protocol.md。"
+short_description = "让猫娘给你当副驾驶：读仪表、报检查单、扫告警、做导航，全程只读不动手"
+keywords = [
+    "简单飞机", "简单飞机2", "SimplePlanes", "SimplePlanes 2", "SP2", "Jundroo",
+    "飞行", "飞机", "模拟器", "副驾驶", "copilot", "仪表", "检查单", "告警",
+    "失速", "进近", "着陆", "导航", "航向", "遥测", "游戏",
+    "flight simulator", "aviation", "attitude", "airspeed", "checklist", "glideslope", "telemetry"
+]
+version = "0.2.1"
+type = "plugin"
+entry = "plugin.plugins.sp2_copilot:Sp2CopilotPlugin"
+
+[plugin.author]
+name = "星河拓航Studio"
+email = "contact@xhth.top"
+url = "https://xhth.top/"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+# ---------------------------------------------------------------------------
+# 副驾驶仪表盘（Hosted UI）
+#
+# 面板是 hosted-tsx surface：它只通过 props.api.call 调插件入口，所以
+# permissions 必须同时给出 action:call（调动作）和 state:read（读面板快照），
+# 少一个按钮就会变成 403；config:read 让面板能读到配置快照。
+#
+# context 指向 ui_api.py 里的 @ui.context(id="dashboard")。host 在每次执行
+# 面板动作前都会取一次这个 provider（用它拿动作白名单），所以两边 id 必须一致。
+# ---------------------------------------------------------------------------
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "dashboard"
+title = "副驾驶仪表盘"
+entry = "ui/panel.tsx"
+mode = "hosted-tsx"
+context = "dashboard"
+permissions = ["state:read", "config:read", "action:call"]
+
+# 上手指南复用面板的 context：markdown 表面不需要自己的 provider，
+# 复用同一个可以少一条 "UI context not found" 警告。
+[[plugin.ui.guide]]
+id = "guide"
+title = "上手指南"
+entry = "docs/guide.md"
+context = "dashboard"
+permissions = ["state:read"]
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[sp2_copilot]
+# SP2-Bridge 模组在游戏内监听的地址。
+# 注意：改端口要改两处 —— 模组侧的配置和这里的 bridge_url，
+# 只改一处两边就连不上了。模组侧改完需要重启游戏。
+# 端口占用参考：juno_bridge=21577、sfs_bridge=21578、ksp_bridge=21579。
+bridge_url = "http://127.0.0.1:21580"
+
+# 单次请求超时（秒），范围 3-60。
+# SP2 在加载存档、切场景、进入/退出设计器，或多人联机卡顿时可能慢一拍；
+# 机器较慢可以调大。
+timeout_seconds = 12
+
+# 仪表盘自动刷新间隔（秒），范围 1-30。
+# 只影响面板轮询频率，不影响对话里的工具调用。调小更实时、调大更省资源。
+poll_interval_seconds = 3
+
+# 自动播报：游戏在跑的时候，插件会自己在后台读仪表，把最新状态塞进角色
+# 的上下文里（ai_behavior="read"，不会打断对话，主人下次开口时角色自然
+# 就知道飞机什么状况），这样角色不用等你开口才去调工具。
+# 关掉它就退回旧的「问答式」行为：只有你问了才读。
+auto_brief_enabled = true
+
+# 自动播报的轮询间隔（秒），范围 5-120。
+# 同一时刻队列里只保留最新一条（coalesce），所以调小不会把上下文撑爆，
+# 只是更费一点本机 CPU。坠机/失速这种突变最迟一个间隔内就会被播报。
+auto_brief_interval_seconds = 20
+
+# 告警阈值（以下都是「低于/高于多少就该提醒」的判定线，可按需调整）
+# 近地告警：离地高度低于多少米且仍在下降，就报警，范围 30-1000。
+terrain_warning_agl_m = 300
+# 下降率告警：离地高度低于 terrain_warning_agl_m 时，下降率超过多少 m/s 报警，范围 1-30。
+sink_rate_warning_mps = 6.0
+# 坡度告警：滚转角绝对值超过多少度报警，范围 15-90。
+bank_warning_deg = 45.0
+# 低油量告警：剩余油量百分比低于多少报警，范围 1-50。
+low_fuel_warning_percent = 20.0
+# 迎角告警：迎角超过多少度提醒接近失速，范围 5-30。
+aoa_warning_deg = 12.0
+# 超速预警：空速达到 Vne 的百分之多少就提前提醒（机体没给 Vne 时本项不生效），范围 50-100。
+overspeed_warning_ratio = 0.9

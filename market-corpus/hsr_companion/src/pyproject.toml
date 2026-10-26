@@ -1,0 +1,12 @@
+[project]
+name = "neko-hsr-companion"
+version = "0.9.6"
+requires-python = ">=3.11"
+license = "AGPL-3.0-only"
+
+[tool.neko.build]
+exclude_dirs = [".ruff_cache", ".pytest_tmp*", "tests", "scripts", "experiments"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

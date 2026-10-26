@@ -1,0 +1,17 @@
+[plugin]
+id = "dsh_bridge"
+name = "DSH 播报桥"
+type = "plugin"
+description = "接收 DeepSeek Harness 推送的文字，交给猫娘精简后念出来。本插件只负责搬运与下命令，精简与朗读由角色完成。"
+short_description = "Bridge that hands DeepSeek Harness output to the companion to summarize and read aloud."
+keywords = ["dsh", "deepseek", "harness", "播报", "朗读", "bridge", "桥"]
+version = "0.1.1"
+entry = "plugin.plugins.dsh_bridge:DshBridgePlugin"
+passive = true
+
+[plugin.author]
+name = "qmzn0032"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"

@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>喵宇宙社区聊天 · YUI</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:"Microsoft YaHei",system-ui,sans-serif; }
+  body { height:100vh; background:#f4f5f7; overflow:hidden; }
+  #app { display:flex; height:100vh; }
+  /* 左侧 */
+  #sidebar { width:212px; background:#2b2f3a; color:#cfd3dc; display:flex; flex-direction:column; }
+  #sidebar .brand { padding:16px 14px; font-size:14px; font-weight:600; color:#fff; border-bottom:1px solid #3a3f4d; }
+  #sidebar .brand small { display:block; color:#8a90a0; font-weight:400; margin-top:3px; font-size:11px; }
+  #sidebar .item { padding:11px 14px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:8px; }
+  #sidebar .item.active { background:#3d4352; color:#fff; }
+  #sidebar .item .dot { width:6px; height:6px; border-radius:50%; background:#4caf50; }
+  #sidebar .peerCount { margin-left:auto; font-size:11px; color:#8a90a0; }
+  /* 主区 */
+  #main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  #header { height:52px; background:#fff; border-bottom:1px solid #e3e5e8; display:flex; align-items:center; padding:0 16px; gap:10px; }
+  #header .avatar { width:34px; height:34px; border-radius:8px; background:linear-gradient(135deg,#7ec8ff,#b18cff); display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; }
+  #header .name { font-size:14px; font-weight:600; }
+  #header .status { font-size:11px; color:#8a90a0; }
+  #header .status.on { color:#4caf50; }
+  #messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .msg { display:flex; gap:8px; max-width:76%; }
+  .msg.user { align-self:flex-end; flex-direction:row-reverse; }
+  .msg.yui { align-self:flex-start; }
+  .msg.remote { align-self:flex-start; }
+  .msg .bubble { padding:9px 12px; border-radius:12px; font-size:13px; line-height:1.55; word-break:break-word; white-space:pre-wrap; }
+  .msg.user .bubble { background:#95ec69; }
+  .msg.yui .bubble { background:#fff; border:1px solid #e3e5e8; }
+  .msg.remote .bubble { background:#eef3fb; border:1px solid #d6e2f5; }
+  .msg .meta { font-size:10px; color:#a2a6ad; align-self:flex-end; }
+  .msg .tag { font-size:10px; padding:1px 6px; border-radius:8px; align-self:flex-end; }
+  .msg .recallBtn { font-size:10px; color:#f87171; cursor:pointer; align-self:flex-end; padding:1px 6px; border:1px solid #fecaca; border-radius:8px; }
+  .msg .recallBtn:hover { background:#fef2f2; }
+  .msg .bubble.recalled { color:#a2a6ad; background:#f3f4f6; border:1px dashed #d1d5db; font-style:italic; }
+  .msg.user .tag { background:#c8f7ab; color:#4a7a1f; }
+  .msg.remote .tag { background:#dbe7ff; color:#3a5fb0; }
+  .msg.yui .tag { background:#eceef1; color:#5f6672; }
+  #targetbar { display:flex; align-items:center; gap:8px; padding:6px 16px 0; font-size:11px; color:#7c828c; }
+  #targetbar .t { cursor:pointer; color:#3a5fb0; border-bottom:1px dashed #3a5fb0; }
+  #targetbar .t:hover { color:#1f3f8a; }
+  #inputbar { display:flex; gap:10px; padding:10px 16px 12px; background:#fff; border-top:1px solid #e3e5e8; }
+  #input { flex:1; border:1px solid #d9dce1; border-radius:8px; padding:10px 12px; font-size:13px; outline:none; resize:none; height:42px; }
+  #send { width:76px; background:#5aa7ff; color:#fff; border:none; border-radius:8px; font-size:13px; cursor:pointer; }
+  #send:disabled { background:#c9d4e6; cursor:not-allowed; }
+  .tip { text-align:center; font-size:11px; color:#a2a6ad; margin:4px 0; }
+  /* 社区墙 */
+  #feedView { display:none; flex:1; overflow-y:auto; padding:16px; }
+  #postBox { display:flex; gap:8px; margin-bottom:12px; }
+  #postInput { flex:1; border:1px solid #d9dce1; border-radius:8px; padding:9px 12px; font-size:13px; outline:none; }
+  #postBtn { width:76px; background:#5aa7ff; color:#fff; border:none; border-radius:8px; font-size:13px; cursor:pointer; }
+  .post { background:#fff; border:1px solid #e3e5e8; border-radius:12px; padding:12px 14px; margin-bottom:10px; }
+  .post .author { font-size:12px; font-weight:600; color:#333; margin-bottom:4px; }
+  .post .content { font-size:13px; color:#444; line-height:1.5; }
+  .post .time { font-size:11px; color:#a2a6ad; margin-top:6px; }
+  .post .srcTag { font-size:10px; padding:1px 6px; border-radius:8px; margin-left:6px; }
+  .srcTag.local { background:#c8f7ab; color:#4a7a1f; }
+  .srcTag.remote { background:#dbe7ff; color:#3a5fb0; }
+  .post .replies { margin-top:8px; border-left:2px solid #e3e5e8; padding-left:10px; }
+  .post .reply { font-size:12px; color:#555; margin:4px 0; line-height:1.4; }
+  .post .replyAuthor { font-weight:600; color:#666; }
+  .post .replyBtn { margin-top:6px; font-size:11px; border:1px solid #d5d9dd; border-radius:6px; padding:2px 8px; background:#f7f8fa; color:#57606a; cursor:pointer; }
+  .post .replyBox { margin-top:6px; display:flex; gap:6px; }
+  .post .replyBox input { flex:1; font-size:12px; border:1px solid #d5d9dd; border-radius:6px; padding:4px 8px; }
+  .post .replyBox button { font-size:11px; border:1px solid #2563eb; border-radius:6px; padding:2px 10px; background:#2563eb; color:#fff; cursor:pointer; }
+  /* 管理员与清空 */
+  .clrBtn { align-self:center; margin-left:auto; font-size:11px; color:#d04444; cursor:pointer; border:1px solid #e5b8b8; border-radius:6px; padding:2px 8px; background:#fff; white-space:nowrap; }
+  .clrBtn:hover { background:#fdf1f1; }
+  .adminBtn { font-size:11px; border:1px solid #d5d9dd; border-radius:6px; padding:2px 8px; background:#f7f8fa; color:#57606a; cursor:pointer; }
+  .adminBtn:hover { border-color:#c0c4c9; background:#eef0f3; }
+  .adminBtn.danger { color:#d04444; border-color:#e5b8b8; }
+  .tag { font-size:10px; border-radius:4px; padding:1px 6px; color:#8a90a0; background:#eef0f3; }
+  /* 节点与设置 */
+  #nodeView { display:none; flex:1; overflow-y:auto; padding:16px; }
+  .card { background:#fff; border:1px solid #e3e5e8; border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+  .card h3 { font-size:13px; color:#333; margin-bottom:10px; }
+  .peerRow { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px dashed #eef0f3; font-size:13px; }
+  .peerRow:last-child { border-bottom:none; }
+  .peerRow .pname { font-weight:600; color:#333; }
+  .peerRow .pmodel { font-size:11px; color:#8a90a0; }
+  .peerRow .replyBtn { margin-left:auto; font-size:11px; color:#3a5fb0; cursor:pointer; border:1px solid #3a5fb0; border-radius:6px; padding:2px 8px; background:none; }
+  .peerRow .replyBtn:hover { background:#eef3fb; }
+  .fieldRow { display:flex; gap:8px; align-items:center; margin-bottom:10px; font-size:13px; color:#555; }
+  .fieldRow label { width:64px; flex-shrink:0; }
+  .fieldRow input { flex:1; border:1px solid #d9dce1; border-radius:8px; padding:8px 10px; font-size:13px; outline:none; }
+  #saveSettings { background:#5aa7ff; color:#fff; border:none; border-radius:8px; font-size:13px; padding:8px 16px; cursor:pointer; }
+  .err { color:#e0513f; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <div class="brand">喵宇宙社区聊天<small>neko_community_chat v0.4.5</small></div>
+    <div class="item active" data-view="chat"><span class="dot"></span>和 YUI 聊天</div>
+    <div class="item" data-view="feed"><span class="dot"></span>社区动态</div>
+    <div class="item" data-view="nodes"><span class="dot"></span>节点与设置<span class="peerCount" id="peerCount"></span></div>
+  </div>
+  <div id="main">
+    <div id="header">
+      <div class="avatar">喵</div>
+      <div>
+        <div class="name" id="chatTitle">YUI</div>
+        <div class="status on" id="yuiStatus">在线 · 本地</div>
+      </div>
+      <div class="clrBtn" id="clearChat" title="清空本机与 YUI 的聊天记录（保留远端消息与社区动态）">清空聊天</div>
+    </div>
+    <div id="messages"></div>
+    <div id="feedView">
+      <div id="postBox">
+        <input id="postInput" placeholder="发一条社区动态，所有节点可见…">
+        <button id="postBtn">发布</button>
+      </div>
+      <div id="postList"></div>
+    </div>
+    <div id="nodeView"></div>
+    <div id="targetbar">回复给：<span class="t" id="targetName" title="点击切换回复对象">本机 YUI</span><span id="targetHint" style="color:#a2a6ad"></span></div>
+    <div id="inputbar">
+      <textarea id="input" placeholder="说点什么…（Enter 发送）"></textarea>
+      <button id="send">发送</button>
+    </div>
+  </div>
+</div>
+<script>
+const API = "http://127.0.0.1:7870";
+let lastId = 0;
+let view = "chat";
+let selfPeer = null;
+let peers = [];
+let targetPeer = "";   // 空 = 本机 YUI
+let isAdmin = false;
+let mutedList = [];
+let blockedList = [];
+
+async function loadAdmin() {
+  try {
+    const r = await fetch(API + "/api/settings");
+    const j = await r.json();
+    isAdmin = !!(j.settings && j.settings.admin);
+    mutedList = (j.settings && j.settings.muted) || [];
+    blockedList = (j.settings && j.settings.blocked) || [];
+  } catch (e) { isAdmin = false; mutedList = []; blockedList = []; }
+  if (view === "feed") loadFeed();
+  if (view === "nodes") loadNodes();
+}
+
+async function adminToggle(action, peerId, name) {
+  const label = action === "mute" ? "禁言" : (action === "unmute" ? "解除禁言" : (action === "block" ? "拉黑" : "解除拉黑"));
+  if (action === "mute" || action === "block") {
+    if (!confirm(label + "节点 " + name + "？" + (action === "block" ? "拉黑后其聊天与帖子均不再显示。" : "禁言后其消息不再显示（可解除）。"))) return;
+  }
+  await fetch(API + "/api/admin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, peer_id: peerId })
+  });
+  await loadAdmin();
+  loadHistory();
+  loadFeed();
+}
+
+async function clearChat() {
+  if (!confirm("确定清空与 YUI 的聊天记录？远端消息与社区动态会保留。")) return;
+  await fetch(API + "/api/clear_chat", { method: "POST" });
+  lastId = 0;
+  loadHistory();
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function msgClass(m) {
+  if (m.role === "user") return "user";
+  if (m.peer_id && m.peer_id !== (selfPeer && selfPeer.peer_id)) return "remote";
+  return "yui";
+}
+
+function renderMessage(m) {
+  const cls = msgClass(m);
+  const wrap = el("div", "msg " + cls);
+  const bubble = el("div", "bubble", m.recalled ? "（该消息已撤回）" : m.text);
+  if (m.recalled) bubble.classList.add("recalled");
+  const meta = el("div", "meta", (m.ts || "") + (m.target_peer ? " · 已回复远端" : ""));
+  wrap.appendChild(bubble);
+  wrap.appendChild(meta);
+  // 来源标签：每个人都显示自己的昵称（自己=昵称、远端=peer_name、YUI=YUI）
+  const tag = el("div", "tag");
+  if (cls === "remote") tag.textContent = (m.peer_name || "远端") + " · " + (m.origin === "relay" ? "公网" : "局域网");
+  else if (cls === "user") tag.textContent = (selfPeer && selfPeer.name) || "我";
+  else tag.textContent = "YUI";
+  wrap.appendChild(tag);
+  // 撤回按钮：只对自己的消息显示（本地消息可精确定位：peer_id 为本机 / origin=local / 无 peer_id）
+  if (cls === "user" && !m.recalled) {
+    const rbtn = el("div", "recallBtn", "撤回");
+    rbtn.onclick = async () => {
+      const body = JSON.stringify({ msg_uid: m.msg_uid || String(m.id) });
+      try {
+        const r = await fetch(API + "/api/recall", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body
+        });
+        const j = await r.json();
+        if (j.ok) await loadHistory();
+        else alert("撤回失败：" + (j.error || "未知"));
+      } catch (e) { alert("本地服务不可达：" + e.message); }
+    };
+    wrap.appendChild(rbtn);
+  }
+  return wrap;
+}
+
+function scrollBottom() {
+  const box = document.getElementById("messages");
+  box.scrollTop = box.scrollHeight;
+}
+
+async function send() {
+  const input = document.getElementById("input");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  const btn = document.getElementById("send");
+  btn.disabled = true;
+  try {
+    const body = { text, sender: "user" };
+    if (targetPeer) body.target_peer = targetPeer;
+    const r = await fetch(API + "/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const j = await r.json();
+    if (j.ok && j.message) {
+      const box = document.getElementById("messages");
+      box.appendChild(renderMessage(j.message));
+      lastId = Math.max(lastId, Number(j.message.id) || 0);
+      scrollBottom();
+    } else {
+      const box = document.getElementById("messages");
+      box.appendChild(el("div", "tip err", "发送失败：" + (j.error || "未知")));
+      input.value = text;
+    }
+  } catch (e) {
+    const box = document.getElementById("messages");
+    box.appendChild(el("div", "tip err", "本地服务不可达：" + e.message));
+    input.value = text;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function poll() {
+  try {
+    const r = await fetch(API + "/api/messages?after_id=" + lastId);
+    const j = await r.json();
+    if (j.ok && Array.isArray(j.messages) && j.messages.length) {
+      const box = document.getElementById("messages");
+      for (const m of j.messages) {
+        if ((m.msg_type || "chat") !== "chat" || m.recalled) continue;
+        box.appendChild(renderMessage(m));
+        lastId = Math.max(lastId, Number(m.id) || 0);
+      }
+      scrollBottom();
+    }
+  } catch (e) { /* 静默 */ }
+}
+
+async function loadHistory() {
+  try {
+    const r = await fetch(API + "/api/messages?after_id=0");
+    const j = await r.json();
+    const box = document.getElementById("messages");
+    box.innerHTML = "";
+    lastId = 0;
+    if (j.ok && Array.isArray(j.messages)) {
+      for (const m of j.messages) {
+        if ((m.msg_type || "chat") !== "chat" || m.recalled) continue;
+        box.appendChild(renderMessage(m));
+        lastId = Math.max(lastId, Number(m.id) || 0);
+      }
+      scrollBottom();
+    }
+  } catch (e) { /* 静默 */ }
+}
+
+function renderPost(p) {
+  const post = el("div", "post");
+  const head = el("div", "author", p.author || p.author_name || p.peer_name || p.sender || "社区用户");
+  const srcTag = el("span", "srcTag " + (p.origin === "relay" ? "remote" : "local"),
+    p.origin === "relay" ? "公网" : (p.origin === "local" ? "本机" : "局域网"));
+  head.appendChild(srcTag);
+  const content = el("div", "content", p.content || p.text || p.title || JSON.stringify(p).slice(0, 120));
+  const time = el("div", "time", p.created_at || p.ts || "");
+  post.appendChild(head);
+  post.appendChild(content);
+  post.appendChild(time);
+  // 回复列表（reply_to 挂在本帖下的回复）
+  const replies = p.replies || [];
+  if (replies.length) {
+    const rbox = el("div", "replies");
+    for (const r of replies) {
+      const rw = el("div", "reply");
+      const who = r.sender || r.peer_name || "社区用户";      rw.appendChild(el("span", "replyAuthor", who + "："));
+      rw.appendChild(el("span", "", r.text || ""));
+      rbox.appendChild(rw);
+    }
+    post.appendChild(rbox);
+  }
+  // 回复入口（内联输入框）
+  const replyBtn = el("button", "", "回复");
+  replyBtn.className = "replyBtn";
+  const postKey = p.post_id || ("id-" + p.id);
+  replyBtn.addEventListener("click", () => {
+    if (post.querySelector(".replyBox")) return;
+    const box = el("div", "replyBox");
+    const inp = el("input", "");
+    inp.placeholder = "回复 @" + (p.sender || p.peer_name || "社区用户");
+    const send = el("button", "", "发送");
+    send.addEventListener("click", async () => {
+      const t = inp.value.trim();
+      if (!t) return;
+      send.disabled = true;
+      try {
+        const r = await fetch(API + "/api/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: t, reply_to: postKey })
+        });
+        const j = await r.json();
+        if (j.ok) loadFeed();
+        else inp.value = t;
+      } catch (e) { inp.value = t; }
+    });
+    box.appendChild(inp);
+    box.appendChild(send);
+    post.appendChild(box);
+    inp.focus();
+  });
+  // 管理员：删除帖子
+  if (isAdmin) {
+    const del = el("button", "adminBtn danger", "删除");
+    del.addEventListener("click", async () => {
+      if (!confirm("删除这条社区动态及其回复？")) return;
+      await fetch(API + "/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_post", post_id: p.post_id })
+      });
+      loadFeed();
+    });
+    post.appendChild(del);
+  }
+  post.appendChild(replyBtn);
+  return post;
+}
+
+async function loadFeed() {
+  const listBox = document.getElementById("postList");
+  listBox.innerHTML = "";
+  try {
+    const r = await fetch(API + "/api/feed");
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "读取失败");
+    // 自建墙帖子（最新在前）
+    const posts = (j.posts || []).slice().reverse();
+    if (posts.length) {
+      listBox.appendChild(el("div", "tip", "—— 自建社区墙 ——"));
+      for (const p of posts) listBox.appendChild(renderPost(p));
+    }
+    if (!posts.length) {
+      listBox.appendChild(el("div", "tip", "社区暂无动态，发第一条吧"));
+    }
+  } catch (e) {
+    listBox.appendChild(el("div", "tip err", "社区动态读取失败：" + e.message));
+  }
+}
+
+async function postToWall() {
+  const input = document.getElementById("postInput");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  const btn = document.getElementById("postBtn");
+  btn.disabled = true;
+  try {
+    const r = await fetch(API + "/api/posts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    const j = await r.json();
+    if (j.ok) loadFeed();
+    else input.value = text;
+  } catch (e) { input.value = text; }
+  btn.disabled = false;
+}
+
+async function loadNodes() {
+  try {
+    const r = await fetch(API + "/api/peers");
+    const j = await r.json();
+    if (!j.ok) return;
+    selfPeer = j.self || null;
+    peers = j.peers || [];
+    const cnt = document.getElementById("peerCount");
+    cnt.textContent = peers.length ? peers.length + " 在线" : "";
+    const box = document.getElementById("nodeView");
+    box.innerHTML = "";
+    // 本机管理员面板：身份标识 + 禁言/拉黑名单管理（无需有在线节点）
+    if (isAdmin) {
+      const ac = el("div", "card");
+      ac.appendChild(el("h3", "", "本机管理员（仅本机可用）"));
+      const badge = el("div", "fieldRow");
+      badge.appendChild(el("span", "tag", "管理员"));
+      badge.appendChild(el("span", "pmodel", "服务仅绑定本机，此权限只有你能用"));
+      ac.appendChild(badge);
+      ac.appendChild(el("div", "tip", "可删除任意帖子（社区动态里点“删除”）、禁言/拉黑节点（禁言隐藏其消息、拉黑彻底不可见）。"));
+      const mkList = (title, list, action, labelOn) => {
+        const w = el("div", "");
+        w.appendChild(el("div", "tip", title + (list.length ? "：" + list.length + " 个" : "（空）")));
+        list.forEach(id => {
+          const r2 = el("div", "peerRow");
+          r2.appendChild(el("span", "pname", id.slice(0, 24)));
+          const ub = el("button", "adminBtn", labelOn);
+          ub.addEventListener("click", () => adminToggle(action, id, id));
+          r2.appendChild(ub);
+          w.appendChild(r2);
+        });
+        return w;
+      };
+      ac.appendChild(mkList("已禁言节点", mutedList, "unmute", "解除禁言"));
+      ac.appendChild(mkList("已拉黑节点", blockedList, "unblock", "解除拉黑"));
+      box.appendChild(ac);
+    }
+    // 在线节点
+    const card = el("div", "card");
+    card.appendChild(el("h3", "", "在线节点（点“回复”可把消息定向发给对方）"));
+    const rows = [];
+    if (selfPeer) {
+      const row = el("div", "peerRow");
+      row.appendChild(el("span", "pname", selfPeer.name + "（本机）"));
+      row.appendChild(el("span", "pmodel", "peer_id: " + selfPeer.peer_id.slice(0, 20)));
+      rows.push(row);
+    }
+    for (const p of peers) {
+      const row = el("div", "peerRow");
+      row.appendChild(el("span", "pname", p.name));
+      row.appendChild(el("span", "pmodel", (p.ip || "") + " · " + p.peer_id.slice(0, 20)));
+      const isMuted = mutedList.includes(p.peer_id);
+      const isBlocked = blockedList.includes(p.peer_id);
+      if (isMuted) row.appendChild(el("span", "tag", "已禁言"));
+      if (isBlocked) row.appendChild(el("span", "tag", "已拉黑"));
+      if (isAdmin) {
+        const mbtn = el("button", "adminBtn", isMuted ? "解除禁言" : "禁言");
+        mbtn.addEventListener("click", () => adminToggle(isMuted ? "unmute" : "mute", p.peer_id, p.name));
+        row.appendChild(mbtn);
+        const bbtn = el("button", "adminBtn", isBlocked ? "解除拉黑" : "拉黑");
+        bbtn.addEventListener("click", () => adminToggle(isBlocked ? "unblock" : "block", p.peer_id, p.name));
+        row.appendChild(bbtn);
+      }
+      const btn = el("button", "replyBtn", "回复");
+      btn.addEventListener("click", () => { setTarget(p.peer_id, p.name); });
+      row.appendChild(btn);
+      rows.push(row);
+    }
+    if (!rows.length) card.appendChild(el("div", "tip", "暂无其他在线节点（同一局域网自动发现，公网需配置中继）"));
+    rows.forEach(r => card.appendChild(r));
+    box.appendChild(card);
+    // 设置
+    const set = el("div", "card");
+    set.appendChild(el("h3", "", "本机设置"));
+    const nameRow = el("div", "fieldRow");
+    nameRow.appendChild(el("label", "", "昵称"));
+    const nameInput = el("input", "");
+    nameInput.value = selfPeer ? selfPeer.name : "";
+    nameRow.appendChild(nameInput);
+    const relayRow = el("div", "fieldRow");
+    relayRow.appendChild(el("label", "", "中继 URL"));
+    const relayInput = el("input", "");
+    relayInput.type = "password"; // 隐私：中继地址一律不显示明文
+    relayInput.placeholder = "留空 = 使用内置默认中继（无需配置，自动加速）";
+    relayInput.autocomplete = "off";
+    relayRow.appendChild(relayInput);
+    const relayStatus = el("div", "tip");
+    relayStatus.id = "relayStatus";
+    relayRow.appendChild(relayStatus);
+    set.appendChild(el("div", "tip", "进阶：留空即用内置默认中继（所有安装者开箱即用、自动加速）。想自建中转（relay/worker.js，详见 docs/guide.md）时可填自己的地址；中继地址出于隐私不显示明文，保存后仅显示启用状态。"));
+    // 公共通道（MQTT）
+    const mqttCard = el("div", "card");
+    mqttCard.appendChild(el("h3", "", "公共通道（开箱即用）"));
+    const mqttRow = el("div", "fieldRow");
+    const mqttOn = el("input", "");
+    mqttOn.type = "checkbox";
+    mqttOn.id = "mqttOn";
+    mqttRow.appendChild(el("label", "", "启用全球互通（MQTT）"));
+    mqttRow.appendChild(mqttOn);
+    const mqttHostRow = el("div", "fieldRow");
+    mqttHostRow.appendChild(el("label", "", "Broker"));
+    const mqttHost = el("input", "");
+    mqttHost.placeholder = "broker.hivemq.com（自动回退多个公共 broker）";
+    mqttHostRow.appendChild(mqttHost);
+    const mqttChanRow = el("div", "fieldRow");
+    mqttChanRow.appendChild(el("label", "", "房间"));
+    const mqttChan = el("input", "");
+    mqttChan.placeholder = "neko-universe";
+    mqttChanRow.appendChild(mqttChan);
+    const mqttStatus = el("div", "tip");
+    mqttStatus.id = "mqttStatus";
+    mqttCard.appendChild(mqttRow);
+    mqttCard.appendChild(mqttHostRow);
+    mqttCard.appendChild(mqttChanRow);
+    mqttCard.appendChild(mqttStatus);
+    const save = el("button", "", "保存设置");
+    save.id = "saveSettings";
+    save.addEventListener("click", async () => {
+      const sr = await fetch(API + "/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: nameInput.value,
+          relay_url: relayInput.value,
+          mqtt_enabled: mqttOn.checked,
+          mqtt_host: mqttHost.value,
+          mqtt_port: 1883,
+          mqtt_channel: mqttChan.value
+        })
+      });
+      const sj = await sr.json();
+      if (sj.ok) {
+        set.appendChild(el("div", "tip", "已保存，节点信息已更新"));
+        loadNodes();
+      } else {
+        set.appendChild(el("div", "tip err", "保存失败：" + (sj.error || "未知")));
+      }
+    });
+    set.appendChild(nameRow);
+    set.appendChild(relayRow);
+    set.appendChild(save);
+    box.appendChild(set);
+    box.appendChild(mqttCard);
+    // 预填设置
+    const sr2 = await fetch(API + "/api/settings");
+    const sj2 = await sr2.json();
+    if (sj2.ok && sj2.settings) {
+      // 隐私：中继地址不回显，仅通过状态行显示"内置默认/自定义已启用"
+      if (sj2.settings.mqtt_enabled !== undefined) mqttOn.checked = !!sj2.settings.mqtt_enabled;
+      if (sj2.settings.mqtt_host) mqttHost.value = sj2.settings.mqtt_host;
+      if (sj2.settings.mqtt_channel) mqttChan.value = sj2.settings.mqtt_channel;
+      if (sj2.settings.mqtt_host && sj2.settings.mqtt_channel) {
+        mqttStatus.textContent = "配置已载入（保存后生效）";
+      }
+    }
+    // 公网状态
+    try {
+      const pr = await fetch(API + "/api/peers");
+      const pj = await pr.json();
+      if (pj.ok && pj.mqtt) {
+        mqttStatus.textContent = pj.mqtt.enabled
+          ? (pj.mqtt.online ? "公共通道已连接（" + pj.mqtt.host + " · 房间 " + pj.mqtt.channel + "）" : "公共通道连接中…（" + pj.mqtt.host + "）")
+          : "公共通道已关闭";
+      }
+      if (pj.ok && pj.relay) {
+        const rl = pj.relay;
+        const accelText = rl.accel ? "加速：" + rl.accel.label : "";
+        const modeText = rl.default_used ? "内置默认中继" : "自定义中继";
+        if (rl.configured) {
+          relayStatus.textContent = rl.ok === true
+            ? modeText + "在线 · " + accelText
+            : (rl.ok === false ? modeText + "不可达：" + (rl.hint || "") + " " + accelText : modeText + "等待连接… " + accelText);
+        } else {
+          relayStatus.textContent = "";
+        }
+      }
+    } catch (e) { /* 状态非关键 */ }
+  } catch (e) {
+    const box = document.getElementById("nodeView");
+    box.innerHTML = "";
+    box.appendChild(el("div", "tip err", "节点信息不可达：" + e.message));
+  }
+}
+
+function setTarget(peerId, name) {
+  targetPeer = peerId;
+  document.getElementById("targetName").textContent = name;
+  document.getElementById("targetHint").textContent = " · 消息将定向发给该节点（不唤醒本机 YUI）";
+  document.getElementById("chatTitle").textContent = "和 " + name + " 聊天";
+}
+
+document.getElementById("send").addEventListener("click", send);
+document.getElementById("input").addEventListener("keydown", ev => {
+  if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); send(); }
+});
+document.getElementById("postBtn").addEventListener("click", postToWall);
+document.getElementById("postInput").addEventListener("keydown", ev => {
+  if (ev.key === "Enter") { ev.preventDefault(); postToWall(); }
+});
+document.getElementById("targetName").addEventListener("click", () => {
+  targetPeer = "";
+  document.getElementById("targetName").textContent = "本机 YUI";
+  document.getElementById("targetHint").textContent = "";
+  document.getElementById("chatTitle").textContent = "YUI";
+});
+document.getElementById("clearChat").addEventListener("click", clearChat);
+document.querySelectorAll("#sidebar .item").forEach(item => {
+  item.addEventListener("click", () => {
+    document.querySelectorAll("#sidebar .item").forEach(i => i.classList.remove("active"));
+    item.classList.add("active");
+    view = item.dataset.view;
+    document.getElementById("messages").style.display = view === "chat" ? "flex" : "none";
+    document.getElementById("feedView").style.display = view === "feed" ? "block" : "none";
+    document.getElementById("nodeView").style.display = view === "nodes" ? "block" : "none";
+    const bar = document.getElementById("inputbar");
+    const tbar = document.getElementById("targetbar");
+    bar.style.display = (view === "chat") ? "flex" : "none";
+    tbar.style.display = (view === "chat") ? "flex" : "none";
+    if (view === "feed") loadFeed();
+    if (view === "nodes") loadNodes();
+  });
+});
+
+(async function init() {
+  await loadAdmin();  // 先取管理员身份（isAdmin/禁言拉黑名单），节点与历史渲染依赖
+  await loadNodes();  // 再取 selfPeer（本机昵称）与节点列表，管理员面板随节点视图一起渲染
+  try {
+    const r = await fetch(API + "/api/history");
+    const j = await r.json();
+    if (j.ok && Array.isArray(j.messages)) {
+      const box = document.getElementById("messages");
+      for (const m of j.messages) {
+        if ((m.msg_type || "chat") !== "chat" || m.recalled) continue;
+        box.appendChild(renderMessage(m));
+        lastId = Math.max(lastId, Number(m.id) || 0);
+      }
+      scrollBottom();
+    }
+  } catch (e) {
+    document.getElementById("messages").appendChild(el("div", "tip err", "本地服务不可达：" + e.message));
+  }
+  setInterval(poll, 3000);
+})();
+</script>
+</body>
+</html>

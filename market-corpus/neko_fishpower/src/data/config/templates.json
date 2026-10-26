@@ -1,0 +1,22 @@
+{
+  "cast": "抛竿啦喵！用了{bait}，等鱼上钩~",
+  "bite": "浮漂动了！来了来了喵！",
+  "caught": "钓到{fish}了喵！{weight}kg，值{worth}金币{extra}",
+  "miss": "跑掉了喵… 下次提竿再快一点！",
+  "sold": "卖鱼入账 {amount} 金币喵，现在共 {total} 金币",
+  "bet": "在赌场押了{color}！{worth}金币的鱼，够大胆喵！",
+  "roulette_result": "轮盘开奖：{color}！{won_desc}",
+  "slot_spin": "老虎机转起来喵！",
+  "slot_result": "老虎机结果喵！{won_desc}",
+  "grill_start": "鱼放上烤架了喵，等它滋滋响~",
+  "grill_done": "鱼烤好啦喵！香气扑鼻！",
+  "boss_spawn": "Boss 出现了喵！大家集火！",
+  "boss_hp": "Boss 还有 {hp}/{max_hp} 血，坚持住喵！",
+  "boss_death": "Boss 被击败了喵！传奇战利品！🎉",
+  "discovered": "图鉴新鱼：{fish}！{count}/{total} 了喵！",
+  "kill": "击杀了 {target} 喵，厉害！",
+  "seagull": "海鸥叼走了你的鱼！！气死喵了！",
+  "achievement": "解锁成就「{name}」喵！{detail}",
+  "game_start": "欢迎回来喵！今天钓点什么？",
+  "game_end": "今天辛苦了喵，收竿晚安~ 💤"
+}

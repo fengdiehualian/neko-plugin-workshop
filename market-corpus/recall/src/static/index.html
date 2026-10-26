@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; object-src 'none'"
+    />
+    <title>Recall · N.E.K.O.</title>
+    <link rel="stylesheet" href="./style.css?v=recall-v020i" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <img class="memory-stage-background" src="./assets/memory-box/memory-stage.png" alt="" aria-hidden="true" />
+      <div class="scene-backdrop" aria-hidden="true"><img id="characterBackdrop" alt="" hidden /></div>
+
+      <main class="desktop-stage">
+        <section class="recall-window" aria-label="Recall 插件窗口">
+          <header class="topbar">
+            <div class="brand" aria-label="N.E.K.O. Recall">
+              <span class="brand-mark" aria-hidden="true"><img src="./assets/system/neko_community_on.png" alt="" /></span>
+              <span class="brand-neko">N.E.K.O.</span>
+              <span class="brand-product">Recall</span>
+            </div>
+            <div class="topbar-status"><span class="status-dot" aria-hidden="true"></span><span id="sourceLabel">CET-4 · 预览词库</span></div>
+            <button class="window-close" id="closeWindow" type="button" aria-label="关闭 Recall">×</button>
+          </header>
+
+          <div class="workspace">
+            <section class="study-pane" aria-live="polite">
+          <div class="study-inner">
+            <section class="screen is-active" data-screen="home">
+              <div class="home-hero">
+                <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>今天的记忆盲盒</p>
+                <h1 id="homeTitle">看看今天会遇见哪些词。</h1>
+                <div class="home-boxes" aria-hidden="true">
+                  <img src="./assets/memory-box/sealed-box.png" alt="" />
+                  <img src="./assets/memory-box/sealed-box.png" alt="" />
+                  <img src="./assets/memory-box/sealed-box.png" alt="" />
+                  <img src="./assets/memory-box/sealed-box.png" alt="" />
+                  <img src="./assets/memory-box/sealed-box.png" alt="" />
+                </div>
+                <button class="button button-primary button-large" id="startButton" type="button">
+                  <strong id="startButtonLabel">打开今天这一盒</strong>
+                </button>
+              </div>
+
+              <div class="learning-strip">
+                <button class="source-row" id="sourceRow" type="button">
+                  <span class="source-copy"><small>正在记</small><strong>CET-4 核心词汇</strong></span>
+                  <span class="source-progress-copy"><b id="progressText">0 / 12</b><small>已接住</small></span>
+                  <span class="source-progress" aria-hidden="true"><span id="progressFill"></span></span>
+                </button>
+              </div>
+            </section>
+
+            <section class="screen" data-screen="draw">
+              <div class="draw-meta">
+                <button class="back-button" id="leaveDraw" type="button">← 今天先到这里</button>
+                <span class="review-count"><b id="boxProgress">0</b> / <b id="boxTotal">5</b></span>
+              </div>
+              <div class="draw-heading"><p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>今天的记忆盲盒</p><h1>要拆开哪个？</h1></div>
+              <div class="box-choice" id="boxChoice" aria-label="选择一个记忆盲盒">
+                <button class="blind-box" type="button" data-box="0" aria-label="选择第一个盲盒"><img src="./assets/memory-box/sealed-box.png" alt="" /></button>
+                <button class="blind-box" type="button" data-box="1" aria-label="选择第二个盲盒"><img src="./assets/memory-box/sealed-box.png" alt="" /></button>
+                <button class="blind-box" type="button" data-box="2" aria-label="选择第三个盲盒"><img src="./assets/memory-box/sealed-box.png" alt="" /></button>
+                <button class="blind-box" type="button" data-box="3" aria-label="选择第四个盲盒"><img src="./assets/memory-box/sealed-box.png" alt="" /></button>
+                <button class="blind-box" type="button" data-box="4" aria-label="选择第五个盲盒"><img src="./assets/memory-box/sealed-box.png" alt="" /></button>
+              </div>
+              <button class="button button-primary button-large draw-action" id="openBoxButton" type="button" disabled><strong>选一个盲盒</strong></button>
+            </section>
+
+            <section class="screen" data-screen="sources">
+              <button class="back-button" type="button" data-back="home">← 回到今天</button>
+              <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>学习内容</p>
+              <h1>这次想记住什么？</h1>
+              <div class="source-list">
+                <button class="source-option is-ready" id="chooseCet4" type="button">
+                  <span><small>官方 · 英语</small><strong>CET-4 核心词汇</strong></span><b>可用</b>
+                </button>
+                <div class="source-option is-disabled">
+                  <span><small>N.E.K.O. 社区</small><strong>社区知识库</strong></span><b>暂未开放</b>
+                </div>
+                <div class="source-option is-disabled">
+                  <span><small>本地</small><strong>本地私有词库</strong></span><b>暂未开放</b>
+                </div>
+              </div>
+            </section>
+
+            <section class="screen" data-screen="familiarity">
+              <button class="back-button" type="button" data-back="sources">← 返回学习内容</button>
+              <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>只问这一件事</p>
+              <h1>之前背过四级词汇吗？</h1>
+              <div class="choice-list">
+                <button type="button" data-familiarity="new"><span><strong>基本没背过</strong></span><b>01</b></button>
+                <button type="button" data-familiarity="some"><span><strong>背过一些，但忘了不少</strong></span><b>02</b></button>
+                <button type="button" data-familiarity="once"><span><strong>已经背过一遍</strong></span><b>03</b></button>
+                <button type="button" data-familiarity="unknown"><span><strong>不太清楚</strong></span><b>04</b></button>
+              </div>
+            </section>
+
+            <section class="screen" data-screen="review">
+              <div class="review-meta"><button class="back-button" id="leaveReview" type="button">← 今天先到这里</button><span class="review-count" id="reviewCounter">1 / 5</span></div>
+              <div class="progress-line" aria-hidden="true"><span id="sessionProgress"></span></div>
+              <div class="word-card" id="wordCard">
+                <div class="card-origin" aria-hidden="true"><img src="./assets/memory-box/sealed-box.png" alt="" /><span>这一盒里抽到</span></div>
+                <p class="card-kicker" id="cardKicker">先回忆一下</p>
+                <h1 id="wordText">abandon</h1>
+                <p class="phonetic" id="phoneticText">/əˈbændən/</p>
+                <div class="answer" id="answerPanel" hidden>
+                  <p class="meaning" id="meaningText">v. 放弃；抛弃</p>
+                  <div class="example" id="exampleBlock"><p id="exampleText">They had to abandon the plan.</p><p id="exampleZhText">他们不得不放弃这个计划。</p></div>
+                </div>
+              </div>
+              <button class="button button-primary button-large review-action" id="revealButton" type="button"><strong>看看答案</strong></button>
+              <div class="grade-actions" id="gradeActions" hidden>
+                <button type="button" data-grade="forgot"><strong>忘了</strong></button>
+                <button type="button" data-grade="hard"><strong>有点难</strong></button>
+                <button type="button" data-grade="good"><strong>记得</strong></button>
+              </div>
+            </section>
+
+            <section class="screen finish-screen" data-screen="complete">
+              <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>今天完成</p>
+              <h1 id="completeTitle">这些词，又被你接住了。</h1>
+              <div class="completion-number"><strong id="completedCount">5</strong><span>次回忆完成</span></div>
+              <div class="completion-actions">
+                <button class="button button-primary button-large" id="continueNewButton" type="button"><strong>再开一盒新词</strong></button>
+                <button class="button button-secondary button-large" id="finishSessionButton" type="button" data-back="home"><strong>今天先到这里</strong></button>
+              </div>
+            </section>
+
+            <section class="screen finish-screen" data-screen="empty">
+              <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>今天</p>
+              <h1>现在没有词需要追。</h1>
+              <p class="lead">放心去做点别的。该见面的时候，它们会再回来。</p>
+              <button class="button button-primary button-large" type="button" data-back="home"><strong>回到今天</strong></button>
+            </section>
+            </div>
+          </section>
+          </div>
+        </section>
+
+        <aside class="companion-pane" id="companionPane" aria-label="位于 Recall 窗口外的 N.E.K.O. 系统角色">
+          <div class="companion-halo" aria-hidden="true"></div>
+          <div class="character-status" id="characterStatus"><span aria-hidden="true"></span>正在跟随系统角色…</div>
+          <img class="character-image" id="characterImage" alt="当前 N.E.K.O. 角色" hidden />
+          <div class="character-empty" id="characterEmpty" hidden><strong id="characterName">N.E.K.O.</strong><span>正在等系统角色形象</span></div>
+          <button class="neko-caption" id="captionToggle" type="button" aria-expanded="false">
+            <span class="caption-orb" aria-hidden="true"><img id="captionAvatar" src="./assets/system/chat-minimized-yarn-ball.png" alt="" /></span>
+            <span class="caption-copy"><small id="captionName">N.E.K.O.</small><strong id="captionText">我已经把今天的一小组排好啦。</strong></span>
+            <span class="caption-toggle-mark" aria-hidden="true">展开聊聊</span>
+          </button>
+          <section class="conversation" id="conversation" hidden>
+            <header class="conversation-head">
+              <span class="avatar-crop"><img id="characterAvatar" alt="" /></span>
+              <span><strong id="dialogName">N.E.K.O.</strong><small>陪你背这一小组</small></span>
+              <button id="collapseConversation" type="button" aria-label="收起对话">×</button>
+            </header>
+            <p class="dialog-reply" id="dialogReply">我在，慢慢想就好。</p>
+            <form class="conversation-input" id="conversationForm">
+              <input id="conversationMessage" maxlength="120" autocomplete="off" placeholder="和她说一句…" aria-label="输入消息" />
+              <button type="submit">发送</button>
+            </form>
+          </section>
+        </aside>
+      </main>
+      <aside class="preview-lab" id="previewLab" hidden aria-label="Recall 体验时间控制">
+        <div><small>设计沙盒 · 数据只在这个浏览器</small><strong id="previewClock">Day 0</strong></div>
+        <button type="button" id="advanceOneDay">到明天</button>
+        <button type="button" id="advanceThreeDays">到三天后</button>
+        <button type="button" id="resetPreview">重新体验</button>
+      </aside>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </div>
+    <script src="./main-v2.js?v=recall-v020i"></script>
+  </body>
+</html>

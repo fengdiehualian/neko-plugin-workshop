@@ -1,0 +1,16 @@
+{
+  "plugin.name": "Ledger Catgirl",
+  "plugin.description": "A meow bookkeeper that changes tone with how outrageous the spending is: cute for everyday expenses, snarky for absurd prices, and hissing at cat or AI expenses. It reads the current catgirl's persona, so a gentle \"never gets angry\" persona downgrades hissing to a mild grumble",
+  "entry.add_expense.name": "Record an expense",
+  "entry.add_expense.description": "Manually record an expense",
+  "entry.preview_expense.name": "Preview tone",
+  "entry.preview_expense.description": "Preview the tone and line a given expense would produce, without writing to the ledger",
+  "entry.expense_summary.name": "Expense summary",
+  "entry.expense_summary.description": "Summarise spending over a period",
+  "entry.recent_expenses.name": "Recent entries",
+  "entry.recent_expenses.description": "List the most recent ledger entries",
+  "entry.ledger_status.name": "Ledger status",
+  "entry.ledger_status.description": "Show the ledger location, entry count and current tone settings",
+  "entry.check_persona.name": "Check hissing permission",
+  "entry.check_persona.description": "Read the current persona and report whether hissing is allowed, with the reason"
+}

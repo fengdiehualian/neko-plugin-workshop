@@ -1,0 +1,25 @@
+[project]
+name = "neko-fishpower"
+version = "0.1.0"
+description = "渔力全开（How to Fish）猫爪渔力陪玩插件：mod 遥测感知钓鱼/赌场/烤鱼/Boss/图鉴，全程猫娘陪钓。"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+
+[tool.neko.build]
+exclude_dirs = [
+    ".pytest_cache",
+    ".ruff_cache",
+    "tests",
+    "__pycache__",
+]
+exclude_files = [
+    ".gitignore",
+    "README.md",
+    "ruff.toml",
+    "mod/**",
+    "data/store.db",
+    "*.neko-plugin",
+    "*.neko-bundle",
+    # docs/ui/guide.md 保留（面板 guide 指向）；完整文档留 GitHub 仓库
+]

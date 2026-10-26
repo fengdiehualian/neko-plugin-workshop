@@ -1,0 +1,12 @@
+[project]
+name = "miao_miao_bump"
+version = "0.1.0"
+description = "A catgirl swimming-ring collision game plugin for N.E.K.O."
+authors = [{ name = "WhiteFrostune" }]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/WhiteFrostune/n.e.k.o_plugin_miao_miao_bump"
+
+[tool.neko.build]
+exclude_dirs = ["target", "artifacts", ".ruff_cache", ".vscode", "tests"]

@@ -1,0 +1,106 @@
+[plugin]
+id = "plugin_knowledge_base"
+name = "Plugin Knowledge Base"
+version = "0.1.0"
+type = "plugin"
+description = "知识库：导入 .md/.txt/.pdf 文件，按段落分块（默认 240 tokens / 重叠 64，可配置；MiniLM 窗口 256），用 all-MiniLM-L6-v2（ONNX，384 维，CPU）向量化，vec0 + FTS5 混合检索（向量余弦 + BM25，RRF 融合）；滑动窗口热度追踪在窗口内命中达到阈值时自动把知识块提升到数据库插件的 hot_knowledge 表。"
+short_description = "File knowledge base with ONNX embeddings, hybrid vector+BM25 search, and sliding-window hot-knowledge promotion into plugin_database."
+keywords = [
+    "知识库",
+    "knowledge",
+    "检索",
+    "搜索",
+    "向量",
+    "embedding",
+    "语义搜索",
+    "rag",
+    "文档",
+    "热知识",
+]
+entry = "plugin.plugins.plugin_knowledge_base:PluginKnowledgeBasePlugin"
+
+[plugin.author]
+name = "neko-plugin"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+# 静态声明入口（只写 id + name，其余元数据仍以 @plugin_entry 装饰器为准）。
+# 宿主重扫插件时只认 plugin.meta.json / 这里的声明来重建入口列表；不写的话
+# 一次 /plugins/refresh 就会把入口清空，面板 action 全部 404。
+# tests/test_manifest_entries.py 校验这里与装饰器保持一致。
+
+[[plugin.entries]]
+id = "kb_import"
+name = "导入知识文件"
+
+[[plugin.entries]]
+id = "kb_search"
+name = "语义搜索知识库"
+
+[[plugin.entries]]
+id = "kb_hot_list"
+name = "查询热知识"
+
+[[plugin.entries]]
+id = "kb_hot_export"
+name = "导出热知识"
+
+[[plugin.entries]]
+id = "kb_stats"
+name = "知识库统计"
+
+[[plugin.entries]]
+id = "kb_demote_sweep"
+name = "冷数据降级扫描"
+
+[[plugin.entries]]
+id = "kb_rebuild"
+name = "重建索引"
+
+[[plugin.entries]]
+id = "kb_model_status"
+name = "嵌入模型状态"
+
+[[plugin.entries]]
+id = "kb_model_download"
+name = "下载嵌入模型"
+
+[[plugin.entries]]
+id = "kb_record_skill_stat"
+name = "记录 Skill 统计"
+
+[[plugin.entries]]
+id = "kb_query_skill_stats"
+name = "查询 Skill 统计"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+# 嵌入模型(约90MB)冷加载+探测超过默认启动窗口，给足启动超时
+timeout = 120
+
+# ---------------------------------------------------------------------------
+# 业务配置：首次运行复制到用户数据目录 config/plugin.toml，改那份才生效。
+# ---------------------------------------------------------------------------
+
+[knowledge]
+# 嵌入模型目录；留空 = <插件数据>/models/all-MiniLM-L6-v2（缺失时先调
+# kb_model_download 入口下载，或指向插件自带的 models/ 目录）。
+models_dir = ""
+
+[hot_promotion]
+window_days = 7          # 滑动窗口天数
+threshold = 5            # 窗口内命中次数阈值
+demotion_days = 30       # 冷数据降级天数
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "Plugin Knowledge Base"
+entry = "ui/panel.tsx"
+context = "plugin_knowledge_base_panel"
+permissions = ["state:read", "action:call"]

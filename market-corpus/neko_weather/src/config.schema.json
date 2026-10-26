@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "weather": {
+      "type": "object",
+      "title": "天气设置",
+      "properties": {
+        "home_city": {
+          "type": "string",
+          "title": "常用城市",
+          "description": "不指定城市时使用它。可以填中文名、英文名，也可以填 30.29,120.16 这样的坐标。",
+          "x-title-i18n": { "zh-CN": "常用城市", "en": "Home city" },
+          "x-description-i18n": {
+            "zh-CN": "不指定城市时使用它。可以填中文名、英文名，也可以填 30.29,120.16 这样的坐标。",
+            "en": "Used when no city is given. Accepts a Chinese or English name, or coordinates like 30.29,120.16."
+          },
+          "default": ""
+        },
+        "daily_push": {
+          "type": "boolean",
+          "title": "每日天气播报",
+          "description": "开启后，猫娘会在下面设定的时间主动播报当天天气。",
+          "x-title-i18n": { "zh-CN": "每日天气播报", "en": "Daily weather brief" },
+          "x-description-i18n": {
+            "zh-CN": "开启后，猫娘会在下面设定的时间主动播报当天天气。",
+            "en": "When enabled, the catgirl proactively reports the day's weather at the time below."
+          },
+          "default": true
+        },
+        "push_time": {
+          "type": "string",
+          "title": "每日播报时间",
+          "description": "24 小时制 HH:MM，使用电脑本地时间。",
+          "x-title-i18n": { "zh-CN": "每日播报时间", "en": "Daily brief time" },
+          "x-description-i18n": {
+            "zh-CN": "24 小时制 HH:MM，使用电脑本地时间。",
+            "en": "24-hour HH:MM in your computer's local time."
+          },
+          "default": "07:30"
+        },
+        "push_window_minutes": {
+          "type": "integer",
+          "title": "补播窗口（分钟）",
+          "description": "超过设定时间这个时长还没播报就不再补推，避免电脑一整天没开、开机瞬间刷屏。",
+          "x-title-i18n": { "zh-CN": "补播窗口（分钟）", "en": "Catch-up window (minutes)" },
+          "x-description-i18n": {
+            "zh-CN": "超过设定时间这个时长还没播报就不再补推，避免电脑一整天没开、开机瞬间刷屏。",
+            "en": "Past this many minutes after the scheduled time the brief is skipped, so a machine that was off all day does not spam on boot."
+          },
+          "minimum": 5,
+          "maximum": 1440,
+          "default": 180
+        },
+        "push_city": {
+          "type": "string",
+          "title": "播报专用城市",
+          "description": "留空则使用常用城市。",
+          "x-title-i18n": { "zh-CN": "播报专用城市", "en": "City used for the brief" },
+          "x-description-i18n": {
+            "zh-CN": "留空则使用常用城市。",
+            "en": "Leave empty to use the home city."
+          },
+          "default": ""
+        },
+        "default_days": {
+          "type": "integer",
+          "title": "默认预报天数",
+          "x-title-i18n": { "zh-CN": "默认预报天数", "en": "Default forecast days" },
+          "minimum": 1,
+          "maximum": 7,
+          "default": 3
+        },
+        "include_advice": {
+          "type": "boolean",
+          "title": "包含穿衣与带伞建议",
+          "x-title-i18n": { "zh-CN": "包含穿衣与带伞建议", "en": "Include clothing and umbrella advice" },
+          "default": true
+        },
+        "cute": {
+          "type": "boolean",
+          "title": "猫娘语气",
+          "description": "开启后播报会用撒娇口吻并带上「喵～」。",
+          "x-title-i18n": { "zh-CN": "猫娘语气", "en": "Catgirl tone" },
+          "x-description-i18n": {
+            "zh-CN": "开启后播报会用撒娇口吻并带上「喵～」。",
+            "en": "When on, the brief uses a playful catgirl voice ending with a meow."
+          },
+          "default": true
+        },
+        "cat_suffix": {
+          "type": "string",
+          "title": "自定义语气后缀",
+          "description": "留空使用默认的「喵～」。可以换成「呜喵」「nya～」之类。",
+          "x-title-i18n": { "zh-CN": "自定义语气后缀", "en": "Custom catchphrase" },
+          "x-description-i18n": {
+            "zh-CN": "留空使用默认的「喵～」。可以换成「呜喵」「nya～」之类。",
+            "en": "Empty uses the default meow. Try your own, e.g. nya~."
+          },
+          "default": ""
+        },
+        "voice": {
+          "type": "boolean",
+          "title": "让猫娘念出来",
+          "description": "开启后播报会作为「需要回应」的消息推送，从而触发角色语音；关闭则只写进聊天记录，猫娘不一定会开口。",
+          "x-title-i18n": { "zh-CN": "让猫娘念出来", "en": "Speak it aloud" },
+          "x-description-i18n": {
+            "zh-CN": "开启后播报会作为「需要回应」的消息推送，从而触发角色语音；关闭则只写进聊天记录。",
+            "en": "When on, the brief is pushed as a message the character must respond to, which triggers voice playback."
+          },
+          "default": true
+        },
+        "snark_enabled": {
+          "type": "boolean",
+          "title": "阴阳怪气彩蛋",
+          "description": "偶尔触发一段翻译腔的吐槽播报（「我亲爱的老伙计……喵」）。彩蛋只换措辞，天气数值仍由代码计算，不会写错。",
+          "x-title-i18n": { "zh-CN": "阴阳怪气彩蛋", "en": "Sarcastic easter egg" },
+          "x-description-i18n": {
+            "zh-CN": "偶尔触发一段翻译腔的吐槽播报。彩蛋只换措辞，天气数值仍由代码计算，不会写错。",
+            "en": "Occasionally delivers the weather in a snarky translated-novel voice. Only the wording changes; the numbers stay code-computed."
+          },
+          "default": true
+        },
+        "snark_probability": {
+          "type": "string",
+          "title": "彩蛋触发概率",
+          "description": "默认 20%。概率越高越常听到阴阳怪气播报。",
+          "x-title-i18n": { "zh-CN": "彩蛋触发概率", "en": "Easter-egg chance" },
+          "x-description-i18n": {
+            "zh-CN": "默认 20%。概率越高越常听到阴阳怪气播报。",
+            "en": "Defaults to 20%. Higher means the snarky voice shows up more often."
+          },
+          "enum": ["0", "0.05", "0.1", "0.15", "0.2", "0.3", "0.5", "0.8", "1"],
+          "default": "0.2"
+        },
+        "snark_cooldown": {
+          "type": "integer",
+          "title": "彩蛋冷却",
+          "description": "两次彩蛋之间至少间隔多少次正常播报，防止连着刷。",
+          "x-title-i18n": { "zh-CN": "彩蛋冷却", "en": "Easter-egg cooldown" },
+          "x-description-i18n": {
+            "zh-CN": "两次彩蛋之间至少间隔多少次正常播报，防止连着刷。",
+            "en": "Minimum number of normal briefs between two easter eggs."
+          },
+          "minimum": 0,
+          "maximum": 50,
+          "default": 2
+        },
+        "snark_style": {
+          "type": "string",
+          "title": "彩蛋模板风格",
+          "description": "zh = 中文阴阳怪气翻译腔；en = 英语阴阳怪气管家腔。",
+          "x-title-i18n": { "zh-CN": "彩蛋模板风格", "en": "Easter-egg style" },
+          "x-description-i18n": {
+            "zh-CN": "zh = 中文阴阳怪气翻译腔；en = 英语阴阳怪气管家腔。",
+            "en": "zh = Chinese translated-novel snark; en = English passive-aggressive butler."
+          },
+          "enum": ["zh", "en"],
+          "default": "zh"
+        },
+        "snark_tags": {
+          "type": "boolean",
+          "title": "随机结尾语",
+          "description": "在彩蛋末尾随机追加一句「阿门，喵。」之类的收尾。",
+          "x-title-i18n": { "zh-CN": "随机结尾语", "en": "Random closing line" },
+          "x-description-i18n": {
+            "zh-CN": "在彩蛋末尾随机追加一句「阿门，喵。」之类的收尾。",
+            "en": "Appends a random closing line such as \"Amen. Meow.\""
+          },
+          "default": true
+        },
+        "geocode_language": {
+          "type": "string",
+          "title": "地名返回语言",
+          "x-title-i18n": { "zh-CN": "地名返回语言", "en": "Place-name language" },
+          "enum": ["zh", "en", "ja"],
+          "default": "zh"
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "title": "请求超时（秒）",
+          "x-title-i18n": { "zh-CN": "请求超时（秒）", "en": "Request timeout (seconds)" },
+          "minimum": 3,
+          "maximum": 120,
+          "default": 15
+        }
+      }
+    }
+  }
+}

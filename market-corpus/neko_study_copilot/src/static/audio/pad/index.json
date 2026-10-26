@@ -1,0 +1,89 @@
+{
+  "license": "CC BY 3.0",
+  "source": "FluidR3_GM via https://github.com/gleitz/midi-js-soundfonts",
+  "credit": "FluidR3_GM soundfont (CC BY 3.0)",
+  "instruments": {
+    "choir_aahs": {
+      "notes": [
+        {
+          "midi": 55,
+          "file": "choir_aahs-G3.mp3",
+          "bytes": 25585
+        },
+        {
+          "midi": 60,
+          "file": "choir_aahs-C4.mp3",
+          "bytes": 25585
+        },
+        {
+          "midi": 64,
+          "file": "choir_aahs-E4.mp3",
+          "bytes": 25585
+        },
+        {
+          "midi": 67,
+          "file": "choir_aahs-G4.mp3",
+          "bytes": 25585
+        },
+        {
+          "midi": 72,
+          "file": "choir_aahs-C5.mp3",
+          "bytes": 25585
+        },
+        {
+          "midi": 76,
+          "file": "choir_aahs-E5.mp3",
+          "bytes": 25585
+        }
+      ]
+    },
+    "music_box": {
+      "notes": [
+        {
+          "midi": 60,
+          "file": "music_box-C4.mp3",
+          "bytes": 16667
+        },
+        {
+          "midi": 67,
+          "file": "music_box-G4.mp3",
+          "bytes": 15601
+        },
+        {
+          "midi": 72,
+          "file": "music_box-C5.mp3",
+          "bytes": 15679
+        },
+        {
+          "midi": 79,
+          "file": "music_box-G5.mp3",
+          "bytes": 15523
+        }
+      ]
+    },
+    "marimba": {
+      "notes": [
+        {
+          "midi": 48,
+          "file": "marimba-C3.mp3",
+          "bytes": 14457
+        },
+        {
+          "midi": 55,
+          "file": "marimba-G3.mp3",
+          "bytes": 14561
+        },
+        {
+          "midi": 60,
+          "file": "marimba-C4.mp3",
+          "bytes": 14769
+        },
+        {
+          "midi": 67,
+          "file": "marimba-G4.mp3",
+          "bytes": 14769
+        }
+      ]
+    }
+  }
+}

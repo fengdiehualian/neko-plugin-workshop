@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check bili_viewer",
+      "type": "shell",
+      "command": "uv run neko-plugin check bili_viewer",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync bili_viewer",
+      "type": "shell",
+      "command": "uv run neko-plugin sync bili_viewer --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r bili_viewer",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r bili_viewer",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build bili_viewer",
+      "type": "shell",
+      "command": "uv run neko-plugin build bili_viewer",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

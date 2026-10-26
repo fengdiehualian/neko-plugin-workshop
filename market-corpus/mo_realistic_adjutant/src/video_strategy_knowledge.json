@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "BV1btQGBVEN2",
+      "title": "Allied United States convoy doctrine",
+      "topics": ["convoy_roles", "ifv_micro", "attack_wave"]
+    },
+    {
+      "id": "BV19pcQzpELp",
+      "title": "Early economy and base placement",
+      "topics": ["economy", "ore_placement", "tech_tiers", "harvester_flow"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "video_convoy_role_separation",
+      "priority": 110,
+      "tags": ["US", "IFV", "convoy", "scout", "repair", "anti_armor", "fire_support"],
+      "when": {"convoy_ready": true},
+      "actions": ["lock_passengers_before_departure", "keep_convoy_cohesive", "focus_production_targets"],
+      "reason": "Load Tanya, engineers, Guardian GIs and Navy SEALs once before departure; never switch IFV passengers during combat. Riot Troopers and Abrams fight outside the IFVs."
+    },
+    {
+      "id": "video_economy_before_nonessential",
+      "priority": 108,
+      "tags": ["opening", "economy", "harvester", "refinery"],
+      "when": {"harvester_count_below": 5},
+      "actions": ["protect_income", "prioritize_harvesters", "delay_nonessential_production"],
+      "reason": "Keep ore collection and refinery flow healthy before spending on optional combat units."
+    },
+    {
+      "id": "video_power_and_tech_layout",
+      "priority": 102,
+      "tags": ["placement", "power", "technology", "T1", "T2", "T3"],
+      "when": {"building_ready_to_place": true},
+      "actions": ["reserve_expansion_space", "place_near_ore_when_resource", "keep_power_buffer", "advance_tech_tier"],
+      "reason": "Placement must preserve the next refinery, power coverage, and technology footprint."
+    },
+    {
+      "id": "video_attack_wave_reconstitution",
+      "priority": 100,
+      "tags": ["attack", "wave", "rebuild", "micro"],
+      "when": {"nearby_hostile": true},
+      "actions": ["keep_single_convoy_controller", "rebuild_losses", "retain_main_push"],
+      "reason": "After contact, keep one cohesive push and replace losses between waves; do not create competing micro tasks or change IFV passengers."
+    },
+    {
+      "id": "video_mcv_deploy_first",
+      "priority": 115,
+      "tags": ["MCV", "deploy", "opening"],
+      "when": {"no_visible_hostile": true},
+      "actions": ["deploy_mcv_before_expansion", "protect_deployed_base"],
+      "reason": "The deployed construction yard is more resilient and unlocks the operating economy."
+    }
+  ],
+  "us_convoy_roles": {
+    "command": {"type_ids": ["TANY"], "target": "strategic_building"},
+    "repair_support": {"type_ids": ["ENGINEER"], "target": "friendly_convoy"},
+    "anti_armor": {"type_ids": ["GGI"], "target": "enemy_armor"},
+    "anti_infantry_assault": {"type_ids": ["GHOST"], "target": "enemy_infantry"},
+    "external_anti_infantry": {"type_ids": ["RIOT"], "target": "enemy_infantry"},
+    "external_armor": {"type_ids": ["ABRM", "ETNK", "ROBO"], "target": "strategic_building"}
+  }
+}

@@ -1,0 +1,29 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[skill_manager]
+# 启动/重载时自动注册自带 Skill 为运行时入口（外部 Skill 默认只登记）
+auto_register = true
+
+# 外部（用户文件夹）Skill 是否也允许注册成可调用入口。
+# true = 只登记（推荐）：它们在 skill_list/skill_validate/面板里可见，
+#        但没有 KB 路由，注册成入口只会得到 "has no KB route" 错误。
+# false = 只要下面 [skill_manager.routes] 里给了路由，就注册成运行时入口。
+builtin_only = true
+
+# 额外扫描的用户 skill 根（留空 = 只用内置的知名路径，见 engine/external.py）
+extra_roots = []
+
+# 退回复制模式时，单个文件超过这个字节数就跳过（junction 模式不适用）
+copy_max_bytes = 5242880
+
+# 用户目录覆盖（留空 = 当前用户 home，主要用于测试）
+home = ""
+
+# 给外部 Skill 补路由，让它变成可调用入口（需同时把 builtin_only 设为 false）。
+# entry 是 plugin_knowledge_base 的入口名，params 是允许透传的参数名白名单。
+#
+# [skill_manager.routes.my-skill]
+# entry = "kb_search"
+# params = ["query", "top_k"]

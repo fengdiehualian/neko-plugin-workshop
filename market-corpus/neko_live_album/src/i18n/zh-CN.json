@@ -1,0 +1,13 @@
+{
+  "plugin.name": "猫娘实况相册",
+  "plugin.description": "像女友一样双向拍照的实况相册：你可以用「拍她」按钮抓拍猫娘的反应实况，她也会在合适的时机请求用前置摄像头给你拍一张。实况卡长按即可播放，相册持久保存，支持导出分享。",
+
+  "entry.album_guide.name": "实况相册玩法说明",
+  "entry.album_guide.description": "介绍猫娘实况相册的玩法：如何拍猫娘、如何允许猫娘拍主人、如何回看实况。当主人问到相册或拍照功能时调用。",
+  "entry.album_guide.text": "打开「实况相册」面板后：点点猫娘的头，她会有摸头反应；点「拍她」可以抓拍她 2.5 秒的反应实况；点「她拍你」或者等她害羞地开口，授权后她会用前置摄像头给你拍一张；在相册里长按照片就能播放实况。",
+
+  "entry.photo_react.name": "生成拍照反应",
+  "entry.photo_react.description": "根据场景返回猫娘拍照时会说的话。scene 可选：shy（被拍害羞）、pose（配合摆姿势）、happy（开心）、annoyed（假装嫌弃）、compliment（拍完主人后夸奖）。",
+  "entry.photo_react.param.scene": "拍照场景：shy/pose/happy/annoyed/compliment",
+  "entry.photo_react.error.invalid_scene": "未知的拍照场景，请使用 shy/pose/happy/annoyed/compliment"
+}

@@ -1,0 +1,23 @@
+[plugin]
+id = "call_mom"
+name = "Call Mom"
+version = "0.1.3"
+description = "打开插件后，用户与 N.E.K.O 的每一句话都会在最前面自动带上「妈妈，」前缀——用户在叫妈妈，她也会像妈妈一样回应。"
+short_description = "每句话都叫妈妈的仪式感插件。"
+keywords = ["妈妈", "妈", "call.?mom", "callmom", "叫妈", "前缀"]
+entry = "plugin.plugins.call_mom:CallMomPlugin"
+
+[plugin.author]
+name = "storybox"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[call_mom]
+prefix = "妈妈，"
+reinforce_minutes = 15

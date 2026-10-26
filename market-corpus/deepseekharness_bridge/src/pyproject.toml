@@ -1,0 +1,21 @@
+[project]
+name = "neko-plugin-deepseekharness-bridge"
+version = "0.2.3"
+description = "Bridge a local DeepSeek Harness into N.E.K.O."
+requires-python = ">=3.10"
+# No third-party dependencies: the SDK is optional at runtime and is probed
+# dynamically. Vendoring it would force every install to carry a wheel it may
+# never use, so the plugin degrades to the `dsh` CLI instead.
+dependencies = []
+
+[tool.neko_plugin]
+id = "deepseekharness_bridge"
+
+[tool.pytest.ini_options]
+# 只收集 tests/。插件根目录的 __init__.py 是 N.E.K.O. 入口模块，导入
+# plugin.sdk，在没有宿主的 CI 环境里会失败，不能被 pytest 当测试收集。
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+# importlib 模式不让 pytest 把含 __init__.py 的目录当成包导入，
+# 否则它会去加载入口模块并在缺 SDK 的环境里报 ModuleNotFoundError。
+addopts = "-q --import-mode=importlib"

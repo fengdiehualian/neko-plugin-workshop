@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猫娘伴奏团</title>
+<style>
+  :root{
+    --bg:#131018; --panel:#1c1723; --card:#241d2e; --line:#3a2f4a;
+    --text:#f0e9f5; --muted:#9c8fae; --accent:#c9a0ff; --hot:#ff7ba9; --beat:#7bd8c0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:18px;max-width:720px;margin:0 auto}
+  h1{font-size:19px;margin-bottom:4px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+  .card h2{font-size:14px;margin-bottom:10px;color:var(--accent)}
+  .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+  select,input{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;outline:none}
+  select:focus,input:focus{border-color:var(--accent)}
+  button{background:var(--accent);color:#131018;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer}
+  button:hover{filter:brightness(1.12)}
+  button.stop{background:var(--hot);color:#fff}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .beat{display:flex;gap:10px;margin:6px 0 2px}
+  .dot{width:16px;height:16px;border-radius:50%;background:var(--panel);border:1px solid var(--line);transition:all .1s}
+  .dot.on{background:var(--beat);border-color:var(--beat);box-shadow:0 0 12px var(--beat)}
+  .dot.on.one{background:var(--accent);border-color:var(--accent);box-shadow:0 0 12px var(--accent)}
+  .note-big{font-size:30px;font-weight:800;text-align:center;min-height:44px;color:var(--accent);letter-spacing:2px}
+  .note-hint{text-align:center;color:var(--muted);font-size:11px;margin-bottom:8px}
+  .meter{height:10px;background:var(--panel);border-radius:5px;overflow:hidden;margin-bottom:8px}
+  .meter i{display:block;height:100%;background:linear-gradient(90deg,var(--beat),var(--accent));width:0%;transition:width .08s}
+  .status-row{display:flex;gap:14px;flex-wrap:wrap}
+  .status-item{flex:1;min-width:110px}
+  .status-item .k{font-size:11px;color:var(--muted)}
+  .status-item .v{font-size:15px;margin-top:2px;font-weight:600}
+  .chord-flow{display:flex;gap:8px;justify-content:center;margin-top:8px}
+  .chord{min-width:52px;text-align:center;padding:8px 4px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:15px}
+  .chord.now{background:var(--accent);color:#131018;border-color:var(--accent)}
+  .history{font-size:12px;color:var(--muted);line-height:1.9;max-height:88px;overflow:auto}
+  .history b{color:var(--text);font-weight:600;margin-right:8px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--accent);color:var(--text);padding:10px 18px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none}
+  .toast.show{opacity:1}
+  label.sw{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer}
+  .howto{font-size:12px;line-height:1.8;color:var(--muted)}
+  .howto b{color:var(--text)}
+</style>
+</head>
+<body>
+<h1>🎹 猫娘伴奏团</h1>
+<div class="sub">你唱歌，猫娘用乐器伴奏 — 自动听调 · I-V-vi-IV 和弦 · 长音和声</div>
+
+<div class="card">
+  <h2>合奏</h2>
+  <div class="beat">
+    <div class="dot" id="b0"></div><div class="dot" id="b1"></div>
+    <div class="dot" id="b2"></div><div class="dot" id="b3"></div>
+  </div>
+  <div class="note-big" id="noteNow">—</div>
+  <div class="note-hint">主人正在唱的音</div>
+  <div class="meter"><i id="levelBar"></i></div>
+  <div class="chord-flow" id="chordFlow">
+    <div class="chord" data-d="0">I</div><div class="chord" data-d="1">V</div>
+    <div class="chord" data-d="2">vi</div><div class="chord" data-d="3">IV</div>
+  </div>
+  <div class="row">
+    <button id="startBtn">🎤 开始合奏</button>
+    <button class="stop" id="stopBtn">停止</button>
+    <label class="sw"><input type="checkbox" id="harmonyChk" checked> 猫娘和声</label>
+    <label class="sw"><input type="checkbox" id="autoKeyChk" checked> 自动听调</label>
+  </div>
+</div>
+
+<div class="card">
+  <h2>猫娘的乐器</h2>
+  <div class="row">
+    <select id="instSel">
+      <option value="piano">🎹 钢琴</option>
+      <option value="epiano">🎛 电钢琴</option>
+      <option value="music_box">🎵 八音盒</option>
+      <option value="ukulele">🪕 尤克里里</option>
+    </select>
+    <select id="patSel">
+      <option value="arpeggio">琶音</option>
+      <option value="chord_pad">铺底和弦</option>
+      <option value="offbeat">反拍</option>
+    </select>
+    <input type="number" id="bpmInput" value="92" min="60" max="160" style="width:76px" title="BPM">
+  </div>
+  <div class="row">
+    <input id="keyInput" placeholder="调性（如 C / Am），留空=自动" style="flex:1">
+    <button class="ghost" id="keyBtn">定调</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>状态</h2>
+  <div class="status-row">
+    <div class="status-item"><div class="k">调性</div><div class="v" id="stKey">—</div></div>
+    <div class="status-item"><div class="k">置信度</div><div class="v" id="stConf">—</div></div>
+    <div class="status-item"><div class="k">小节</div><div class="v" id="stBars">0</div></div>
+    <div class="status-item"><div class="k">乐器</div><div class="v" id="stInst">piano</div></div>
+  </div>
+  <div class="row"><span style="font-size:11px;color:var(--muted)">最近唱的：</span><span class="history" id="histNotes" style="flex:1">—</span></div>
+</div>
+
+<div class="card">
+  <h2>怎么玩</h2>
+  <div class="howto">
+    <b>① 开始合奏</b>后先哼两句（比如 "啦——"），猫娘听 8 秒左右锁定你的调，面板会显示调性和置信度。<br>
+    <b>② 直接唱</b>就行——猫娘按 92 BPM 稳定弹和弦琶音，不跟你的节奏走（故意滴，不然会乱）。<br>
+    <b>③ 唱长音</b>（一秒以上）时如果开了和声，猫娘会叠一个三度和声。<br>
+    <b>④ 换歌？</b>点停止再开始，猫娘会重新听调。也可以手动定调。<br>
+    对猫娘说「<b>给我伴奏</b>」「<b>弹钢琴</b>」「<b>换八音盒</b>」也可以直接控制。
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = location.origin;
+const $ = (id) => document.getElementById(id);
+let pollTimer = null;
+
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+async function entry(id, args){
+  const r = await fetch(`${API}/plugin/neko_jam_band/entry/${id}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({arguments: args || {}})
+  }).catch(() => null);
+  if(!r) { toast('插件入口不可达'); return null; }
+  const d = await r.json();
+  if(d && d.error) toast(typeof d.error === 'string' ? d.error : JSON.stringify(d.error));
+  return d;
+}
+
+function renderStatus(st){
+  if(!st) return;
+  $('stKey').textContent = st.key ? st.key + (st.key.includes('m') ? '' : ' 大调') : '听调中…';
+  $('stConf').textContent = st.key_confidence !== undefined ? Math.round(st.key_confidence*100) + '%' : '—';
+  $('stBars').textContent = st.bars_played ?? 0;
+  $('stInst').textContent = st.instrument || 'piano';
+  $('noteNow').textContent = st.current_note || '—';
+}
+
+async function poll(){
+  const d = await entry('jam_status').catch(()=>null);
+  if(d && d.value){ renderStatus(d.value);
+    const notes = (d.value.recent || []).join(' ');
+  }
+}
+
+$('startBtn').onclick = async () => {
+  const bpm = +$('bpmInput').value || 92;
+  await entry('set_instrument', {instrument: $('instSel').value});
+  await entry('set_pattern', {pattern: $('patSel').value});
+  if($('autoKeyChk').checked) await entry('set_key', {key:'auto'});
+  const d = await entry('jam_start', {});
+  if(d){ toast('合奏开始！先哼两句让猫娘找调'); pollTimer = setInterval(poll, 800); poll(); }
+};
+
+$('stopBtn').onclick = async () => {
+  await entry('jam_stop');
+  clearInterval(pollTimer);
+  $('noteNow').textContent = '—';
+  toast('合奏结束，猫娘收琴喵~');
+};
+
+$('harmonyChk').onchange = (e) => { /* 引擎侧由 set_key/harmony 配置，UI 演示 */ };
+$('keyBtn').onclick = async () => {
+  const k = $('keyInput').value.trim() || 'auto';
+  const d = await entry('set_key', {key: k});
+  if(d) toast(k === 'auto' ? '已切回自动听调' : `已定调 ${k}`);
+};
+
+poll();
+</script>
+</body>
+</html>

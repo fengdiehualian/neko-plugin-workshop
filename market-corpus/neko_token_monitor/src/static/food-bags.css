@@ -1,0 +1,20 @@
+/* Keep the quota shelf left of YUI and below the thought dots. */
+#foodBags{position:absolute;left:18px;top:244px;display:flex;align-items:flex-end;gap:4px;height:84px;z-index:3;pointer-events:none;--bag-accent:#8c92b4}
+#foodBags[hidden],body.bubble-hidden #foodBags,body.record-finished #foodBags,body.record-inactive:not(.browser-preview) #foodBags{display:none!important}
+.food-bag{position:relative;display:block;width:51px;height:80px;transform:rotate(-4deg);transform-origin:50% 95%;filter:drop-shadow(0 2px 1px #353b7310);pointer-events:auto;cursor:grab;touch-action:none}
+.food-bag:focus-visible{outline:3px solid #dfa18e;outline-offset:4px;border-radius:10px}
+.food-bag.bag-held{opacity:.22;cursor:grabbing}
+.food-bag-ghost{position:fixed!important;z-index:19000;pointer-events:none!important;transform:rotate(8deg)!important;cursor:grabbing;opacity:.95;filter:drop-shadow(0 5px 5px #353b7335)}
+#character.food-drop-ready{filter:drop-shadow(0 0 7px #e5b76b)}
+.food-bag:nth-child(2){transform:rotate(3deg) translateY(-4px)}
+.food-bag:nth-child(3){transform:rotate(-2deg)}
+.food-bag svg{display:block;width:100%;height:100%;overflow:visible}
+.bag-floor{fill:#353b7318}.bag-paper{fill:#fffdf6;stroke:var(--ink);stroke-width:2.8;stroke-linejoin:round}
+.bag-fold{fill:var(--bag-accent);stroke:var(--ink);stroke-width:2;stroke-linejoin:round}
+.bag-seam{fill:none;stroke:var(--ink);stroke-width:1.2;stroke-linecap:round;opacity:.6}
+.bag-paw{fill:var(--bag-accent)}.bag-empty-crease{display:none;fill:none;stroke:var(--ink);stroke-width:1.3;opacity:.25;stroke-linejoin:round}
+.bag-brand{position:absolute;left:5px;right:5px;top:26px;display:grid;place-items:center;color:var(--bag-accent)}
+.bag-brand img,.bag-brand svg{display:block;width:27px;height:27px;object-fit:contain;border-radius:4px}
+.empty-bag{transform:rotate(9deg) scaleY(.74);transform-origin:50% 100%}
+.empty-bag .bag-empty-crease{display:block}.empty-bag .bag-fold{opacity:.5}.empty-bag .bag-paw{opacity:.45}
+.old-bags{opacity:.55;filter:saturate(.35)}

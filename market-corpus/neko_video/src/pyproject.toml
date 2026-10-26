@@ -1,0 +1,23 @@
+[project]
+name = "neko_video"
+version = "0.4.0"
+description = "看视频猫娘"
+requires-python = ">=3.11"
+# 运行时不依赖任何第三方库（只用标准库：ctypes / urllib / zlib / xml），
+# 因此无需 vendor/ —— 用户下载 .neko-plugin 即可用，不用装任何东西。
+dependencies = []
+
+# ★ 这里**故意不写 [tool.pytest.ini_options]**。
+#
+# 官方发布校验跑的是 `pytest <插件目录>/tests`，cwd = 插件目录
+# （plugin/neko_plugin_cli/commands/release_cmd.py:_run_tests）。
+# 但 CI 是在 N.E.K.O 仓库里跑的，`neko/pytest.ini` 才是 rootdir 权威配置
+# （它把 norecursedirs 设成 `.* venv build dist ...`，插件入口不在收集范围内）。
+#
+# 如果在插件自己的 pyproject 里写 `addopts = "--import-mode=importlib"`，
+# pytest 会沿目录向上找包根，撞到插件根目录的 `__init__.py`（插件入口，
+# `from plugin.sdk.plugin import ...`，只在宿主进程里存在），把它当测试模块
+# 导入 —— 59 个测试全部报 ModuleNotFoundError，发布校验直接 FAIL。
+#
+# 本地想跑离线测试用脚本模式（作者就是这么设计的）：
+#     python tests/test_offline.py

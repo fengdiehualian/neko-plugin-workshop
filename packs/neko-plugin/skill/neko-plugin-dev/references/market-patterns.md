@@ -1,21 +1,21 @@
-# 市场插件写法统计与惯用法(来自 46 个官方市场插件的源码分析)
+# 市场插件写法统计与惯用法(基于 127 个在架插件的源码分析)
 
-> 数据来源:market.project-neko.cn 全量插件(2026-09 抓取,46 个有效源码仓库)。
+> 数据来源:market.project-neko.cn 全量插件(2026-10-26 抓取,127 个在架插件,126 个可读源码)。
 > **写任何插件前先读本文**——这是真实上架插件的写法统计,比个人直觉可靠。
 > 有同类功能时,优先模仿 `market-examples/` 里的完整范例源码。
-> **全部 46 个插件的功能卡片与源码索引见 `market-catalog.md`**;完整源码都在本机 `<WORKSHOP_DIR>\market-corpus\<slug>\src`,直接读。
+> **社区规范与全部 127 个插件的索引见 `market-catalog.md`**;完整源码都在本机 `<WORKSHOP_DIR>\market-corpus\<slug>\src`,直接读。
 
-## 一、能力使用率(46 个插件中)
+## 一、能力使用率(126 个可读源码中)
 
-| 能力 | 使用率 | 一句话说明 |
+| 能力 | 使用率(126 份源码) | 一句话说明 |
 |---|---|---|
-| `push_message`(v2 字段) | 57% | 主动给聊天窗口/HUD 推消息,提醒类必备 |
-| `self.data_path()` | 41% | 持久化数据(JSON/SQLite),重启不丢 |
-| **`@llm_tool`** | **50%** | **让猫娘在对话里直接调用你的功能——市场第一大主流能力** |
-| http 客户端(httpx/requests) | 39% | 联网类插件(搜索/音乐/邮件)的标准配置 |
-| `self.store` | 37% | 官方键值存储(需 plugin.toml 开 `[plugin.store] enabled=true`) |
-| 静态 UI(`register_static_ui`) | 28% | 插件自带网页面板 |
-| `@timer_interval` | 20% | 定时任务 |
+| **`@llm_tool`** | **52%(65)** | **让猫娘在对话里直接调用你的功能——市场第一大主流能力** |
+| `push_message`(v2 字段) | 44%(55) | 主动给聊天窗口/HUD 推消息,提醒类必备 |
+| `self.data_path()` | 34%(43) | 持久化数据(JSON/SQLite),重启不丢 |
+| http 客户端(httpx/requests) | 31%(39) | 联网类插件(搜索/音乐/邮件)的标准配置 |
+| 静态 UI(`register_static_ui`) | 27%(34) | 插件自带网页面板 |
+| `self.store` | 15%(19) | 官方键值存储(需 plugin.toml 开 `[plugin.store] enabled=true`) |
+| `@timer_interval` | 15%(19) | 定时任务 |
 | `PluginSettings` 声明式配置 | 少数但官方推荐 | hot 字段热更新 |
 | 动态入口 / PluginRouter / list_actions | <10% | 大型插件才用 |
 

@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "source": "MO单位注册单 + unit_catalog.json Rules metadata",
+  "factions": {
+    "allied": {
+      "name": "同盟国联军",
+      "subfactions": {
+        "UnitedStates": "美国",
+        "Europeans": "欧洲联盟",
+        "Pacific": "太平洋阵线"
+      }
+    },
+    "soviet": {
+      "name": "苏维埃联盟",
+      "subfactions": {
+        "USSR": "俄罗斯",
+        "Latin": "拉丁同盟",
+        "Chinese": "中国"
+      }
+    },
+    "epsilon": {
+      "name": "厄普西隆军",
+      "subfactions": {
+        "PsiCorps": "心灵军团",
+        "Headquaters": "厄普西隆总部",
+        "ScorpionCell": "天蝎组织"
+      }
+    },
+    "foehn": {
+      "name": "焚风反抗军",
+      "subfactions": {
+        "Guild1": "海翼",
+        "Guild2": "科洛尼亚侧翼",
+        "Guild3": "最后堡垒"
+      }
+    }
+  },
+  "category_aliases": {
+    "mobile_construction_vehicle": ["基地车", "机动建设车", "mcv"],
+    "construction_yard": ["基地", "建造场", "主基地", "construction yard", "conyard"],
+    "power": ["电厂", "发电厂", "反应炉", "发电风箱", "power"],
+    "barracks": ["兵营", "步兵工厂", "barracks"],
+    "refinery": ["矿场", "矿石精炼厂", "精炼厂", "refinery"],
+    "war_factory": ["重工", "战争工厂", "战车工厂", "war factory"],
+    "naval_yard": ["船坞", "海军船坞", "naval yard"],
+    "airfield": ["机场", "空军基地", "空军指挥部", "停机坪", "airfield"],
+    "airfield_runway": ["跑道", "扩展跑道", "runway"],
+    "t2_technology": ["t2", "二级科技", "雷达", "科技建筑"],
+    "t3_technology": ["t3", "三级科技", "高科", "实验室", "科技中心"],
+    "superweapon": ["超级武器", "超武", "superweapon"]
+  },
+  "buildings": {
+    "AMCV": {"name":"盟军机动建设车","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"mobile_construction_vehicle","tier":0,"priority":0,"strategic_target":false,"deploys_to":"GACNST"},
+    "GACNST": {"name":"盟军建造场","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"construction_yard","tier":0,"priority":100,"strategic_target":true},
+    "GAPOWR": {"name":"发电厂","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"power","tier":1,"priority":78,"strategic_target":true},
+    "GAPOWRUP": {"name":"电力涡轮","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"power_upgrade","tier":2,"priority":0,"strategic_target":false,"is_upgrade":true,"parent":"GAPOWR"},
+    "GAPILE": {"name":"盟军兵营","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"barracks","tier":1,"priority":86,"strategic_target":true},
+    "GAREFN": {"name":"盟军矿石精炼厂","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"refinery","tier":1,"priority":92,"strategic_target":true},
+    "GAWEAP": {"name":"盟军战争工厂","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"war_factory","tier":1,"priority":94,"strategic_target":true},
+    "GADEPO": {"name":"盟军军械库","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"military_support","tier":1,"priority":64,"strategic_target":true},
+    "GAYARD": {"name":"盟军海军船坞","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"naval_yard","tier":1,"priority":82,"strategic_target":true},
+    "GAAIRC": {"name":"盟军空军指挥部","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"airfield","tier":2,"priority":90,"strategic_target":true},
+    "GAHPAD": {"name":"扩展跑道","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"airfield_runway","tier":3,"priority":72,"strategic_target":true},
+    "GAAIRC_D": {"name":"空降控制站","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"air_support","tier":2,"priority":65,"strategic_target":true},
+    "GAMERC": {"name":"墨丘利卫星系统终端","faction":"allied","subfactions":["UnitedStates"],"category":"t2_technology","tier":2,"priority":91,"strategic_target":true},
+    "GASCEA": {"name":"防御指挥部","faction":"allied","subfactions":["Europeans"],"category":"t2_technology","tier":2,"priority":91,"strategic_target":true},
+    "GASCPF": {"name":"机器人控制中心","faction":"allied","subfactions":["Pacific"],"category":"t2_technology","tier":2,"priority":91,"strategic_target":true},
+    "GATECH": {"name":"科技中心","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"t3_technology","tier":3,"priority":98,"strategic_target":true},
+    "GACLAB": {"name":"实验型传送平台","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"t3_technology","tier":3,"priority":96,"strategic_target":true},
+    "GAOREP": {"name":"矿石提纯器","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"economy_support","tier":3,"priority":88,"strategic_target":true},
+    "GACSPH": {"name":"超时空传送仪","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"superweapon","tier":3,"priority":99,"strategic_target":true},
+    "GAWEAT": {"name":"天气控制仪","faction":"allied","subfactions":["UnitedStates","Europeans","Pacific"],"category":"superweapon","tier":3,"priority":99,"strategic_target":true},
+
+    "SMCV": {"name":"苏联机动建设车","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"mobile_construction_vehicle","tier":0,"priority":0,"strategic_target":false,"deploys_to":"NACNST"},
+    "NACNST": {"name":"苏联建造场","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"construction_yard","tier":0,"priority":100,"strategic_target":true},
+    "NAPOWR": {"name":"磁能反应炉","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"power","tier":1,"priority":78,"strategic_target":true},
+    "NAHAND": {"name":"苏联兵营","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"barracks","tier":1,"priority":86,"strategic_target":true},
+    "NAPRIS": {"name":"战地情报局","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"military_support","tier":1,"priority":65,"strategic_target":true},
+    "NAREFN": {"name":"苏联矿石精炼厂","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"refinery","tier":1,"priority":92,"strategic_target":true},
+    "NAWEAP": {"name":"苏联战争工厂","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"war_factory","tier":1,"priority":94,"strategic_target":true},
+    "NAYARD": {"name":"苏联海军船坞","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"naval_yard","tier":1,"priority":82,"strategic_target":true},
+    "NAAIR": {"name":"苏联空军基地","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"airfield","tier":2,"priority":90,"strategic_target":true},
+    "NARADR": {"name":"苏联雷达","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"t2_technology","tier":2,"priority":89,"strategic_target":true},
+    "NANRCT": {"name":"核子反应炉","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"advanced_power","tier":3,"priority":94,"strategic_target":true},
+    "NANRCTUP": {"name":"核能转换器","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"power_upgrade","tier":3,"priority":0,"strategic_target":false,"is_upgrade":true,"parent":"NANRCT"},
+    "NATECHR": {"name":"宫殿","faction":"soviet","subfactions":["USSR"],"category":"t3_technology","tier":3,"priority":98,"strategic_target":true},
+    "NATECHC": {"name":"作战实验室","faction":"soviet","subfactions":["Latin"],"category":"t3_technology","tier":3,"priority":98,"strategic_target":true},
+    "NATEK": {"name":"原子核心","faction":"soviet","subfactions":["Chinese"],"category":"t3_technology","tier":3,"priority":98,"strategic_target":true},
+    "NAINDP": {"name":"工业工厂","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"economy_support","tier":3,"priority":88,"strategic_target":true},
+    "NAIRON": {"name":"铁幕装置","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"superweapon","tier":3,"priority":99,"strategic_target":true},
+    "NAMISL": {"name":"核弹发射井","faction":"soviet","subfactions":["USSR","Latin","Chinese"],"category":"superweapon","tier":3,"priority":99,"strategic_target":true},
+
+    "PCV": {"name":"厄普西隆机动建设车","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"mobile_construction_vehicle","tier":0,"priority":0,"strategic_target":false,"deploys_to":"YACNST"},
+    "YACNST": {"name":"厄普西隆建造场","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"construction_yard","tier":0,"priority":100,"strategic_target":true},
+    "YACXST": {"name":"假厄普西隆建造场","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"decoy","tier":0,"priority":0,"strategic_target":false},
+    "YAPOWR": {"name":"生化反应室","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"power","tier":1,"priority":78,"strategic_target":true},
+    "YABRCK": {"name":"厄普西隆兵营","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"barracks","tier":1,"priority":86,"strategic_target":true},
+    "YARIREFN": {"name":"厄普西隆矿石精炼厂","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"refinery","tier":1,"priority":92,"strategic_target":true},
+    "YAVULT": {"name":"厄普西隆合成缸","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"economy_support","tier":1,"priority":84,"strategic_target":true},
+    "YAWEAP": {"name":"厄普西隆战争工厂","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"war_factory","tier":1,"priority":94,"strategic_target":true},
+    "YAYARD": {"name":"厄普西隆海军船坞","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"naval_yard","tier":1,"priority":82,"strategic_target":true},
+    "YAPSIS": {"name":"雷达旋塔","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"t2_technology","tier":2,"priority":89,"strategic_target":true},
+    "YAAIRF": {"name":"停机坪","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"airfield","tier":2,"priority":90,"strategic_target":true},
+    "YAGRND": {"name":"移动粉碎机","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"economy_support","tier":2,"priority":72,"strategic_target":true},
+    "YATECH": {"name":"潘多拉枢纽","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"t2_technology","tier":2,"priority":95,"strategic_target":true},
+    "YAPVLT": {"name":"心灵研究组件","faction":"epsilon","subfactions":["PsiCorps"],"category":"t3_technology","tier":3,"priority":0,"strategic_target":false,"is_upgrade":true,"parent":"YATECH"},
+    "YACVLT": {"name":"化学研究组件","faction":"epsilon","subfactions":["ScorpionCell"],"category":"t3_technology","tier":3,"priority":0,"strategic_target":false,"is_upgrade":true,"parent":"YATECH"},
+    "YAGVLT": {"name":"基因研究组件","faction":"epsilon","subfactions":["Headquaters"],"category":"t3_technology","tier":3,"priority":0,"strategic_target":false,"is_upgrade":true,"parent":"YATECH"},
+    "NACLON": {"name":"克隆缸","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"production_support","tier":3,"priority":87,"strategic_target":true},
+    "YAGNTC": {"name":"狂暴发生器","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"superweapon","tier":3,"priority":99,"strategic_target":true},
+    "YAPPET": {"name":"心灵支配仪","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"superweapon","tier":3,"priority":99,"strategic_target":true},
+    "YAPPXT": {"name":"假心灵支配仪","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"decoy","tier":3,"priority":0,"strategic_target":false},
+    "YBLABX": {"name":"假潘多拉枢纽","faction":"epsilon","subfactions":["PsiCorps","Headquaters","ScorpionCell"],"category":"decoy","tier":2,"priority":0,"strategic_target":false},
+
+    "FMCV": {"name":"焚风机动建设车","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"mobile_construction_vehicle","tier":0,"priority":0,"strategic_target":false,"deploys_to":"FACNST"},
+    "FACNST": {"name":"焚风建造场","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"construction_yard","tier":0,"priority":100,"strategic_target":true},
+    "FATRAP": {"name":"发电风箱","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"power","tier":1,"priority":78,"strategic_target":true},
+    "FABARR": {"name":"焚风兵营","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"barracks","tier":1,"priority":86,"strategic_target":true},
+    "FABARR_D": {"name":"网络流协议","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"barracks_upgrade","tier":2,"priority":0,"strategic_target":false,"is_upgrade":true,"parent":"FABARR"},
+    "FABARR_B": {"name":"轨道舱协议","faction":"foehn","subfactions":["Guild2"],"category":"barracks_upgrade","tier":3,"priority":0,"strategic_target":false,"is_upgrade":true,"parent":"FABARR"},
+    "FAREFN": {"name":"焚风矿石精炼厂","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"refinery","tier":1,"priority":92,"strategic_target":true},
+    "FAWEAP": {"name":"焚风战争工厂","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"war_factory","tier":1,"priority":94,"strategic_target":true},
+    "FAYARD": {"name":"焚风海军船坞","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"naval_yard","tier":1,"priority":82,"strategic_target":true},
+    "FACYBR": {"name":"网络核心","faction":"foehn","subfactions":["Guild1"],"category":"t2_technology","tier":2,"priority":95,"strategic_target":true},
+    "FACYBR_B": {"name":"网络核心扩展模组","faction":"foehn","subfactions":["Guild1"],"category":"t3_technology","tier":3,"priority":0,"strategic_target":false,"is_upgrade":true,"parent":"FACYBR"},
+    "FACLDP": {"name":"穿云尖塔","faction":"foehn","subfactions":["Guild2"],"category":"t2_technology","tier":2,"priority":95,"strategic_target":true},
+    "FACLDP_B": {"name":"穿云尖塔扩展模组","faction":"foehn","subfactions":["Guild2"],"category":"t3_technology","tier":3,"priority":0,"strategic_target":false,"is_upgrade":true,"parent":"FACLDP"},
+    "FANANO": {"name":"纳米纤维织机","faction":"foehn","subfactions":["Guild3"],"category":"t2_technology","tier":2,"priority":95,"strategic_target":true},
+    "FANANO_B": {"name":"纳米纤维织机扩展模组","faction":"foehn","subfactions":["Guild3"],"category":"t3_technology","tier":3,"priority":0,"strategic_target":false,"is_upgrade":true,"parent":"FANANO"},
+    "FAREPR": {"name":"资源再生室","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"economy_support","tier":3,"priority":89,"strategic_target":true},
+    "FABLST": {"name":"爆裂熔炉","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"superweapon","tier":3,"priority":99,"strategic_target":true},
+    "FAELEV": {"name":"暴风起源","faction":"foehn","subfactions":["Guild1","Guild2","Guild3"],"category":"superweapon","tier":3,"priority":99,"strategic_target":true}
+  }
+}

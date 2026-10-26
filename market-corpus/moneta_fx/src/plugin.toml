@@ -1,0 +1,57 @@
+[plugin]
+id = "moneta_fx"
+name = "MONETA FX · 外汇模拟交易室"
+type = "plugin"
+description = "完整移植 MONETA FX 虚构外汇交易室：共享虚构市场、市价/限价/突破单、止损止盈、保证金与强平、隔夜费结算、K 线图与账户分析。行情控制台仅供插件管理员使用。"
+short_description = "MONETA FX fictional forex paper-trading room: shared market, orders, margin, chart and analytics."
+keywords = ["外汇", "交易", "MONETA", "forex", "trading", "模拟", "paper trading", "K线"]
+version = "1.0.5"
+entry = "plugin.plugins.moneta_fx.plugin:MonetaFxPlugin"
+
+[plugin.author]
+name = "MONETA FX port"
+
+[plugin.sdk]
+# 宿主的 SDK_VERSION 目前是 0.1.0（plugin/sdk/shared/constants.py）。
+# 文档里的 "SDK v2" 指 API 代次，不是版本号，别写成 >=2.0.0。
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "terminal"
+title = "交易终端"
+entry = "ui/panel.tsx"
+context = "terminal"
+permissions = ["state:read", "config:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "使用指南"
+entry = "docs/quickstart.md"
+permissions = ["state:read"]
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+timeout = 60
+startup_failure = "warn"
+
+[moneta]
+initial_balance = 100000.0
+tick_interval_ms = 500
+persist_interval_ms = 5000
+developer_key = "moneta-dev-key"
+# 云端后端：默认连到已部署的服务端。想用本地离线模式就把 server_url 改成 ""
+# 并把 use_cloud 改成 false（在插件管理器的配置页改，别改这个文件）。
+server_url = "http://8.152.0.186:4173"
+use_cloud = true

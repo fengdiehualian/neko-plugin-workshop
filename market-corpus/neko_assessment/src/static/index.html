@@ -1,0 +1,3765 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>心理测评室</title>
+<style>
+@font-face{font-family:'Quicksand';src:url("fonts/quicksand-500.woff2") format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:'Lora';src:url("fonts/lora-500.woff2") format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:'JBMono';src:url("fonts/jetbrains-mono-400.woff2") format("woff2");font-weight:400 600;font-display:swap}
+
+:root{
+  --ink:#241f38; --ink2:#4d4670; --dim:#857da6;
+  --glass:rgba(255,255,255,.74); --line:rgba(255,255,255,.9); --edge:rgba(112,102,168,.16);
+  --accent:#6d5ce0; --accent-2:#9b8bf7; --ok:#2c9d72; --bad:#d24f6d; --warn:#b8811f;
+  --shadow:0 10px 30px rgba(52,44,96,.12);
+  --font-ui:'Quicksand',system-ui,'Microsoft YaHei','PingFang SC',sans-serif;
+  --font-body:'Quicksand',system-ui,'Microsoft YaHei','PingFang SC',sans-serif;
+  --font-mono:'JBMono',ui-monospace,Consolas,'Microsoft YaHei',monospace;
+  --fs:14px;
+  --fs-2xs:calc(var(--fs) * .8); --fs-xs:calc(var(--fs) * .85); --fs-sm:calc(var(--fs) * .9);
+  --fs-in:calc(var(--fs) * .95); --fs-md:calc(var(--fs) * 1); --fs-lg:calc(var(--fs) * 1.15);
+  --fs-xl:calc(var(--fs) * 1.5); --fs-h1:calc(var(--fs) * 1.6); --fs-q:calc(var(--fs) * 1.5);
+  --bg-stack:
+    linear-gradient(180deg,rgba(255,255,255,.34) 0%,rgba(255,255,255,.6) 45%,rgba(253,251,255,.78) 100%),
+    url("bg.jpg") center top / cover no-repeat fixed,
+    linear-gradient(160deg,#f0f2ff,#f9f4ff 55%,#eef7fb);
+}
+.hidden{display:none !important}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:rgba(109,92,224,.3) transparent}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-thumb{background:rgba(109,92,224,.28);border-radius:6px;border:2px solid transparent;background-clip:content-box}
+body{margin:0;color:var(--ink);font-family:var(--font-body);font-size:var(--fs);line-height:1.7;background:var(--bg-stack)}
+.app{max-width:1120px;margin:0 auto;padding:20px 18px 64px}
+#trail-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:90}
+#trail-canvas.off{display:none}
+
+/* 顶栏 */
+.topbar{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin-bottom:16px}
+.mark{width:48px;height:48px;border-radius:16px;flex:none;display:grid;place-items:center;
+  background:linear-gradient(160deg,#8fb8ff,#6d5ce0);color:#fff;box-shadow:0 8px 22px rgba(109,92,224,.3)}
+.mark svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+h1{font-family:var(--font-ui);font-size:var(--fs-h1);margin:0;letter-spacing:.2px}
+.sub{color:var(--ink2);font-size:var(--fs-sm);margin-top:2px}
+.pill{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--glass);
+  border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:var(--fs-sm);
+  color:var(--ink2);box-shadow:var(--shadow);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:#b9b3cf;box-shadow:0 0 0 4px rgba(185,179,207,.18)}
+.dot.ok{background:#3dbd8b;box-shadow:0 0 0 4px rgba(61,189,139,.18)}
+.dot.bad{background:#e0645f;box-shadow:0 0 0 4px rgba(224,100,95,.18)}
+
+.layout{display:grid;grid-template-columns:88px minmax(0,1fr);gap:16px;align-items:start}
+.rail{position:sticky;top:16px;display:flex;flex-direction:column;gap:4px;padding:8px;
+  background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 6px;border-radius:16px;
+  border:1px solid transparent;background:transparent;color:var(--ink2);font-size:var(--fs-2xs);
+  font-family:inherit;cursor:pointer;transition:.16s}
+.tab svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tab:hover{background:rgba(255,255,255,.62);color:var(--ink)}
+.tab.on{background:linear-gradient(180deg,#8d7ff3,#6d5ce0);color:#fff;box-shadow:0 8px 18px rgba(109,92,224,.32)}
+.content{min-width:0}
+
+.card{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--line);border-radius:20px;padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{display:flex;align-items:center;gap:9px;font-family:var(--font-ui);font-size:var(--fs-lg);
+  margin:0 0 12px;color:#3a3260;font-weight:600}
+.card h2::before{content:"";width:4px;height:15px;border-radius:3px;flex:none;background:linear-gradient(180deg,var(--accent),var(--accent-2))}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(180deg,#7f6eee,#6455d8);
+  color:#fff;border:0;border-radius:12px;padding:9px 18px;font-size:var(--fs-in);font-family:inherit;
+  cursor:pointer;box-shadow:0 6px 16px rgba(100,85,216,.26);transition:.15s}
+button:hover{filter:brightness(1.06);transform:translateY(-1px)}
+button.ghost{background:rgba(255,255,255,.72);color:var(--ink2);border:1px solid var(--edge);box-shadow:none}
+button.ghost:hover{color:var(--accent);border-color:var(--accent-2);filter:none}
+button.tiny{padding:3px 11px;font-size:var(--fs-2xs);box-shadow:none}
+:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px;border-radius:10px}
+.muted{color:var(--dim);font-size:var(--fs-sm)}
+code{background:rgba(255,255,255,.72);border:1px solid var(--edge);border-radius:6px;padding:1px 6px;font-family:var(--font-mono);font-size:var(--fs-xs)}
+
+/* 分类 chip */
+.chip{padding:5px 14px;border-radius:999px;border:1px solid var(--edge);background:rgba(255,255,255,.66);
+  color:var(--ink2);font-size:var(--fs-sm);cursor:pointer;font-family:inherit;transition:.15s;box-shadow:none}
+.chip:hover{color:var(--accent)}
+.chip.on{background:linear-gradient(180deg,#8d7ff3,#6d5ce0);color:#fff;border-color:transparent}
+input,select{background:rgba(255,255,255,.86);color:var(--ink);border:1px solid var(--edge);
+  border-radius:11px;padding:8px 11px;font-size:var(--fs-in);font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--accent-2);box-shadow:0 0 0 3px rgba(109,92,224,.15)}
+
+/* 量表卡 */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:12px}
+.sc{position:relative;text-align:left;background:rgba(255,255,255,.7);border:1px solid var(--line);
+  border-radius:18px;padding:15px 16px;cursor:pointer;transition:.18s;display:flex;flex-direction:column;gap:6px}
+.sc:hover{transform:translateY(-3px);border-color:var(--accent-2);box-shadow:0 14px 28px rgba(88,74,180,.14)}
+.sc .top{display:flex;align-items:center;gap:8px}
+.sc .nm{font-family:var(--font-ui);font-size:var(--fs-md);color:#3a3260;font-weight:600}
+.sc .cat{margin-left:auto;font-size:var(--fs-2xs);color:#6a6298;background:rgba(109,92,224,.1);
+  border-radius:999px;padding:2px 9px}
+.sc .desc{color:var(--ink2);font-size:var(--fs-sm);line-height:1.6}
+.sc .meta{display:flex;gap:10px;color:var(--dim);font-size:var(--fs-xs);margin-top:3px}
+.sc .done{position:absolute;right:12px;bottom:12px;font-size:var(--fs-2xs);color:var(--ok)}
+
+/* 答题 */
+.progress{height:7px;border-radius:99px;background:rgba(109,92,224,.14);overflow:hidden;margin:4px 0 14px}
+.progress i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#8d7ff3,#6d5ce0);
+  width:0;transition:width .35s cubic-bezier(.4,0,.2,1)}
+.qwrap{min-height:230px;display:flex;flex-direction:column;justify-content:center}
+.q{font-family:var(--font-ui);font-size:var(--fs-q);line-height:1.5;color:#2f2850;margin:0 0 18px;font-weight:600}
+.opts{display:flex;flex-direction:column;gap:9px}
+.opt{display:flex;align-items:center;gap:12px;text-align:left;background:rgba(255,255,255,.7);
+  border:1px solid var(--line);border-radius:14px;padding:13px 16px;cursor:pointer;font-family:inherit;
+  font-size:var(--fs-in);color:var(--ink);transition:.15s;box-shadow:none}
+.opt:hover{border-color:var(--accent-2);background:rgba(255,255,255,.9)}
+.opt.on{border-color:var(--accent);background:linear-gradient(180deg,rgba(141,127,243,.14),rgba(109,92,224,.1))}
+.opt .k{flex:none;width:24px;height:24px;border-radius:8px;display:grid;place-items:center;
+  background:rgba(109,92,224,.12);color:#6a5fbf;font-family:var(--font-mono);font-size:var(--fs-xs)}
+.opt.on .k{background:linear-gradient(180deg,#8d7ff3,#6d5ce0);color:#fff}
+.live{margin-top:16px;padding-top:14px;border-top:1px dashed var(--edge)}
+.livebar{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.livebar span{font-size:var(--fs-xs);color:var(--ink2);width:82px;flex:none;text-align:right}
+.livebar .track{flex:1;height:6px;border-radius:99px;background:rgba(109,92,224,.12);overflow:hidden}
+.livebar .track i{display:block;height:100%;background:linear-gradient(90deg,#8d7ff3,#6d5ce0);width:0;transition:width .3s}
+
+/* 结果 */
+.hero{text-align:center;padding:8px 0 4px}
+.hero .code{font-family:var(--font-mono);font-size:var(--fs-xl);color:#6d5ce0;letter-spacing:2px}
+.hero .nm{font-family:var(--font-ui);font-size:var(--fs-h1);margin:6px 0 6px;color:#2f2850}
+.hero .sum{color:var(--ink2);font-size:var(--fs-md);max-width:620px;margin:0 auto}
+.radarwrap{display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;align-items:start;margin-top:6px}
+canvas#radar{width:100%;max-width:280px;aspect-ratio:1/1}
+.dimrow{margin-bottom:11px}
+.dimrow .lab{display:flex;justify-content:space-between;font-size:var(--fs-sm);color:var(--ink2);margin-bottom:4px}
+.dimrow .track{height:8px;border-radius:99px;background:rgba(109,92,224,.12);overflow:hidden}
+.dimrow .track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#8d7ff3,#6d5ce0)}
+.notice{background:rgba(255,244,219,.9);border-left:3px solid #e0b155;color:#71521a;padding:11px 14px;
+  border-radius:0 12px 12px 0;font-size:var(--fs-sm);margin-bottom:12px}
+.notice.bad{background:rgba(255,235,239,.92);border-left-color:#dd6a86;color:#7d2740}
+.notice.good{background:rgba(233,250,241,.9);border-left-color:#3dbd8b;color:#1f6b4f}
+.kv{display:flex;flex-direction:column;gap:4px}
+.kv .line{display:flex;gap:10px;font-size:var(--fs-sm);color:var(--ink2)}
+.kv .line b{color:#3a3260;font-weight:600;min-width:64px}
+ul.tips{margin:6px 0 0;padding-left:18px;color:var(--ink2);font-size:var(--fs-sm)}
+
+.cat-h{margin:14px 2px 10px;font-family:var(--font-ui);color:#3a3260}
+.cat-h b{font-size:var(--fs-md)}
+.cat-h span{margin-left:10px;color:var(--dim);font-size:var(--fs-xs)}
+
+.sec-h{margin:18px 0 10px;font-family:var(--font-ui);font-size:var(--fs-md);color:#3a3260;
+  display:flex;align-items:center;gap:8px}
+.sec-h::before{content:"";width:4px;height:14px;border-radius:3px;background:linear-gradient(180deg,var(--accent),var(--accent-2))}
+.cand{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.cand .nm{width:110px;flex:none;font-size:var(--fs-sm);color:var(--ink2);text-align:right}
+.cand .track{flex:1;height:9px;border-radius:99px;background:rgba(109,92,224,.12);overflow:hidden}
+.cand .track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#8d7ff3,#6d5ce0)}
+.cand.top .nm{color:#3a3260;font-weight:600}
+.cand.top .track i{background:linear-gradient(90deg,#7c6cf0,#5b4bd6)}
+.cand .pc{width:44px;flex:none;text-align:right;font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--dim)}
+.cand .tip{flex-basis:100%;color:var(--dim);font-size:var(--fs-xs);padding-left:120px;margin-top:-2px}
+.howto{margin-top:16px;background:rgba(255,255,255,.55);border:1px solid var(--line);border-radius:14px;padding:11px 15px}
+.howto summary{cursor:pointer;font-family:var(--font-ui);color:#3a3260;font-size:var(--fs-in)}
+.howto ul{margin:9px 0 0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:640px){.two{grid-template-columns:1fr}}
+
+/* 宿主面板可能给 button 注入样式，这里用 ID 作用域 + !important 压回去，
+   保证「未选中 = 浅底深字 / 已选中 = 紫底白字 + 对勾」，否则用户会以为没点上 */
+#starter-counts .cchip{padding:8px 16px;border-radius:12px;
+  border:1px solid var(--edge) !important;background:rgba(255,255,255,.82) !important;
+  color:var(--ink2) !important;font-family:inherit;font-size:var(--fs-in);cursor:pointer;
+  box-shadow:none !important;transition:.15s;opacity:.92}
+#starter-counts .cchip:hover{border-color:var(--accent-2) !important;color:var(--accent) !important;opacity:1}
+#starter-counts .cchip.on{background:linear-gradient(180deg,#8d7ff3,#6d5ce0) !important;
+  color:#fff !important;border-color:#6d5ce0 !important;opacity:1;
+  box-shadow:0 6px 16px rgba(109,92,224,.35) !important;transform:translateY(-1px)}
+#starter-counts .cchip.on::before{content:"✓ ";font-weight:700}
+#starter-counts .cchip small{display:block;font-size:var(--fs-2xs);opacity:.85;font-weight:400;color:inherit}
+.cchip:hover{color:var(--accent);border-color:var(--accent-2)}
+.cchip.on{background:linear-gradient(180deg,#8d7ff3,#6d5ce0);color:#fff;border-color:transparent}
+.cchip small{display:block;font-size:var(--fs-2xs);opacity:.85;font-weight:400}
+
+/* 结果页的结构：卡片框 + 分隔线（原先一堆裸文本看着散） */
+.framebox{background:rgba(255,255,255,.66);border:1px solid var(--line);border-radius:14px;
+  padding:12px 15px;margin-bottom:9px;box-shadow:0 2px 10px rgba(80,70,160,.05)}
+.framebox .fb-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:7px}
+.framebox .fb-name{font-family:var(--font-ui);color:#3a3260;font-size:var(--fs-md)}
+.framebox .fb-val{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--dim);white-space:nowrap}
+.framebox .fb-tip{color:var(--dim);font-size:var(--fs-sm);margin-top:6px;line-height:1.7}
+.hr{height:1px;margin:18px 0 14px;
+  background:linear-gradient(90deg,rgba(109,92,224,0),rgba(109,92,224,.28),rgba(109,92,224,0))}
+.howto{border:1px solid var(--line)}
+.howto summary{font-weight:600}
+.howto summary::marker{color:var(--accent)}
+
+/* 结果配图横幅 */
+.hero-art{position:relative;height:130px;border-radius:20px;overflow:hidden;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--art-a,#8d7ff3),var(--art-b,#5ec8f0));
+  box-shadow:0 12px 28px rgba(80,70,160,.18);margin-bottom:16px}
+.hero-art::before{content:"";position:absolute;inset:0;opacity:.45;
+  background-image:radial-gradient(rgba(255,255,255,.6) 1.5px,transparent 1.6px);background-size:15px 15px}
+.hero-art::after{content:"";position:absolute;width:240px;height:240px;border-radius:50%;top:-60px;right:-50px;
+  background:radial-gradient(rgba(255,255,255,.55),rgba(255,255,255,0) 70%)}
+#hero-emoji{position:relative;font-size:62px;line-height:1;filter:drop-shadow(0 8px 12px rgba(50,35,110,.3))}
+
+/* 单维度：双向刻度（社恐 ←→ 社牛 那种） */
+.gauge{margin:6px 0 12px}
+.gauge-top{display:flex;justify-content:space-between;font-size:var(--fs-sm);color:var(--ink2);margin-bottom:6px}
+.gauge-track{position:relative;height:12px;border-radius:99px;background:rgba(109,92,224,.14);margin:0 8px}
+.gauge-track i{position:absolute;top:50%;width:18px;height:18px;border-radius:50%;transform:translate(-50%,-50%);
+  background:#fff;border:3px solid var(--accent);box-shadow:0 2px 8px rgba(80,70,160,.3)}
+.gauge-mid{position:absolute;left:50%;top:-4px;bottom:-4px;width:1px;background:rgba(109,92,224,.25)}
+.gauge-val{text-align:center;margin-top:8px;font-family:var(--font-ui);color:#3a3260}
+
+.modal{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;
+  background:rgba(40,32,70,.34);backdrop-filter:blur(4px);padding:20px}
+.modal-box{background:rgba(255,255,255,.96);border-radius:20px;padding:18px 20px;max-width:660px;width:100%;
+  box-shadow:0 24px 60px rgba(40,30,80,.28);max-height:92vh;overflow:auto}
+.modal-box img{width:100%;border-radius:14px;border:1px solid var(--edge);display:block}
+
+/* 记录 */
+.rec{background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:14px;padding:11px 14px;
+  display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.rec .t{font-family:var(--font-ui);color:#3a3260;font-size:var(--fs-md)}
+.rec .m{color:var(--dim);font-size:var(--fs-xs)}
+.rec .act{margin-left:auto;display:flex;gap:6px}
+.trend{display:flex;align-items:flex-end;gap:8px;height:120px;margin-top:8px}
+.trend .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.trend .bar{width:100%;border-radius:8px 8px 0 0;background:linear-gradient(180deg,#8d7ff3,#6d5ce0);min-height:4px}
+.trend .lb{font-size:var(--fs-2xs);color:var(--dim)}
+
+.expfloat{position:fixed;z-index:99;pointer-events:none;font-family:var(--font-ui);font-weight:600;color:#6d5ce0;
+  text-shadow:0 1px 0 #fff,0 0 14px rgba(109,92,224,.5);animation:floatUp 1.1s ease forwards}
+@keyframes floatUp{0%{opacity:0;transform:translate(-50%,0) scale(.9)}20%{opacity:1;transform:translate(-50%,-12px)}
+  100%{opacity:0;transform:translate(-50%,-66px)}}
+
+/* ── 猫娘塔罗 ─────────────────────────────────────────────── */
+#tspreads{display:flex;gap:8px;flex-wrap:wrap}
+#tspreads .tchip{flex:1;min-width:108px;text-align:center;padding:9px 8px;border-radius:14px;cursor:pointer;
+  background:rgba(255,255,255,.66);border:1px solid var(--edge);transition:.15s;user-select:none}
+#tspreads .tchip b{display:block;font-family:var(--font-ui);font-size:calc(var(--fs) * .96);color:#40375f}
+#tspreads .tchip small{color:var(--dim);font-size:calc(var(--fs) * .82)}
+#tspreads .tchip:hover{border-color:var(--accent-2)}
+#tspreads .tchip.on{background:linear-gradient(180deg,#7f74e6,#6d5ce0);border-color:transparent}
+#tspreads .tchip.on b{color:#fff}
+#tspreads .tchip.on small{color:rgba(255,255,255,.82)}
+#tq{width:100%;margin-top:11px}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:15px;margin-top:14px}
+.tcard{aspect-ratio:7/12;perspective:900px;position:relative;width:100%;max-width:220px;justify-self:center}
+.tcard .inner{position:absolute;inset:0;transform-style:preserve-3d;
+  transition:transform .62s cubic-bezier(.34,1.25,.5,1)}
+.tcard.flip .inner{transform:rotateY(180deg)}
+.tface,.tback{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.tback{background:linear-gradient(160deg,#7f74e6,#4a3fa0 70%);display:grid;place-items:center}
+.tback::after{content:"✦";color:rgba(255,255,255,.9);font-size:calc(var(--fs) * 2.2);
+  text-shadow:0 0 18px rgba(255,255,255,.6)}
+.tface{transform:rotateY(180deg);background:#fdfcf8;border:1px solid var(--edge)}
+.tface img{width:100%;height:100%;object-fit:cover;display:block}
+.tface img.rev{transform:rotate(180deg)}
+.tmeta{margin-top:8px;text-align:center}
+.tmeta .pos{display:block;color:#6d5ce0;font-size:calc(var(--fs) * .82);font-weight:600}
+.tmeta b{display:block;font-family:var(--font-ui);font-size:calc(var(--fs) * .89);color:#40375f}
+.tmeta .keys{display:block;color:var(--dim);font-size:calc(var(--fs) * .82);margin-top:2px;line-height:1.5}
+.tbubble{margin-top:13px;background:rgba(255,255,255,.72);border:1px solid var(--line);
+  border-radius:16px;padding:13px 16px;font-size:calc(var(--fs) * .89);line-height:1.85;white-space:pre-wrap}
+.thist-item{display:flex;gap:9px;align-items:baseline;padding:8px 4px;border-bottom:1px solid var(--edge);
+  cursor:pointer;transition:.14s}
+.thist-item:hover{background:rgba(255,255,255,.6)}
+.thist-item .h-when{color:var(--dim);font-size:calc(var(--fs) * .82);flex:none}
+.thist-item .h-spread{font-weight:600;font-size:calc(var(--fs) * .86);color:#40375f;flex:none}
+
+/* ── 解压小游戏（电子板 + 切水果，移植自学习辅助猫娘）────────── */
+.seg{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.segbtn{padding:8px 16px;border-radius:12px;border:1px solid var(--edge);
+  background:rgba(255,255,255,.78);color:var(--ink2);font-family:inherit;font-size:var(--fs-in);
+  cursor:pointer;box-shadow:none;transition:.15s;filter:none;transform:none}
+.segbtn:hover{background:rgba(255,255,255,.95);color:var(--accent);filter:none;transform:none}
+.segbtn.on{background:linear-gradient(180deg,#8d7ff3,#6d5ce0);color:#fff;box-shadow:0 6px 14px rgba(109,92,224,.3)}
+
+.fr-stage{
+  position:relative;width:100%;aspect-ratio:16 / 9;border-radius:16px;overflow:hidden;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  background:
+    radial-gradient(120% 80% at 50% 110%,rgba(109,92,224,.16),rgba(255,255,255,0) 70%),
+    linear-gradient(180deg,rgba(255,255,255,.72),rgba(244,242,255,.6));
+  border:1px solid var(--line);box-shadow:inset 0 0 40px rgba(90,76,190,.08);cursor:crosshair;
+  touch-action:none;
+}
+#fr-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.fr-hud{
+  position:absolute;top:8px;left:10px;right:10px;display:flex;gap:14px;flex-wrap:wrap;
+  font-size:var(--fs-sm);color:var(--ink2);pointer-events:none;
+}
+.fr-hud b{font-family:var(--font-ui);color:#3f3859}
+.fr-hud .lost{color:var(--bad)}
+.fr-overlay{
+  position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+  background:rgba(255,255,255,.5);backdrop-filter:blur(3px);
+}
+.fr-overlay.hidden{display:none}
+.fr-box{background:rgba(255,255,255,.94);border:1px solid rgba(124,108,240,.3);border-radius:18px;
+  padding:18px 26px;box-shadow:0 16px 40px rgba(90,76,190,.2);max-width:min(92%,430px)}
+.fr-title{font-family:var(--font-ui);font-size:var(--fs-xl);color:#3a3160;margin-bottom:4px}
+.fr-sub{color:var(--ink2);font-size:var(--fs-sm);margin-bottom:12px}
+.fr-box .stats{margin:12px 0 0}
+.fr-line{font-size:var(--fs-sm);color:#3f3859;margin:3px 0}
+.fr-line b{font-family:var(--font-ui)}
+#fr-badges .badge{min-height:52px}
+
+.mk-stage{
+  position:relative;width:100%;aspect-ratio:16 / 9;border-radius:16px;overflow:hidden;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  background:#fbfbff;border:1px solid var(--line);
+  box-shadow:inset 0 0 40px rgba(90,76,190,.08);cursor:crosshair;touch-action:none;
+}
+#mk-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* Mikutap 式的背景分段变色：色调由调度器每 4 小节推进一步，CSS 自己做平滑过渡 */
+.mk-tint{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;
+  background-color:hsl(var(--mk-hue,190),72%,86%);opacity:.16;transition:background-color 1.6s ease}
+.mk-hud{
+  position:absolute;top:8px;left:10px;right:10px;display:flex;gap:14px;flex-wrap:wrap;
+  font-size:var(--fs-sm);color:#6b6b85;pointer-events:none;mix-blend-mode:multiply;
+}
+.mk-hud b{font-family:var(--font-ui);color:#3f3859}
+.mk-overlay{
+  position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+  background:rgba(255,255,255,.62);backdrop-filter:blur(3px);
+}
+.mk-overlay.hidden{display:none}
+
+/* 解压页放宽一点，舞台更大 */
+.app.wide{max-width:1500px}
+.mk-stage:fullscreen, .mk-stage:-webkit-full-screen{
+  width:100vw;height:100vh;aspect-ratio:auto;border-radius:0;border:0;
+}
+.fr-stage:fullscreen, .fr-stage:-webkit-full-screen{
+  width:100vw;height:100vh;aspect-ratio:auto;border-radius:0;border:0;
+}
+.mk-stage:fullscreen .mk-hud, .fr-stage:fullscreen .fr-hud{top:14px;left:18px;font-size:var(--fs-md)}
+
+/* 战绩统计与成就 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-top:10px}
+.stats .stat{background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:14px;
+  padding:10px 12px;text-align:center}
+.stats .stat b{display:block;font-family:var(--font-ui);font-size:var(--fs-lg);color:#3a3260}
+.stats .stat span{color:var(--dim);font-size:var(--fs-2xs)}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.badge{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.7);border:1px solid var(--line);
+  border-radius:14px;padding:8px 11px;min-height:52px}
+.badge .ico{font-size:calc(var(--fs) * 1.3);flex:none}
+.badge b{display:block;font-family:var(--font-ui);color:#3a3260;font-size:var(--fs-sm)}
+.badge span{display:block;color:var(--dim);font-size:var(--fs-2xs);line-height:1.5}
+.badge.locked{opacity:.55;filter:saturate(.6)}
+.link{display:flex;align-items:baseline;gap:8px;padding:6px 2px;border-bottom:1px solid var(--edge);
+  font-size:var(--fs-sm);flex-wrap:wrap}
+.link b{color:#3a3260}
+.link span{color:var(--dim);font-size:var(--fs-2xs)}
+details.more{margin-top:10px}
+details.more summary{cursor:pointer;color:var(--ink2);font-size:var(--fs-sm)}
+
+/* 保底通道：她答了但读不回来时，把她的原话贴进来。
+   这一步不依赖任何读回通道，所以做得显眼一点——它是唯一"贴了就一定收下"的路。 */
+details.cm-paste{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+details.cm-paste summary{cursor:pointer;font-family:var(--font-ui);font-weight:600;
+  color:#5b4fc4;font-size:var(--fs-sm)}
+details.cm-paste summary::marker{color:var(--accent)}
+details.cm-paste .cm-paste-hint{color:var(--ink2);font-size:var(--fs-xs);line-height:1.75;
+  margin:10px 0 8px}
+details.cm-paste .cm-paste-hint b{color:#3a3260}
+details.cm-paste textarea{width:100%;box-sizing:border-box;resize:vertical;
+  font-family:var(--font-ui);font-size:var(--fs-sm);line-height:1.7;color:#3a3260;
+  padding:10px 12px;border-radius:12px;border:1px solid rgba(109,92,224,.28);
+  background:rgba(255,255,255,.72);outline:none}
+details.cm-paste textarea:focus{border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(109,92,224,.14)}
+
+/* ── 默契测试 ──────────────────────────────────────────────── */
+.cm-lab{font-family:var(--font-ui);color:#3a3260;font-size:var(--fs-sm);margin:14px 0 8px}
+.cm-tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:var(--fs-2xs);
+  background:rgba(109,92,224,.12);color:#5b4fc4;margin:2px 4px 2px 0}
+.cm-pair{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:var(--fs-sm);color:var(--ink2)}
+.cm-pair b{color:#3a3260;font-weight:600}
+.cm-pair .hit{color:var(--ok)}
+.cm-pair .miss{color:var(--dim);font-weight:500}
+.cm-tag.miss{background:rgba(224,100,95,.12);color:#b4433e}
+.framebox.skipped{background:rgba(255,255,255,.42);border-style:dashed}
+/* 逐题面谈的实时进度：她说了什么 + 解析成什么，走一题记一题 */
+.cml{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.cml:empty{margin-top:0}
+.cml-row{background:rgba(255,255,255,.6);border:1px solid var(--line);border-radius:12px;padding:9px 12px}
+.cml-h{font-family:var(--font-ui);font-size:var(--fs-sm);color:#3a3260}
+.cml-raw{margin-top:5px;font-size:var(--fs-sm);color:var(--ink2);line-height:1.7;white-space:pre-wrap}
+@media (max-width:640px){.cm-pair{grid-template-columns:1fr}}
+
+@media (max-width:820px){
+  .layout{grid-template-columns:1fr}
+  .rail{position:static;flex-direction:row;overflow-x:auto;border-radius:18px}
+  .tab{min-width:76px}
+  .radarwrap{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<canvas id="trail-canvas" aria-hidden="true"></canvas>
+<div class="app">
+  <div class="topbar">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 3.5a4.5 4.5 0 0 0-4.5 4.5v1a3 3 0 0 0-1.5 5.7V16a3 3 0 0 0 3 3h1.2A3 3 0 0 0 15 17.6V14.7A3 3 0 0 0 13.5 9V8A4.5 4.5 0 0 0 9 3.5"/><path d="M12 3.5V21"/></svg>
+    </div>
+    <div>
+      <h1>心理测评室</h1>
+      <div class="sub">心理 · 人格 · 趣味测评合集｜本地计分，结果只存在你这台机器上</div>
+    </div>
+    <div class="pill"><span class="dot" id="pill-dot"></span><span id="pill-text">正在连接…</span></div>
+  </div>
+
+  <div class="layout">
+    <nav class="rail">
+      <button class="tab on" data-tab="home">
+        <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20H4z"/></svg><span>量表</span>
+      </button>
+      <button class="tab" data-tab="quiz">
+        <svg viewBox="0 0 24 24"><path d="M9 4h6v3H9z"/><rect x="5" y="9" width="14" height="11" rx="2"/><path d="M9 14h6"/></svg><span>答题</span>
+      </button>
+      <button class="tab" data-tab="result">
+        <svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15V9M12 15V7M16 15v-4"/></svg><span>结果</span>
+      </button>
+      <button class="tab" data-tab="records">
+        <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7M9 8h4"/></svg><span>记录</span>
+      </button>
+      <button class="tab" data-tab="tarot">
+        <svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z"/><path d="M18.5 14.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z"/><path d="M5.5 14.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z"/></svg><span>塔罗</span>
+      </button>
+      <button class="tab" data-tab="play">
+        <svg viewBox="0 0 24 24"><path d="M5 11h14l-1.5 8.5a2 2 0 0 1-2 1.5h-7a2 2 0 0 1-2-1.5z"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><path d="M9.5 15.5l5-3M11 18l4.5-2.5"/></svg><span>解压</span>
+      </button>
+      <button class="tab" data-tab="compat">
+        <svg viewBox="0 0 24 24"><path d="M8.5 13.5a3.5 3.5 0 1 1 0-7c2.5 0 4.5 4 7 4a3.5 3.5 0 1 1 0 7c-2.5 0-4.5-4-7-4z"/><path d="M12 4v2M12 18v2"/></svg><span>默契</span>
+      </button>
+      <button class="tab" data-tab="about">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6v.8"/></svg><span>关于</span>
+      </button>
+    </nav>
+
+    <main class="content">
+
+      <!-- 量表库 -->
+      <div id="view-home">
+        <div class="card hidden" id="starter">
+          <h2 id="starter-name">—</h2>
+          <div class="muted" id="starter-note"></div>
+          <div class="row" id="starter-counts" style="margin:12px 0 4px"></div>
+          <div class="row" id="starter-custom-row" style="margin-top:6px">
+            <span class="muted">或者自己定题数：</span>
+            <input id="starter-custom" type="number" min="1" step="1" style="width:110px" placeholder="例如 35">
+            <button class="ghost tiny" id="starter-apply">按这个题数开始</button>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button id="starter-go">开始作答</button>
+            <button class="ghost" id="starter-cancel">取消</button>
+            <span class="muted" id="starter-tip"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>选一份开始</h2>
+          <div class="row" style="margin-bottom:12px">
+            <input id="q" placeholder="搜索量表名称或简介" style="min-width:220px">
+            <div class="row" id="cats"></div>
+          </div>
+          <div id="gallery"></div>
+        </div>
+        <div class="card">
+          <h2>先说清楚</h2>
+          <div class="notice">这些测评只用于<b>自我了解与反思</b>，<b>不是医学诊断</b>，也不能替代心理咨询或治疗。
+            如果结果让你不舒服，或者你正在经历困难，请优先联系专业人士。</div>
+          <div class="muted">数据来源：人格 / 职业量表照搬公开工具原题（IPIP、OEJTS、O*NET），情绪健康用公开筛查工具（PHQ-9、GAD-7、UCLA 简版），其余量表为自编条目——每份量表的「来源」里都写明了。</div>
+        </div>
+      </div>
+
+      <!-- 答题 -->
+      <div id="view-quiz" class="hidden">
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <div>
+              <div style="font-family:var(--font-ui);font-size:var(--fs-md);color:#3a3260" id="quiz-name">—</div>
+              <div class="muted" id="quiz-pos">—</div>
+            </div>
+            <button class="ghost tiny" id="btn-quit">退出</button>
+          </div>
+          <div class="progress"><i id="bar"></i></div>
+          <div class="qwrap">
+            <h3 class="q" id="qtext">—</h3>
+            <div class="muted" id="q-hint" style="margin:-8px 0 12px">按第一反应选就好，没有对错。</div>
+            <div class="opts" id="opts"></div>
+          </div>
+          <div class="live" id="live"></div>
+          <div class="row" style="justify-content:space-between;margin-top:14px">
+            <button class="ghost" id="btn-prev">上一题</button>
+            <div class="muted" id="hint">键盘 1-5 选择，Enter 下一题</div>
+            <button id="btn-next">下一题</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 结果 -->
+      <div id="view-result" class="hidden">
+        <div class="card">
+          <div id="risk-box"></div>
+          <div class="hero">
+            <div class="hero-art" id="hero-art" aria-hidden="true"><span id="hero-emoji">🧩</span></div>
+            <div class="code" id="r-code">—</div>
+            <div class="nm" id="r-name">—</div>
+            <div class="sum" id="r-sum"></div>
+            <div class="muted" id="r-meta" style="margin-top:8px"></div>
+          </div>
+
+          <div class="sec-h" id="why-title">为什么是这个结果</div>
+          <div id="why-box"></div>
+
+          <div id="radar-block" class="radarwrap hidden">
+            <canvas id="radar"></canvas>
+            <div class="muted">这张图叫「剖面图」：离边缘越远，说明那个维度上越突出。</div>
+          </div>
+
+          <div id="extra"></div>
+
+          <div class="hr"></div>
+          <div class="row" style="margin-top:6px">
+            <button id="btn-copy">复制结果</button>
+            <button class="ghost" id="btn-card">生成分享卡</button>
+            <button class="ghost" id="btn-again">再测一次</button>
+            <button class="ghost" id="btn-back">回到量表库</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 记录 -->
+      <div id="view-records" class="hidden">
+        <div class="card">
+          <h2>历史记录</h2>
+          <div class="row" style="margin-bottom:12px">
+            <select id="filter-scale"><option value="">全部量表</option></select>
+            <button class="ghost tiny" id="btn-export">导出（文本）</button>
+            <button class="ghost tiny" id="btn-clear">清空全部</button>
+          </div>
+          <div id="records"></div>
+          <div id="trend"></div>
+        </div>
+      </div>
+
+      <!-- 猫娘塔罗 -->
+      <div id="view-tarot" class="hidden">
+        <div class="card">
+          <h2>猫娘塔罗</h2>
+          <div id="tspreads"></div>
+          <input id="tq" type="text" maxlength="60" placeholder="想问什么？默念着写下来（也可以不写）">
+          <div class="row">
+            <button id="btn-tarot">🔮 开始占卜</button>
+            <span class="status" id="st-tarot"></span>
+          </div>
+        </div>
+        <div class="card hidden" id="tresult">
+          <h2>牌面<span class="status" id="tq-label" style="margin-left:6px"></span></h2>
+          <div class="tgrid" id="tdraw"></div>
+          <div class="row">
+            <button id="btn-interpret">🐾 猫娘解读</button>
+            <span class="status" id="st-interp"></span>
+          </div>
+          <div class="tbubble hidden" id="tinterpret"></div>
+        </div>
+        <div class="card">
+          <h2>占卜记录</h2>
+          <div id="thist"></div>
+        </div>
+      </div>
+
+      <!-- 解压小游戏 -->
+      <div id="view-play" class="hidden">
+        <div class="seg" id="play-modes">
+          <button class="segbtn on" data-mode="pad">🎛️ 电子板</button>
+          <button class="segbtn" data-mode="fruit">🍉 切水果</button>
+        </div>
+        <div id="card-pad">
+          <div class="card">
+            <h2>电子板 · 点哪都出声</h2>
+            <div class="muted" style="margin-bottom:11px">
+              参考 Mikutap 的玩法：<b>点/拖任意位置</b>触发声音，会被<b>对齐到节拍</b>，随便点都不难听。
+              屏幕分成 <b>8×4 = 32 个小方块</b>（对齐 Mikutap 的 32 个声音），<b>同一块永远是同一个声音</b>；方块的边界只在按下的瞬间短暂闪现，
+              平时完全看不见、也完全安静——特效只在按下的一瞬出现。背景有鼓、贝斯和声垫的循环。
+              默认音源是 <b>FluidR3_GM</b>（CC BY 3.0，署名见 <code>audio/pad/CREDITS.md</code>）的人声、八音盒与木琴采样；
+              加载不到时自动退回实时合成的 20 种音色。
+            </div>
+            <div class="mk-stage" id="mk-stage">
+              <div class="mk-tint" aria-hidden="true"></div>
+              <canvas id="mk-canvas"></canvas>
+              <div class="mk-hud">
+                <span>BPM <b id="mk-bpm">128</b></span>
+                <span>小节 <b id="mk-bar">1</b></span>
+                <span>已触发 <b id="mk-taps">0</b></span>
+              </div>
+              <div class="mk-overlay" id="mk-overlay">
+                <div class="fr-box">
+                  <div class="fr-title">电子板</div>
+                  <div class="fr-sub">点一下开始（浏览器要求先有一次点击才允许出声）<br>
+                    之后点/拖屏幕任意位置，或按键盘任意键</div>
+                  <button id="mk-start">开始</button>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <button class="ghost" id="mk-stop">停止</button>
+              <button class="ghost" id="mk-full">满屏</button>
+              <button class="ghost" id="mk-import"
+                      title="导入的音源只会存到本机的 data/mikutap_audio/，不会打进安装包">导入本地音源</button>
+              <input type="file" id="mk-files" webkitdirectory directory multiple class="hidden"
+                     accept="audio/*,.mp3,.ogg,.wav,.m4a">
+              <span class="status" id="st-pad"></span>
+              <span class="muted" id="mk-audio-note">正在装默认音源…</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="card-fruit" class="hidden">
+          <div class="card">
+            <h2>切水果</h2>
+            <div class="muted" style="margin-bottom:11px">
+              按住鼠标在果盘上划过去切水果（触屏直接划）。漏掉水果、或者切到炸弹，各扣一条命，
+              三条命用完就结束。<b>游戏成绩不会写进任何测评记录</b>——玩就是玩，两条线分开算。
+            </div>
+            <div class="fr-stage" id="fr-stage">
+              <canvas id="fr-canvas"></canvas>
+              <div class="fr-hud">
+                <span>得分 <b id="fr-score">0</b></span>
+                <span>等级 <b id="fr-level">Lv.1</b></span>
+                <span>连击 <b id="fr-combo">0</b></span>
+                <span>命 <b id="fr-lives">♥♥♥</b></span>
+                <span id="fr-time">0.0 秒</span>
+              </div>
+              <div class="fr-overlay" id="fr-overlay">
+                <div class="fr-box" id="fr-box">
+                  <div class="fr-title" id="fr-title">切水果</div>
+                  <div class="fr-sub" id="fr-sub">按住鼠标划过去切，漏掉三个就结束</div>
+                  <div id="fr-result"></div>
+                  <div class="fr-line" id="fr-gained"></div>
+                  <button id="fr-start">开始</button>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <button class="ghost" id="fr-restart">重开一局</button>
+              <span class="status" id="st-fruit"></span>
+              <span class="muted" id="fr-best">最高分：0</span>
+            </div>
+            <div class="stats" id="fr-stats"></div>
+            <div class="muted" style="margin:13px 0 7px">游戏成就 <b id="fr-badge-count">0/0</b></div>
+            <div class="badges" id="fr-badges"></div>
+            <details class="more">
+              <summary>最近几局</summary>
+              <div id="fr-recent" style="margin-top:8px"></div>
+            </details>
+          </div>
+        </div>
+      </div>
+
+      <!-- 默契测试 -->
+      <div id="view-compat" class="hidden">
+        <div class="card" id="cm-intro">
+          <h2>你和 YUI 的默契度</h2>
+          <div class="muted" style="margin-bottom:11px">
+            一轮 10 题，每题答两问：<b>你自己选什么</b>，再<b>猜 YUI 会选什么</b>。
+            <br><br>
+            <b>题目会发给她本人</b>：点开始后，题目会直接推进你们的对话，由她用自己的身份回答
+            （她的人设、记忆、上下文都是宿主给的，不经过本插件）；我们再把她回的那句话读回来。
+            所以答案是她自己下的，不是插件替她挑的——揭晓时会把她<b>回的原话</b>贴出来给你看。
+            <br><br>
+            她答完就自然记住了这件事（那就是她真实的对话）。双方都交卷才同时揭晓，谁也偷看不了谁。
+            题库 100 题全自写（10 类各 10 题，每轮抽 10 题正好一类一题），结果只存本机。
+            <br><br>
+            <b>分数怎么算</b>：每题 4 个选项，所以三项指标瞎蒙各有 1/4 命中率，10 题的随机水平是
+            <b>7.5 次</b>命中。默契分已经扣掉这条基线——<b>0 分 = 和瞎猜一样</b>，
+            100 分 = 高出随机水平 2.5 个标准差（很难出现）。所以 0 分很常见，
+            它只说明"没超出随机"，不代表你们差。
+          </div>
+          <div class="notice" id="cm-yui-memory" style="margin-bottom:8px"></div>
+          <div class="row" style="margin-bottom:11px">
+            <input id="cfg-yui-dir" type="text" placeholder="她的记忆目录（留空 = 自动定位）" style="flex:1;min-width:220px">
+            <button class="ghost tiny" id="btn-save-yui-dir">保存</button>
+            <span class="status" id="st-yui-dir"></span>
+          </div>
+          <div class="row">
+            <button id="cm-start">🐾 开始一轮</button>
+            <span class="status" id="st-compat"></span>
+          </div>
+          <div class="muted" style="margin:13px 0 7px">历史轮次</div>
+          <div id="cm-history"></div>
+        </div>
+
+        <div class="card hidden" id="cm-answer">
+          <div class="row" style="justify-content:space-between">
+            <div style="font-family:var(--font-ui);color:#3a3260">第 <b id="cm-pos">1</b> / <span id="cm-total">10</span> 题</div>
+            <button class="ghost tiny" id="cm-quit">放弃这轮</button>
+          </div>
+          <div class="progress"><i id="cm-bar"></i></div>
+          <div class="qwrap">
+            <div class="muted" id="cm-cat">—</div>
+            <h3 class="q" id="cm-qtext">—</h3>
+            <div class="cm-lab">你自己选</div>
+            <div class="opts" id="cm-opts-own"></div>
+            <div class="cm-lab">你猜 YUI 会选</div>
+            <div class="opts" id="cm-opts-guess"></div>
+          </div>
+          <div class="row" style="justify-content:space-between;margin-top:14px">
+            <button class="ghost" id="cm-prev">上一题</button>
+            <div class="muted">两问都选了才能继续</div>
+            <button id="cm-next">下一题</button>
+          </div>
+        </div>
+
+        <div class="card hidden" id="cm-wait">
+          <h2>交卷了 <span class="muted" style="font-size:var(--fs-xs)">你已交卷，等她</span></h2>
+          <div class="muted" id="cm-wait-text">正在等她用自己的身份回答…</div>
+          <div id="cm-live" class="cml"></div>
+          <div class="notice" id="cm-nudge" style="margin-top:12px"></div>
+          <div class="row" style="margin-top:10px">
+            <button class="ghost tiny hidden" id="cm-ask-again">把没答上的重问一次</button>
+            <button class="ghost tiny hidden" id="cm-harvest">补收她的回答</button>
+          </div>
+          <details class="cm-paste" id="cm-paste">
+            <summary>她答了、但我没读到？把她在对话里说的话贴进来</summary>
+            <div class="cm-paste-hint">
+              整段贴进来就行——写了题号（<b>①3</b>、<b>3/10</b>、<b>第4题</b>）的我按题号放；
+              没写题号的，按顺序补到还没答上的题上。这一步不依赖任何读回通道，贴了就一定收下。
+            </div>
+            <textarea id="cm-paste-text" rows="6" spellcheck="false"
+              placeholder="①3，自然醒没人吵，周末就该睡到饱。&#10;②你猜2，我赌你喜欢窝在家里。"></textarea>
+            <div class="row" style="margin-top:8px">
+              <button class="ghost tiny" id="cm-paste-go">收下她说的话</button>
+              <span class="muted" id="cm-paste-note"></span>
+            </div>
+          </details>
+        </div>
+
+        <div class="card hidden" id="cm-reveal">
+          <h2>同时揭晓 <span class="muted" id="cm-source" style="font-size:var(--fs-xs)"></span></h2>
+          <div class="hero">
+            <div class="hero-art"><span id="cm-hero-emoji">🐾</span></div>
+            <div class="nm" id="cm-score">—</div>
+            <div class="sum" id="cm-summary"></div>
+          </div>
+          <div class="stats" id="cm-stats"></div>
+          <div id="cm-yui-said" class="notice" style="margin-top:12px"></div>
+          <div id="cm-live-reveal" class="cml"></div>
+          <div class="hr"></div>
+          <div id="cm-rows"></div>
+          <div class="row" style="margin-top:12px">
+            <button id="cm-again">再来一轮</button>
+            <button class="ghost" id="cm-back">回介绍页</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 关于与设置 -->
+      <div id="view-about" class="hidden">
+        <div class="card">
+          <h2>版权与来源</h2>
+          <div class="kv">
+            <div class="line"><b>大五人格</b><span>IPIP 大五因子标记（Goldberg）条目来自 International Personality Item Pool（ipip.ori.org），公共领域，每因子 20 题。</span></div>
+            <div class="line"><b>16 型人格</b><span>OEJTS 1.2（Open Extended Jungian Type Scales，Eric Jorgenson），CC BY-NC-SA 4.0，非商业使用；与 MBTI 无关联。</span></div>
+            <div class="line"><b>职业兴趣</b><span>O*NET Interest Profiler（美国劳工部）原题，属美国政府作品，公共领域。</span></div>
+            <div class="line"><b>PHQ-9</b><span>Kroenke 等，公开提供，复制/翻译无需授权。</span></div>
+            <div class="line"><b>GAD-7</b><span>Spitzer 等，公开提供，复制无需授权。</span></div>
+            <div class="line"><b>UCLA 简版</b><span>Hughes 等（2004），研究用途公开可复现。</span></div>
+            <div class="line"><b>猫娘塔罗</b><span>78 张牌面为莱德-伟特（Rider-Waite-Smith）塔罗 1909 年版 Pamela Colman Smith 原版扫描（Wikimedia Commons，公有领域）；牌名与传统关键词属公共领域；猫娘解读由本机配置的大模型现场生成，只作娱乐与自我探索。</span></div>
+            <div class="line"><b>解压小游戏</b><span>电子板（Mikutap 玩法）与切水果移植自本作者的学习辅助猫娘插件；电子板默认音源为 FluidR3_GM 采样（CC BY 3.0，via gleitz/midi-js-soundfonts）；面板里导入的本地音源只存本机 <code>data/mikutap_audio/</code>，不进发行包。</span></div>
+            <div class="line"><b>关于分数</b><span>这些量表没有常模样本，分数只反映「这份量表内部」的相对强度，不是人群排名。</span></div>
+            <div class="line"><b>自编题目</b><span>九型人格、社交能量、情绪智力、心理韧性、拖延症、成人依恋、爱的语言，以及魔法分院、灵魂动物等趣味量表为本插件自编，非官方测验，仅作探索与娱乐。</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>隐私</h2>
+          <div class="notice good">答案与结果<b>只写在本机</b> <code>data/records.json</code>，不上传、不联网、不给第三方。
+            你可以随时导出或一键清空。</div>
+        </div>
+        <div class="card">
+          <h2>界面</h2>
+          <div class="grid">
+            <div><label class="muted">字体</label><select id="ui-font"></select></div>
+            <div><label class="muted">字号</label>
+              <select id="ui-size"><option value="s">小</option><option value="m">标准</option>
+                <option value="l">大</option><option value="xl">特大</option></select></div>
+            <div><label class="muted">鼠标轨迹</label>
+              <select id="ui-trail"><option value="auto">自动</option><option value="on">开</option><option value="off">关</option></select></div>
+            <div><label class="muted">背景</label>
+              <select id="ui-bg">
+                <option value="default">插件自带</option>
+                <option value="custom">我上传的图</option>
+                <option value="plain">纯色渐变（不要图）</option>
+              </select></div>
+            <div><label class="muted">蒙层</label>
+              <select id="ui-bg-dim"><option value="light">薄</option><option value="medium">中</option><option value="strong">厚</option></select></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="ghost" id="btn-bg-upload">换背景图</button>
+            <button class="ghost" id="btn-bg-reset">恢复默认</button>
+            <input type="file" id="bg-file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none">
+            <span class="muted" id="bg-note"></span>
+          </div>
+        </div>
+        <div class="card">
+          <h2>危机求助</h2>
+          <ul class="tips" id="crisis"></ul>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div class="modal hidden" id="card-modal">
+  <div class="modal-box">
+    <div class="sec-h" style="margin-top:0">分享卡</div>
+    <img id="card-img" alt="分享卡预览">
+    <div class="muted" id="card-path" style="margin-top:8px;word-break:break-all"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="card-copy">复制图片</button>
+      <button class="ghost" id="card-path-copy">复制文件路径</button>
+      <button class="ghost" id="card-close">关闭</button>
+    </div>
+    <div class="muted" style="margin-top:8px">在图片上右键 → 「图片另存为」也可以手动保存。</div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const PORTS = [15800, 15801, 15802, 15803, 15804];
+const CRISIS = [
+  '全国希望 24 热线：400-161-9995（24 小时）',
+  '北京心理危机研究与干预中心：010-82951332',
+  '中国心理卫生协会心理援助热线：400-161-9995',
+  '情况紧急请立刻拨打 120 / 110。',
+];
+let API_BASE = localStorage.getItem('assess_base');
+let VIEWS = ['home', 'quiz', 'result', 'records', 'tarot', 'play', 'compat', 'about'];
+// 解压小游戏（后面定义的 mikutap / fruitGame 会把自己挂上来；go() 要在它们之前用）
+let RELAX = null;
+
+async function findBase(){
+  // 缓存的端口要先验活：端口漂移后旧缓存会让面板永远"连不上"
+  if (API_BASE !== null && API_BASE !== undefined){
+    try{
+      const res = await fetch(`${API_BASE}/api/scales`);
+      if (res.ok){
+        const data = await res.json();
+        if (data && data.scales) return API_BASE;
+      }
+    }catch(err){ /* 缓存失效，重扫 */ }
+    API_BASE = null;
+    localStorage.removeItem('assess_base');
+  }
+  for (const base of ['', ...PORTS.map((p) => `http://127.0.0.1:${p}`)]){
+    try{
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 1200);
+      const res = await fetch(`${base}/api/scales`, {signal: ctrl.signal});
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data && data.scales){ API_BASE = base; localStorage.setItem('assess_base', base); return base; }
+    }catch(err){}
+  }
+  return null;
+}
+async function api(path, body){
+  const base = await findBase();
+  if (base === null) throw new Error('连不上面板服务：确认插件已启动，或稍等几秒再刷新');
+  const res = await fetch(base + path, body === undefined
+    ? {method: 'GET'}
+    : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})});
+  return await res.json();
+}
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+function floatText(text, at){
+  const node = document.createElement('div');
+  node.className = 'expfloat';
+  node.textContent = text;
+  node.style.left = `${(at && at.x) || window.innerWidth - 130}px`;
+  node.style.top = `${(at && at.y) || 110}px`;
+  node.style.fontSize = 'var(--fs-sm)';
+  document.body.appendChild(node);
+  setTimeout(() => node.remove(), 1200);
+}
+// 舞台类容器（电子板 / 切水果）会在 pointerdown 里 preventDefault + setPointerCapture，
+// 好让长按拖动不被浏览器掐断。副作用：指针被舞台抢走后，落在舞台内「按钮」上的
+// click 会被重定向到舞台自己，按钮的 onclick 永远不触发——切水果的「开始 / 继续 /
+// 再来一局」因此全点不动，只有舞台外的「重开一局」能用。所以按下点发生在交互控件
+// 上时不抢指针，交回浏览器走正常点击流程。
+function isUiHit(ev){
+  const t = ev.target;
+  return !!(t && t.closest && t.closest('button, a, input, select, textarea, label, summary, [role="button"]'));
+}
+function go(view){
+  VIEWS.forEach((name) => $('view-' + name).classList.toggle('hidden', name !== view));
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t.dataset.tab === view));
+  document.querySelector('.app').classList.toggle('wide', view === 'play');
+  if (view !== 'play' && RELAX) RELAX.leave();   // 离开解压页就停声音/停帧
+}
+document.querySelectorAll('.tab').forEach((tab) => { tab.onclick = () => go(tab.dataset.tab); });
+
+// ── 鼠标轨迹 + 点击反馈 ────────────────────────────────────────
+// 轨迹：pointermove + mousemove 双监听（内嵌 webview 里 pointermove 偶发不派发，
+// 只靠它会"有时候不显示"）；点击反馈：pointerdown 在点击点画一圈扩散涟漪。
+const trail = (() => {
+  const canvas = $('trail-canvas');
+  const ctx = canvas.getContext('2d');
+  let points = [];
+  let ripples = [];
+  let raf = 0;
+  let dpr = 1;
+  let active = true;
+  const TRAIL_MS = 520;
+  const RIPPLE_MS = 560;
+  function resize(){
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function kick(){
+    if (!raf) raf = requestAnimationFrame(draw);
+  }
+  function push(x, y){
+    points.push({x, y, t: performance.now()});
+    if (points.length > 34) points = points.slice(-34);
+    kick();
+  }
+  function ripple(x, y){
+    ripples.push({x, y, t: performance.now()});
+    if (ripples.length > 8) ripples = ripples.slice(-8);
+    kick();
+  }
+  function draw(){
+    const now = performance.now();
+    points = points.filter((p) => now - p.t < TRAIL_MS);
+    ripples = ripples.filter((r) => now - r.t < RIPPLE_MS);
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    let busyWork = false;
+    if (points.length >= 2){
+      busyWork = true;
+      for (let i = 1; i < points.length; i++){
+        const a = points[i - 1], b = points[i];
+        const power = 1 - (now - b.t) / TRAIL_MS;
+        const ratio = i / points.length;
+        ctx.strokeStyle = `hsla(${238 + ratio * 46}, ${66 - (1 - power) * 18}%, ${60 + ratio * 6}%, ${0.5 * power})`;
+        ctx.lineWidth = 1.8 + 8 * power * ratio;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      const head = points[points.length - 1];
+      const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 18);
+      glow.addColorStop(0, 'rgba(109,92,224,.4)');
+      glow.addColorStop(1, 'rgba(109,92,224,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(head.x, head.y, 18, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // 点击涟漪：一圈扩散波 + 中心小圆点淡出
+    for (const r of ripples){
+      busyWork = true;
+      const p = (now - r.t) / RIPPLE_MS;
+      const ease = 1 - Math.pow(1 - p, 3);
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 7 + 34 * ease, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(109,92,224,${0.5 * (1 - p)})`;
+      ctx.lineWidth = 2.4 * (1 - p) + 0.6;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 3.2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(109,92,224,${0.6 * (1 - p)})`;
+      ctx.fill();
+    }
+    if (busyWork){ raf = requestAnimationFrame(draw); }
+    else { raf = 0; }
+  }
+  function enable(on){
+    active = on;
+    canvas.classList.toggle('off', !on);
+    if (!on){
+      points = [];
+      ripples = [];
+      if (raf){ cancelAnimationFrame(raf); raf = 0; }
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    }
+  }
+  // 用 active 判断而不是读 classList，避免与 enable 时序打架
+  const onMove = (ev) => { if (active) push(ev.clientX, ev.clientY); };
+  document.addEventListener('pointermove', onMove, {passive: true});
+  document.addEventListener('mousemove', onMove, {passive: true});
+  document.addEventListener('pointerdown', (ev) => {
+    if (active) ripple(ev.clientX, ev.clientY);
+  }, {passive: true});
+  window.addEventListener('resize', resize);
+  resize();
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return {enable, reduced: reduce};
+})();
+
+// ── 偏好 ─────────────────────────────────────────────────────
+const FONTS = [
+  {id: 'system', name: '系统默认', ui: `'Quicksand',system-ui,'Microsoft YaHei','PingFang SC',sans-serif`, mono: `'JBMono',Consolas,monospace`},
+  {id: 'yahei', name: '微软雅黑 / 苹方', ui: `'Quicksand','Microsoft YaHei','PingFang SC',sans-serif`, mono: `'JBMono',Consolas,'Microsoft YaHei',monospace`},
+  {id: 'source', name: '思源黑体 / Noto', ui: `'Quicksand','Source Han Sans SC','Noto Sans SC','HarmonyOS Sans SC','Microsoft YaHei',sans-serif`, mono: `'JBMono','Sarasa Mono SC',Consolas,monospace`},
+  {id: 'wenkai', name: '霞鹜文楷（文书感）', ui: `'Lora','LXGW WenKai','霞鹜文楷',STKaiti,'Songti SC',serif`, mono: `'JBMono','Sarasa Mono SC',Consolas,serif`},
+  {id: 'rounded', name: '圆体（可爱）', ui: `'Quicksand',YouYuan,'幼圆','Yuanti SC','Microsoft YaHei',sans-serif`, mono: `'JBMono',Consolas,monospace`},
+  {id: 'mono', name: '等宽 / 代码', ui: `'JBMono','Cascadia Mono',Consolas,'Microsoft YaHei',monospace`, mono: `'JBMono',Consolas,monospace`},
+];
+const SIZES = {s: '12.5px', m: '14px', l: '15.5px', xl: '17px'};
+const BG_DIM = {
+  light:  'rgba(255,255,255,.26) 0%,rgba(255,255,255,.44) 45%,rgba(253,251,255,.6) 100%',
+  medium: 'rgba(255,255,255,.34) 0%,rgba(255,255,255,.6) 45%,rgba(253,251,255,.78) 100%',
+  strong: 'rgba(255,255,255,.52) 0%,rgba(255,255,255,.72) 45%,rgba(253,251,255,.86) 100%',
+};
+const BG_FALLBACK = 'linear-gradient(160deg,#f0f2ff,#f9f4ff 55%,#eef7fb)';
+let PREFS = {ui_font: 'system', ui_font_size: 'm', ui_trail: 'on', bg_mode: 'default', bg_dim: 'medium'};
+let BG = {mode: 'default', dim: 'medium', has_custom: false};
+let bgStamp = 0;
+$('ui-font').innerHTML = FONTS.map((f) => `<option value="${f.id}">${f.name}</option>`).join('');
+function applyPrefs(){
+  const font = FONTS.find((f) => f.id === PREFS.ui_font) || FONTS[0];
+  const root = document.documentElement.style;
+  root.setProperty('--font-ui', font.ui);
+  root.setProperty('--font-body', font.ui);
+  root.setProperty('--font-mono', font.mono);
+  root.setProperty('--fs', SIZES[PREFS.ui_font_size] || SIZES.m);
+  $('ui-font').value = font.id;
+  $('ui-size').value = SIZES[PREFS.ui_font_size] ? PREFS.ui_font_size : 'm';
+  $('ui-trail').value = ['auto', 'on', 'off'].includes(PREFS.ui_trail) ? PREFS.ui_trail : 'on';
+  const want = PREFS.ui_trail === 'on' ? true : (PREFS.ui_trail === 'off' ? false : !trail.reduced);
+  trail.enable(want);
+}
+function bgCustomUrl(){
+  const base = (API_BASE === null || API_BASE === undefined) ? '' : API_BASE;
+  return `${base}/bg/custom?v=${bgStamp}`;
+}
+function applyBackground(){
+  let image = '';
+  if (BG.mode === 'custom' && BG.has_custom){
+    image = `url("${bgCustomUrl()}") center top / cover no-repeat fixed, `;
+  } else if (BG.mode === 'default'){
+    image = 'url("bg.jpg") center top / cover no-repeat fixed, ';
+  }
+  document.documentElement.style.setProperty(
+    '--bg-stack', `linear-gradient(180deg,${BG_DIM[BG.dim] || BG_DIM.medium}), ${image}${BG_FALLBACK}`);
+  $('ui-bg').value = BG.mode;
+  $('ui-bg-dim').value = BG.dim;
+  $('bg-note').textContent = BG.mode === 'custom'
+    ? (BG.has_custom ? '使用你上传的图' : '还没上传，点「换背景图」')
+    : (BG.mode === 'plain' ? '纯色渐变' : '插件自带');
+}
+async function savePrefs(){
+  try { await api('/api/prefs', PREFS); } catch (err) { /* 偏好存不下不影响做题 */ }
+}
+async function setBackground(body){
+  $('bg-note').textContent = '处理中…';
+  try {
+    const res = await api('/api/background', body);
+    if (res.background){ BG = Object.assign({}, BG, res.background); bgStamp = Date.now(); applyBackground(); }
+    $('bg-note').textContent = res.ok ? (res.message || '已应用') : (res.error || '失败');
+  } catch (err){ $('bg-note').textContent = '失败：' + err; }
+}
+['ui-font', 'ui-size', 'ui-trail'].forEach((id) => {
+  $(id).onchange = () => {
+    PREFS.ui_font = $('ui-font').value;
+    PREFS.ui_font_size = $('ui-size').value;
+    PREFS.ui_trail = $('ui-trail').value;
+    applyPrefs();
+    savePrefs();
+  };
+});
+$('ui-bg').onchange = async () => {
+  const mode = $('ui-bg').value;
+  if (mode === 'custom' && !BG.has_custom){ $('ui-bg').value = BG.mode; $('bg-file').click(); return; }
+  await setBackground({action: 'mode', mode});
+};
+$('ui-bg-dim').onchange = () => setBackground({action: 'mode', mode: BG.mode, dim: $('ui-bg-dim').value});
+$('btn-bg-reset').onclick = () => setBackground({action: 'reset'});
+$('btn-bg-upload').onclick = () => $('bg-file').click();
+$('bg-file').onchange = async () => {
+  const file = $('bg-file').files && $('bg-file').files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024){
+    $('bg-note').textContent = `图片 ${(file.size / 1048576).toFixed(1)}MB，超过 8MB 限制`;
+    $('bg-file').value = '';
+    return;
+  }
+  $('bg-note').textContent = '上传中…';
+  try {
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+    await setBackground({action: 'upload', image_base64: dataUrl});
+  } catch (err){ $('bg-note').textContent = String(err); }
+  $('bg-file').value = '';
+};
+applyPrefs();
+applyBackground();
+
+// ── 量表库 ───────────────────────────────────────────────────
+let SCALES = [];
+let CAT = '全部';
+const CAT_DESC = {
+  '人格': '「我是谁」——长期稳定的特质与类型',
+  '情绪健康': '近期状态自查。不是诊断，但能量化感觉、追踪变化',
+  '职业': '兴趣与工作方式，选方向时当参考',
+  '关系': '亲密关系与社交里的你',
+  '趣味': '图一乐，别当真（但也不一定不准）',
+};
+const CAT_ORDER = ['人格', '情绪健康', '职业', '关系', '趣味'];
+$('q').oninput = renderGallery;
+// 状态胶囊必须说真话：连上才亮绿、连不上亮红。
+// 面板页常常比插件的 HTTP 服务先就绪，原来只试一次就定生死——失败后量表库空着，
+// 胶囊却一直亮着绿点写「连不上面板服务」（塔罗/切水果反而还能用，前后自相矛盾）。
+// 现在改成：失败亮红 + 自动重试（最多敲 30 秒），连上立刻恢复绿色和真实计数。
+let connFails = 0;
+let connTimer = 0;
+let connFirstFail = 0;
+function markConn(ok, text){
+  $('pill-text').textContent = text;
+  const dot = $('pill-dot');
+  if (dot){ dot.classList.toggle('ok', ok); dot.classList.toggle('bad', !ok); }
+}
+function scheduleReconnect(){
+  if (connTimer) return;
+  if (connFirstFail && Date.now() - connFirstFail > 30000) return;   // 敲够 30 秒还没起来就停手
+  connTimer = setTimeout(() => { connTimer = 0; loadScales(); }, 1500);
+}
+async function loadScales(){
+  try {
+    const res = await api('/api/scales');
+    SCALES = res.scales || [];
+    const cats = ['全部', ...new Set(SCALES.map((s) => s.category))];
+    $('cats').innerHTML = cats.map((c) =>
+      `<button class="chip ${c === CAT ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+    $('cats').querySelectorAll('.chip').forEach((chip) => {
+      chip.onclick = () => { CAT = chip.dataset.cat; loadScales(); };
+    });
+    $('filter-scale').innerHTML = '<option value="">全部量表</option>' +
+      SCALES.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+    renderGallery();
+    connFails = 0;
+    connFirstFail = 0;
+    if (connTimer){ clearTimeout(connTimer); connTimer = 0; }
+    markConn(true, `${SCALES.length} 份量表 · 已做 ${SCALES.reduce((a, b) => a + (b.done || 0), 0)} 次`);
+  } catch (err) {
+    connFails += 1;
+    if (!connFirstFail) connFirstFail = Date.now();
+    const retrying = Date.now() - connFirstFail <= 30000;
+    markConn(false, retrying ? '连不上面板服务 · 正在重试…' : '连不上面板服务');
+    if (!retrying) $('gallery').innerHTML = `<div class="card">${esc(String(err))}</div>`;
+    scheduleReconnect();
+  }
+}
+function renderGallery(){
+  const q = $('q').value.trim().toLowerCase();
+  const rows = SCALES.filter((s) => {
+    if (CAT !== '全部' && s.category !== CAT) return false;
+    if (!q) return true;
+    return (s.name + s.intro + s.id).toLowerCase().includes(q);
+  });
+  const card = (s) => `
+    <div class="sc" data-id="${esc(s.id)}">
+      <div class="top"><span class="nm">${esc(s.name)}</span><span class="cat">${esc(s.category)}</span></div>
+      <div class="desc">${esc(s.intro)}</div>
+      <div class="meta"><span>${s.fixed ? `官方 ${s.bank_size || s.count} 题` : `题库 ${s.bank_size || s.count} 题 · 默认 ${s.default_items || s.count} 题`}</span><span>约 ${s.minutes} 分钟</span></div>
+      ${s.done ? `<span class="done">已做 ${s.done} 次</span>` : ''}
+    </div>`;
+  let html = '';
+  if (!rows.length){
+    html = '<div class="muted">没有匹配的量表</div>';
+  } else if (CAT === '全部' && !q){
+    for (const cat of CAT_ORDER){
+      const group = rows.filter((s) => s.category === cat);
+      if (!group.length) continue;
+      html += `<div class="cat-h"><b>${cat}</b><span>${esc(CAT_DESC[cat] || '')}</span></div>
+        <div class="grid">${group.map(card).join('')}</div>`;
+    }
+  } else {
+    html = `<div class="grid">${rows.map(card).join('')}</div>`;
+  }
+  $('gallery').innerHTML = html;
+  $('gallery').querySelectorAll('.sc').forEach((el) => { el.onclick = () => openStarter(el.dataset.id); });
+}
+
+// ── 答题 ─────────────────────────────────────────────────────
+let CUR = null;      // 当前量表
+let ANSWERS = [];
+let IDX = 0;
+let PICK = null;     // 正在选择题量的那份
+let PICK_COUNT = 0;
+let PICK_RANGE = {min: 1, bank: 100, officialCount: 0};
+
+// 点量表卡：先让用户选题量（官方量表不可改）
+function openStarter(id){
+  const meta = SCALES.find((s) => s.id === id);
+  if (!meta) return;
+  PICK = meta;
+  const bank = meta.bank_size || meta.count;
+  const min = Math.min(meta.min_items || 4, bank);
+  const officialCount = meta.official_count || 0;   // ⚠ 必须先声明再用（TDZ 会让点击静默失败）
+  const defN = Math.min(Math.max(meta.default_items || 0, min), bank);
+  $('starter-name').textContent = meta.name;
+  $('starter-note').textContent = officialCount
+    ? (defN === officialCount
+        ? `题库 ${bank} 题。默认「官方 ${officialCount} 题」套用官方分级；选更多题则进入「扩展自评」。`
+        : `题库 ${bank} 题。默认 ${defN} 题走「扩展自评」；选「官方 ${officialCount} 题」才套用官方分级。`)
+    : `题库 ${bank} 题，每次随机抽题（两次不会完全一样，用来减少「记住上次答案」的偏差）。`;
+
+  // 选项：按题库大小给一组合适的档位，永远至少有两个可选值
+  let opts;
+  if (officialCount){
+    // 官方量表：官方原题（套官方分级）保留为可选项；默认与其余档位走「扩展自评」
+    const ladder = [10, 20, 30, 40, 60, 100].filter((x) => x <= bank && x > officialCount);
+    opts = [{n: officialCount, label: `官方 ${officialCount} 题`, sub: '套官方分级'}]
+      .concat(ladder.map((x) => ({n: x, label: `${x} 题`, sub: x >= bank ? '全部题库 · 扩展自评' : '扩展自评'})));
+  } else if (meta.fixed){
+    opts = [{n: bank, label: `官方 ${bank} 题`, sub: '固定'}];
+  } else {
+    const wanted = [10, 20, 30, 40, 60, 80, 100].filter((x) => x >= min && x <= bank);
+    const nums = [...new Set([...wanted, bank])].sort((a, b) => a - b);
+    opts = nums.map((x) => ({n: x, label: `${x} 题`,
+      sub: x >= bank ? '全部题库' : `约 ${Math.max(1, Math.round(x * 0.15))} 分钟`}));
+    if (opts.length === 1 && bank <= 6){
+      opts = [{n: bank, label: `全部 ${bank} 题`, sub: '这份量表很短'}];
+    }
+  }
+  const def = defN;
+  PICK_COUNT = opts.some((o) => o.n === def) ? def : opts[0].n;
+  $('starter-counts').innerHTML = opts.map((o) =>
+    `<button class="cchip ${o.n === PICK_COUNT ? 'on' : ''}" data-n="${o.n}">${o.label}<small>${o.sub}</small></button>`).join('');
+  $('starter-counts').querySelectorAll('.cchip').forEach((el) => {
+    el.onclick = () => {
+      PICK_COUNT = Number(el.dataset.n);
+      $('starter-counts').querySelectorAll('.cchip').forEach((x) => x.classList.toggle('on', x === el));
+      if ($('starter-custom')) $('starter-custom').value = '';
+      updatePickLabel();
+      floatText(`已选 ${PICK_COUNT} 题`);
+    };
+  });
+  // 自定义题数
+  const customRow = $('starter-custom-row');
+  customRow.classList.toggle('hidden', meta.fixed);
+  if ($('starter-custom')) { $('starter-custom').value = ''; $('starter-custom').max = bank; }
+  PICK_RANGE = {min, bank, officialCount};
+  updatePickLabel();
+  $('starter').classList.remove('hidden');
+  $('starter').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
+function updatePickLabel(){
+  const el = $('starter-tip');
+  if (!el) return;
+  const {min, bank, officialCount} = PICK_RANGE;
+  const hint = officialCount
+    ? ` · 官方 ${officialCount} 题套官方分级，更多题算扩展自评`
+    : ` · 可选 ${min}~${bank} 题，题越多结果越稳`;
+  el.textContent = `✅ 当前已选 ${PICK_COUNT} 题${hint}`;
+}
+
+$('starter-cancel').onclick = () => { $('starter').classList.add('hidden'); PICK = null; };
+$('starter-apply').onclick = () => {
+  if (!PICK) return;
+  const bank = PICK.bank_size || PICK.count;
+  let want = parseInt($('starter-custom').value, 10);
+  if (!want || Number.isNaN(want)){ floatText('先填一个题数'); return; }
+  want = Math.max(1, Math.min(bank, want));
+  $('starter-custom').value = want;
+  startScale(PICK.id, want);
+};
+$('starter-custom').onkeydown = (ev) => { if (ev.key === 'Enter') $('starter-apply').click(); };
+$('starter-go').onclick = () => { if (PICK) startScale(PICK.id, PICK_COUNT); };
+
+async function startScale(id, count){
+  try {
+    const res = await api('/api/scale', {id, count: count || 0});
+    if (!res.ok){ alert(res.error); return; }
+    CUR = res.scale;
+    ANSWERS = new Array(CUR.items.length).fill(null);
+    IDX = 0;
+    $('quiz-name').textContent = CUR.name;
+    $('starter').classList.add('hidden');
+    $('btn-next').textContent = '下一题';
+    go('quiz');
+    renderQuestion();
+  } catch (err) { alert(String(err)); }
+}
+function liveDims(){
+  // 本地算实时剖面：只统计已答的题
+  const scores = {};
+  if (CUR.options){
+    const maxValue = Math.max(...CUR.options.map((o) => o.value));
+    const minValue = Math.min(...CUR.options.map((o) => o.value));
+    CUR.items.forEach((item, i) => {
+      const value = ANSWERS[i];
+      if (value == null) return;
+      let raw = Number(value);
+      if (item.reverse) raw = maxValue + minValue - raw;
+      scores[item.dim] = (scores[item.dim] || 0) + raw;
+    });
+  } else {
+    CUR.items.forEach((item, i) => {
+      const pick = ANSWERS[i];
+      if (pick == null) return;
+      const option = item.options[pick];
+      for (const key in (option.weights || {})) scores[key] = (scores[key] || 0) + option.weights[key];
+    });
+  }
+  const keys = new Set();
+  CUR.items.forEach((item) => {
+    if (item.dim) keys.add(item.dim);
+    (item.options || []).forEach((o) => Object.keys(o.weights || {}).forEach((k) => keys.add(k)));
+  });
+  const max = Math.max(1, ...Object.values(scores), 1);
+  $('live').innerHTML = '<div class="muted" style="margin-bottom:8px">实时剖面（随你的选择变化）</div>' +
+    [...keys].map((k) => {
+      const value = scores[k] || 0;
+      const name = (CUR.dimensions || []).find((d) => d.key === k);
+      return `<div class="livebar"><span>${esc(name ? name.name : k)}</span>
+        <span class="track"><i style="width:${Math.round(value / max * 100)}%"></i></span></div>`;
+    }).join('');
+}
+function renderQuestion(){
+  const item = CUR.items[IDX];
+  $('quiz-pos').textContent = `第 ${IDX + 1} / ${CUR.items.length} 题`;
+  $('bar').style.width = `${Math.round((IDX + 1) / CUR.items.length * 100)}%`;
+  $('qtext').textContent = item.text;
+  const options = CUR.options || item.options.map((o, i) => ({label: o.label, value: i}));
+  const isLast = IDX === CUR.items.length - 1;
+  $('btn-next').textContent = isLast ? '看结果' : '下一题';
+  $('opts').innerHTML = options.map((o, i) => `
+    <button class="opt ${ANSWERS[IDX] === o.value ? 'on' : ''}" data-v="${o.value}">
+      <span class="k">${i + 1}</span><span>${esc(o.label)}</span>
+    </button>`).join('');
+  $('opts').querySelectorAll('.opt').forEach((el) => {
+    el.onclick = () => pick(Number(el.dataset.v));
+  });
+  $('btn-prev').disabled = IDX === 0;
+  liveDims();
+}
+function pick(value){
+  ANSWERS[IDX] = value;
+  renderQuestion();
+  // 选完稍等一下自动前进，手感更顺
+  setTimeout(() => { if (IDX < CUR.items.length - 1){ IDX += 1; renderQuestion(); } }, 180);
+}
+$('btn-prev').onclick = () => { if (IDX > 0){ IDX -= 1; renderQuestion(); } };
+$('btn-next').onclick = () => {
+  if (ANSWERS[IDX] == null){ floatText('先选一个再走喵'); return; }
+  if (IDX < CUR.items.length - 1){ IDX += 1; renderQuestion(); }
+  else submit();
+};
+$('btn-quit').onclick = () => { go('home'); loadScales(); };
+document.addEventListener('keydown', (ev) => {
+  if ($('view-quiz').classList.contains('hidden') || !CUR) return;
+  const tag = (ev.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (ev.key >= '1' && ev.key <= '9'){
+    const index = Number(ev.key) - 1;
+    const options = CUR.options || CUR.items[IDX].options.map((_, i) => ({value: i}));
+    if (index < options.length) pick(options[index].value);
+  } else if (ev.key === 'Enter'){
+    $('btn-next').click();
+  } else if (ev.key === 'Backspace' || ev.key === 'ArrowLeft'){
+    if (IDX > 0){ IDX -= 1; renderQuestion(); }
+  } else if (ev.key === 'ArrowRight'){
+    $('btn-next').click();
+  }
+});
+
+// ── 提交与结果 ───────────────────────────────────────────────
+let LAST = null;
+async function submit(){
+  try {
+    const res = await api('/api/submit', {scale_id: CUR.id, answers: ANSWERS, ids: CUR.ids || []});
+    if (!res.ok){ alert(res.error); return; }
+    LAST = res;
+    renderResult(res);
+    go('result');
+  } catch (err) { alert(String(err)); }
+}
+function renderResult(res){
+  const type = res.type || {};
+  const kind = res.kind || CUR.kind;
+  const dims = res.dims || [];
+  // 雷达图只给 Likert 多维度量表；强迫选择量表（爱的语言/霍兰德）用占比条更诚实
+  const useRadar = kind === 'dimension' && dims.length >= 3;
+
+  // ── 顶部：类型/名称 + 一句话 + 来源信息 ────────────────────
+  const codeText = (type.code && type.code !== type.name) ? type.code : '';
+  $('r-code').textContent = codeText;
+  $('r-code').classList.toggle('hidden', !codeText);
+  $('r-name').textContent = type.name || res.name || '';
+  $('r-sum').textContent = type.summary || res.advice || '';
+  const bankInfo = res.bank_size
+    ? `本次 ${res.items_used || CUR.items.length} 题 / 题库 ${res.bank_size} 题`
+    : `${CUR.items.length} 题`;
+  $('r-meta').textContent = `${CUR.name} · ${bankInfo} · 来源：${CUR.source}`;
+
+  // 配图：按结果类型换 emoji 与配色（emoji + 渐变，不引外部图）
+  const art = res.art || {};
+  const banner = $('hero-art');
+  banner.style.setProperty('--art-a', art.from || '#8d7ff3');
+  banner.style.setProperty('--art-b', art.to || '#5ec8f0');
+  $('hero-emoji').textContent = art.emoji || '🧩';
+
+  // ── 为什么是这个结果 ───────────────────────────────────────
+  const cands = res.candidates || [];
+  if (kind === 'type' && cands.length){
+    const max = Math.max(...cands.map((c) => c.percent), 1);
+    $('why-title').textContent = '你的各项占比（为什么是这个结果）';
+    let html = cands.slice(0, 9).map((c, i) => `
+      <div class="cand ${i === 0 ? 'top' : ''}">
+        <span class="nm">${esc(c.name)}</span>
+        <span class="track"><i style="width:${Math.round(c.percent / max * 100)}%"></i></span>
+        <span class="pc">${c.percent}%</span>
+        ${c.tip ? `<span class="tip">${esc(c.tip)}</span>` : ''}
+      </div>`).join('');
+    if (cands.length > 1 && cands[1].percent >= 25){
+      html += `<div class="notice">你的第二高是「${esc(cands[1].name)}」（${cands[1].percent}%）。
+        两者接近说明你同时具有两种倾向——类型本来就是连续谱，不必非此即彼。</div>`;
+    }
+    $('why-box').innerHTML = html;
+  } else if (dims.length === 1){
+    // 单维度量表：用一根双向刻度，两端写清楚，比"55% · 中间地带"好懂
+    const d = dims[0];
+    const meta = (CUR.dimensions || []).find((x) => x.key === d.key) || {};
+    const band = d.percent >= 66 ? (meta.high || '偏高') : (d.percent <= 33 ? (meta.low || '偏低') : '中间地带');
+    $('why-title').textContent = '你的位置';
+    $('why-box').innerHTML = `<div class="gauge">
+      <div class="gauge-top"><span>${esc(meta.low || '偏低')}</span><span>${esc(meta.high || '偏高')}</span></div>
+      <div class="gauge-track"><span class="gauge-mid"></span><i style="left:${d.percent}%"></i></div>
+      <div class="gauge-val">${d.percent}% · ${esc(band)}</div>
+      ${(d.tip || meta.tip) ? `<div class="muted" style="text-align:center">${esc(d.tip || meta.tip)}</div>` : ''}
+    </div>`;
+  } else if (dims.length){
+    const labels = new Map((CUR.dimensions || []).map((d) => [d.key, d]));
+    $('why-title').textContent = '各维度得分';
+    $('why-box').innerHTML = dims.map((d) => {
+      const meta = labels.get(d.key) || {};
+      const name = d.name || meta.name || d.key;
+      const isShare = d.percent_kind === 'share';
+      const band = isShare ? '占你选择的比例'
+        : (d.percent >= 66 ? (meta.high || '偏高') : (d.percent <= 33 ? (meta.low || '偏低') : '中间地带'));
+      return `<div class="framebox">
+        <div class="fb-top">
+          <span class="fb-name">${esc(name)}</span>
+          <span class="fb-val">${d.percent}%${isShare ? ' · ' + esc(band) : ' · ' + esc(band)}</span>
+        </div>
+        <div class="track"><i style="width:${d.percent}%"></i></div>
+        ${(d.tip || meta.tip) ? `<div class="fb-tip">${esc(d.tip || meta.tip)}</div>` : ''}
+      </div>`;
+    }).join('');
+  } else {
+    $('why-title').textContent = '得分';
+    $('why-box').innerHTML = '';
+  }
+
+  // ── 长处 / 盲点 / 分级建议 ─────────────────────────────────
+  let extra = '';
+  if (type.strengths || type.blind_spot){
+    extra += `<div class="two" style="margin-top:12px">
+      ${type.strengths ? `<div class="card" style="box-shadow:none;background:rgba(233,250,241,.6);padding:12px 15px">
+        <b>长处</b><div class="muted" style="margin-top:4px">${esc(type.strengths)}</div></div>` : ''}
+      ${type.blind_spot ? `<div class="card" style="box-shadow:none;background:rgba(255,244,219,.6);padding:12px 15px">
+        <b>要留意</b><div class="muted" style="margin-top:4px">${esc(type.blind_spot)}</div></div>` : ''}
+    </div>`;
+  }
+  if (res.extended){
+    extra += `<div class="notice" style="margin-top:12px">扩展自评：这份结果<b>不是</b>官方量表计分（你答的题数超过了官方题目），
+      分数只表示你在这批陈述上的同意程度，不套用官方分级。</div>`;
+  }
+  if (res.level){
+    extra += `<div class="notice ${res.total >= 10 ? 'bad' : ''}" style="margin-top:12px">
+      分级：<b>${esc(res.level)}</b>（总分 ${res.total}）｜${esc(res.advice || '')}</div>`;
+  }
+  // 维度长文解读
+  const notes = res.notes || [];
+  if (notes.length){
+    extra += `<div class="hr"></div><div class="sec-h" style="margin-top:0">这意味着什么</div>` +
+      notes.map((note) => `<div class="framebox">
+        <div class="fb-name">${esc(note.title)}</div>
+        <div class="fb-tip">${esc(note.text)}</div></div>`).join('');
+  }
+  // 可执行建议
+  const advices = res.advices || [];
+  if (advices.length){
+    extra += `<div class="hr"></div><div class="sec-h" style="margin-top:0">可以做的三件事</div>
+      <div class="framebox"><ul class="tips" style="margin:0">${advices.map((a) => `<li>${esc(a)}</li>`).join('')}</ul></div>`;
+  }
+  // 这份结果怎么算的（算法口径，明明白白）
+  if (res.method){
+    extra += `<div class="hr"></div><details class="howto"><summary>这份结果是怎么算出来的</summary>
+      <div class="fb-tip" style="margin-top:8px">${esc(res.method)}</div>
+      <div class="fb-tip">题库 ${res.bank_size || '—'} 题，本次使用 ${res.items_used || '—'} 题${res.official ? '（官方原题与官方分级）' : (res.extended ? '（扩展自评）' : '（随机抽样）')}。</div>
+    </details>`;
+  }
+  if (kind === 'dimension' && dims.length === 1){
+    extra += `<div class="notice" style="margin-top:12px">这项是单维度量表：分数只说明相对位置，
+      不代表好坏。把它当成一个可以慢慢调整的刻度，而不是标签。</div>`;
+  }
+  $('extra').innerHTML = extra;
+
+  // ── 风险提示（PHQ-9 第 9 题）──────────────────────────────
+  $('risk-box').innerHTML = res.risk ? `<div class="notice bad"><b>请先看这里：</b>你在这份量表里勾选了与自我伤害相关的选项。
+    这不需要一个人扛——请联系专业人士或热线：${(res.crisis_lines || []).map((l) => `<div>${esc(l)}</div>`).join('')}
+    <div>如果情况紧急，请立刻拨打 120 / 110。</div></div>` : '';
+
+  // ── 剖面图：只有多维量表才画 ──────────────────────────────
+  $('radar-block').classList.toggle('hidden', !useRadar);
+  if (useRadar) drawRadar(dims);
+}
+
+function drawRadar(dims){
+  const canvas = $('radar');
+  const ctx = canvas.getContext('2d');
+  const size = Math.max(240, Math.min(320, canvas.clientWidth || 280));
+  canvas.width = size * window.devicePixelRatio;
+  canvas.height = size * window.devicePixelRatio;
+  ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2 - 34;
+  ctx.clearRect(0, 0, size, size);
+  const n = dims.length;
+  if (n < 3){
+    ctx.fillStyle = '#857da6';
+    ctx.font = '14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('该量表为单维度结果', cx, cy);
+    return;
+  }
+  // 网格
+  ctx.strokeStyle = 'rgba(109,92,224,.16)';
+  ctx.lineWidth = 1;
+  for (let ring = 1; ring <= 4; ring++){
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++){
+      const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+      const radius = (r * ring) / 4;
+      const x = cx + Math.cos(angle) * radius;
+      const y = cy + Math.sin(angle) * radius;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+  for (let i = 0; i < n; i++){
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+    ctx.stroke();
+  }
+  // 数据
+  const labels = new Map((CUR.dimensions || []).map((d) => [d.key, d]));
+  ctx.beginPath();
+  dims.forEach((d, i) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+    const radius = (r * Math.max(6, d.percent)) / 100;
+    const x = cx + Math.cos(angle) * radius;
+    const y = cy + Math.sin(angle) * radius;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(109,92,224,.22)';
+  ctx.fill();
+  ctx.strokeStyle = '#6d5ce0';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // 顶点与标签
+  dims.forEach((d, i) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+    const radius = (r * Math.max(6, d.percent)) / 100;
+    const x = cx + Math.cos(angle) * radius;
+    const y = cy + Math.sin(angle) * radius;
+    ctx.beginPath();
+    ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#6d5ce0';
+    ctx.fill();
+    const lx = cx + Math.cos(angle) * (r + 20);
+    const ly = cy + Math.sin(angle) * (r + 20);
+    ctx.fillStyle = '#4d4670';
+    ctx.font = '12px system-ui, "Microsoft YaHei"';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((labels.get(d.key) || {}).name || d.key, lx, ly);
+  });
+}
+$('btn-again').onclick = () => { if (CUR) startScale(CUR.id); };
+$('btn-back').onclick = () => { go('home'); loadScales(); };
+$('btn-copy').onclick = async () => {
+  const res = LAST || {};
+  const type = res.type || {};
+  const lines = [`${res.name}`, `结果：${type.name || ''}${type.code ? `（${type.code}）` : ''}`,
+    type.summary || '', '', ...(res.dims || []).map((d) => `${d.key}: ${d.percent}%`)];
+  if (res.level) lines.push('', `等级：${res.level}（总分 ${res.total}）`);
+  lines.push('', '（本结果仅供自我了解，不构成医学诊断）');
+  const text = lines.filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); floatText('已复制'); }
+  catch (err) { floatText('复制失败，请手动选择'); }
+};
+$('btn-card').onclick = async () => {
+  const res = LAST || {};
+  const type = res.type || {};
+  const canvas = document.createElement('canvas');
+  canvas.width = 1000;
+  canvas.height = 560;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 1000, 560);
+  grad.addColorStop(0, '#f3f1ff');
+  grad.addColorStop(1, '#eaf2ff');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1000, 560);
+  const art = res.art || {};
+  const band = ctx.createLinearGradient(0, 0, 1000, 0);
+  band.addColorStop(0, art.from || '#8d7ff3');
+  band.addColorStop(1, art.to || '#5ec8f0');
+  ctx.fillStyle = band;
+  ctx.fillRect(0, 0, 1000, 12);
+  ctx.font = '64px system-ui, "Segoe UI Emoji"';
+  ctx.fillText(art.emoji || '🧩', 860, 150);
+  ctx.fillStyle = '#6d5ce0';
+  ctx.font = '600 26px system-ui, "Microsoft YaHei"';
+  ctx.fillText(res.name || '', 60, 74);
+  ctx.fillStyle = '#2f2850';
+  ctx.font = '700 60px system-ui, "Microsoft YaHei"';
+  ctx.fillText(type.name || '结果', 60, 168);
+  if (type.code && type.code !== type.name){
+    ctx.fillStyle = '#9b8bf7';
+    ctx.font = '500 28px monospace';
+    ctx.fillText(type.code, 60, 214);
+  }
+  ctx.fillStyle = '#4d4670';
+  ctx.font = '24px system-ui, "Microsoft YaHei"';
+  const summary = type.summary || res.advice || '';
+  let y = 268;
+  for (let i = 0; i < summary.length && y < 380; i += 22){
+    ctx.fillText(summary.slice(i, i + 22), 60, y);
+    y += 34;
+  }
+  (res.candidates || res.dims || []).slice(0, 4).forEach((d, i) => {
+    const by = 400 + i * 32;
+    ctx.fillStyle = '#857da6';
+    ctx.font = '20px system-ui, "Microsoft YaHei"';
+    ctx.fillText(String(d.name || d.key || '').slice(0, 6), 60, by);
+    const pct = Number(d.percent || 0);
+    ctx.fillStyle = 'rgba(109,92,224,.16)';
+    ctx.fillRect(220, by - 14, 660, 14);
+    ctx.fillStyle = '#6d5ce0';
+    ctx.fillRect(220, by - 14, 660 * (pct / 100), 14);
+    ctx.fillStyle = '#857da6';
+    ctx.font = '18px monospace';
+    ctx.fillText(pct + '%', 890, by);
+  });
+  ctx.fillStyle = '#9b93b8';
+  ctx.font = '18px system-ui, "Microsoft YaHei"';
+  ctx.fillText('心理测评室 · 仅供自我了解，不构成医学诊断', 60, 528);
+
+  // ① 面板内预览（先让用户看得见，不再依赖下载）
+  let dataUrl = '';
+  try { dataUrl = canvas.toDataURL('image/png'); }
+  catch (err) { floatText('画布导出失败'); return; }
+  $('card-img').src = dataUrl;
+  $('card-path').textContent = '正在保存到本机…';
+  $('card-modal').classList.remove('hidden');
+
+  // ② 顺手复制到剪贴板（chromium 支持图片剪贴板，能直接粘到聊天框）
+  try {
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (blob && navigator.clipboard && window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+    }
+  } catch (err) { /* 剪贴板被拒也不影响其它两条路 */ }
+
+  // ③ 交给插件后端落盘（内嵌 webview 里 <a download> 经常被吞）
+  try {
+    const saved = await api('/api/card', {image: dataUrl, name: `${res.scale_id || 'result'}-${type.name || ''}`});
+    $('card-path').textContent = saved.ok
+      ? `已保存到：${saved.path}`
+      : `自动保存失败：${saved.error || '未知原因'}（可在图片上右键另存）`;
+  } catch (err) {
+    $('card-path').textContent = `自动保存失败：${err}（可在图片上右键另存）`;
+  }
+};
+$('card-close').onclick = () => $('card-modal').classList.add('hidden');
+$('card-copy').onclick = async () => {
+  try {
+    const res = LAST || {};
+    const img = $('card-img');
+    const blob = await (await fetch(img.src)).blob();
+    if (navigator.clipboard && window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+      floatText('已复制图片');
+    } else { floatText('这个环境不支持复制图片，请右键另存'); }
+  } catch (err) { floatText('复制失败，请右键另存'); }
+};
+$('card-path-copy').onclick = async () => {
+  const text = $('card-path').textContent.replace(/^已保存到：/, '').trim();
+  try { await navigator.clipboard.writeText(text); floatText('路径已复制'); }
+  catch (err) { floatText('复制失败'); }
+};
+
+// ── 记录 ─────────────────────────────────────────────────────
+async function loadRecords(){
+  const scaleId = $('filter-scale').value;
+  try {
+    const res = await api('/api/records', {scale_id: scaleId});
+    const rows = res.records || [];
+    $('records').innerHTML = rows.length ? rows.map((row) => `
+      <div class="rec">
+        <div>
+          <div class="t">${esc(row.name)}</div>
+          <div class="m">${esc(row.time)} ${row.level ? '· ' + esc(row.level) : ''} ${row.type && row.type.name ? '· ' + esc(row.type.name) : ''}</div>
+        </div>
+        <div class="act">
+          <button class="ghost tiny" data-open="${esc(row.id)}">看趋势</button>
+          <button class="ghost tiny" data-del="${esc(row.id)}">删除</button>
+        </div>
+      </div>`).join('') : '<div class="muted">还没有记录，去做一份量表吧。</div>';
+    $('records').querySelectorAll('[data-del]').forEach((el) => {
+      el.onclick = async () => { await api('/api/records/delete', {id: el.dataset.del}); loadRecords(); loadScales(); };
+    });
+    $('records').querySelectorAll('[data-open]').forEach((el) => { el.onclick = () => showTrend(el.dataset.open); });
+    if (!scaleId) $('trend').innerHTML = '';
+  } catch (err) { $('records').innerHTML = esc(String(err)); }
+}
+async function showTrend(recordId){
+  const row = await (async () => {
+    const res = await api('/api/records', {});
+    return (res.records || []).find((r) => String(r.id) === String(recordId));
+  })();
+  if (!row) return;
+  const res = await api('/api/history', {scale_id: row.scale_id});
+  const history = res.history || [];
+  if (history.length < 1){ $('trend').innerHTML = '<div class="muted">这份量表只有一次记录。</div>'; return; }
+  const max = Math.max(1, ...history.map((h) => Number(h.total || 0)));
+  $('trend').innerHTML = `<div class="muted" style="margin-top:12px">《${esc(row.name)}》历次总分</div><div class="trend">` +
+    history.map((h) => `<div class="col">
+      <div class="bar" style="height:${Math.round(Number(h.total || 0) / max * 100)}px"></div>
+      <div class="lb">${esc(String(h.time || '').slice(5))}</div></div>`).join('') + '</div>';
+}
+$('filter-scale').onchange = loadRecords;
+$('btn-export').onclick = async () => {
+  const res = await api('/api/export', {});
+  const text = res.text || '';
+  try { await navigator.clipboard.writeText(text); floatText('已复制到剪贴板'); }
+  catch (err) { floatText('复制失败'); }
+};
+$('btn-clear').onclick = async () => {
+  if (!confirm('清空所有测评记录？这一步不可撤销。')) return;
+  await api('/api/records/clear', {});
+  loadRecords();
+  loadScales();
+};
+document.querySelectorAll('.tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    if (tab.dataset.tab === 'records') loadRecords();
+    if (tab.dataset.tab === 'home') loadScales();     // 手动回量表库时再探一次连接
+  });
+});
+
+// ── 猫娘塔罗 ────────────────────────────────────────────────
+let TAROT_SPREADS = [];
+let TAROT_INTERPRETS = {};
+let CURRENT_DRAW = null;
+let tarotPick = 'three';
+let tarotTimer = null;
+
+function loadTarotInfo(){
+  api('/api/tarot').then((info) => {
+    if (!info || info.ok === false) return;
+    TAROT_SPREADS = info.spreads || [];
+    TAROT_INTERPRETS = info.interprets || {};
+    if (!$('tspreads').childElementCount && TAROT_SPREADS.length){
+      $('tspreads').innerHTML = TAROT_SPREADS.map((s) =>
+        `<div class="tchip${s.id === tarotPick ? ' on' : ''}" data-spread="${s.id}">
+           <b>${esc(s.name)}</b><small>${esc(s.sub)} · ${s.count} 张</small></div>`).join('');
+      document.querySelectorAll('#tspreads .tchip').forEach((chip) => {
+        chip.onclick = () => {
+          tarotPick = chip.dataset.spread;
+          document.querySelectorAll('#tspreads .tchip').forEach((c) => c.classList.toggle('on', c === chip));
+        };
+      });
+    }
+    const hist = info.history || [];
+    $('thist').innerHTML = hist.length
+      ? hist.map((h) => {
+          const d = new Date((h.ts || 0) * 1000);
+          const when = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+          return `<div class="thist-item" data-id="${esc(h.id)}">
+            <span class="h-when">${when}</span>
+            <span class="h-spread">${esc(h.spread_name)}</span>
+            <span class="muted">${esc(h.question || '（没有具体问题）')}</span></div>`;
+        }).join('')
+      : '<div class="muted">还没有占卜过喵。</div>';
+    document.querySelectorAll('.thist-item').forEach((el) => {
+      el.onclick = () => {
+        const entry = hist.find((h) => h.id === el.dataset.id);
+        if (entry) renderTarot(entry, TAROT_INTERPRETS[entry.id] || '');
+      };
+    });
+  }).catch(() => {});
+}
+
+function renderTarot(draw, interpretText){
+  CURRENT_DRAW = draw;
+  const box = $('tdraw');
+  box.innerHTML = '';
+  (draw.cards || []).forEach((c, i) => {
+    const el = document.createElement('div');
+    el.className = 'tcard';
+    const keys = (c.reversed ? c.rev : c.up) || [];
+    el.innerHTML = `<div class="inner">
+        <div class="tback"></div>
+        <div class="tface"><img src="${esc(c.img)}" alt="${esc(c.name)}" loading="lazy" class="${c.reversed ? 'rev' : ''}"></div>
+      </div>
+      <div class="tmeta"><span class="pos">${esc(c.position)}</span><b>${esc(c.name)} · ${c.reversed ? '逆位' : '正位'}</b>
+      <span class="keys">${esc(keys.join('、'))}</span></div>`;
+    box.appendChild(el);
+    setTimeout(() => el.classList.add('flip'), 320 + i * 430);
+  });
+  $('tq-label').textContent = draw.question ? `「${draw.question}」` : '（没有具体问题）';
+  $('tresult').classList.remove('hidden');
+  const bubble = $('tinterpret');
+  if (interpretText){ bubble.textContent = interpretText; bubble.classList.remove('hidden'); }
+  else { bubble.textContent = ''; bubble.classList.add('hidden'); }
+}
+
+$('btn-tarot').onclick = async () => {
+  if (tarotTimer){ clearInterval(tarotTimer); tarotTimer = null; }
+  const st = $('st-tarot');
+  st.textContent = '洗牌中…';
+  st.style.color = 'var(--ink2)';
+  try {
+    const res = await api('/api/tarot/draw', { spread: tarotPick, question: $('tq').value.trim() });
+    if (!res.ok){ st.textContent = res.error || '失败'; st.style.color = 'var(--bad)'; return; }
+    renderTarot(res.draw, '');
+    st.textContent = '抽好了喵';
+    st.style.color = 'var(--ok)';
+  } catch (err){ st.textContent = String(err); st.style.color = 'var(--bad)'; }
+};
+
+$('btn-interpret').onclick = async () => {
+  if (!CURRENT_DRAW || !CURRENT_DRAW.id) return;
+  if (tarotTimer){ clearInterval(tarotTimer); tarotTimer = null; }
+  const st = $('st-interp');
+  st.textContent = '本喵正在解读…';
+  st.style.color = 'var(--ink2)';
+  try {
+    const res = await api('/api/tarot/interpret', { draw_id: CURRENT_DRAW.id });
+    if (!res.ok){ st.textContent = res.error || '失败'; st.style.color = 'var(--bad)'; return; }
+    pollTarotJob();
+  } catch (err){ st.textContent = String(err); st.style.color = 'var(--bad)'; }
+};
+
+function pollTarotJob(){
+  tarotTimer = setInterval(async () => {
+    try {
+      const info = await api('/api/tarot');
+      const job = info.job || {};
+      if (job.status === 'running' && job.draw_id === CURRENT_DRAW.id) return;
+      clearInterval(tarotTimer); tarotTimer = null;
+      const st = $('st-interp');
+      if (job.draw_id === CURRENT_DRAW.id && job.text){
+        $('tinterpret').textContent = job.text;
+        $('tinterpret').classList.remove('hidden');
+        st.textContent = '解读好了喵'; st.style.color = 'var(--ok)';
+      } else {
+        st.textContent = '解读失败，稍后再试'; st.style.color = 'var(--bad)';
+      }
+      loadTarotInfo();
+    } catch (err){ /* 下轮再试 */ }
+  }, 1500);
+}
+
+document.querySelectorAll('.tab').forEach((tab) => {
+  tab.addEventListener('click', () => { if (tab.dataset.tab === 'tarot') loadTarotInfo(); });
+});
+
+// ── 解压小游戏（移植自学习辅助猫娘；与测评数据完全分开）────────
+const statusOf = (el, ok, text) => {
+  if (el){ el.textContent = text || ''; el.style.color = ok ? 'var(--ink2)' : 'var(--bad)'; }
+};
+
+// ══ 音频总线：所有游戏音走这一个出口（AudioContext 惰性创建）══
+const AudioBus = (() => {
+  let ctx = null;
+  let out = null;
+  let noise = null;
+
+  function get(){
+    if (!ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+      out = ctx.createGain();
+      out.gain.value = 0.85;
+      out.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return {ctx, out};
+  }
+
+  function noiseBuffer(){
+    const bus = get();
+    if (!bus) return null;
+    if (!noise){
+      const len = Math.max(1, Math.floor(bus.ctx.sampleRate * 0.35));
+      noise = bus.ctx.createBuffer(1, len, bus.ctx.sampleRate);
+      const data = noise.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    }
+    return noise;
+  }
+
+  function tone(freq, dur, type, level, delay){
+    const bus = get();
+    if (!bus) return;
+    const now = bus.ctx.currentTime + (delay || 0);
+    const osc = bus.ctx.createOscillator();
+    const gain = bus.ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(level == null ? 0.3 : level, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    osc.connect(gain);
+    gain.connect(bus.out);
+    osc.start(now);
+    osc.stop(now + dur + 0.05);
+  }
+
+  // 切水果：一段带通扫频的噪声，听起来像"唰"
+  function slice(pitch){
+    const bus = get();
+    const buf = noiseBuffer();
+    if (!bus || !buf) return;
+    const now = bus.ctx.currentTime;
+    const src = bus.ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = bus.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 1.1;
+    filter.frequency.setValueAtTime(900 + (pitch || 0) * 90, now);
+    filter.frequency.exponentialRampToValueAtTime(3600 + (pitch || 0) * 160, now + 0.16);
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(0.32, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(bus.out);
+    src.start(now);
+    src.stop(now + 0.25);
+  }
+
+  function comboSound(combo){
+    const base = 660;
+    for (let i = 0; i < Math.min(4, Math.max(1, combo - 2)); i++){
+      tone(base * Math.pow(1.26, i), 0.24, 'triangle', 0.22, i * 0.055);
+    }
+  }
+
+  function boom(){
+    const bus = get();
+    const buf = noiseBuffer();
+    if (!bus || !buf) return;
+    const now = bus.ctx.currentTime;
+    const src = bus.ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = 0.5;
+    const filter = bus.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(520, now);
+    filter.frequency.exponentialRampToValueAtTime(90, now + 0.5);
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(bus.out);
+    src.start(now);
+    src.stop(now + 0.65);
+    tone(70, 0.5, 'sawtooth', 0.22, 0);
+  }
+
+  function gameOver(){
+    [523, 392, 311, 233].forEach((f, i) => tone(f, 0.34, 'triangle', 0.24, i * 0.13));
+  }
+
+  // 元音共振峰：用带通滤波器组近似"啊咿呜诶哦"，不用人声采样也能有唱的感觉
+  const FORMANTS = {
+    a: [[800, 1.0], [1150, 0.63], [2900, 0.10]],
+    i: [[300, 1.0], [2300, 0.50], [3000, 0.12]],
+    u: [[350, 1.0], [800, 0.35], [2400, 0.05]],
+    e: [[500, 1.0], [1800, 0.50], [2500, 0.10]],
+    o: [[500, 1.0], [1000, 0.50], [2400, 0.06]],
+  };
+
+  function vowel(name, freq, when, dur){
+    const bus = get();
+    if (!bus) return;
+    const ctx2 = bus.ctx;
+    const t = when || ctx2.currentTime;
+    const hold = dur || 0.32;
+    const osc = ctx2.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, t);
+    // 一点颤音，听着才像人唱的
+    const lfo = ctx2.createOscillator();
+    const lfoGain = ctx2.createGain();
+    lfo.frequency.value = 5.4;
+    lfoGain.gain.value = freq * 0.009;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    const env = ctx2.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.26, t + 0.02);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + hold);
+    (FORMANTS[name] || FORMANTS.a).forEach((pair) => {
+      const band = ctx2.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = pair[0];
+      band.Q.value = 5;
+      const level = ctx2.createGain();
+      level.gain.value = pair[1];
+      osc.connect(band);
+      band.connect(level);
+      level.connect(env);
+    });
+    env.connect(bus.out);
+    osc.start(t);
+    lfo.start(t);
+    osc.stop(t + hold + 0.05);
+    lfo.stop(t + hold + 0.05);
+  }
+
+  function kick(when){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    const osc = bus.ctx.createOscillator();
+    const gain = bus.ctx.createGain();
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(46, t + 0.12);
+    gain.gain.setValueAtTime(0.5, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    osc.connect(gain);
+    gain.connect(bus.out);
+    osc.start(t);
+    osc.stop(t + 0.32);
+  }
+
+  function snare(when){
+    const bus = get();
+    const buf = noiseBuffer();
+    if (!bus || !buf) return;
+    const t = when || bus.ctx.currentTime;
+    const src = bus.ctx.createBufferSource();
+    src.buffer = buf;
+    const hp = bus.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 1400;
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(0.26, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    src.connect(hp);
+    hp.connect(gain);
+    gain.connect(bus.out);
+    src.start(t);
+    src.stop(t + 0.2);
+  }
+
+  function hat(when, level){
+    const bus = get();
+    const buf = noiseBuffer();
+    if (!bus || !buf) return;
+    const t = when || bus.ctx.currentTime;
+    const src = bus.ctx.createBufferSource();
+    src.buffer = buf;
+    const hp = bus.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 7200;
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(level == null ? 0.1 : level, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    src.connect(hp);
+    hp.connect(gain);
+    gain.connect(bus.out);
+    src.start(t);
+    src.stop(t + 0.07);
+  }
+
+  function bass(freq, when, dur){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    const osc = bus.ctx.createOscillator();
+    const gain = bus.ctx.createGain();
+    const lp = bus.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 420;
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.3, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.3));
+    osc.connect(lp);
+    lp.connect(gain);
+    gain.connect(bus.out);
+    osc.start(t);
+    osc.stop(t + (dur || 0.3) + 0.05);
+  }
+
+  function pad(freqs, when, dur){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    const hold = dur || 1.6;
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.055, t + 0.25);
+    gain.gain.linearRampToValueAtTime(0.0001, t + hold);
+    gain.connect(bus.out);
+    freqs.forEach((f, i) => {
+      const osc = bus.ctx.createOscillator();
+      osc.type = i % 2 ? 'triangle' : 'sine';
+      osc.frequency.value = f;
+      osc.detune.value = (i - 1) * 6;
+      osc.connect(gain);
+      osc.start(t);
+      osc.stop(t + hold + 0.05);
+    });
+  }
+
+  function clap(when){
+    // 拍手＝三次极短的噪声，叠在一起才有"啪"的厚度
+    [0, 0.012, 0.026].forEach((offset, i) => {
+      const bus = get();
+      const buf = noiseBuffer();
+      if (!bus || !buf) return;
+      const t = (when || bus.ctx.currentTime) + offset;
+      const src = bus.ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = bus.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1500 - i * 200;
+      bp.Q.value = 0.9;
+      const gain = bus.ctx.createGain();
+      gain.gain.setValueAtTime(0.22 - i * 0.04, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+      src.connect(bp);
+      bp.connect(gain);
+      gain.connect(bus.out);
+      src.start(t);
+      src.stop(t + 0.13);
+    });
+  }
+
+  function tom(when){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    const osc = bus.ctx.createOscillator();
+    const gain = bus.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(230, t);
+    osc.frequency.exponentialRampToValueAtTime(120, t + 0.2);
+    gain.gain.setValueAtTime(0.34, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+    osc.connect(gain);
+    gain.connect(bus.out);
+    osc.start(t);
+    osc.stop(t + 0.28);
+  }
+
+  function cowbell(when){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    [540, 800].forEach((f) => {
+      const osc = bus.ctx.createOscillator();
+      const gain = bus.ctx.createGain();
+      const bp = bus.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 2400;
+      bp.Q.value = 1.4;
+      osc.type = 'square';
+      osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.12, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      osc.connect(bp);
+      bp.connect(gain);
+      gain.connect(bus.out);
+      osc.start(t);
+      osc.stop(t + 0.24);
+    });
+  }
+
+  function riser(when){
+    const bus = get();
+    const buf = noiseBuffer();
+    if (!bus || !buf) return;
+    const t = when || bus.ctx.currentTime;
+    const src = bus.ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const bp = bus.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 2.2;
+    bp.frequency.setValueAtTime(420, t);
+    bp.frequency.exponentialRampToValueAtTime(4200, t + 0.42);
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.linearRampToValueAtTime(0.2, t + 0.4);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    src.connect(bp);
+    bp.connect(gain);
+    gain.connect(bus.out);
+    src.start(t);
+    src.stop(t + 0.52);
+  }
+
+  function chime(freq, when){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    [[1, 0.24], [2.76, 0.1], [5.4, 0.04]].forEach((pair, i) => {
+      const osc = bus.ctx.createOscillator();
+      const gain = bus.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = (freq || 880) * pair[0];
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(pair[1], t + 0.006 + i * 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+      osc.connect(gain);
+      gain.connect(bus.out);
+      osc.start(t);
+      osc.stop(t + 1.25);
+    });
+  }
+
+  return {get, noiseBuffer, tone, slice, comboSound, boom, gameOver,
+          vowel, kick, snare, hat, bass, pad,
+          clap, tom, cowbell, riser, chime};
+})();
+
+// 浏览器策略：音频上下文常常是"挂起"的，必须由一次真实手势唤醒。
+['pointerdown', 'keydown', 'touchstart'].forEach((type) => {
+  document.addEventListener(type, function wake(){
+    try {
+      const bus = AudioBus.get();
+      if (bus && bus.ctx.state === 'suspended') bus.ctx.resume();
+    } catch (err) { /* 唤醒失败不影响主流程，start() 里会再报一次 */ }
+  }, {passive: true, once: false});
+});
+
+// ══ 默认音源库：FluidR3_GM 采样（CC BY 3.0，见 audio/pad/CREDITS.md）══
+// SoundFont 的通行做法：只留几个基准音，其余音高用 playbackRate 换算。
+// 资源地址先试同源相对路径（宿主托管页面时静态文件走宿主），
+// 不行再退回插件端口（塔罗卡面同款策略）。
+const SampleBank = (() => {
+  const state = {};
+  let manifest = null;
+  let base = null;
+
+  async function prepare(){
+    if (manifest) return Object.keys(manifest.instruments || {}).length;
+    const direct = await findBase();          // ''（同源/直连）或插件端口
+    for (const b of (direct === null ? [''] : ['', direct])){
+      try {
+        const res = await fetch(`${b}/audio/pad/index.json`);
+        if (!res.ok) continue;
+        manifest = await res.json();
+        base = b;
+        return Object.keys(manifest.instruments || {}).length;
+      } catch (err) { /* 换下一个候选 */ }
+    }
+    throw new Error('默认音源清单读取失败');
+  }
+
+  // load：解码（要在用户手势之后调，见 start() 里的 hydrate()）
+  async function load(){
+    await prepare();
+    const bus = AudioBus.get();
+    if (!bus) throw new Error('音频上下文不可用');
+    for (const [name, spec] of Object.entries(manifest.instruments || {})){
+      if (state[name]) continue;
+      const rows = [];
+      for (const note of spec.notes || []){
+        try {
+          const res = await fetch(`${base}/audio/pad/${note.file}`);
+          if (!res.ok) continue;
+          const buf = await res.arrayBuffer();
+          rows.push({midi: note.midi, buffer: await bus.ctx.decodeAudioData(buf)});
+        } catch (err) { /* 单个文件坏了不影响其它 */ }
+      }
+      if (rows.length){
+        rows.sort((a, b) => a.midi - b.midi);
+        state[name] = rows;
+      }
+    }
+    return Object.keys(state).length;
+  }
+
+  function ready(){ return Object.keys(state).length > 0; }
+
+  function play(name, midi, when, level){
+    const rows = state[name];
+    if (!rows || !rows.length) return false;
+    const bus = AudioBus.get();
+    if (!bus) return false;
+    // 找最近的基准音，剩下的音高交给 playbackRate
+    let best = rows[0];
+    for (const row of rows){
+      if (Math.abs(row.midi - midi) < Math.abs(best.midi - midi)) best = row;
+    }
+    const src = bus.ctx.createBufferSource();
+    const gain = bus.ctx.createGain();
+    src.buffer = best.buffer;
+    src.playbackRate.value = Math.pow(2, (midi - best.midi) / 12);
+    gain.gain.value = level == null ? 0.9 : level;
+    src.connect(gain);
+    gain.connect(bus.out);
+    src.start(when);
+    return true;
+  }
+
+  return {prepare, load, ready, play, instruments: () => Object.keys(state)};
+})();
+
+// ══ 电子板（Mikutap 风）══════════════════════════════════════
+// 和 Mikutap 一致的三个关键点：
+//   1. 屏幕切成 8×4 个小方块，**同一块永远是同一个声音**（固定映射，不轮转）；
+//   2. 方块边界只在按下的瞬间闪现（约 0.45s 淡出），平时完全看不见；
+//   3. **平时完全安静**：画布只在有特效的那几百毫秒里跑 rAF，空闲时连帧循环都停。
+// 背景音乐循环照旧（鼓/贝斯/和声垫），点击对齐到十六分音符。
+const mikutap = (() => {
+  const BPM = 128;
+  const BEAT = 60 / BPM;          // 一拍
+  const STEP = BEAT / 2;          // BGM 的八分音符
+  const TAP_STEP = BEAT / 4;      // 点击量化到十六分音符，更跟手
+  const STEPS_PER_BAR = 8;
+  const LOOKAHEAD = 0.12;         // 提前 120ms 排声音
+  const TICK = 25;                // 调度器心跳（ms）
+  const COLS = 8;
+  const ROWS = 4;   // 8×4 = 32 块，对齐 Mikutap 的 32 个声音
+  const MINOR_PENTA = [0, 3, 5, 7, 10];      // A 小调五声音阶
+  const ROOT = 57;                            // A3
+  const VOWELS = ['a', 'i', 'u', 'e', 'o'];
+  const CHORDS = [[0, 3, 7], [-4, 0, 5], [-9, -5, 0], [-2, 2, 5]];
+  const KICK = [1, 0, 0, 0, 1, 0, 0, 0];
+  const SNARE = [0, 0, 1, 0, 0, 0, 1, 0];
+  const HAT = [1, 0, 1, 0, 1, 0, 1, 1];
+  const ZONE_KEYS = ('1234567890' + 'qwertyuiop' + 'asdfghjkl' + 'zxcvbnm,./')
+    .split('').slice(0, COLS * ROWS);
+  // 12 块 = 固定 12 种声音：5 个人声（低音区）+ 4 个打击 + 和弦 / 铃铛 / 高音点
+  const ZONES = Array.from({length: COLS * ROWS}, (_, i) => ({
+    // 合成兜底用的分档：人声/打击/效果交替；音高沿五声音阶爬升，两个八度内折叠
+    kind: [0, 1, 2, 3, 4, 10, 11, 13, 12, 17, 18, 19][i % 12],
+    pitch: 60 + MINOR_PENTA[i % 5] + 12 * (Math.floor(i / 5) % 3),
+  }));
+  const ZONE_COLORS = Array.from({length: COLS * ROWS}, (_, i) =>
+    `hsl(${172 + (i * 137) % 170}, 68%, 60%)`);
+  const hz = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
+
+  function report(text, bad){
+    const el = $('st-pad');
+    if (el){ el.textContent = text || ''; el.style.color = bad ? 'var(--bad)' : 'var(--ink2)'; }
+  }
+
+  function playSample(bus, index, when){
+    const buf = samples[index % samples.length];
+    if (!buf) return false;
+    const src = bus.ctx.createBufferSource();
+    const gain = bus.ctx.createGain();
+    src.buffer = buf;
+    gain.gain.value = 1;
+    src.connect(gain);
+    gain.connect(bus.out);
+    src.start(when);
+    return true;
+  }
+
+  // 20 种合成音：10 个元音（两个音区）+ 10 个打击/效果；有采样时通常不会走到这里
+  function playSynth(kind, pitch, when, bus){
+    if (kind < 5){
+      if (SampleBank.play('choir_aahs', pitch, when)) return;
+      AudioBus.vowel(VOWELS[kind], hz(pitch), when, 0.34);
+    } else if (kind < 10){
+      if (SampleBank.play('music_box', pitch + 12, when)) return;
+      AudioBus.vowel(VOWELS[kind - 5], hz(pitch + 12), when, 0.3);
+    } else if (kind === 10){
+      AudioBus.kick(when);
+    } else if (kind === 11){
+      AudioBus.snare(when);
+    } else if (kind === 12){
+      AudioBus.hat(when, 0.16);
+    } else if (kind === 13){
+      AudioBus.clap(when);
+    } else if (kind === 14){
+      if (SampleBank.play('marimba', pitch - 12, when, 0.8)) return;
+      AudioBus.tom(when);
+    } else if (kind === 15){
+      AudioBus.cowbell(when);
+    } else if (kind === 16){
+      AudioBus.riser(when);
+    } else if (kind === 17){
+      AudioBus.pad([pitch, pitch + 7, pitch + 12].map(hz), when, 0.7);
+    } else if (kind === 18){
+      AudioBus.chime(hz(pitch + 12), when);
+    } else {
+      AudioBus.tone(hz(pitch + 24), 0.2, 'triangle', 0.2, when - bus.ctx.currentTime);
+    }
+  }
+
+  let canvas = null;
+  let stage = null;
+  let ctx = null;
+  let dpr = 1;
+  let W = 640;
+  let H = 360;
+  let ready = false;
+  let running = false;
+  let timer = 0;
+  let raf = 0;
+  let startTime = 0;
+  let nextStep = 0;
+  let stepIndex = 0;
+  let taps = 0;
+  let events = [];              // 点击事件（按音频时间排队，到点才冒特效）
+  let flashes = [];             // 方块边界闪现
+  let shapes = [];              // 按下位置弹出的图形
+  let samples = [];             // 本地音源（用户自备，非商业自用）
+  let dragX = -999;
+  let dragY = -999;
+  let hue = 190;
+  let lastNames = null;
+  let bankBroken = false;
+  let pendingNames = null;      // 待解码的本地音源名单（start 时统一装载）
+  let hydrated = false;         // 是否已经在用户手势里解码过
+  let hydrating = false;        // 防止 start() 里 hydrate/refresh 并发重复解码
+
+  // 音源状态行：只说真话——用了哪套、哪套没装上
+  function refreshNote(){
+    const el = $('mk-audio-note');
+    if (!el) return;
+    if (samples.length){
+      el.textContent = `正在使用你导入的音源（${samples.length} 个，按方块分配）`;
+    } else if (SampleBank.ready()){
+      el.textContent = `默认音源：${SampleBank.instruments().join(' / ')}（CC BY 3.0）`;
+    } else if (pendingNames && pendingNames.length){
+      el.textContent = `音源待命：发现 ${pendingNames.length} 个 Miku 切片，点「开始」自动装载`;
+    } else if (bankBroken){
+      el.textContent = '默认音源没装上，改用内置合成音（20 种）';
+    } else {
+      el.textContent = '音源加载中…';
+    }
+  }
+
+  function resize(){
+    if (!canvas) return;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const rect = stage.getBoundingClientRect();
+    W = Math.max(300, rect.width);
+    H = Math.max(170, rect.height);
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function zoneAt(x, y){
+    const col = Math.max(0, Math.min(COLS - 1, Math.floor(x / (W / COLS))));
+    const row = Math.max(0, Math.min(ROWS - 1, Math.floor(y / (H / ROWS))));
+    return {col, row, index: row * COLS + col};
+  }
+
+  // 把点击排到下一个十六分音符：这是"怎么点都好听"的秘密
+  function quantize(){
+    const bus = AudioBus.get();
+    if (!bus) return null;
+    const elapsed = bus.ctx.currentTime - startTime;
+    const slot = Math.max(0, Math.ceil(elapsed / TAP_STEP));
+    return {when: startTime + slot * TAP_STEP, bus};
+  }
+
+  function playZone(zoneIndex, when){
+    const zone = ZONES[zoneIndex % ZONES.length];
+    const bus = AudioBus.get();
+    if (samples.length && bus){
+      // 32 块对 32 个 Miku 切片：一一对应；采样更少时才取模循环
+      const index = zoneIndex < samples.length ? zoneIndex : zoneIndex % samples.length;
+      if (playSample(bus, index, when)) return;
+    }
+    if (!bus) return;
+    playSynth(zone.kind, zone.pitch || 60, when, bus);
+  }
+
+  function fireTap(x, y){
+    if (!running) return;
+    try {
+      const zone = zoneAt(x, y);
+      const hit = quantize();
+      if (!hit) return;
+      playZone(zone.index, hit.when);
+      taps += 1;
+      $('mk-taps').textContent = String(taps);
+      // 特效全部排到音频时钟上，到点才冒出来
+      events.push({time: hit.when, kind: 'tap', x, y, zone: zone.index});
+      if (!raf) raf = requestAnimationFrame(draw);
+    } catch (err) {
+      report('触发失败：' + (err && err.message ? err.message : err), true);
+      if (window.console) console.warn('[assessment] 电子板触发失败', err);
+    }
+  }
+
+  // ── BGM 调度（鼓 / 贝斯 / 和声垫）────────────────────────
+  function schedule(){
+    const bus = AudioBus.get();
+    if (!bus || !running) return;
+    // 掉队检测：浏览器节流/系统睡眠后音频时钟跑远了，追赶会往音频图里塞
+    // 几百个过期音符把通道堵死（表现就是"点哪都没反应"）。直接拉回现在。
+    if (bus.ctx.currentTime - (startTime + nextStep * STEP) > 1.5){
+      startTime = bus.ctx.currentTime + 0.05 - nextStep * STEP;
+    }
+    const horizon = bus.ctx.currentTime + LOOKAHEAD;
+    let guard = 0;
+    while (startTime + nextStep * STEP < horizon && guard++ < 64){
+      const when = startTime + nextStep * STEP;
+      const inBar = stepIndex % STEPS_PER_BAR;
+      const barIndex = Math.floor(stepIndex / STEPS_PER_BAR);
+      const chord = CHORDS[barIndex % CHORDS.length];
+      if (KICK[inBar]) AudioBus.kick(when);
+      if (SNARE[inBar]) AudioBus.snare(when);
+      if (HAT[inBar]) AudioBus.hat(when, inBar % 2 ? 0.06 : 0.1);
+      if (inBar === 0 || inBar === 4){
+        AudioBus.bass(hz(ROOT + chord[0] - 12), when, STEP * 3);
+      }
+      if (inBar === 0){
+        AudioBus.pad(chord.map((semi) => hz(ROOT + semi + 12)), when, BEAT * 4);
+        const shown = barIndex + 1;
+        $('mk-bar').textContent = String(shown + 1);
+        // Mikutap 式的背景分段变色：每 4 小节换一个色调，CSS 过渡去平滑
+        if (barIndex % 4 === 3){
+          hue = (hue + 24) % 360;
+          stage.style.setProperty('--mk-hue', String(hue));
+        }
+      }
+      nextStep += 1;
+      stepIndex += 1;
+    }
+  }
+
+  function draw(now){
+    if (!running){ raf = 0; return; }
+    const bus = AudioBus.get();
+    const t = bus ? bus.ctx.currentTime : 0;
+    // 消费到期的点击事件：到点才冒方块闪现与图形
+    while (events.length && events[0].time <= t + 0.005){
+      const ev = events.shift();
+      if (ev.kind !== 'tap') continue;
+      const color = ZONE_COLORS[ev.zone % ZONE_COLORS.length];
+      flashes.push({col: ev.zone % COLS, row: Math.floor(ev.zone / COLS), color, age: 0, life: 0.45});
+      shapes.push({
+        x: ev.x, y: ev.y, kind: ev.zone % 5,
+        rot: Math.random() * Math.PI, spin: (Math.random() * 2 - 1) * 1.6,
+        size: 26 + Math.random() * 58, color,
+        age: 0, life: 0.9, grow: 0,
+      });
+      if (shapes.length > 60) shapes.shift();
+      if (flashes.length > 24) flashes.shift();
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    // ① 方块边界闪现：只在按下的瞬间出现
+    for (const flash of flashes){
+      flash.age += 1 / 60;
+      const power = Math.max(0, 1 - flash.age / flash.life);
+      const cw = W / COLS;
+      const ch = H / ROWS;
+      const x = flash.col * cw;
+      const y = flash.row * ch;
+      ctx.globalAlpha = 0.4 * power;
+      ctx.fillStyle = flash.color;
+      ctx.fillRect(x + 1, y + 1, cw - 2, ch - 2);
+      ctx.globalAlpha = power;
+      ctx.strokeStyle = flash.color;
+      ctx.lineWidth = 2 + 3.5 * power;
+      ctx.strokeRect(x + 1, y + 1, cw - 2, ch - 2);
+    }
+    ctx.globalAlpha = 1;
+    flashes = flashes.filter((flash) => flash.age < flash.life);
+
+    // ② 按下位置弹出的图形（Mikutap 的主要观感）
+    for (const shape of shapes){
+      shape.age += 1 / 60;
+      shape.rot += shape.spin / 60;
+      shape.grow = Math.min(1, shape.grow + 1 / 60 / 0.1);
+      const fade = Math.max(0, 1 - shape.age / shape.life);
+      const size = shape.size * (0.35 + shape.grow * 0.85);
+      ctx.save();
+      ctx.translate(shape.x, shape.y);
+      ctx.rotate(shape.rot);
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = shape.color;
+      ctx.strokeStyle = shape.color;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      if (shape.kind === 0){
+        ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (shape.kind === 1){
+        for (let i = 0; i < 3; i++){
+          const angle = (i / 3) * Math.PI * 2 - Math.PI / 2;
+          const px = Math.cos(angle) * size * 0.58;
+          const py = Math.sin(angle) * size * 0.58;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      } else if (shape.kind === 2){
+        ctx.rect(-size * 0.36, -size * 0.36, size * 0.72, size * 0.72);
+        ctx.fill();
+      } else if (shape.kind === 3){
+        for (let i = 0; i < 10; i++){
+          const radius = i % 2 ? size * 0.24 : size * 0.58;
+          const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
+          const px = Math.cos(angle) * radius;
+          const py = Math.sin(angle) * radius;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    shapes = shapes.filter((shape) => shape.age < shape.life);
+
+    // ③ 没有特效就彻底停帧：平时完全安静，也不烧 CPU
+    if (!flashes.length && !shapes.length && !events.length){
+      raf = 0;
+      return;
+    }
+    raf = requestAnimationFrame(draw);
+  }
+
+  function tapAt(x, y){
+    fireTap(Math.max(6, Math.min(W - 6, x)), Math.max(6, Math.min(H - 6, y)));
+  }
+
+  function start(){
+    try {
+      const bus = AudioBus.get();
+      if (!bus){
+        report('这个环境不支持 Web Audio，放不了声音（换个浏览器或用宿主自带内核）', true);
+        return;
+      }
+      resize();
+      running = true;
+      taps = 0;
+      events = [];
+      flashes = [];
+      shapes = [];
+      stepIndex = 0;
+      startTime = bus.ctx.currentTime + 0.12;
+      nextStep = 0;
+      $('mk-overlay').classList.add('hidden');
+      if (bus.ctx.state !== 'running'){
+        report('浏览器拦住了播放，再点一下屏幕任意位置即可出声', true);
+        try { bus.ctx.resume(); } catch (err) { /* 下一次点击会再试 */ }
+      } else {
+        report('');
+      }
+      if (!timer) timer = setInterval(schedule, TICK);
+      if (!raf) raf = requestAnimationFrame(draw);
+      hydrate();                             // 手势里解码音源（一次性）
+      refresh();                             // 万一音源刚被换过
+    } catch (err) {
+      running = false;
+      report('电子板启动失败：' + (err && err.message ? err.message : err), true);
+      if (window.console) console.warn('[assessment] 电子板启动失败', err);
+    }
+  }
+
+  function stop(){
+    running = false;
+    if (timer){ clearInterval(timer); timer = 0; }
+    if (raf){ cancelAnimationFrame(raf); raf = 0; }
+    if (ctx) ctx.clearRect(0, 0, W, H);
+    $('mk-overlay').classList.remove('hidden');
+    $('mk-start').textContent = '再来一次';
+  }
+
+  async function loadSamples(names){
+    const bus = AudioBus.get();
+    if (!bus || !names || !names.length) return 0;
+    if (!hydrated){ pendingNames = names; refreshNote(); return 0; }   // 无手势时只记名单
+    const base = (await findBase()) || '';   // 本地音源只有插件端口会发
+    const out = [];
+    for (const name of names.slice(0, 80)){
+      try {
+        const res = await fetch(`${base}/pad-audio/${encodeURIComponent(name)}`);
+        if (!res.ok) continue;
+        const blob = await res.arrayBuffer();
+        out.push(await bus.ctx.decodeAudioData(blob));
+      } catch (err) { /* 单个坏文件不影响其它 */ }
+    }
+    samples = out;
+    lastNames = names;
+    refreshNote();
+    return out.length;
+  }
+
+  async function importFiles(fileList){
+    const files = Array.from(fileList || []).filter((file) => /\.(mp3|ogg|wav|m4a|aac|flac)$/i.test(file.name));
+    if (!files.length){
+      statusOf($('st-pad'), false, '选中的文件夹里没有音频文件');
+      return;
+    }
+    statusOf($('st-pad'), true, `正在导入 ${files.length} 个文件…`);
+    const payload = [];
+    for (const file of files.slice(0, 120)){
+      const data = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+      });
+      if (data) payload.push({name: file.name, data});
+    }
+    try {
+      const res = await api('/api/game', {action: 'import-audio', files: payload});
+      if (!res.ok){ statusOf($('st-pad'), false, res.error || '导入失败'); return; }
+      statusOf($('st-pad'), true, `已导入 ${res.saved} 个音源`);
+      await loadSamples(res.files || []);
+    } catch (err) {
+      statusOf($('st-pad'), false, String(err));
+    }
+  }
+
+  // 音源目录是本机文件，随时可能变：切到电子板/开局时重扫一遍，不用重启
+  async function refresh(){
+    try {
+      const res = await api('/api/game', {action: 'pad-audio'});
+      const files = (res && res.files) || [];
+      if (JSON.stringify(files) !== JSON.stringify(lastNames)){
+        pendingNames = files;
+        if (hydrated && !hydrating) await loadSamples(files);   // 装载中就别重复解码
+      }
+      refreshNote();
+    } catch (err) { refreshNote(); /* 扫描失败不影响已有音源 */ }
+  }
+
+  // 在用户手势里解码全部音源（默认包 + Miku 切片），只做一次
+  async function hydrate(){
+    if (hydrated || hydrating) return;
+    hydrating = true;
+    hydrated = true;
+    try {
+      await SampleBank.load();
+      if (pendingNames && pendingNames.length) await loadSamples(pendingNames);
+      refreshNote();
+    } catch (err) {
+      refreshNote();
+      if (window.console) console.warn('[assessment] 音源装载失败', err);
+    } finally {
+      hydrating = false;
+    }
+  }
+
+  function toggleFull(){
+    if (!stage) return;
+    const doc = document;
+    if (doc.fullscreenElement || doc.webkitFullscreenElement){
+      (doc.exitFullscreen || doc.webkitExitFullscreen || (() => {})).call(doc);
+      return;
+    }
+    const request = stage.requestFullscreen || stage.webkitRequestFullscreen;
+    if (!request){ report('这个环境不支持满屏（宿主窗口可能已限制）', true); return; }
+    Promise.resolve(request.call(stage)).catch((err) => {
+      report('进不了满屏：' + (err && err.message ? err.message : err), true);
+    });
+  }
+
+  function ensureInit(){
+    if (ready) return;
+    try {
+      canvas = $('mk-canvas');
+      stage = $('mk-stage');
+      ctx = canvas && canvas.getContext('2d');
+      if (!canvas || !stage || !ctx){
+        report('电子板初始化失败：找不到画布或上下文', true);
+        return;
+      }
+      stage.addEventListener('pointerdown', (ev) => {
+        if (isUiHit(ev)) return;                 // ⚠ 点「开始」按钮时别抢指针，否则它永远点不动
+        const rect = stage.getBoundingClientRect();
+        dragX = ev.clientX - rect.left;
+        dragY = ev.clientY - rect.top;
+        ev.preventDefault();
+        try { stage.setPointerCapture(ev.pointerId); } catch (err) { /* 老内核没有就算了 */ }
+        if (!running){ start(); tapAt(dragX, dragY); return; }   // 第一击就开始并出声（Mikutap 的手感）
+        tapAt(dragX, dragY);                     // ⚠ 这行上次被误删过：普通点击全靠它
+      });
+      // 拖动＝一串音，按距离节流
+      stage.addEventListener('pointermove', (ev) => {
+        if (ev.buttons !== 1) return;
+        const rect = stage.getBoundingClientRect();
+        const x = ev.clientX - rect.left;
+        const y = ev.clientY - rect.top;
+        if (Math.hypot(x - dragX, y - dragY) < 34) return;
+        dragX = x;
+        dragY = y;
+        tapAt(x, y);
+      });
+      $('mk-start').onclick = start;
+      $('mk-stop').onclick = stop;
+      document.addEventListener('keydown', (ev) => {
+        if (!running || $('view-play').classList.contains('hidden') || $('card-pad').classList.contains('hidden')) return;
+        if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+        const tag = (ev.target.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        const zi = ZONE_KEYS.indexOf(String(ev.key || '').toLowerCase());
+        if (zi >= 0){
+          ev.preventDefault();
+          const cx = (zi % COLS + 0.5) * (W / COLS);
+          const cy = (Math.floor(zi / COLS) + 0.5) * (H / ROWS);
+          tapAt(cx, cy);
+        }
+      });
+      $('mk-full').onclick = toggleFull;
+      $('mk-import').onclick = () => $('mk-files').click();
+      $('mk-files').onchange = () => {
+        importFiles($('mk-files').files).finally(() => { $('mk-files').value = ''; });
+      };
+      document.addEventListener('fullscreenchange', () => { if (running) resize(); });
+      if (window.ResizeObserver){
+        new ResizeObserver(() => { if (running) resize(); }).observe(stage);
+      }
+      // 两条加载**互不拖累**：默认音源失败绝不能挡住本地音源扫描（吃过亏）
+      // 页面加载阶段**只取元数据**（清单 + 文件名），解码推迟到 start() 的用户手势里——
+      // 无手势时音频上下文是挂起的，这个内核里 decodeAudioData 会卡死
+      SampleBank.prepare()
+        .then(() => refreshNote())
+        .catch((err) => { bankBroken = true; refreshNote(); if (window.console) console.warn('[assessment] 默认音源清单读取失败', err); });
+      api('/api/game', {action: 'pad-audio'})
+        .then((res) => { pendingNames = (res && res.files) || []; refreshNote(); })
+        .catch((err) => { refreshNote(); if (window.console) console.warn('[assessment] 本地音源扫描失败', err); });
+      resize();                                  // 绑完事件再算尺寸，出错也已经可用
+      ready = true;
+    } catch (err) {
+      report('电子板初始化失败：' + (err && err.message ? err.message : err), true);
+      if (window.console) console.warn('[assessment] 电子板初始化失败', err);
+    }
+  }
+
+  return {
+    ensureInit, start, stop, loadSamples, toggleFull, refresh,
+    pause: stop,
+    isRunning: () => running,
+    zones: () => ({cols: COLS, rows: ROWS, count: COLS * ROWS}),
+    soundCount: () => (samples.length ? samples.length : ZONES.length),
+  };
+})();
+
+// ══ 切水果 ═════════════════════════════════════════════════════
+// 规则（水果分值、等级曲线、难度）全部从后端 /api/game 取，避免 JS 里再抄一份跑偏。
+const fruitGame = (() => {
+  const FALLBACK = {
+    level_step: 120, level_max: 20, lives: 3,
+    fruits: [
+      {key: 'watermelon', name: '西瓜', emoji: '🍉', color: '#e8546b', score: 25, radius: 0.078, weight: 1.0},
+      {key: 'orange', name: '橘子', emoji: '🍊', color: '#f0962e', score: 15, radius: 0.062, weight: 1.1},
+      {key: 'apple', name: '苹果', emoji: '🍎', color: '#d8433c', score: 15, radius: 0.062, weight: 1.1},
+      {key: 'banana', name: '香蕉', emoji: '🍌', color: '#e8c33c', score: 20, radius: 0.066, weight: 0.9},
+    ],
+    bomb: {key: 'bomb', name: '炸弹', emoji: '💣', color: '#3b3b46', radius: 0.058},
+    spawn_interval_start: 1.15, spawn_interval_min: 0.45,
+    fall_speed_start: 0.62, fall_speed_gain: 0.045,
+    bomb_chance_start: 0, bomb_chance_max: 0.16,
+  };
+  let rules = FALLBACK;
+  let canvas = null;
+  let ctx = null;
+  let stage = null;
+  let dpr = 1;
+  let W = 600;
+  let H = 340;
+  let raf = 0;
+  let last = 0;
+  let down = false;
+  let lastPt = null;
+  let slashes = [];
+  let st = null;              // 运行状态
+  let ready = false;
+
+  function newState(){
+    return {
+      running: false, over: false, submitted: false,
+      score: 0, level: 1, lives: rules.lives,
+      combo: 0, comboTimer: 0, maxCombo: 0,
+      sliced: 0, missed: 0, elapsed: 0,
+      spawnTimer: 0.5, fruits: [], halves: [], parts: [], shake: 0,
+    };
+  }
+
+  function levelOf(score){
+    return Math.max(1, Math.min(rules.level_max, 1 + Math.floor(score / rules.level_step)));
+  }
+
+  function difficulty(level){
+    const step = Math.max(0, level - 1);
+    return {
+      interval: Math.max(rules.spawn_interval_min, rules.spawn_interval_start - step * 0.045),
+      speed: rules.fall_speed_start + step * rules.fall_speed_gain,
+      bomb: Math.min(rules.bomb_chance_max, rules.bomb_chance_start + step * 0.012),
+    };
+  }
+
+  function pickFruit(){
+    const total = rules.fruits.reduce((sum, f) => sum + (f.weight || 1), 0);
+    let roll = Math.random() * total;
+    for (const fruit of rules.fruits){
+      roll -= (fruit.weight || 1);
+      if (roll <= 0) return fruit;
+    }
+    return rules.fruits[0];
+  }
+
+  function spawn(){
+    const diff = difficulty(st.level);
+    const isBomb = Math.random() < diff.bomb;
+    const spec = isBomb ? rules.bomb : pickFruit();
+    const r = Math.max(14, spec.radius * H);
+    const x = W * (0.14 + Math.random() * 0.72);
+    const apex = 0.42 + Math.random() * 0.2;
+    const g = 1.35 * H;
+    const vy = -Math.sqrt(2 * g * apex * H);
+    const vx = (Math.random() * 2 - 1) * 0.16 * H;
+    st.fruits.push({
+      spec, r, x, y: H + r, vx, vy, g,
+      angle: Math.random() * Math.PI, spin: (Math.random() * 2 - 1) * 2.2,
+      bomb: isBomb, dead: false,
+    });
+  }
+
+  function segmentHitsCircle(x1, y1, x2, y2, cx, cy, r){
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    let t = 0;
+    if (len2 > 0.0001) t = Math.max(0, Math.min(1, ((cx - x1) * dx + (cy - y1) * dy) / len2));
+    const px = x1 + t * dx;
+    const py = y1 + t * dy;
+    const dist = Math.hypot(cx - px, cy - py);
+    return dist <= r;
+  }
+
+  function burst(x, y, color, count){
+    for (let i = 0; i < (count || 12); i++){
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 60 + Math.random() * 220;
+      st.parts.push({
+        x, y, color,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 60,
+        r: 2 + Math.random() * 4, life: 0.6 + Math.random() * 0.4, age: 0,
+      });
+    }
+  }
+
+  function sliceFruit(fruit, angle){
+    if (fruit.dead) return;
+    fruit.dead = true;
+    if (fruit.bomb){
+      st.lives -= 1;
+      st.combo = 0;
+      st.shake = 1;
+      AudioBus.boom();
+      burst(fruit.x, fruit.y, '#ff6b6b', 24);
+      updateHud();
+      if (st.lives <= 0) finish();
+      return;
+    }
+    st.sliced += 1;
+    st.combo += 1;
+    st.comboTimer = 0.7;
+    st.maxCombo = Math.max(st.maxCombo, st.combo);
+    const bonus = st.combo >= 3 ? Math.min(60, (st.combo - 2) * 6) : 0;
+    st.score += fruit.spec.score + bonus;
+    AudioBus.slice(st.combo);
+    if (st.combo >= 3) AudioBus.comboSound(st.combo);
+    burst(fruit.x, fruit.y, fruit.spec.color, 14);
+    // 两瓣切开飞出去
+    for (const side of [-1, 1]){
+      st.halves.push({
+        spec: fruit.spec, r: fruit.r, x: fruit.x, y: fruit.y,
+        vx: fruit.vx + Math.cos(angle + side * Math.PI / 2) * 120 * side,
+        vy: fruit.vy * 0.5 - 40,
+        g: fruit.g, angle, spin: side * 3.4,
+        rot: 0, life: 1.3, age: 0,
+      });
+    }
+    const lv = levelOf(st.score);
+    if (lv > st.level){ st.level = lv; }
+    updateHud();
+  }
+
+  function updateHud(){
+    if (!st) return;
+    $('fr-score').textContent = String(st.score);
+    $('fr-level').textContent = `Lv.${st.level}`;
+    $('fr-combo').textContent = st.combo > 1 ? `${st.combo} 连` : '0';
+    const hearts = '♥'.repeat(Math.max(0, st.lives)) + '♡'.repeat(Math.max(0, rules.lives - st.lives));
+    $('fr-lives').textContent = hearts || '💔';
+    $('fr-lives').classList.toggle('lost', st.lives <= 0);
+    $('fr-time').textContent = `${st.elapsed.toFixed(1)} 秒`;
+  }
+
+  function resize(){
+    if (!canvas) return;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const rect = stage.getBoundingClientRect();
+    W = Math.max(280, rect.width);
+    H = Math.max(160, rect.height);
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function drawFruit(item){
+    const r = item.r;
+    const grd = ctx.createRadialGradient(item.x - r * 0.3, item.y - r * 0.35, r * 0.15, item.x, item.y, r);
+    grd.addColorStop(0, 'rgba(255,255,255,.85)');
+    grd.addColorStop(1, item.spec.color);
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(item.x, item.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(item.x, item.y);
+    ctx.rotate(item.angle);
+    ctx.font = `${Math.round(r * 1.05)}px "Segoe UI Emoji","Apple Color Emoji",serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.spec.emoji, 0, r * 0.06);
+    ctx.restore();
+  }
+
+  function drawHalf(half){
+    ctx.save();
+    ctx.translate(half.x, half.y);
+    ctx.rotate(half.angle + half.rot);
+    ctx.fillStyle = half.spec.color;
+    ctx.beginPath();
+    ctx.arc(0, 0, half.r, 0, Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.beginPath();
+    ctx.arc(0, 0, half.r * 0.72, 0, Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function frame(now){
+    if (!st || !st.running){ raf = 0; return; }
+    const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
+    last = now;
+    st.elapsed += dt;
+    if (st.comboTimer > 0){
+      st.comboTimer -= dt;
+      if (st.comboTimer <= 0) st.combo = 0;
+    }
+    st.spawnTimer -= dt;
+    if (st.spawnTimer <= 0){
+      spawn();
+      const diff = difficulty(st.level);
+      st.spawnTimer = diff.interval * (0.85 + Math.random() * 0.3);
+      if (st.level >= 4 && Math.random() < 0.22) spawn();   // 高等级偶尔一次来两个
+    }
+
+    // 水果运动 + 漏掉的判定
+    for (const item of st.fruits){
+      if (item.dead) continue;
+      item.vy += item.g * dt;
+      item.x += item.vx * dt;
+      item.y += item.vy * dt;
+      item.angle += item.spin * dt;
+      if (item.y - item.r > H && item.vy > 0){
+        item.dead = true;
+        if (!item.bomb){
+          st.missed += 1;
+          st.lives -= 1;
+          st.combo = 0;
+          updateHud();
+          if (st.lives <= 0){ finish(); }
+        }
+      }
+    }
+    st.fruits = st.fruits.filter((item) => !item.dead || item.y < H + 240);
+
+    for (const half of st.halves){
+      half.vy += half.g * 0.6 * dt;
+      half.x += half.vx * dt;
+      half.y += half.vy * dt;
+      half.rot += half.spin * dt;
+      half.age += dt;
+    }
+    st.halves = st.halves.filter((half) => half.age < half.life);
+    for (const part of st.parts){
+      part.vy += 900 * dt;
+      part.x += part.vx * dt;
+      part.y += part.vy * dt;
+      part.age += dt;
+    }
+    st.parts = st.parts.filter((part) => part.age < part.life);
+    for (const slash of slashes) slash.age += dt;
+    slashes = slashes.filter((slash) => slash.age < 0.32);
+
+    // 画
+    ctx.clearRect(0, 0, W, H);
+    if (st.shake > 0){
+      const s = st.shake * 6;
+      ctx.save();
+      ctx.translate((Math.random() * 2 - 1) * s, (Math.random() * 2 - 1) * s);
+      st.shake = Math.max(0, st.shake - dt * 3);
+    } else {
+      ctx.save();
+    }
+    for (const half of st.halves) drawHalf(half);
+    for (const item of st.fruits){ if (!item.dead) drawFruit(item); }
+    for (const part of st.parts){
+      ctx.globalAlpha = Math.max(0, 1 - part.age / part.life);
+      ctx.fillStyle = part.color;
+      ctx.beginPath();
+      ctx.arc(part.x, part.y, part.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    for (const slash of slashes){
+      const power = 1 - slash.age / 0.32;
+      ctx.strokeStyle = `rgba(255,255,255,${0.85 * power})`;
+      ctx.lineWidth = 2 + 6 * power;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(slash.x1, slash.y1);
+      ctx.lineTo(slash.x2, slash.y2);
+      ctx.stroke();
+    }
+    ctx.restore();
+    updateHud();
+    raf = requestAnimationFrame(frame);
+  }
+
+  function start(){
+    if (!ready) return;
+    resize();
+    st = newState();
+    slashes = [];
+    st.running = true;
+    st.startedAt = performance.now();
+    last = performance.now();
+    $('fr-overlay').classList.add('hidden');
+    $('fr-result').innerHTML = '';
+    $('fr-gained').innerHTML = '';
+    $('fr-start').textContent = '开始';
+    updateHud();
+    if (!raf) raf = requestAnimationFrame(frame);
+  }
+
+  function finish(){
+    if (!st || !st.running) return;
+    st.running = false;
+    st.over = true;
+    AudioBus.gameOver();
+    if (raf){ cancelAnimationFrame(raf); raf = 0; }
+    updateHud();
+    const run = {
+      score: st.score,
+      level: st.level,
+      max_combo: st.maxCombo,
+      duration: Math.floor(st.elapsed * 10) / 10,
+      sliced: st.sliced,
+      missed: st.missed,
+    };
+    $('fr-title').textContent = '这一局结束';
+    $('fr-sub').textContent = `${run.sliced} 个水果，漏了 ${run.missed} 个，最长连击 ${run.maxCombo}`;
+    $('fr-result').innerHTML = `
+      <div class="fr-line">得分 <b>${run.score}</b>　等级 <b>Lv.${run.level}</b></div>
+      <div class="fr-line">用时 <b>${run.duration.toFixed(1)}</b> 秒</div>`;
+    $('fr-gained').innerHTML = '';
+    $('fr-start').textContent = '再来一局';
+    $('fr-overlay').classList.remove('hidden');
+    submit(run);
+  }
+
+  async function submit(run){
+    $('st-fruit').textContent = '正在保存成绩…';
+    try {
+      const res = await api('/api/game', {action: 'submit', game: 'fruit', run});
+      if (!res.ok){
+        statusOf($('st-fruit'), false, res.error || '保存失败');
+        if (res.state) renderRecords(res.state);
+        return;
+      }
+      renderRecords(res.state);
+      const bits = [];
+      if (res.is_best) bits.push('🏆 新纪录！');
+      if ((res.gained_titles || []).length) bits.push('新成就：' + res.gained_titles.join('、'));
+      $('fr-gained').innerHTML = bits.length ? `<b>${esc(bits.join('　'))}</b>` : '';
+      statusOf($('st-fruit'), true, res.is_best ? '新纪录' : '已记录');
+      if (res.is_best) floatText('🏆 新纪录！', {x: window.innerWidth - 170, y: 140});
+    } catch (err) {
+      statusOf($('st-fruit'), false, String(err));
+    }
+  }
+
+  function renderRecords(state){
+    if (!state) return;
+    const best = state.best || {};
+    const totals = state.totals || {};
+    $('fr-best').textContent = `最高分：${best.score || 0}（${best.level ? 'Lv.' + best.level : '还没打过'}）`;
+    $('fr-stats').innerHTML = `
+      <div class="stat"><b>${best.score || 0}</b><span>最高分</span></div>
+      <div class="stat"><b>${best.max_combo || 0}</b><span>最长连击</span></div>
+      <div class="stat"><b>${totals.runs || 0}</b><span>玩过局数</span></div>
+      <div class="stat"><b>${totals.sliced || 0}</b><span>累计切中</span></div>
+      <div class="stat"><b>${(best.duration || 0).toFixed ? best.duration.toFixed(0) : 0}</b><span>单局最长(秒)</span></div>`;
+    const badges = state.badges || [];
+    const owned = badges.filter((item) => item.owned).length;
+    $('fr-badge-count').textContent = `${owned}/${badges.length}`;
+    $('fr-badges').innerHTML = badges.map((item) => `
+      <div class="badge ${item.owned ? '' : 'locked'}">
+        <span class="ico">${item.owned ? '🏅' : '🔒'}</span>
+        <div><b>${esc(item.title)}</b><span>${esc(item.note)}</span></div>
+      </div>`).join('');
+    const recent = state.recent || [];
+    $('fr-recent').innerHTML = recent.length
+      ? recent.map((row) => `<div class="link"><b>${row.score} 分</b>
+          <span>Lv.${row.level}　连击 ${row.max_combo}　${row.sliced} 个　${(row.duration || 0).toFixed(1)} 秒</span></div>`).join('')
+      : '<div class="muted">还没有战绩，先打一局。</div>';
+  }
+
+  function pause(){
+    if (!st || !st.running) return;
+    st.running = false;
+    if (raf){ cancelAnimationFrame(raf); raf = 0; }
+    $('fr-title').textContent = '已暂停';
+    $('fr-sub').textContent = '点下面继续这一局';
+    $('fr-start').textContent = '继续';
+    $('fr-overlay').classList.remove('hidden');
+  }
+
+  async function ensureInit(){
+    if (ready){
+      if (st && st.over) renderRecords((await fetchState()) || null);
+      return;
+    }
+    canvas = $('fr-canvas');
+    stage = $('fr-stage');
+    ctx = canvas.getContext('2d');
+    ready = true;
+    resize();
+    stage.addEventListener('pointerdown', (ev) => {
+      if (isUiHit(ev)) return;                 // ⚠ 点「开始 / 继续 / 再来一局」时别抢指针
+      ev.preventDefault();                     // 长按别让浏览器起文字选择/拖拽
+      try { stage.setPointerCapture(ev.pointerId); } catch (err) { /* 老内核没有就算了 */ }
+      down = true;
+      const rect = stage.getBoundingClientRect();
+      lastPt = {x: ev.clientX - rect.left, y: ev.clientY - rect.top};
+    });
+    stage.addEventListener('pointermove', (ev) => {
+      if (!down || !st || !st.running) return;
+      const rect = stage.getBoundingClientRect();
+      const pt = {x: ev.clientX - rect.left, y: ev.clientY - rect.top};
+      if (lastPt){
+        slashes.push({x1: lastPt.x, y1: lastPt.y, x2: pt.x, y2: pt.y, age: 0});
+        const angle = Math.atan2(pt.y - lastPt.y, pt.x - lastPt.x);
+        for (const item of st.fruits){
+          if (item.dead) continue;
+          if (segmentHitsCircle(lastPt.x, lastPt.y, pt.x, pt.y, item.x, item.y, item.r * 1.12)){
+            sliceFruit(item, angle);
+          }
+        }
+      }
+      lastPt = pt;
+    });
+    const release = () => { down = false; lastPt = null; };
+    stage.addEventListener('pointerup', release);
+    stage.addEventListener('pointercancel', release);
+    stage.addEventListener('pointerleave', (ev) => {
+      // 指针被本舞台捕获时，划出边缘不算离开（长按扫全屏也不会被掐断）
+      if (stage.hasPointerCapture && stage.hasPointerCapture(ev.pointerId)) return;
+      release();
+    });
+    $('fr-start').onclick = () => {
+      if (st && st.running === false && !st.over && st.elapsed > 0){   // 继续
+        st.running = true;
+        last = performance.now();
+        $('fr-overlay').classList.add('hidden');
+        if (!raf) raf = requestAnimationFrame(frame);
+        return;
+      }
+      start();
+    };
+    $('fr-restart').onclick = start;
+    window.addEventListener('resize', () => { if (!$('card-fruit').classList.contains('hidden')) resize(); });
+    let snap = null;
+    try {
+      const res = await api('/api/game', {action: 'config', game: 'fruit'});
+      if (res && res.config) rules = res.config;
+      if (res && res.state){ snap = res.state; renderRecords(snap); }
+    } catch (err) {
+      $('st-fruit').textContent = '规则读取失败，用内置兜底值也能玩';
+    }
+    renderRecords(snap);
+    st = newState();
+    updateHud();
+  }
+
+  async function fetchState(){
+    try {
+      const res = await api('/api/game', {action: 'state', game: 'fruit'});
+      return res && res.state ? res.state : null;
+    } catch (err) { return null; }
+  }
+
+  return {ensureInit, pause, start, rules: () => rules};
+})();
+
+// 解压页模式切换：切走就停声音/停帧，别在后台一直响或空转
+document.querySelectorAll('#play-modes .segbtn').forEach((btn) => {
+  btn.onclick = () => {
+    const mode = btn.dataset.mode;
+    document.querySelectorAll('#play-modes .segbtn').forEach((b) => b.classList.toggle('on', b === btn));
+    $('card-pad').classList.toggle('hidden', mode !== 'pad');
+    $('card-fruit').classList.toggle('hidden', mode !== 'fruit');
+    if (mode === 'pad'){ mikutap.ensureInit(); mikutap.refresh(); }
+    else mikutap.stop();                  // 切走就停声音，别在后台一直响
+    if (mode === 'fruit') fruitGame.ensureInit();
+    else fruitGame.pause();               // 切走就暂停，别在后台空转
+  };
+});
+
+// 交给 go()：离开解压页时统一停下
+RELAX = {
+  leave(){
+    try { mikutap.stop(); fruitGame.pause(); } catch (err) { /* 停不掉也不影响切页 */ }
+  },
+};
+
+// ── 默契测试（你和 YUI 的默契度）──────────────────────────────
+let CM_ROUND = null;       // {id, questions, answers:[{own,guess}|null]}
+let CM_POS = 0;
+let cmTimer = null;        // 揭晓轮询的定时器
+let CM_LIMITS = {};        // 后端给的三个时间刻度（每题等她多久 / 问下一题间隔 / 整轮窗口）
+
+function cmStage(name){
+  ['intro', 'answer', 'wait', 'reveal'].forEach((n) => $('cm-' + n).classList.toggle('hidden', n !== name));
+}
+
+function cmSetMemoryBox(res){
+  // 读她的三条通道。**如实报**：哪条通、哪条不通，不通就直说读不回来
+  const mem = (res && res.memory) || {};
+  const box = $('cm-yui-memory');
+  if (!box) return;
+  const bus = mem.bus || {};
+  const db = mem.db || {};
+  const parts = [];
+  if (bus.available){
+    const kinds = (bus.kinds || []).join(' / ') || '还没抓到';
+    parts.push(`① 实时总线：<b>能用</b>（当前 ${bus.records || 0} 条，类型：${esc(kinds)}）`);
+  } else {
+    parts.push(`① 实时总线：<b>连不上</b>（${esc(bus.reason || '未就绪')}）——它不滞后，是最好的一条。`);
+  }
+  if (mem.available){
+    parts.push(`② 宿主对话流：能用，看到 <b>${mem.messages || 0}</b> 轮`
+      + `（其中她说 <b>${mem.her_messages || 0}</b> 条）。`);
+  } else {
+    parts.push(`② 宿主对话流：连不上（${esc(mem.reason || '未就绪')}）。`);
+  }
+  parts.push(db.available
+    ? `③ 她的对话库：能读（${esc(db.yui_dir || '已定位')}，${db.messages || 0} 条）。`
+    : `③ 她的对话库：读不到（${esc(db.reason || '未定位到')}）。`);
+  parts.push('<span class="muted">②③ 都靠宿主落盘，而落盘是懒触发的（要等你发言或空闲维护），'
+    + '所以她的回答可能晚一会儿才可读——那时可以用「补收她的回答」把迟到的收回来。</span>');
+  box.className = 'notice' + (bus.available || mem.available ? ' good' : ' bad');
+  box.innerHTML = parts.join('<br>');
+  const input = $('cfg-yui-dir');
+  if (input && !input.value) input.value = (res && res.yui_memory_dir) || '';
+}
+
+function cmLoadHistory(){
+  api('/api/compat', {action: 'info'}).then((res) => {
+    if (!res || res.ok === false) return;
+    cmSetMemoryBox(res);
+    const hist = res.history || [];
+    $('cm-history').innerHTML = hist.length ? hist.map((h) => {
+      const d = new Date((h.ts || 0) * 1000);
+      const when = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      return `<div class="link"><b>${h.score} 分</b>
+        <span>${esc(h.band || '')}｜一致 ${h.same} · 你猜中 ${h.self_hit} · 她猜中 ${h.yui_hit}
+        （共 ${h.total} 题，随机水平命中 ${h.chance_hits}）　${when}</span></div>`;
+    }).join('') : '<div class="muted">还没有玩过，来一轮？</div>';
+  }).catch(() => {});
+}
+
+async function cmStart(){
+  if (cmTimer){ clearInterval(cmTimer); cmTimer = null; }
+  const st = $('st-compat');
+  st.textContent = '出题中…';
+  st.style.color = 'var(--ink2)';
+  try {
+    const res = await api('/api/compat', {action: 'start'});
+    if (!res.ok){ st.textContent = res.error || '开局失败'; st.style.color = 'var(--bad)'; return; }
+    CM_ROUND = {
+      id: res.round.id,
+      questions: res.round.questions || [],
+      answers: new Array((res.round.questions || []).length).fill(null),
+    };
+    CM_POS = 0;
+    cmRenderQ();
+    cmStage('answer');
+    st.textContent = '';
+    floatText('题目已发给她喵', {x: window.innerWidth / 2, y: 120});
+  } catch (err){ st.textContent = String(err); st.style.color = 'var(--bad)'; }
+}
+
+function cmRenderQ(){
+  const q = CM_ROUND.questions[CM_POS];
+  const total = CM_ROUND.questions.length;
+  $('cm-pos').textContent = String(CM_POS + 1);
+  $('cm-total').textContent = String(total);
+  $('cm-bar').style.width = `${(CM_POS / total) * 100}%`;
+  $('cm-cat').textContent = q.cat_name;
+  $('cm-qtext').textContent = q.text;
+  const ans = CM_ROUND.answers[CM_POS] || {};
+  const group = (kind, el) => {
+    el.innerHTML = q.options.map((o, i) =>
+      `<button class="opt${ans[kind] === i ? ' on' : ''}" data-i="${i}"><span class="k">${i + 1}</span>${esc(o)}</button>`
+    ).join('');
+    el.querySelectorAll('.opt').forEach((btn) => {
+      btn.onclick = () => {
+        if (!CM_ROUND.answers[CM_POS]) CM_ROUND.answers[CM_POS] = {own: null, guess: null};
+        CM_ROUND.answers[CM_POS][kind] = Number(btn.dataset.i);
+        el.querySelectorAll('.opt').forEach((b) => b.classList.toggle('on', b === btn));
+      };
+    });
+  };
+  group('own', $('cm-opts-own'));
+  group('guess', $('cm-opts-guess'));
+  $('cm-prev').disabled = CM_POS === 0;
+  $('cm-next').textContent = CM_POS === total - 1 ? '交卷揭晓' : '下一题';
+}
+
+$('cm-start').onclick = cmStart;
+$('cm-again').onclick = cmStart;
+$('cm-back').onclick = () => { cmStage('intro'); cmLoadHistory(); };
+$('cm-quit').onclick = () => {
+  if (!confirm('放弃这一轮？已答的不会保留。')) return;
+  CM_ROUND = null;
+  if (cmTimer){ clearInterval(cmTimer); cmTimer = null; }
+  cmStage('intro');
+  cmLoadHistory();
+};
+$('cm-prev').onclick = () => { if (CM_POS > 0){ CM_POS -= 1; cmRenderQ(); } };
+$('cm-next').onclick = () => {
+  const ans = CM_ROUND.answers[CM_POS];
+  if (!ans || ans.own == null || ans.guess == null){
+    floatText('这题两问都要选', {x: window.innerWidth / 2, y: 120});
+    return;
+  }
+  if (CM_POS < CM_ROUND.questions.length - 1){ CM_POS += 1; cmRenderQ(); return; }
+  cmSubmit();
+};
+
+async function cmSubmit(){
+  cmStage('wait');
+  $('cm-wait-text').textContent = '交卷中…';
+  try {
+    const res = await api('/api/compat', {action: 'submit', round_id: CM_ROUND.id, answers: CM_ROUND.answers});
+    if (!res.ok){ $('cm-wait-text').textContent = res.error || '提交失败'; return; }
+    cmTimer = setInterval(cmPollReveal, 1500);
+    cmPollReveal();
+  } catch (err){ $('cm-wait-text').textContent = String(err); }
+}
+
+function cmWaitText(job, answered, progress){
+  const j = job || {};
+  const p = progress || {};
+  const total = Number(p.total || 0);
+  const done = Number(p.answered || 0);
+  const at = Number(p.index || 0);
+  const tail = total
+    ? `（进度：她正在答第 ${Math.max(at, 1)}/${total} 题，已答上 ${done} 题）`
+    : '';
+  if (answered) return '她答完了，正在对答案…';
+  switch (j.status){
+    // 逐题面谈是**一题一条**发过去、等她答完再发下一题，所以这里要说清进度，
+    // 不然一等等几分钟、面板又只说"正在等"，看起来像卡死了。
+    case 'asking':      return `题目一题一条发给她了，正在等她用自己的话答…（她会在对话里说话）${tail}`;
+    case 'watching':    return `题都问完了，她答过的我正在陆续收。${tail}`;
+    case 'harvesting':  return `正在回头补收她的回答（宿主的落盘比她说得慢）…${tail}`;
+    case 'timeout':     return `这一题等了一会儿没接住（${j.reason || ''}）。${tail} 可以点「补收她的回答」，迟到的也能捞回来。`;
+    case 'no_answer':   return `她的回答一直没出现在对话里（${j.reason || ''}）。${tail} 她可能确实答了、只是没落盘——点「补收她的回答」再收一次。`;
+    case 'no_dialog':   return `两条读回通道都不通，所以她答了也读不回来（${j.reason || ''}）。`;
+    case 'push_failed': return `题目没推给她：${j.reason || ''}`;
+    case 'error':       return `出错了：${j.reason || ''}`;
+    default:            return `正在等她作答…${tail}`;
+  }
+}
+
+async function cmPollReveal(){
+  try {
+    const res = await api('/api/compat', {action: 'reveal', round_id: CM_ROUND.id});
+    if (!res.ok){
+      clearInterval(cmTimer); cmTimer = null;
+      $('cm-wait-text').textContent = res.error || '揭晓失败';
+      return;
+    }
+    if (res.limits) CM_LIMITS = res.limits;
+    $('cm-wait-text').textContent = cmWaitText(res.job, res.yui_answered, res.progress);
+    const st = (res.job && res.job.status) || '';
+    const stuck = ['timeout', 'no_answer', 'no_dialog', 'push_failed', 'error'].includes(st);
+    // 盯梢线程已经在收了，这时再给个"补收"按钮只会让人困惑
+    const busy = st === 'watching' || st === 'harvesting';
+    $('cm-ask-again').classList.toggle('hidden', !stuck);
+    const missing = ((res.progress && res.progress.items) || [])
+      .some((it) => !(it.picks || []).length);
+    $('cm-harvest').classList.toggle('hidden', !missing || busy);
+    cmRenderNudge(res.progress, res.job);
+    if (res.status === 'waiting'){
+      cmRenderLive(res.progress, 'cm-live');   // 等待中才往等待卡里刷进度
+      return;                                  // 她还没交卷，下轮再问
+    }
+    clearInterval(cmTimer); cmTimer = null;
+    cmRenderReveal(res);
+  } catch (err){ /* 下轮再试 */ }
+}
+
+function cmRenderNudge(progress, job){
+  // 关键操作引导：宿主**只在你说过话之后**才把她的回答写进对话（实测：你 20:47 发言
+  // 的那一秒才有 /cache 落盘；她 20:52~20:54 答的题一直没落盘）。所以读不到不是
+  // 她没答，而是还没写。这一步必须说清楚，否则用户只会觉得"又坏了"。
+  const box = $('cm-nudge');
+  if (!box) return;
+  const st = (job && job.status) || '';
+  const missing = ((progress && progress.items) || []).some((it) => !(it.picks || []).length);
+  const answered = Number((progress || {}).answered || 0);
+  const total = Number((progress || {}).total || 0);
+  if (!missing){
+    box.className = 'notice good';
+    box.textContent = total
+      ? `她答上了 ${answered}/${total} 题，全都收下来了。`
+      : '都收全了。';
+    return;
+  }
+  // 规则说在最前面（用户定的）：题目发出后她说的第一条就是这一题的答案。
+  box.className = 'notice';
+  box.innerHTML = `规则：<b>题目发出去之后她说的第一条，就是这一题的答案</b>
+    ——我收到就往下发下一题。每题最多等 <b>${Math.round(Number((CM_LIMITS || {}).per_q_wait || 300))} 秒</b>。
+    <br>要是长时间没动静，多半是宿主把她的回答压在缓存里没落盘
+    （它只在你说过话之后、或隔几分钟的空闲维护里才写）——那就<b>在对话框里回她一句</b>
+    （哪怕一个「嗯」），它会立刻放出来，我马上把答案收下。
+    <br><b>保底：</b>把她在对话里说的原话整段贴进下面的框，我照着收——这一步不依赖任何读回通道。
+    ${progress && progress.adaptive ? '<br><b>注意：这一轮读回通道一时没响应，已改用快节奏把题发完，之后一直替她收。</b>' : ''}`;
+  const pasteBox = $('cm-paste');
+  if (pasteBox) pasteBox.open = true;   // 缺题的时候直接把保底通道摊开，别让人自己找
+}
+
+function cmRenderLive(progress, target){
+  // 逐题面谈的实时进度：每题一条，写清"她说了什么 / 解析成什么"
+  const box = $(target || 'cm-live');
+  if (!box) return;
+  const items = (progress && progress.items) || [];
+  if (!items.length){ box.innerHTML = ''; return; }
+  box.innerHTML = items.map((it) => {
+    const i = Number(it.i || 0);
+    const state = it.state || 'pending';
+    // "还算在等她"的窗口还剩多久——用户最关心的就是这个，直接算给他看
+    const askedAt = Number(it.asked_at || 0);
+    const waitFor = Number(it.wait_seconds || 0);
+    const left = (askedAt && waitFor) ? Math.max(0, Math.round(askedAt + waitFor - Date.now() / 1000)) : null;
+    const waitLabel = (left === null || left > 0)
+      ? `<b>等她答…${left ? `（还剩 ${left} 秒）` : ''}</b>`
+      : '<b>等她落盘…（还会继续收）</b>';
+    const label = state === 'ok' ? '<b class="hit">答上了</b>'
+      : state === 'asking' ? '<b>正在答…</b>'
+      : state === 'waiting' ? waitLabel
+      : state === 'skipped' ? '<b class="miss">没答上</b>'
+      : '<b class="muted">待问</b>';
+    const picks = (it.picks || []).map((n) => Number(n) + 1).join(' / ');
+    const raw = (it.raw || '').trim();
+    // 标出**从哪条通道收到的**——实时总线是实时的，对话库/对话流要等落盘。
+    // 用户最关心的"是不是非要我说话才收得到"看这里就够了。
+    const src = esc(String(it.channel || ''));
+    return `<div class="cml-row">
+      <div class="cml-h">第 ${i} 题 ${label}${picks ? `　解析成选项 ${esc(picks)}` : ''}`
+        + (src ? `　<span class="muted">来源：${src}</span>` : '') + `</div>
+      ${raw ? `<div class="cml-raw">她说：${esc(raw).replace(/\n/g, '<br>')}</div>`
+            : (state === 'skipped' && it.reason ? `<div class="cml-raw muted">${esc(it.reason)}</div>` : '')}
+    </div>`;
+  }).join('');
+}
+
+$('cm-ask-again').onclick = async () => {
+  $('cm-wait-text').textContent = '再问她一次…';
+  $('cm-ask-again').classList.add('hidden');
+  try {
+    const res = await api('/api/compat', {action: 'ask_again', round_id: CM_ROUND.id});
+    if (!res.ok){ $('cm-wait-text').textContent = res.error || '重问失败'; return; }
+    if (!cmTimer) cmTimer = setInterval(cmPollReveal, 1500);
+    cmPollReveal();
+  } catch (err){ $('cm-wait-text').textContent = String(err); }
+};
+
+$('cm-harvest').onclick = async () => {
+  // 她的回答常常晚一步才可读（宿主落盘是懒触发的），这里回头再收一次
+  $('cm-wait-text').textContent = '正在从对话里补收她的回答…';
+  $('cm-harvest').classList.add('hidden');
+  try {
+    const res = await api('/api/compat', {action: 'harvest', round_id: CM_ROUND.id});
+    if (!res.ok){ $('cm-wait-text').textContent = res.error || '补收失败'; return; }
+    floatText(res.note || '正在补收喵', {x: window.innerWidth / 2, y: 120});
+    if (!cmTimer) cmTimer = setInterval(cmPollReveal, 1500);
+    cmPollReveal();
+  } catch (err){ $('cm-wait-text').textContent = String(err); }
+};
+
+$('cm-paste-go').onclick = async () => {
+  // 保底通道：**不依赖任何读回通道**。她说了什么，你贴进来，我照着收。
+  // 这是唯一"贴了就一定收下"的路——所以放在最显眼的地方，别再让人等了又等。
+  const box = $('cm-paste-text');
+  const note = $('cm-paste-note');
+  const text = (box && box.value) || '';
+  if (!text.trim()){ note.textContent = '框里还是空的呢'; return; }
+  if (!CM_ROUND || !CM_ROUND.id){ note.textContent = '这一轮不在了，重新开一轮吧'; return; }
+  note.textContent = '正在收…';
+  try {
+    const res = await api('/api/compat', {action: 'paste', round_id: CM_ROUND.id, text});
+    if (!res.ok){ note.textContent = res.error || '没能收下'; return; }
+    note.textContent = res.note || '收下了';
+    box.value = '';
+    floatText(res.note || '收下了喵', {x: window.innerWidth / 2, y: 120});
+    if (!cmTimer) cmTimer = setInterval(cmPollReveal, 1500);
+    cmPollReveal();
+  } catch (err){ note.textContent = String(err); }
+};
+
+function cmRenderReveal(res){
+  const r = res.result || {};
+  const skipped = Number(r.skipped || 0);
+  $('cm-score').textContent = `净默契分 ${r.score}`;
+  $('cm-summary').textContent =
+    `${r.band}。合计命中 ${r.hits} 次（随机水平约 ${r.chance_hits} 次）——` +
+    `选择一致 ${r.same} 题，你猜中她 ${r.self_hit} 题，她猜中你 ${r.yui_hit} 题。` +
+    `计分只算她真答上来的 ${r.total} 题` +
+    (skipped ? `；另有 ${skipped} 题她没接上，没算进分里。` : '。');
+  const mine = res.yui_source === 'herself';
+  $('cm-source').textContent = mine
+    ? 'YUI 本人逐题作答（她收到的题 + 她自己回的原话，见下）'
+    : (res.yui_source ? `来源：${res.yui_source}` : '来源未知');
+  const rep = res.yui_reply || {};
+  const box = $('cm-yui-said');
+  if (box){
+    if (rep.text){
+      box.className = 'tbubble';
+      box.textContent = `她在对话里回的原话（答上 ${rep.answered || '?'} / ${rep.total || '?'} 题）：\n${rep.text}`;
+    } else {
+      box.className = 'notice';
+      box.textContent = '没拿到她回的原话——这一轮的记录不在了，所以无法核实她当时是怎么说的。';
+    }
+  }
+  cmRenderLive(res.progress, 'cm-live-reveal');
+  $('cm-stats').innerHTML = `
+    <div class="stat"><b>${r.same}</b><span>心意相通</span></div>
+    <div class="stat"><b>${r.self_hit}</b><span>你懂她</span></div>
+    <div class="stat"><b>${r.yui_hit}</b><span>她懂你</span></div>
+    <div class="stat"><b>${r.hits}</b><span>命中合计<br>随机水平 ${r.chance_hits}</span></div>
+    <div class="stat"><b>${r.score}</b><span>净默契分</span></div>`;
+  $('cm-rows').innerHTML = (r.rows || []).map((row, i) => {
+    const opt = (idx) => (idx === null || idx === undefined) ? '—' : esc(row.options[idx] || '—');
+    if (row.skipped){
+      // 她没接上的题：如实标出来，不硬凑一个答案、也不当"擦肩而过"扣分
+      return `<div class="framebox skipped">
+        <div class="fb-top">
+          <div class="fb-name">${i + 1}. ${esc(row.text)}</div>
+          <div class="fb-val">${esc(row.cat_name)}</div>
+        </div>
+        <div class="cm-pair">
+          <div>你选：<b>${opt(row.self_own)}</b></div>
+          <div>她选：<b class="miss">没答上</b></div>
+          <div>你猜她：<b>${opt(row.self_guess)}</b></div>
+          <div>她猜你：<b class="miss">没答上</b></div>
+        </div>
+        <div class="fb-tip"><span class="cm-tag miss">未计分</span></div>
+      </div>`;
+    }
+    const sameOwn = row.self_own === row.yui_own;
+    return `<div class="framebox">
+      <div class="fb-top">
+        <div class="fb-name">${i + 1}. ${esc(row.text)}</div>
+        <div class="fb-val">${esc(row.cat_name)}</div>
+      </div>
+      <div class="cm-pair">
+        <div>你选：<b class="${sameOwn ? 'hit' : ''}">${opt(row.self_own)}</b></div>
+        <div>她选：<b class="${sameOwn ? 'hit' : ''}">${opt(row.yui_own)}</b></div>
+        <div>你猜她：<b>${opt(row.self_guess)}</b></div>
+        <div>她猜你：<b>${opt(row.yui_guess)}</b></div>
+      </div>
+      <div class="fb-tip">${row.tags.map((t) => `<span class="cm-tag">${esc(t)}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+  cmStage('reveal');
+}
+
+$('btn-save-yui-dir').onclick = async () => {
+  busy($('st-yui-dir'), '保存中…');
+  try {
+    const res = await api('/api/prefs', {yui_memory_dir: $('cfg-yui-dir').value.trim()});
+    cmSetMemoryBox({memory: res.memory, yui_memory_dir: res.yui_memory_dir});
+    statusOf($('st-yui-dir'), true, res.memory && res.memory.available ? '已保存并读到她的对话库' : '已保存，但仍读不到');
+  } catch (err){ statusOf($('st-yui-dir'), false, String(err)); }
+};
+document.querySelectorAll('.tab').forEach((tab) => {
+  tab.addEventListener('click', () => { if (tab.dataset.tab === 'compat') cmLoadHistory(); });
+});
+
+// ── 启动 ─────────────────────────────────────────────────────
+(async () => {
+  await loadScales();
+  try {
+    const res = await api('/api/prefs', {});
+    if (res.prefs){ PREFS = Object.assign({}, PREFS, res.prefs); applyPrefs(); }
+    if (res.background){ BG = Object.assign({}, BG, res.background); bgStamp = Date.now(); }
+    applyBackground();
+  } catch (err) { /* 偏好读不到就用默认 */ }
+  $('crisis').innerHTML = CRISIS.map((l) => `<li>${esc(l)}</li>`).join('');
+})();
+</script>
+</body>
+</html>

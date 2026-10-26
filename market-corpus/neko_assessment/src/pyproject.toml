@@ -1,0 +1,13 @@
+[project]
+name = "neko_assessment"
+version = "0.7.3"
+description = "Personality, psychology and fun assessments for N.E.K.O"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

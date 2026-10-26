@@ -1,0 +1,40 @@
+# GitHub Releases are published with the local GitHub CLI after approval.
+# Do not invoke plugin-market-release or generate market release evidence here.
+name: Check GitHub Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate version and release notes
+        env:
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          plugin = tomllib.loads(Path("plugin.toml").read_text(encoding="utf-8"))
+          project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          version = plugin["plugin"]["version"]
+          assert version == project["project"]["version"], "Version metadata differs"
+          if os.environ["RELEASE_REF_TYPE"] == "tag":
+              assert os.environ["RELEASE_REF_NAME"] == f"v{version}", "Tag version differs"
+          assert Path(f"docs/releases/v{version}.md").is_file(), "Release notes missing"
+          print(f"GitHub release metadata verified: {version}")
+          PY

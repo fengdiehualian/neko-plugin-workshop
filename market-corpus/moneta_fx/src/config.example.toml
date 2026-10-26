@@ -1,0 +1,25 @@
+# MONETA FX 运行配置模板
+# 全部行情与资金均为虚构游戏数据，不对应任何真实市场。
+
+[plugin_runtime]
+enabled = true
+# auto_start 由插件管理器的独立开关控制，首次安装不会自动批准。
+auto_start = false
+
+[moneta]
+# 新注册普通账户发放的模拟资金（USD）
+initial_balance = 100000.0
+# 共享市场时钟推进间隔（毫秒）：越小行情越平滑，负载越高
+tick_interval_ms = 500
+# 共享市场状态自动写入插件存储的间隔（毫秒）
+persist_interval_ms = 5000
+# 开发者密钥：登录行情控制台与账户管理。上线前必须修改。
+developer_key = "moneta-dev-key"
+
+# ── 云端后端 ───────────────────────────────────────────────────────────
+# 默认连到已部署的服务端（见 plugin.toml 的 [moneta]），账户、持仓、行情
+# 全部走云端，N.E.K.O. 面板与浏览器端看到同一个世界。
+# 想改用本地离线模式，在插件管理器的配置页把 server_url 改成 "" 、
+# use_cloud 改成 false；服务端不可达时插件也会自动回退本地。
+server_url = "http://8.152.0.186:4173"
+use_cloud = true

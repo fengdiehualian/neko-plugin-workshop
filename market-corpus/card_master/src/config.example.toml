@@ -1,0 +1,12 @@
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+# card_master 运行时配置（可在运行时自由修改）
+[settings]
+# 自我对弈默认模拟次数（越大越准但越慢）
+self_play_simulations = 800
+# 出牌建议默认模拟次数
+suggest_simulations = 1500
+# 胜率计算默认模拟次数
+odds_simulations = 2000

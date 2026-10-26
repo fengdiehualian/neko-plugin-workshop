@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check civ6_buddy",
+      "type": "shell",
+      "command": "uv run neko-plugin check civ6_buddy",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync civ6_buddy",
+      "type": "shell",
+      "command": "uv run neko-plugin sync civ6_buddy --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r civ6_buddy",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r civ6_buddy",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build civ6_buddy",
+      "type": "shell",
+      "command": "uv run neko-plugin build civ6_buddy",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

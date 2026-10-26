@@ -1,0 +1,283 @@
+"""Live input handling and result projections for the runtime."""
+
+from __future__ import annotations
+
+import time
+from typing import Any
+
+from ..modules.danmaku_filter import viewer_event_skip_reason
+from .contracts import InteractionResult, ViewerEvent
+from .contracts_public import public_int, public_text
+from .recent_results_store import save_recent_results
+from .runtime_live_session import is_current_live_session_event
+from .runtime_timeline import ensure_trace_id, record_timeline, timeline_for_trace
+from .viewer_utterance import is_viewer_activity_event, viewer_utterance_text
+
+
+class _RecentChatObservedPayload(dict[str, Any]):
+    """Internal handoff marker that provider payloads cannot spoof by key."""
+
+    prior_danmaku: tuple[str, ...] = ()
+
+
+def mark_recent_chat_observed(
+    payload: dict[str, Any], *, prior_danmaku: tuple[str, ...] = (),
+) -> _RecentChatObservedPayload:
+    """Tag a selected payload before provider normalization copies its fields."""
+
+    marked = _RecentChatObservedPayload(payload)
+    marked.prior_danmaku = prior_danmaku
+    return marked
+
+
+def record_result(runtime: Any, result: InteractionResult) -> None:
+    if result.event.source == "developer_sandbox":
+        payload = result.to_sandbox_dict()
+        runtime.recent_sandbox_results.append(payload)
+        runtime.event_bus.emit("sandbox_result", payload)
+        return
+    if not is_current_live_session_event(runtime, result.event):
+        runtime.audit.record(
+            "stale_live_result_discarded",
+            "result belongs to an inactive live session",
+            level="info",
+            detail={"source": result.event.source},
+        )
+        return
+    trace_id = ensure_trace_id(result.event)
+    payload = result.to_public_dict()
+    payload["response_module"] = runtime._route_from_result(payload)
+    payload["event_signal"] = runtime._event_signal_from_result(payload)
+    payload["trace_id"] = trace_id
+    record_timeline(
+        runtime,
+        result.event,
+        stage="result.record",
+        status=result.status,
+        reason=result.reason,
+        route=str(payload.get("response_module") or ""),
+    )
+    payload["timeline"] = timeline_for_trace(runtime, trace_id)
+    expose_request_metadata(payload)
+    if str(payload.get("status") or "") == "pushed":
+        spent_output = runtime._spent_output_text(payload)
+        spent_families = runtime._spent_output_families(spent_output)
+        if spent_families:
+            payload["spent_output_family"] = ",".join(spent_families)
+    runtime.recent_results.append(payload)
+    save_recent_results(runtime)
+    _note_live_memory(runtime, payload, event=result.event)
+    runtime.event_bus.emit("result", payload)
+
+
+def _note_live_memory(runtime: Any, payload: dict[str, Any], *, event: ViewerEvent | None = None) -> None:
+    if getattr(getattr(runtime, "config", None), "viewer_memory_enabled", False) is not True:
+        bridge = getattr(runtime, "live_memory", None)
+        if bridge is not None:
+            bridge.discard()
+        return
+    if str(payload.get("status") or "") != "pushed":
+        return
+    public_event = payload.get("event") if isinstance(payload.get("event"), dict) else {}
+    text = viewer_utterance_text(event if event is not None else public_event)
+    uid = str(public_event.get("uid") or "").strip()
+    if not text or not uid:
+        return
+    bridge = getattr(runtime, "live_memory", None)
+    if bridge is None:
+        from ..adapters.live_memory_bridge import LiveMemoryBridge
+
+        bridge = LiveMemoryBridge(runtime)
+        runtime.live_memory = bridge
+    note = getattr(bridge, "note_exchange", None)
+    if not callable(note):
+        return
+    note(
+        uid=uid,
+        nickname=str(public_event.get("nickname") or ""),
+        user_text=text,
+        platform=runtime.live_provider.platform,
+        guard_level=_event_guard_level(public_event),
+        medal_level=_event_medal_level(public_event),
+    )
+
+
+def _event_guard_level(event: dict[str, Any]) -> int:
+    for key in ("support_guard_level", "guard_level"):
+        value = event.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return value
+    raw = event.get("raw")
+    if isinstance(raw, dict):
+        value = raw.get("guard_level")
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return value
+    return 0
+
+
+def _event_medal_level(event: dict[str, Any]) -> int:
+    for key in ("medal_level", "fans_medal_level"):
+        value = event.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return value
+    raw = event.get("raw")
+    if isinstance(raw, dict):
+        value = raw.get("medal_level")
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return value
+    return 0
+
+
+def expose_request_metadata(payload: dict[str, Any]) -> None:
+    request = payload.get("request")
+    metadata = request.get("metadata") if isinstance(request, dict) else None
+    if not isinstance(metadata, dict):
+        return
+    for key in (
+        "danmaku_profile",
+        "danmaku_reply_target",
+        "danmaku_reply_shape",
+        "danmaku_anchor_hint",
+        "reply_length_mode",
+        "room_theme",
+        "meme_hint_ids",
+        "meme_hint_tags",
+        "support_event_type",
+        "support_event_tier",
+        "support_event_label",
+    ):
+        value = _public_metadata_text(metadata.get(key))
+        if value:
+            payload[key] = value
+
+
+def _public_metadata_text(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    text = " ".join(value.split()).strip()
+    return text[:120] if len(text) > 120 else text
+
+
+async def handle_live_payload(runtime: Any, payload: dict[str, Any]) -> InteractionResult:
+    recent_chat_observed = isinstance(payload, _RecentChatObservedPayload)
+    event = runtime.live_provider.normalize(payload)
+    signal_event_type = _signal_event_type(event)
+    ensure_trace_id(event)
+    # A delayed scheduler/provider payload can arrive after session rotation.
+    # Do not mutate the current session's recent-chat or activity state before
+    # the pipeline reaches its own stale-event gate.
+    if is_current_live_session_event(runtime, event) and not viewer_event_skip_reason(runtime, event):
+        remember_live_danmaku_seen(runtime, event)
+        if recent_chat_observed:
+            event.prior_danmaku = payload.prior_danmaku
+        else:
+            observe_live_danmaku(runtime, event)
+    record_timeline(
+        runtime,
+        event,
+        stage="live_input.normalize",
+        status="ok",
+        route=signal_event_type or event.source,
+    )
+    return await runtime.pipeline.handle_event(event)
+
+
+def observe_live_danmaku(runtime: Any, event: ViewerEvent) -> int:
+    """Mirror developer/live-entry danmaku into the production context store."""
+
+    event.prior_danmaku = ()
+    if not is_current_live_session_event(runtime, event):
+        return 0
+    observer = getattr(getattr(runtime, "live_events", None), "observe_danmaku", None)
+    if not callable(observer):
+        return 0
+    try:
+        seq = max(0, int(observer(event) or 0))
+        preceding = getattr(runtime.live_events, "preceding_viewer_danmaku", None)
+        if seq and callable(preceding):
+            event.prior_danmaku = preceding(event, seq=seq)
+        return seq
+    except Exception as exc:
+        runtime.audit.record(
+            "live_danmaku_observe_failed",
+            f"live danmaku observation failed: {type(exc).__name__}",
+            level="warning",
+        )
+        return 0
+
+
+def remember_live_danmaku_seen(runtime: Any, event: ViewerEvent) -> None:
+    if not is_viewer_activity_event(event):
+        return
+    runtime._last_live_danmaku_seen_at = time.time()
+    runtime._last_live_danmaku_seen_type = "live_danmaku"
+    if hasattr(runtime, "_hosting_without_viewer_count"):
+        runtime._hosting_without_viewer_count = 0
+
+
+def _signal_event_type(event: ViewerEvent) -> str:
+    if not isinstance(event.raw, dict):
+        return ""
+    raw = event.raw.get("event_type")
+    if not isinstance(raw, str):
+        return ""
+    return raw.strip().lower()
+
+
+async def lookup_live_room(runtime: Any, room_id: Any) -> dict[str, Any]:
+    normalized = runtime.live_provider.normalize_room_ref(room_id)
+    room_ref = _public_lookup_room_ref(normalized.get("room_ref") if isinstance(normalized, dict) else "")
+    status = await runtime.live_provider.lookup_room_status(room_id)
+    configured_room_ref = _public_lookup_room_ref(runtime.live_provider.configured_room_ref())
+    if not configured_room_ref or room_ref == configured_room_ref:
+        remember_live_room_context(runtime, status, platform=runtime.live_provider.platform, room_ref=room_ref)
+    level = "info" if status.ok else "warning"
+    runtime.audit.record(
+        "live_room_lookup",
+        status.message or "live room looked up",
+        level=level,
+        detail={
+            "platform": runtime.live_provider.platform,
+            "room_ref": room_ref,
+            "room_id": status.room_id,
+            "ok": status.ok,
+            "live_status": status.live_status,
+        },
+    )
+    result = status.to_dict()
+    result["platform"] = runtime.live_provider.platform
+    result["room_ref"] = room_ref
+    return result
+
+
+def remember_live_room_context(
+    runtime: Any,
+    status: Any,
+    *,
+    platform: str = "",
+    room_ref: str = "",
+) -> dict[str, Any]:
+    """Cache public live-room metadata for prompt context without persisting it."""
+
+    if not getattr(status, "ok", False):
+        return getattr(runtime, "live_room_context", {}) if isinstance(getattr(runtime, "live_room_context", {}), dict) else {}
+    context = {
+        "platform": public_text(platform, max_len=40),
+        "room_ref": public_text(room_ref, max_len=120),
+        "room_id": public_int(getattr(status, "room_id", 0), minimum=0),
+        "title": public_text(getattr(status, "title", ""), max_len=120),
+        "anchor_name": public_text(getattr(status, "anchor_name", ""), max_len=80),
+        "live_status": public_text(getattr(status, "live_status", ""), max_len=40),
+    }
+    runtime.live_room_context = {key: value for key, value in context.items() if value not in ("", 0)}
+    return runtime.live_room_context
+
+
+def _public_lookup_room_ref(value: Any) -> str:
+    if isinstance(value, bool):
+        return ""
+    if isinstance(value, int):
+        return str(value) if value > 0 else ""
+    if not isinstance(value, str):
+        return ""
+    return value.strip()

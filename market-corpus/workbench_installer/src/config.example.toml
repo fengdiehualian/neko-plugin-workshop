@@ -1,0 +1,15 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[workbench_installer]
+# 下载地址(留空 = 官方 Release 最新安装版 Setup.exe)
+url = ""
+# 镜像回退(留空 = GitHub 超时后自动用码云最新发行版资产;填 off 关闭;也可填具体直链)
+mirror = ""
+# 下载失败时自动弹出手动下载页(可一键复制地址到浏览器);填 false 关闭
+manual_page = true
+# 下载代理(留空 = 先读环境变量代理,再直连);形如 http://127.0.0.1:7890
+proxy = ""
+# 下载整体超时(秒,60-1800,默认 900)
+download_timeout = 900

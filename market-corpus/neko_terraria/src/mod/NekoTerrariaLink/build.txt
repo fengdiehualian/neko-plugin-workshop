@@ -1,0 +1,5 @@
+displayName = NEKO猫娘AI
+author = N.E.K.O 猫羽雫
+version = 0.6.0
+buildVersion = 2026.06
+side = Client

@@ -1,0 +1,67 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check neko_stellaris",
+      "detail": "官方就绪检查：0 error 才算过",
+      "type": "shell",
+      "command": "uv run neko-plugin check \"${workspaceFolder}\"",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r neko_stellaris",
+      "detail": "发布前检查：strict + 跑 tests/ + 打包 + 校验 payload hash",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r \"${workspaceFolder}\"",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync neko_stellaris",
+      "type": "shell",
+      "command": "uv run neko-plugin sync \"${workspaceFolder}\" --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build neko_stellaris",
+      "type": "shell",
+      "command": "uv run neko-plugin build \"${workspaceFolder}\"",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "本仓库: 离线回归套件",
+      "detail": "python smoke_offline.py（226 项，不联网、不开游戏）",
+      "type": "shell",
+      "command": "python smoke_offline.py",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "本仓库: 官方检查（不依赖 uv）",
+      "detail": "tools/neko-check.cmd — 用 N.E.K.O 自带的 python 直接调 CLI",
+      "type": "shell",
+      "command": "tools\\neko-check.cmd",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

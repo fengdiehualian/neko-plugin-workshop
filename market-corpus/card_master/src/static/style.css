@@ -1,0 +1,269 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --felt: radial-gradient(ellipse at center, #3fa06a 0%, #1f6b43 68%, #0f3d24 100%);
+  --wood: #6b3d1d;
+  --wood-dark: #4a2812;
+  --card-white: #fdfbf2;
+  --card-red: #d43a2f;
+  --gold: #ffd76a;
+  --text: #f2f7f2;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  background: var(--felt);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+}
+
+#app {
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 12px 16px 20px;
+}
+
+/* ── 顶栏 ── */
+#topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(74, 40, 18, 0.95), rgba(107, 61, 29, 0.9));
+  border: 2px solid rgba(255, 215, 106, 0.35);
+  border-radius: 14px;
+  padding: 10px 18px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.brand { font-size: 24px; font-weight: 800; letter-spacing: 3px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+#stats { font-size: 15px; color: var(--gold); font-weight: 700; background: rgba(0,0,0,0.35); padding: 5px 14px; border-radius: 20px; }
+
+/* ── 桌面中部 ── */
+#ai-area {
+  display: grid;
+  grid-template-columns: 1fr 1.7fr 1fr;
+  gap: 14px;
+  align-items: start;
+  margin-top: 16px;
+}
+.ai-card {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 14px 12px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(2px);
+}
+.ai-avatar { font-size: 30px; line-height: 1; margin-bottom: 4px; }
+.ai-name { font-weight: 800; font-size: 17px; }
+.ai-role { font-size: 13px; opacity: 0.9; margin: 3px 0 8px; min-height: 16px; font-weight: 600; }
+.ai-role.lord { color: var(--gold); }
+.ai-role.farmer { color: #b8f0d0; }
+.card-back {
+  display: inline-block;
+  width: 32px;
+  height: 45px;
+  background: repeating-linear-gradient(45deg, #7b3fd4, #7b3fd4 4px, #8f55e8 4px, #8f55e8 8px);
+  border: 2px solid #c9a6ff;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 41px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+}
+.ai-last { margin-top: 10px; min-height: 28px; font-size: 13px; }
+.ai-last .mini { display: inline-block; }
+
+.table-center { text-align: center; }
+#table-title {
+  font-size: 15px; letter-spacing: 6px; color: rgba(255,255,255,0.55);
+  margin-bottom: 4px; font-weight: 600;
+}
+#bottom-cards { min-height: 56px; margin-bottom: 6px; }
+#bottom-cards .mini { margin: 0 3px; transform: translateY(0); transition: transform .3s ease; }
+#bottom-cards.reveal .mini { animation: deal-in 0.4s ease both; }
+@keyframes deal-in { from { transform: translateY(-14px) scale(0.9); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+#last-play-box {
+  background: rgba(0, 0, 0, 0.32);
+  border-radius: 14px;
+  padding: 10px 8px;
+  min-height: 78px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+#last-player { font-size: 13px; opacity: 0.9; margin-bottom: 5px; }
+#last-play { min-height: 42px; }
+#last-play .mini { margin: 0 2px; animation: play-out 0.22s ease both; }
+@keyframes play-out { from { transform: translateY(10px) scale(0.9); opacity: 0.4; } to { transform: translateY(0) scale(1); opacity: 1; } }
+#turn-hint {
+  margin-top: 12px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--gold);
+  min-height: 26px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+}
+
+/* ── 玩家区 ── */
+#player-area { margin-top: 20px; text-align: center; }
+#player-info { margin-bottom: 10px; font-size: 16px; }
+#player-info span { margin: 0 8px; }
+#player-name { font-weight: 800; }
+#player-role { color: var(--gold); font-weight: 800; }
+#player-must-hint { color: #ff9d6a; font-weight: 700; }
+
+#player-hand {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 104px;
+  padding: 12px 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.card {
+  width: 64px;
+  height: 92px;
+  background: linear-gradient(160deg, #fffef8, var(--card-white) 60%, #f0e9d4);
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+  user-select: none;
+  position: relative;
+}
+.card:hover:not(.disabled) { transform: translateY(-8px); box-shadow: 0 10px 16px rgba(0,0,0,0.4); }
+.card .rank { font-size: 22px; font-weight: 900; line-height: 1; }
+.card .suit { font-size: 20px; line-height: 1; margin-top: 2px; }
+.card .corner { position: absolute; font-size: 11px; font-weight: 800; line-height: 1; }
+.card .corner.tl { top: 4px; left: 5px; }
+.card .corner.br { bottom: 4px; right: 5px; transform: rotate(180deg); }
+.card.red { color: var(--card-red); }
+.card.black { color: #1c2733; }
+.card.joker { color: var(--card-red); }
+.card.selected {
+  transform: translateY(-26px) scale(1.04);
+  box-shadow: 0 14px 22px rgba(0, 0, 0, 0.5), 0 0 0 3px var(--gold);
+}
+.card.disabled { cursor: default; opacity: 0.94; }
+.card.played { animation: play-out 0.25s ease both; }
+
+.mini {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 44px;
+  background: linear-gradient(160deg, #fffef8, var(--card-white) 60%, #f0e9d4);
+  border-radius: 6px;
+  margin: 1px;
+  padding: 2px 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+.mini.red { color: var(--card-red); }
+.mini.black { color: #1c2733; }
+.mini.back {
+  background: repeating-linear-gradient(45deg, #7b3fd4, #7b3fd4 3px, #8f55e8 3px, #8f55e8 6px);
+  border: 2px solid #c9a6ff;
+  color: transparent;
+}
+
+/* ── 叫地主区 ── */
+#bid-area {
+  margin-top: 14px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 215, 106, 0.35);
+  border-radius: 16px;
+  padding: 12px 14px 14px;
+  animation: bid-in 0.3s ease both;
+}
+@keyframes bid-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.hidden { display: none !important; }
+.bid-banner {
+  font-size: 20px; font-weight: 900; letter-spacing: 4px; color: var(--gold);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.6); margin-bottom: 10px;
+}
+.bid-buttons { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+#bid-log { margin-top: 10px; min-height: 20px; }
+.bid-item {
+  display: inline-block;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  margin: 3px 4px;
+  font-weight: 600;
+}
+
+/* ── 按钮 ── */
+#controls { margin-top: 16px; display: flex; justify-content: center; gap: 14px; }
+.btn {
+  min-width: 118px;
+  padding: 12px 24px;
+  font-size: 17px;
+  font-weight: 800;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.1s ease, opacity 0.1s ease, box-shadow 0.1s ease;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.35); }
+.btn:not(:disabled):active { transform: scale(0.96); }
+.btn.primary { background: linear-gradient(180deg, #ffe08a, var(--gold)); color: #5a3b00; }
+.btn { background: linear-gradient(180deg, #fff, #e8e2d2); color: #333; }
+.btn.ghost { background: rgba(255,255,255,0.16); color: #fff; border: 1px solid rgba(255,255,255,0.4); }
+.bid-btn { min-width: 96px; padding: 10px 18px; font-size: 16px; }
+
+/* ── 提示 ── */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(20, 20, 20, 0.9);
+  color: #fff;
+  padding: 11px 22px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  max-width: 82vw;
+  z-index: 99;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 720px) {
+  #ai-area { grid-template-columns: 1fr; gap: 8px; }
+  .card { width: 48px; height: 70px; }
+  .card .rank { font-size: 16px; }
+  .card .suit { font-size: 15px; }
+  .card .corner { font-size: 9px; }
+  .bid-buttons { gap: 8px; }
+  .bid-btn { min-width: 76px; padding: 9px 12px; font-size: 14px; }
+}

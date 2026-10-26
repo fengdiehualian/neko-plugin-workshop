@@ -1,0 +1,13 @@
+{
+  "plugin.name": "Neko Live Album",
+  "plugin.description": "A two-way Live Photo album that feels like a girlfriend: capture your catgirl's reactions with a shutter button, and she may ask to take a Live Photo of you with the front camera. Long-press any card to replay the moment. The album persists locally and supports sharing.",
+
+  "entry.album_guide.name": "Live Album Guide",
+  "entry.album_guide.description": "Explains how the Live Album works: how to photograph the catgirl, how to let her photograph you, and how to replay live moments. Call this when the user asks about the album or photo features.",
+  "entry.album_guide.text": "Open the Live Album panel: tap the catgirl's head to pet her; press \"Photograph her\" to capture a 2.5s reaction live clip; press \"She photographs you\" (or wait for her to shyly ask) and after consent she will use the front camera to take a live photo of you; long-press any photo in the album to replay the live moment.",
+
+  "entry.photo_react.name": "Generate Photo Reaction",
+  "entry.photo_react.description": "Returns a line the catgirl would say during a photo moment. scene options: shy (caught off guard), pose (striking a pose), happy (delighted), annoyed (playful complaint), compliment (praising the user after their photo).",
+  "entry.photo_react.param.scene": "Photo scene: shy/pose/happy/annoyed/compliment",
+  "entry.photo_react.error.invalid_scene": "Unknown scene, use shy/pose/happy/annoyed/compliment"
+}

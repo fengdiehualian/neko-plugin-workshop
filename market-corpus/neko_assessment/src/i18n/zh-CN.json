@@ -1,0 +1,20 @@
+{
+  "plugin.name": "心理测评室",
+  "plugin.description": "心理测评 · 人格测评 · 趣味测评合集：大五人格、16 型、职业兴趣、依恋类型、心理韧性，以及 PHQ-9 / GAD-7 / 孤独感等公开量表；本地计分、结果可追踪，数据只存本机。",
+  "panel.title": "心理测评室",
+  "panel.subtitle": "心理 · 人格 · 趣味测评合集，一题一屏，结果只存在你这台机器上",
+  "panel.tab.home": "量表",
+  "panel.tab.quiz": "答题",
+  "panel.tab.result": "结果",
+  "panel.tab.records": "记录",
+  "panel.tab.about": "关于",
+  "panel.search": "搜索量表名称或简介",
+  "panel.start": "选一份开始",
+  "panel.disclaimer": "这些测评只用于自我了解与反思，不是医学诊断，也不能替代心理咨询或治疗。",
+  "panel.copy": "复制结果",
+  "panel.share": "生成分享卡",
+  "panel.retake": "再测一次",
+  "panel.export": "导出（文本）",
+  "panel.clear": "清空全部",
+  "panel.empty_records": "还没有记录，去做一份量表吧。"
+}

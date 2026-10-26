@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check neko_perf_saver",
+      "type": "shell",
+      "command": "uv run neko-plugin check neko_perf_saver",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync neko_perf_saver",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync neko_perf_saver --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r neko_perf_saver",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r neko_perf_saver",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build neko_perf_saver",
+      "type": "shell",
+      "command": "uv run neko-plugin build neko_perf_saver",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

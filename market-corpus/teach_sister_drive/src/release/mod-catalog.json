@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "version": "0.1.0",
+  "app_id": "3950270",
+  "game_assembly_sha256": [
+    "cc64466730d46d9001f6efea823e56e0472e4b45770bf3a42368fc1792a7674b"
+  ],
+  "mod": {
+    "bundled_file": "release/NekoSisterDrive.dll",
+    "sha256": "94bc930c6e1f614b80474c0214003e17ccdeeec1b8316ca063a7faaddf33c9f5",
+    "size": 82432,
+    "urls": []
+  },
+  "loader": {
+    "bundled_file": "release/BepInEx_win_x64_5.4.23.2.zip",
+    "sha256": "f752ce4e838f4c305b9da1404b6745f2cff23b8bfd494f79f0c84d0a01f59b46",
+    "size": 637157,
+    "urls": [
+      "https://github.com/BepInEx/BepInEx/releases/download/v5.4.23.2/BepInEx_win_x64_5.4.23.2.zip"
+    ],
+    "files": [
+      ".doorstop_version",
+      "doorstop_config.ini",
+      "winhttp.dll",
+      "BepInEx/core/0Harmony.dll",
+      "BepInEx/core/0Harmony.xml",
+      "BepInEx/core/0Harmony20.dll",
+      "BepInEx/core/BepInEx.dll",
+      "BepInEx/core/BepInEx.Harmony.dll",
+      "BepInEx/core/BepInEx.Harmony.xml",
+      "BepInEx/core/BepInEx.Preloader.dll",
+      "BepInEx/core/BepInEx.Preloader.xml",
+      "BepInEx/core/BepInEx.xml",
+      "BepInEx/core/HarmonyXInterop.dll",
+      "BepInEx/core/Mono.Cecil.dll",
+      "BepInEx/core/Mono.Cecil.Mdb.dll",
+      "BepInEx/core/Mono.Cecil.Pdb.dll",
+      "BepInEx/core/Mono.Cecil.Rocks.dll",
+      "BepInEx/core/MonoMod.RuntimeDetour.dll",
+      "BepInEx/core/MonoMod.RuntimeDetour.xml",
+      "BepInEx/core/MonoMod.Utils.dll",
+      "BepInEx/core/MonoMod.Utils.xml"
+    ]
+  }
+}

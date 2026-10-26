@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Yui Lock</string>
+    <string name="title_status">运行状态</string>
+    <string name="title_settings">设置（修改后点“保存设置”，再重启服务生效）</string>
+    <string name="hint_port">端口（默认 48912）</string>
+    <string name="hint_token">配对令牌（扫电脑二维码可自动填写）</string>
+    <string name="btn_save">保存设置</string>
+    <string name="btn_admin">① 激活锁屏权限（设备管理器）</string>
+    <string name="btn_usage">② 授予使用情况访问权限（应用锁需要）</string>
+    <string name="btn_overlay">授予「显示悬浮窗」权限（Android 10+ 应用锁建议）</string>
+    <string name="btn_scan">③ 扫码配对（扫电脑上的二维码，自动填令牌）</string>
+    <string name="btn_start">④ 启动监听服务</string>
+    <string name="btn_stop">停止监听服务</string>
+    <string name="btn_test">测试锁屏</string>
+    <string name="btn_battery">忽略电池优化（保持后台常驻）</string>
+    <string name="btn_keep_alive">后台运行设置（防止被系统冻结）</string>
+    <string name="keep_alive_tip">防止被系统冻结（重要）：\n方法一（最简单）：打开多任务界面（后台卡片列表），把「Yui Lock」的卡片向下拉，出现小锁图标即锁定后台，系统就不再冻结它。\n方法二：点上面的「后台运行设置」按钮，在系统页面里允许自启动/后台运行/后台高耗电。\n方法三：点「忽略电池优化」。\n以上任一即可，建议方法一+方法二都做。</string>
+    <string name="admin_desc">允许 Yui 在电脑端触发锁屏。仅申请“锁定屏幕”一项权限，不会影响其他功能。</string>
+    <string name="help_text">使用方法：\n1. 手机和电脑连同一个 Wi-Fi（或蓝牙配对）。\n2. 完成上面 ①②③④ 四步。\n3. 电脑端运行 pair_qr.py 显示二维码，手机点「扫码配对」自动填好令牌。\n4. 之后 Yui 生气时就能锁你的手机屏幕，或开启应用锁：打开任何 App 都会被立刻弹回桌面，重启手机即解除，也可以由 Yui 解锁。</string>
+</resources>

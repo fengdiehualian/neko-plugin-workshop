@@ -1,0 +1,11 @@
+{
+  "image": "milkcap-expressions.png",
+  "frames": [
+    { "name": "idle", "x": 38, "y": 242, "width": 470, "height": 546 },
+    { "name": "impact", "x": 550, "y": 242, "width": 459, "height": 546 },
+    { "name": "rebound", "x": 1041, "y": 242, "width": 464, "height": 546 }
+  ],
+  "drawBox": { "x": -48, "y": -92, "width": 96, "height": 112 },
+  "pixelGrid": { "width": 48, "height": 56 },
+  "collisionRadius": 40
+}

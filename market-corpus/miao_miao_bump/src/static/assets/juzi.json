@@ -1,0 +1,11 @@
+{
+  "image": "juzi-expressions.png",
+  "frames": [
+    { "name": "idle", "x": 12, "y": 225, "width": 514, "height": 583 },
+    { "name": "impact", "x": 526, "y": 225, "width": 497, "height": 583 },
+    { "name": "rebound", "x": 1025, "y": 225, "width": 500, "height": 583 }
+  ],
+  "drawBox": { "x": -48, "y": -92, "width": 96, "height": 112 },
+  "pixelGrid": { "width": 48, "height": 56 },
+  "collisionRadius": 40
+}

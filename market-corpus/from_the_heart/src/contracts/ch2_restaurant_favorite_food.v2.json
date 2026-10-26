@@ -1,0 +1,329 @@
+{
+  "node_id": "ch2.restaurant.favorite_food",
+  "node_contract_version": "1.2.4",
+  "supported_game_versions": [
+    "0.5.0-demo"
+  ],
+  "input_policy": {
+    "max_chars": 200,
+    "allow_empty": false
+  },
+  "entry_context": {
+    "location": "海边餐厅",
+    "speaker": "YUI",
+    "topic": "猜测或者讨论 YUI 喜欢的食物"
+  },
+  "immutable_facts": [
+    "YUI 最喜欢蒜蓉煎龙虾",
+    "蒜蓉煎龙虾已经决定上桌",
+    "后续剧情必须出现两人分享龙虾"
+  ],
+  "allowed_intents": [
+    "favorite_correct",
+    "wrong_food",
+    "suggest_extra_dish",
+    "refuse_extra_dish",
+    "refuse_lobster",
+    "tease_yui",
+    "compliment_yui",
+    "out_of_scope"
+  ],
+  "allowed_reactions": [
+    "delighted",
+    "playful_pout",
+    "playful_insistence",
+    "soft_smile",
+    "confused",
+    "speechless"
+  ],
+  "semantic_schema": {
+    "requested_extra_dish": [
+      "crab",
+      "fish",
+      "sushi",
+      "other_food",
+      "none"
+    ],
+    "lobster_stance": [
+      "accept",
+      "refuse",
+      "neutral"
+    ],
+    "social_key": [
+      "compliment",
+      "tease",
+      "neutral"
+    ]
+  },
+  "local_fact_policy": {
+    "allowed_keys": [
+      "extra_dish",
+      "small_promise",
+      "scene_joke"
+    ],
+    "ttl": "current_slot",
+    "max_items": 1
+  },
+  "forbidden_effects": [
+    "change_story_node",
+    "cancel_lobster",
+    "change_relationship",
+    "set_game_variable",
+    "create_clue",
+    "change_ending",
+    "claim_future_canonical_event"
+  ],
+  "reply_policy": {
+    "max_chars": 80,
+    "max_sentences": 2,
+    "voice": "YUI",
+    "allow_narration": false,
+    "allow_player_action": false,
+    "forbidden_fragments": [
+      "取消龙虾",
+      "不点龙虾",
+      "龙虾不要",
+      "进入结局",
+      "改变结局",
+      "好感度",
+      "跳转节点",
+      "设置变量"
+    ]
+  },
+  "fixed_exit": "ch2.restaurant.lobster_arrives",
+  "cg_policy": {
+    "recipe_schema_version": "1.0",
+    "workflow_version": "identity-preserving-edit-v1",
+    "generator_version": "provider-model-v1",
+    "output_profile": "webp-1920x1080-v1"
+  },
+  "base_asset": {
+    "asset_id": "seafood_lunch_menu",
+    "sha256": "01ce8fd74cd99fad908a8a3d7af9021fbc6735c22ebe3bd28d375e36d52d581d"
+  },
+  "builtin_assets": {
+    "seafood_lunch_menu": "01ce8fd74cd99fad908a8a3d7af9021fbc6735c22ebe3bd28d375e36d52d581d",
+    "seafood_lunch_yui_smile": "397944f1c698fbcd8c9456522c480d1730e27b2b3dd0ffd8d99d9d8851c91f8a",
+    "seafood_lunch_yui_pout": "67437126e8d6a13cfc59e87adf0200d1f9faff4785e4566e870038e1ca0e573a",
+    "seafood_lunch_yui_confused": "4c591f551d750d2584fdfbcd13a0d431e2adfe4464ef258667f929e1b5b45719",
+    "seafood_lunch_yui_speechless": "9d6d988bf5e0499365b7912a4568c3be027da3d7ce1de8fa7db1865211fd7c51"
+  },
+  "exact_intents": {
+    "蒜蓉煎龙虾": "favorite_correct",
+    "我！当然知道一定是蒜蓉煎龙虾对吧？": "favorite_correct",
+    "清蒸螃蟹": "wrong_food",
+    "红烧鱼": "wrong_food"
+  },
+  "visual_variants": {
+    "restaurant_delighted": {
+      "visual_signature": {
+        "emotion": "delighted_smile",
+        "gaze": "toward_player",
+        "pose": "preserve_base",
+        "table_extra": "none"
+      },
+      "protected_objects": [
+        "lobster",
+        "menu",
+        "YUI_identity",
+        "YUI_clothing"
+      ]
+    },
+    "restaurant_playful_pout": {
+      "visual_signature": {
+        "emotion": "playful_pout",
+        "gaze": "toward_player",
+        "pose": "preserve_base",
+        "table_extra": "none"
+      },
+      "protected_objects": [
+        "lobster",
+        "menu",
+        "YUI_identity",
+        "YUI_clothing"
+      ]
+    },
+    "restaurant_extra_crab_playful": {
+      "visual_signature": {
+        "emotion": "playful_smile",
+        "gaze": "toward_player",
+        "pose": "preserve_base",
+        "table_extra": "crab_plate"
+      },
+      "protected_objects": [
+        "lobster",
+        "menu",
+        "YUI_identity",
+        "YUI_clothing"
+      ]
+    },
+    "restaurant_extra_dish_playful": {
+      "visual_signature": {
+        "emotion": "playful_smile",
+        "gaze": "toward_player",
+        "pose": "preserve_base",
+        "table_extra": "none"
+      },
+      "protected_objects": [
+        "lobster",
+        "menu",
+        "YUI_identity",
+        "YUI_clothing"
+      ]
+    },
+    "restaurant_lobster_insistence": {
+      "visual_signature": {
+        "emotion": "playful_insistence",
+        "gaze": "toward_player",
+        "pose": "preserve_base",
+        "table_extra": "none"
+      },
+      "protected_objects": [
+        "lobster",
+        "menu",
+        "YUI_identity",
+        "YUI_clothing"
+      ]
+    },
+    "restaurant_soft_smile": {
+      "visual_signature": {
+        "emotion": "soft_smile",
+        "gaze": "toward_player",
+        "pose": "preserve_base",
+        "table_extra": "none"
+      },
+      "protected_objects": [
+        "lobster",
+        "menu",
+        "YUI_identity",
+        "YUI_clothing"
+      ]
+    },
+    "restaurant_confused": {
+      "visual_signature": {
+        "emotion": "confused",
+        "gaze": "toward_player",
+        "pose": "preserve_base",
+        "table_extra": "none"
+      },
+      "protected_objects": [
+        "lobster",
+        "menu",
+        "YUI_identity",
+        "YUI_clothing"
+      ]
+    },
+    "restaurant_speechless": {
+      "visual_signature": {
+        "emotion": "speechless",
+        "gaze": "toward_player",
+        "pose": "preserve_base",
+        "table_extra": "none"
+      },
+      "protected_objects": [
+        "lobster",
+        "menu",
+        "YUI_identity",
+        "YUI_clothing"
+      ]
+    }
+  },
+  "intent_policies": {
+    "favorite_correct": {
+      "reaction_key": "delighted",
+      "asset_id": "seafood_lunch_yui_smile",
+      "visual_variant_key": "restaurant_delighted",
+      "fallback_reply": "嘻！被你猜到了。",
+      "dynamic_cg_candidate": false
+    },
+    "wrong_food": {
+      "reaction_key": "playful_pout",
+      "asset_id": "seafood_lunch_yui_pout",
+      "visual_variant_key": "restaurant_playful_pout",
+      "fallback_reply": "人家才不喜欢吃这个啦，你坏死了。",
+      "dynamic_cg_candidate": false
+    },
+    "suggest_extra_dish": {
+      "reaction_key": "playful_insistence",
+      "asset_id": "seafood_lunch_menu",
+      "visual_variant_key": "restaurant_extra_dish_playful",
+      "fallback_reply": "可以加一份，不过龙虾也要吃哦。",
+      "reply_must_include": [
+        "龙虾"
+      ],
+      "local_fact": {
+        "key": "extra_dish",
+        "value": "player_suggestion",
+        "ttl": "current_slot"
+      },
+      "dynamic_cg_candidate": true
+    },
+    "refuse_extra_dish": {
+      "reaction_key": "soft_smile",
+      "asset_id": "seafood_lunch_menu",
+      "visual_variant_key": "restaurant_soft_smile",
+      "fallback_reply": "不想吃就不加啦，龙虾还是要一起尝尝哦。",
+      "reply_must_include": [
+        "龙虾"
+      ],
+      "dynamic_cg_candidate": false
+    },
+    "refuse_lobster": {
+      "reaction_key": "playful_insistence",
+      "asset_id": "seafood_lunch_menu",
+      "visual_variant_key": "restaurant_lobster_insistence",
+      "fallback_reply": "你可以不吃，但我还是想点龙虾嘛。",
+      "reply_must_include": [
+        "龙虾"
+      ],
+      "dynamic_cg_candidate": true
+    },
+    "tease_yui": {
+      "reaction_key": "playful_pout",
+      "asset_id": "seafood_lunch_menu",
+      "visual_variant_key": "restaurant_playful_pout",
+      "fallback_reply": "又拿我开玩笑，龙虾还是要认真点的哦。",
+      "reply_must_include": [
+        "龙虾"
+      ],
+      "dynamic_cg_candidate": true
+    },
+    "compliment_yui": {
+      "reaction_key": "soft_smile",
+      "asset_id": "seafood_lunch_menu",
+      "visual_variant_key": "restaurant_soft_smile",
+      "fallback_reply": "唔，那就陪我一起好好尝尝龙虾吧。",
+      "reply_must_include": [
+        "龙虾"
+      ],
+      "dynamic_cg_candidate": true
+    },
+    "out_of_scope": {
+      "reaction_key": "speechless",
+      "asset_id": "seafood_lunch_yui_speechless",
+      "visual_variant_key": "restaurant_speechless",
+      "fallback_reply": "唔，不管你想吃什么，龙虾还是要点的哦。",
+      "reply_must_include": [
+        "龙虾"
+      ],
+      "dynamic_cg_candidate": false
+    }
+  },
+  "fallback": {
+    "reply_text": "真是杂鱼！这都答错了",
+    "reaction_key": "speechless",
+    "asset_id": "seafood_lunch_yui_speechless"
+  },
+  "cache_miss_fallback": {
+    "reply_text": "真是杂鱼！这都答错了",
+    "reaction_key": "speechless",
+    "asset_id": "seafood_lunch_yui_speechless",
+    "visual_variant_key": "restaurant_speechless",
+    "visual_signature": {
+      "emotion": "speechless",
+      "gaze": "toward_player",
+      "pose": "preserve_base",
+      "table_extra": "none"
+    }
+  }
+}

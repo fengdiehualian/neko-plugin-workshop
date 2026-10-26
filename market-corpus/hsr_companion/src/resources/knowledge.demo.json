@@ -1,0 +1,159 @@
+{
+  "meta": {
+    "catalog_id": "hsr-companion-demo-catalog",
+    "schema_version": 1,
+    "data_revision": "demo-2026-09-28",
+    "game_version": "unverified-demo-sample",
+    "verification_status": "demo_unverified",
+    "generated_at": "2026-09-28",
+    "notice": "仅用于验证检索、来源回传、玩家语境和陪伴闭环；上线前必须按当前游戏版本逐条复核。"
+  },
+  "records": [
+    {
+      "id": "character.himeko",
+      "category": "character",
+      "name": "姬子",
+      "aliases": ["Himeko"],
+      "summary": "火属性、智识命途的输出角色。Demo 分析把她视为输出位，并保留追击相关标签供后续规则使用。",
+      "tags": ["火", "智识", "输出", "追击"],
+      "analysis_tags": {"roles": ["damage"], "mechanics": ["follow_up"]},
+      "source_refs": ["official_hoyolab_hsr_wiki", "official_hsr_site"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "character.asta",
+      "category": "character",
+      "name": "艾丝妲",
+      "aliases": ["Asta"],
+      "summary": "火属性、同谐命途的辅助角色。Demo 分析仅使用其辅助、速度与攻击增益标签。",
+      "tags": ["火", "同谐", "辅助", "速度", "攻击增益"],
+      "analysis_tags": {"roles": ["support"], "mechanics": ["speed_buff", "attack_buff"]},
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "character.natasha",
+      "category": "character",
+      "name": "娜塔莎",
+      "aliases": ["Natasha"],
+      "summary": "物理属性、丰饶命途的治疗角色。Demo 分析把她视为生存位。",
+      "tags": ["物理", "丰饶", "治疗", "生存"],
+      "analysis_tags": {"roles": ["sustain"], "mechanics": ["healing"]},
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "character.dan_heng",
+      "category": "character",
+      "name": "丹恒",
+      "aliases": ["Dan Heng", "丹恒·巡猎"],
+      "summary": "风属性、巡猎命途的输出角色。Demo 分析把他视为输出位，并记录减速相关标签。",
+      "tags": ["风", "巡猎", "输出", "减速"],
+      "analysis_tags": {"roles": ["damage"], "mechanics": ["slow"]},
+      "source_refs": ["official_hoyolab_hsr_wiki", "official_hsr_site"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "character.pela",
+      "category": "character",
+      "name": "佩拉",
+      "aliases": ["Pela"],
+      "summary": "冰属性、虚无命途的辅助角色。Demo 分析仅使用其辅助和防御降低标签。",
+      "tags": ["冰", "虚无", "辅助", "防御降低"],
+      "analysis_tags": {"roles": ["support"], "mechanics": ["defense_reduction"]},
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "light_cone.night_on_the_milky_way",
+      "category": "light_cone",
+      "name": "银河铁道之夜",
+      "aliases": ["Night on the Milky Way"],
+      "summary": "智识命途光锥。具体数值和适配结论在正式数据接入前必须按当前版本复核。",
+      "tags": ["智识", "光锥"],
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "light_cone.planetary_rendezvous",
+      "category": "light_cone",
+      "name": "与行星相会",
+      "aliases": ["Planetary Rendezvous"],
+      "summary": "同谐命途光锥。Demo 不包含效果数值，以避免未校验版本信息被误用。",
+      "tags": ["同谐", "光锥"],
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "light_cone.quid_pro_quo",
+      "category": "light_cone",
+      "name": "等价交换",
+      "aliases": ["Quid Pro Quo"],
+      "summary": "丰饶命途光锥。Demo 仅记录分类，不提供未经版本校验的数值建议。",
+      "tags": ["丰饶", "光锥"],
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "relic.firesmith_of_lava_forging",
+      "category": "relic",
+      "name": "熔岩锻铸的火匠",
+      "aliases": ["Firesmith of Lava-Forging"],
+      "summary": "与火属性输出相关的遗器套装。Demo 不提供套装数值或唯一配装结论。",
+      "tags": ["遗器", "火属性", "输出"],
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "relic.eagle_of_twilight_line",
+      "category": "relic",
+      "name": "晨昏交界的翔鹰",
+      "aliases": ["Eagle of Twilight Line"],
+      "summary": "与风属性相关的遗器套装。Demo 不提供套装数值或唯一配装结论。",
+      "tags": ["遗器", "风属性"],
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "relic.passerby_of_wandering_cloud",
+      "category": "relic",
+      "name": "云无留迹的过客",
+      "aliases": ["Passerby of Wandering Cloud"],
+      "summary": "与治疗角色相关的遗器套装。Demo 不提供套装数值或唯一配装结论。",
+      "tags": ["遗器", "治疗"],
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "mechanic.weakness_break",
+      "category": "mechanic",
+      "name": "弱点击破",
+      "aliases": ["击破", "Weakness Break"],
+      "summary": "攻击与敌方弱点相符时可削减韧性，并在韧性耗尽后触发击破相关效果。细节需结合属性与当前版本复核。",
+      "tags": ["战斗机制", "韧性", "弱点"],
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "mechanic.speed_and_action_order",
+      "category": "mechanic",
+      "name": "速度与行动顺序",
+      "aliases": ["速度轴", "行动顺序", "Speed"],
+      "summary": "速度会影响战斗中的行动节奏；严谨配速需要结合角色、增益、行动提前与具体玩法计算。",
+      "tags": ["战斗机制", "速度", "行动顺序"],
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    },
+    {
+      "id": "game_mode.forgotten_hall",
+      "category": "game_mode",
+      "name": "忘却之庭",
+      "aliases": ["Forgotten Hall"],
+      "summary": "以阶段挑战为核心的玩法。关卡规则、轮次与奖励会随内容调整，Demo 不缓存实时轮换信息。",
+      "tags": ["玩法", "高难", "队伍"],
+      "source_refs": ["official_hoyolab_hsr_wiki"],
+      "verification_status": "demo_unverified"
+    }
+  ]
+}
+

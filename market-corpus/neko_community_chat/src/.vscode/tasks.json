@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check neko_community_chat",
+      "type": "shell",
+      "command": "uv run neko-plugin check neko_community_chat",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync neko_community_chat",
+      "type": "shell",
+      "command": "uv run neko-plugin sync neko_community_chat --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r neko_community_chat",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r neko_community_chat",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build neko_community_chat",
+      "type": "shell",
+      "command": "uv run neko-plugin build neko_community_chat",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

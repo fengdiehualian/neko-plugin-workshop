@@ -1,0 +1,65 @@
+[plugin]
+name = "自然语言命令"
+description = "用 /自然语言 触发本机动作：AI 先在命令库里语义匹配，命中即执行；未命中且开启自动创建时，会生成一条新命令并长期保存。支持文本回复与 shell 系统命令，并对命令做无害 / 无法判定 / 有害三档安全审查——只有可能危害设备的命令需要 /su 提权后执行。"
+short_description = "Run PC actions with /natural-language commands: semantic matching, optional auto-creation, and a three-tier safety audit over reply/shell commands."
+keywords = ["命令", "command", "自然语言", "natural", "自定义", "custom", "路由", "router", "AI", "动态", "dynamic", "安全审查", "security", "权限", "permission", "自动化", "automation", "コマンド", "自然言語", "명령", "자연어"]
+version = "0.7.0"
+type = "plugin"
+id = "neko_natural_command"
+entry = "plugin.plugins.neko_natural_command:NaturalCommandPlugin"
+
+[plugin.author]
+name = "MENGYAOYUE"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.store]
+enabled = true
+
+[neko_natural_command]
+# 管理员密码（必填）。未设置或为空时，所有需要 admin 权限的入口直接拒绝执行。
+# 切换管理员权限使用 /su <密码>。
+admin_password = "CHANGE_ME"
+# AI 未匹配到命令时是否允许自动创建新命令（含 shell 类型，等于让 AI 自行给主机执行任意命令）
+auto_create = true
+# 启动时是否自动清理本插件命令库里的垃圾脏数据（占位/空壳命令、重复命令、无效/损坏条目）
+auto_clean = true
+# 自动创建的新命令默认权限：user 普通用户可触发 / admin 仅管理员可触发
+default_permission = "user"
+# 自动创建的新命令默认类型：reply 文本回复 / shell 系统命令
+default_type = "reply"
+# AI 匹配调用大模型超时（秒）
+llm_timeout = 20
+# shell 查询类命令最长等待时间（秒），超时判定失败；输出超过 4000 字符自动截断
+shell_timeout = 30
+# 单次网络请求 / 跨插件调用超时（秒）
+request_timeout = 20
+# 浏览器类跨插件调用单次超时（秒），10-300；浏览器冷启动/渲染慢，单独放宽
+browser_timeout = 60
+# /调用 直调其它插件能力的权限门槛：user（默认，谁都能直调）/ admin（需先 /su 提权）
+direct_call_permission = "user"
+# 深度搜索总开关，默认关闭；需要时改成 true 才启用（代码保留，默认不向 AI 暴露）
+deep_search_enabled = false
+# AI 回复署名用的猫娘名字
+catgirl_name = "猫娘"
+
+# ── 面板声明：宿主插件管理里才会出现「打开界面」入口 ──────────
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "自然语言命令 · 管理面板"
+entry = "static/index.html"
+context = "neko_natural_command"
+permissions = ["state:read", "action:call"]

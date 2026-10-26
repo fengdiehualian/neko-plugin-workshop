@@ -1,0 +1,27 @@
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[database]
+driver = "sqlite"
+
+[database.sqlite]
+path = ""
+vec0_path = ""
+require_vec0 = false
+
+[database.postgres]
+dsn = ""
+min_size = 1
+max_size = 5
+connect_timeout = 10
+
+[database.mysql]
+dsn = ""
+min_size = 1
+max_size = 5
+connect_timeout = 10
+
+[database.mongo]
+uri = ""
+database = ""

@@ -1,0 +1,22 @@
+[project]
+name = "better_web_search"
+version = "1.0.0"
+# Intentionally empty: this plugin is stdlib-only so the distributed package
+# needs no vendor/ tree. See README.
+dependencies = []
+
+[tool.neko.build]
+# These rules run at the staging *copy*, so they cannot stop __pycache__: the
+# entry-metadata probe imports the already-staged copy and writes bytecode
+# next to it, after the copy and before the zip. PYTHONDONTWRITEBYTECODE=1 is
+# what keeps .pyc out; the entries below only name the hazard explicitly.
+exclude_dirs = ["__pycache__", ".pytest_cache", ".ruff_cache",
+                # tests/ is 16 tracked files / ~180 KB of test input, of which the
+                # scraped bing-baidu-ddg HTML fixtures are 5 files / 4 KB -- none
+                # is runtime payload. tests/ stays in the git repo (neko-plugin
+                # validate wants tests/test_smoke.py present).
+                "tests"]
+exclude_files = ["*.pyc", "*.pyo"]
+# Per-work-package construction plans are internal; docs/quickstart.md must
+# survive because [[plugin.ui.guide]] entry points at it.
+exclude = ["docs/plan-*.md"]

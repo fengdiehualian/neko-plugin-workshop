@@ -1,0 +1,45 @@
+[plugin]
+id = "yuilock"
+name = "Yui 手机/电脑锁"
+description = "让 Yui 可以惩罚主人：锁手机（熄屏/应用锁）或锁电脑（打开任何程序立即弹回桌面，N.E.K.O. 不受影响）。lock_phone / lock_pc 等工具由 Yui 自主决定何时调用；电脑可用秘密按键组合解锁（不提示），重启即解锁。"
+short_description = "Yui 生气时可以锁主人的手机和电脑"
+keywords = ["手机", "锁屏", "锁机", "应用锁", "锁电脑", "惩罚", "生气", "phone", "lock", "pc"]
+version = "1.6.3"
+entry = "plugins.yuilock:YuiLockPlugin"
+
+[plugin.author]
+name = "Yui Lock"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "Yui 手机/电脑锁"
+entry = "ui/panel.tsx"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+# 手机端 Yui Lock App 的连接配置
+[yuilock]
+# auto = UDP 广播自动发现手机；也可固定填手机 IP
+host = "auto"
+port = 48912
+# 必须和手机 App 里显示的配对令牌一致（App 留空则不校验）
+# 本地已按你的手机填好；此文件不要提交（或提交前改回空值）
+token = ""
+# auto=先局域网后蓝牙；lan=仅局域网；bt=仅蓝牙
+transport = "auto"
+# 蓝牙通道用：手机在 Windows 蓝牙里的名字（留空=用第一个已配对 SPP 设备）
+bt_device_name = ""
+# 锁电脑时额外放行的程序完整路径列表（只有这里列出的路径会额外放行，同目录程序不会自动信任；
+# N.E.K.O. 前端本体如被误关，把它的 exe 完整路径加进来；锁进程自身的解释器已自动放行）
+pc_allow = []

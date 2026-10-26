@@ -1,0 +1,9 @@
+[project]
+name = "moneta-fx"
+version = "1.0.0"
+description = "N.E.K.O 插件：MONETA FX 虚构外汇模拟交易室，共享市场、市价/限价/突破单、保证金与强平、隔夜费、K 线图与账户分析"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "baixiangyuan" }]
+dependencies = []

@@ -1,0 +1,41 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>猫粮</title><link rel="stylesheet" href="/widget.css"><link rel="stylesheet" href="/chase.css">
+<main id="companion"><div id="recordBar"><span id="recordCounts" role="status">读取记录中…</span></div><section id="historyPanel" aria-label="陪伴日记" hidden><header><div><small id="diaryDate">今天</small><h2>今天的陪伴</h2></div><button id="closeHistory" type="button">返回</button></header><div id="diaryStats" class="diaryStats"><article><strong id="diaryDuration">—</strong><span>陪伴时长</span></article><article><strong id="diaryPets">—</strong><span>摸头</span></article><article><strong id="diaryAsks">—</strong><span>查看猫粮</span></article></div><p id="diaryCoverage" class="diaryNote"></p><div id="diaryTimeline" role="list"></div><p id="diaryStatus" role="status"></p><details id="diaryTechnical"><summary>记录详情与记忆同步</summary><p id="historyTotals"></p><p id="memoryStatus"></p><button id="historyRetry" type="button">重试写入 YUI 记忆</button><div id="historyRows"></div><div id="diaryDeliveries"></div></details></section><div id="pet">
+<button id="thought" aria-label="切换猫粮余额和空闲时间，右键打开额度设置" aria-haspopup="menu" aria-controls="quotaMenu" aria-describedby="quotaPeek" aria-expanded="false" title="右键打开猫粮额度设置"><div id="readout"><div class="title" id="heading">猫粮余额</div><div id="amount">未连接</div><div id="detail"></div><span id="staleMark" aria-label="上次数据" hidden>◷</span></div><div id="quip" hidden></div></button>
+<div id="foodBags" role="group" aria-label="可拖动的猫粮袋" hidden></div>
+<aside id="quotaPeek" role="tooltip" hidden></aside><i class="dot one"></i><i class="dot two"></i>
+<span id="returnSpot" aria-hidden="true"></span>
+
+
+<button id="character" aria-label="摸摸猫娘，按住拖动，右键打开人物设置" aria-haspopup="menu" aria-controls="menu" aria-expanded="false"><span id="rhythmPose"><span id="quotaPose"><img class="yuiPortrait" src="/yui-chibi.png" draggable="false" alt="YUI，同素材 Q 版画风、动作和表情"><svg id="faceMood" viewBox="0 0 1000 1000" aria-hidden="true"><defs><linearGradient id="gloomShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#292f50" stop-opacity=".9"/><stop offset=".42" stop-color="#3b4269" stop-opacity=".76"/><stop offset="1" stop-color="#62678b" stop-opacity="0"/></linearGradient></defs><path class="mood-shadow" fill="url(#gloomShade)" d="M352 553 L430 475 L438 562 L585 580 L641 483 L671 551 L731 594 C729 652 713 701 650 728 L636 744 Q668 755 688 750 Q642 788 566 778 C457 776 375 746 330 705 C301 675 304 641 327 626 L347 616 Z"/><path class="mood-lines" d="M370 577v29 M383 575v34 M396 574v24 M682 603v24 M695 608v30" fill="none" stroke="#303758" stroke-width="4" stroke-linecap="round"/><path class="mood-mouth" d="M505 733 Q530 718 555 737" fill="none" stroke="#353b63" stroke-width="4" stroke-linecap="round"/></svg><img id="catForm" src="/chase/neko-white-cat-idle.gif" alt="N.E.K.O 原版小白猫" draggable="false"></span></span></button>
+<span id="agentStatus" role="status">正在查看 Agent 状态</span><span id="connection" role="status"></span>
+</div><section id="rhythmPanel" aria-label="随音乐跳动" hidden><header><strong>随音乐跳动</strong><button id="rhythmClose" aria-label="收起跟拍设置">×</button></header><p id="rhythmStatus" role="status">开启后，在本机识别播放器的节拍喵～</p><button id="rhythmToggle">开始听音乐</button><label for="rhythmStrength">跳动幅度</label><input id="rhythmStrength" type="range" min="0" max="1" step="0.05" value="0.65"><details><summary>手动校准</summary><label for="rhythmBpm">BPM</label><input id="rhythmBpm" type="number" min="40" max="200" value="120"><button id="rhythmManual">按此速度试跳</button><button id="rhythmAuto">恢复自动识别</button></details><p class="rhythmNote">仅本机分析，不保存或上传声音。首次开启需允许 macOS 屏幕与系统音频录制。</p></section><section id="accountPanel" hidden></section><section id="outfitPanel" aria-label="YUI 模型衣柜" hidden><header><h2>YUI 的模型衣柜</h2><button id="closeOutfits" type="button">返回</button></header><label for="outfitFollow">换装方式</label><select id="outfitFollow"><option value="auto">跟随工作 Agent，空闲跟随气泡模型</option><option value="profile">始终跟随气泡模型</option><option value="fixed">穿固定服装</option></select><p id="outfitContext" role="status"></p><div id="outfitChoices"></div><p class="wardrobeNote">点选服装可以固定穿着；选择自动跟随即可恢复随模型换装。</p></section></main>
+<nav id="quotaMenu" class="contextMenu" role="menu" aria-label="猫粮额度设置" hidden>
+ <h2>猫粮额度设置</h2>
+ <section class="menuGroup" role="group" aria-label="账户与数据"><h3>账户与数据</h3>
+  <button id="settings" role="menuitem" type="button">监测方式与额度设置</button>
+  <button id="topupOpen" role="menuitem" type="button">补充猫粮</button>
+  <button id="careOpen" role="menuitem" type="button">YUI 低猫粮提醒</button>
+  <button id="refreshNow" role="menuitem" type="button">刷新额度数据</button>
+ </section>
+</nav>
+<nav id="menu" class="contextMenu" role="menu" aria-label="YUI 人物设置" hidden>
+ <h2>YUI 人物设置</h2>
+ <button id="exitRecord" role="menuitem" type="button" hidden>退出猫粮监控</button>
+ <section class="menuGroup" role="group" aria-label="互动与外观"><h3>互动与外观</h3>
+  <button id="outfitToggle" role="menuitem" type="button">YUI 换装</button>
+  <button id="bubbleVisibilityToggle" role="menuitemcheckbox" type="button" aria-controls="thought" aria-checked="true" disabled>显示猫粮气泡</button>
+  <button id="characterSettings" role="menuitem" type="button">猫粮额度设置</button>
+ </section>
+ <section class="menuGroup" role="group" aria-label="跳动与追逐"><h3>跳动与追逐</h3>
+  <button id="quotaAnimationToggle" role="menuitem" type="button">暂停晃动与追逐</button>
+  <button id="chaseGameOpen" role="menuitem" type="button">饥饿追逐设置</button>
+  <button id="rhythmOpen" role="menuitem" type="button">随音乐跳动</button>
+ </section>
+ <section class="menuGroup" role="group" aria-label="记录与记忆"><h3>记录与记忆</h3>
+  <button id="recordVisibilityToggle" role="menuitemcheckbox" type="button" aria-controls="recordBar" aria-checked="true">显示互动记录栏</button>
+  <button id="historyToggle" role="menuitem" type="button">陪伴日记</button>
+  <button id="retryMemory" role="menuitem" type="button">重试写入 YUI 记忆</button>
+ </section>
+</nav>
+<section id="carePanel" class="playSettings" aria-label="YUI 猫粮提醒与任务反馈" hidden><header><h2>有分寸地陪着你</h2><button id="careClose" type="button">返回</button></header><label><input id="careEnabled" type="checkbox" checked> 关闭监测窗口后也留意猫粮</label><p class="carePolicy">同一档额度只提醒一次；降到 25%、10% 和见底时再提醒。没有总额度时，沿用你设置的低余额阈值。</p><div id="careNotices"></div><label><input id="taskFeedback" type="checkbox" checked> 任务明确完成时举一下小牌子</label><p class="carePolicy">默认不出声，也不抢焦点。目前读取 N.E.K.O 的明确完成状态；应用空闲和角色姿态不算完成。</p><details><summary>语音与角色设置</summary><label><input id="careVoice" type="checkbox" checked> 低猫粮提醒和追逐喊话使用原版 YUI 语音</label><label for="careCharacter">原程序中的 YUI 角色名</label><input id="careCharacter" type="text" maxlength="80" value="YUI"><p>任务小牌子始终静音。原版语音是否出声取决于 NEKO 的当前语音设置喵～</p></details><button id="careSave" type="button">保存陪伴设置</button><p id="careStatus" role="status"></p></section><section id="chaseGamePanel" class="playSettings" aria-label="饥饿追逐设置" hidden><header><h2>饥饿追逐</h2><button id="chaseGameClose" type="button">返回</button></header><p>抓住奔跑中的小白猫，拖回原站位，YUI 就会恢复精神喵～</p><label for="hungerInterval">恢复后多久再次饥饿（秒）</label><input id="hungerInterval" type="number" min="5" max="3600" step="1" value="60"><p>额度低于 10% 时，到时间会再次追逐。抱回小猫不会改变实际额度；调整间隔后重新计时喵～</p><button id="chaseGameSave" type="button">保存间隔</button><p id="chaseGameStatus" role="status"></p></section>
+<link rel="stylesheet" href="/quiet.css"><link rel="stylesheet" href="/settings.css"><script src="/quota-mood.js"></script><script src="/quota-display.js"></script><link rel="stylesheet" href="/food-bags.css"><script src="/food-bags.js"></script><script src="/topup.js"></script><script src="/settings.js"></script><script src="/outfits.js"></script><script src="/widget.js"></script><script src="/chase-game.js"></script><script src="/chase-play.js"></script><script src="/care.js"></script><script src="/quiet.js"></script><script src="/diary.js"></script><script src="/chase-motion.js"></script><script src="/whale-clips.js"></script><script src="/whale-animation.js"></script><script src="/chase-stage.js"></script><script src="/quota-reactions.js"></script><script src="/rhythm-motion.js"></script><script src="/rhythm.js"></script></html>

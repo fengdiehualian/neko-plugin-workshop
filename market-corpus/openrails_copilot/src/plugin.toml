@@ -1,0 +1,25 @@
+[plugin]
+id = "openrails_copilot"
+name = "Open Rails 副驾驶"
+description = "实时监控 Open Rails 火车模拟器，智能检测超速、信号违规、制动异常等 36 种驾驶事件，让 AI 伙伴成为你的副驾驶"
+short_description = "Real-time Open Rails train simulator monitoring with intelligent event detection and AI-powered copilot alerts."
+keywords = ["(?i)open.?rails", "火车", "(?i)train", "模拟器", "(?i)simulator", "铁路", "(?i)railway", "驾驶", "(?i)driving", "监控", "(?i)monitor"]
+version = "1.0.0"
+entry = "plugin.plugins.openrails_copilot:OpenRailsCopilotPlugin"
+
+[plugin.author]
+name = "N.E.K.O Community"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.store]
+enabled = false

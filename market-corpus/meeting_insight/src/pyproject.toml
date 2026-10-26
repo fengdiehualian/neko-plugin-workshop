@@ -1,0 +1,4 @@
+[project]
+name = "meeting_insight"
+version = "0.1.0"
+dependencies = []

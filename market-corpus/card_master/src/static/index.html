@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>斗地主 · 卡牌大师</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="brand">🃏 斗地主</div>
+    <div id="stats"></div>
+  </header>
+
+  <section id="ai-area">
+    <div class="ai-card" id="ai-right">
+      <div class="ai-avatar">🤖</div>
+      <div class="ai-name" id="ai-right-name">YUI_右</div>
+      <div class="ai-role" id="ai-right-role"></div>
+      <div class="ai-cards"><span class="card-back" id="ai-right-count"></span></div>
+      <div class="ai-last" id="ai-right-last"></div>
+    </div>
+    <div class="table-center">
+      <div id="table-title">欢乐斗地主</div>
+      <div id="bottom-cards"></div>
+      <div id="last-play-box">
+        <div id="last-player"></div>
+        <div id="last-play"></div>
+      </div>
+      <div id="turn-hint"></div>
+    </div>
+    <div class="ai-card" id="ai-left">
+      <div class="ai-avatar">🤖</div>
+      <div class="ai-name" id="ai-left-name">YUI_左</div>
+      <div class="ai-role" id="ai-left-role"></div>
+      <div class="ai-cards"><span class="card-back" id="ai-left-count"></span></div>
+      <div class="ai-last" id="ai-left-last"></div>
+    </div>
+  </section>
+
+  <section id="player-area">
+    <div id="player-info">
+      <span id="player-name">你</span>
+      <span id="player-role"></span>
+      <span id="player-must-hint"></span>
+    </div>
+    <div id="player-hand"></div>
+  </section>
+
+  <section id="bid-area" class="hidden">
+    <div class="bid-banner">👑 叫地主</div>
+    <div class="bid-buttons">
+      <button id="btn-bid0" class="btn bid-btn" disabled>不叫</button>
+      <button id="btn-bid1" class="btn bid-btn" disabled>叫 1 分</button>
+      <button id="btn-bid2" class="btn bid-btn" disabled>叫 2 分</button>
+      <button id="btn-bid3" class="btn bid-btn primary" disabled>叫 3 分</button>
+    </div>
+    <div id="bid-log"></div>
+  </section>
+
+  <section id="controls" style="display:none">
+    <button id="btn-play" class="btn primary" disabled>出牌</button>
+    <button id="btn-pass" class="btn" disabled>不要</button>
+    <button id="btn-new" class="btn ghost">再来一局</button>
+  </section>
+
+  <div id="msg-toast" class="toast"></div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "nekoPlugin.repoRoot": "../N.E.K.O",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/../N.E.K.O"
+  ],
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": [
+    "tests"
+  ]
+}

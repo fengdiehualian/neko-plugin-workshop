@@ -1,0 +1,1 @@
+openAccount();document.getElementById("closeAccount").hidden=true;

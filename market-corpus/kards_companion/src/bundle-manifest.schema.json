@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kards-companion.invalid/schemas/bundle-manifest/1",
+  "title": "KARDS Companion distribution bundle manifest",
+  "description": "The single authoritative bundle-manifest.json contract, generated and verified by scripts/bundle_manifest.py. It covers the distribution payload only: worker/, vendor/, assets/, models/, ocr_models/ and the root third-party notices. Worker-runtime self-check metadata lives in the separate optional worker-runtime.json (schema kards-worker-runtime/1). Never write a second schema to this filename.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generated_at",
+    "plugin",
+    "allowed_dirs",
+    "forbidden_components",
+    "files",
+    "components",
+    "required",
+    "optional",
+    "capabilities",
+    "warnings",
+    "integrity"
+  ],
+  "properties": {
+    "schema": {
+      "const": "neko-kards-bundle-manifest/1"
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "plugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "allowed_dirs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["worker", "vendor", "assets", "models", "ocr_models"]
+      }
+    },
+    "forbidden_components": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/file_entry"
+      }
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/component_meta"
+      }
+    },
+    "required": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "python_worker",
+        "ocr_runtime",
+        "assets_manifest",
+        "third_party_notices"
+      ],
+      "properties": {
+        "python_worker": {
+          "$ref": "#/$defs/required_marker",
+          "description": "worker/entry.py or worker/bootstrap.py"
+        },
+        "ocr_runtime": {
+          "$ref": "#/$defs/required_marker",
+          "description": "ocr_models/runtime.json or worker/models/ocr/runtime.json"
+        },
+        "assets_manifest": {
+          "$ref": "#/$defs/required_marker",
+          "description": "assets/cards/manifest.json or assets/manifest.json"
+        },
+        "third_party_notices": {
+          "$ref": "#/$defs/required_marker",
+          "description": "THIRD_PARTY_NOTICES.md/.txt or THIRD_PARTY_NOTICES"
+        }
+      }
+    },
+    "optional": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kards_det"],
+      "properties": {
+        "kards_det": {
+          "$ref": "#/$defs/optional_state"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ocr_bundle_ready", "kards_det", "kards_det_blocks_ocr"],
+      "properties": {
+        "ocr_bundle_ready": {
+          "type": "boolean"
+        },
+        "kards_det": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kards_det_blocks_ocr": {
+          "type": "boolean"
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_count", "total_bytes", "sha256"],
+      "properties": {
+        "file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Fingerprint over sorted (path, size, sha256, component, version, license) rows."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^/\\\\:\\u0000]+(?:/[^/\\\\:\\u0000]+)*$",
+      "not": {
+        "pattern": "(^|/)\\.\\.?(/|$)"
+      },
+      "description": "Forward-slash bundle-relative path. No drive, colon, backslash, NUL, empty, '.' or '..' segments."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Lowercase SHA-256 of the exact artifact bytes."
+    },
+    "component": {
+      "type": "string",
+      "pattern": "^(?:notices|THIRD_PARTY_NOTICES(?:\\.md|\\.txt)?|(?:worker|vendor|assets|models|ocr_models)(?:/[^/\\\\:\\u0000]+)*)$",
+      "description": "The notices entry, a notice filename, or a payload directory prefix."
+    },
+    "file_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "size", "sha256", "component", "version", "license"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "component": {
+          "$ref": "#/$defs/component"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "component_meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "license", "file_count", "size_bytes"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "required_marker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected", "path", "present"],
+      "properties": {
+        "expected": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/relative_path"
+          }
+        },
+        "path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/relative_path"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "optional_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "state", "present", "blocks_ocr"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "state": {
+          "enum": ["present", "missing"]
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "blocks_ocr": {
+          "const": false
+        }
+      }
+    }
+  }
+}

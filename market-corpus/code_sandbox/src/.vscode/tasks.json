@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check code_sandbox",
+      "type": "shell",
+      "command": "uv run neko-plugin check code_sandbox",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync code_sandbox",
+      "type": "shell",
+      "command": "uv run neko-plugin sync code_sandbox --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r code_sandbox",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r code_sandbox",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build code_sandbox",
+      "type": "shell",
+      "command": "uv run neko-plugin build code_sandbox",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

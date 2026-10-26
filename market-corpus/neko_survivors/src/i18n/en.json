@@ -1,0 +1,10 @@
+{
+  "plugin.name": "NEKO Sisters: Survivors",
+  "plugin.description": "A bullet-heaven survival roguelite bundled inside the plugin: dodge with WASD, weapons fire automatically, collect, upgrade and synthesize, and survive 20 waves. Open the panel and play. Nightmare difficulty hides a secret boss. The catgirl auto-reports your run in the chat.",
+  "entries.game_event.name": "Game event report",
+  "entries.game_event.description": "Receives in-game events (waves/bosses/results) and lets the official catgirl react in chat. Called automatically by the game page, with rate limiting built in.",
+  "entries.speak.name": "Make the catgirl say this",
+  "entries.speak.description": "Speaks the given line through the host's official TTS pipeline (the same B-layer output channel as built-in minigames). Called automatically by the game page (pet/weather lines), with a 2.5s throttle.",
+  "entries.sync_avatar.name": "Sync catgirl avatar",
+  "entries.sync_avatar.description": "Re-syncs the Live2D engine and the current catgirl model from the local host into the plugin vendor directory. Runs automatically at plugin startup; use this manually if the host was opened later."
+}

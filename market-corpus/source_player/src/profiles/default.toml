@@ -1,0 +1,6 @@
+name = "default"
+enabled_plugins = ["source_player"]
+
+[plugin.source_player]
+enabled = true
+auto_start = false

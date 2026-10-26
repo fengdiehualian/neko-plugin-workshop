@@ -1,0 +1,46 @@
+# 运行配置模板：N.E.K.O 首次需要运行配置时会把它复制到
+#   <用户数据根目录>/plugins/neko_weather/config/plugin.toml
+# 已存在的用户配置不会被这个模板覆盖。
+#
+# 最少只需要改一项：把 home_city 填成你的城市。
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[weather]
+home_city = ""
+geocode_language = "zh"
+timeout_seconds = 15
+default_days = 3
+temperature_unit = "celsius"
+daily_push = true
+push_time = "07:30"
+push_window_minutes = 180
+push_city = ""
+include_advice = true
+# 猫娘语气：撒娇口吻 + 结尾「喵」
+cute = true
+# 自定义语气后缀；留空用默认「喵～」
+cat_suffix = ""
+# 让猫娘把播报念出来（会走角色语音系统）
+voice = true
+
+# 阴阳怪气翻译腔彩蛋
+#
+# 彩蛋总开关
+snark_enabled = true
+# ★ 触发概率：0.2 = 20%（默认）。也支持 20 / "20%" 的写法
+#   0 = 从不触发；1 = 每次都触发（仍受下面的冷却限制）
+snark_probability = 0.2
+# 两次彩蛋之间至少间隔多少次正常播报，防止连着刷
+snark_cooldown = 2
+# 模板风格：zh = 中文阴阳怪气翻译腔；en = 英语阴阳怪气管家腔
+snark_style = "zh"
+# 是否随机追加一句结尾（「阿门，喵。」之类）
+snark_tags = true
+
+# 想用自己的彩蛋模板？按天气类别整体替换（类别选填）：
+# [weather.snark_custom_templates]
+# sunny = ["……{location} {current_condition} {temp}°C，体感{feels_like}°C。{forecast}。{clothing}。{umbrella}。{outing}。喵。"]
+# 类别可用：general / sunny / cloudy / rain / storm / snow / hot / cold / wind / fog

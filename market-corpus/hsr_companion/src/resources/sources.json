@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "source_id": "official_hoyolab_hsr_wiki",
+      "source_name": "HoYoLAB《崩坏：星穹铁道》官方 Wiki",
+      "source_url": "https://wiki.hoyolab.com/pc/hsr/",
+      "terms_url": "https://www.hoyolab.com/agreement",
+      "license_id": "proprietary-reference-only",
+      "attribution": "游戏名称、角色名称及相关设定归其权利人所有。",
+      "content_type": "official_reference",
+      "redistribution_mode": "metadata_and_original_summary_only",
+      "retrieved_at": "2026-09-28",
+      "verification_status": "source_link_verified_2026-09-28"
+    },
+    {
+      "source_id": "official_hsr_site",
+      "source_name": "《崩坏：星穹铁道》官方网站",
+      "source_url": "https://hsr.hoyoverse.com/",
+      "terms_url": "https://hsr.hoyoverse.com/en-us/company/terms",
+      "license_id": "proprietary-reference-only",
+      "attribution": "《崩坏：星穹铁道》及相关标识归其权利人所有。",
+      "content_type": "official_reference",
+      "redistribution_mode": "metadata_and_original_summary_only",
+      "retrieved_at": "2026-09-28",
+      "verification_status": "source_link_verified_2026-09-28"
+    },
+    {
+      "source_id": "starrailres_character_registry",
+      "source_name": "Mar-7th/StarRailRes 中文角色索引",
+      "source_url": "https://github.com/Mar-7th/StarRailRes/tree/541e1100dcfe9a299c6bd500c6d3c4115e0451e4",
+      "terms_url": "https://github.com/Mar-7th/StarRailRes/blob/541e1100dcfe9a299c6bd500c6d3c4115e0451e4/LICENSE",
+      "license_id": "AGPL-3.0-only",
+      "attribution": "角色基础枚举派生自 Mar-7th/StarRailRes；固定提交 541e1100dcfe9a299c6bd500c6d3c4115e0451e4。",
+      "content_type": "derived_character_registry",
+      "redistribution_mode": "minimal_factual_fields_with_attribution",
+      "retrieved_at": "2026-09-29",
+      "verification_status": "pinned_revision_verified_2026-09-29"
+    },
+    {
+      "source_id": "starrailres_structured_cn",
+      "source_name": "Mar-7th/StarRailRes 中文结构化索引",
+      "source_url": "https://github.com/Mar-7th/StarRailRes/tree/541e1100dcfe9a299c6bd500c6d3c4115e0451e4/index_min/cn",
+      "terms_url": "https://github.com/Mar-7th/StarRailRes/blob/541e1100dcfe9a299c6bd500c6d3c4115e0451e4/LICENSE",
+      "license_id": "AGPL-3.0-only",
+      "attribution": "角色、角色形态、光锥、遗器套装、物品、命途与属性的事实字段派生自 Mar-7th/StarRailRes 固定提交 541e1100dcfe9a299c6bd500c6d3c4115e0451e4。",
+      "content_type": "derived_structured_factual_catalog",
+      "redistribution_mode": "separate_generated_data_artifact_with_corresponding_builder_and_license",
+      "retrieved_at": "2026-09-29",
+      "verification_status": "pinned_revision_verified_2026-09-29"
+    }
+  ]
+}
+

@@ -1,0 +1,37 @@
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[kards]
+mode = "companion"
+perf_mode = "realtime"
+tick_ms = 333
+perception_preset = "balanced"
+capture_fps = 20
+change_fps = 10
+unit_fps = 4
+card_fps = 6
+capture_fps_power_saver = 4
+auto_start_monitoring = true
+min_priority = 4
+cooldown_seconds = 25.0
+critical_cooldown_seconds = 5.0
+chatter_interval_seconds = 60.0
+do_not_disturb = false
+llm_data_consent = true
+dry_run = false
+catalog_enabled = false
+catalog_url = ""
+catalog_refresh_hours = 24
+vlm_enabled = false
+vlm_api_key_env = "KARDS_VLM_API_KEY"
+vlm_base_url = ""
+vlm_model = ""
+imported_deck_code = ""
+target_lanlan = ""
+plugin_owned_output_enabled = false
+user_chat_quiet_window_seconds = 60.0
+battle_output_quiet_window_seconds = 30.0
+battle_output_backpressure_seconds = 20.0
+reply_max_chars = 28
+battle_event_ttl_seconds = 12.0

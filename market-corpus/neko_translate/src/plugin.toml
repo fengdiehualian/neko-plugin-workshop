@@ -1,0 +1,48 @@
+[plugin]
+id = "neko_translate"
+name = "翻译猫娘"
+type = "plugin"
+description = "让猫娘帮你翻译。中/英/日/韩等 30 多种语言互译，支持整段、批量翻译，并可把译文作为消息推到聊天框。全部走公开免密钥接口，开箱即用，不需要填写任何 API Key。"
+short_description = "Translate text between 30+ languages with no API key required."
+keywords = ["翻译", "translate", "translation", "译", "中译英", "英译中", "日译中", "汉化", "双语", "翻訳", "번역", "перевод"]
+version = "0.1.0"
+entry = "plugin.plugins.neko_translate:NekoTranslatePlugin"
+
+[plugin.author]
+name = "yousei1216"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.store]
+enabled = false
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[translate]
+# 省略 target 时使用这个目标语言
+default_target = "zh-CN"
+# 默认源语言；auto 表示自动判断
+default_source = "auto"
+# 提供方降级顺序，全部免密钥。实测 mymemory 稳定；gtrans 在国内常不可达；
+# lingva 需要自建实例，仅在你填了自己的 lingva_base 后再加进这个列表。
+providers = ["mymemory", "gtrans"]
+# Lingva 实例地址，可换成自建实例
+lingva_base = "https://lingva.ml"
+# 单次请求超时（秒）
+timeout_seconds = 15
+# 翻译完成后是否把译文推到聊天框
+push_to_chat = true
+# 单次可翻译的最大字符数
+max_input_chars = 3000
+# 猫娘语气：译文是中文时结尾加「喵」
+cute = true
+# 自定义语气后缀；留空用默认的「喵～」
+cat_suffix = ""

@@ -1,0 +1,13 @@
+{
+  "game.fishing.name": "Fishing",
+  "game.fishing.description": "Daily casting, collect rare fish, trade at the fish market",
+  "game.coinflip.name": "Coin Flip",
+  "game.coinflip.description": "Guess heads or tails with the catgirl",
+  "game.soupbubble.name": "Turtle Soup",
+  "game.soupbubble.description": "The catgirl poses a puzzle, you guess the truth",
+  "panel.title": "N.E.K.O Mini Games",
+  "panel.start": "Start",
+  "panel.stop": "Stop",
+  "panel.config": "Config",
+  "panel.running": "Running"
+}

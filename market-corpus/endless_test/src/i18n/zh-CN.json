@@ -1,0 +1,20 @@
+{
+  "plugin.name": "无尽测试",
+  "plugin.description": "把《无尽测试》接入 Neko：统一保存养成/图鉴/战绩数据，可从插件面板或独立全屏程序开局，AI 伙伴由 Neko 自己选职业、决定战术与科技，还能听你指挥。",
+  "entry.launch_window.name": "全屏窗口开局",
+  "entry.launch_window.description": "以独立全屏窗口（无地址栏、无标题栏）启动《无尽测试》，退出时会直接关闭程序。",
+  "entry.launch_panel.name": "插件面板开局",
+  "entry.launch_panel.description": "返回插件面板地址，在 Neko 面板内游玩。",
+  "entry.get_state.name": "读取存档数据",
+  "entry.get_state.description": "读取插件统一保存的全部游戏数据（养成进度、图鉴、记录、设置）。",
+  "entry.put_state.name": "写入存档数据",
+  "entry.put_state.description": "把游戏数据写回插件存储。",
+  "entry.get_profile.name": "查看玩家档案",
+  "entry.get_profile.description": "汇总玩家进度：通关次数、累计击杀、最近与最佳一局、职业等级。",
+  "entry.report_run.name": "记录一局战报",
+  "entry.report_run.description": "记录一局的难度、时长、击杀、职业与结果。",
+  "entry.reset_state.name": "重置全部数据",
+  "entry.reset_state.description": "清空插件里保存的所有《无尽测试》数据。",
+  "entry.status.name": "查看服务状态",
+  "entry.status.description": "查看游戏服务端口、静态页面与数据文件状态。"
+}

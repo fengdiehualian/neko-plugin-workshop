@@ -1,0 +1,9 @@
+{
+  "max_equip_skills": 3,
+  "skill_drop_rate": 0.6,
+  "exp_gain_min": 3,
+  "exp_gain_max": 8,
+  "food_min": 5,
+  "food_max": 20,
+  "initial_food": 20
+}

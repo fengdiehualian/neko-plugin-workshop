@@ -1,0 +1,28 @@
+{
+  "yui": {
+    "src": "/chase/yui-dsh-style-run-12.png",
+    "frames": 12,
+    "columns": 4,
+    "rows": 3,
+    "cell": 256,
+    "fps": 24,
+    "faces": [],
+    "generated": true,
+    "tool": "imagegen",
+    "unique_frames": 12,
+    "source_frames": 6
+  },
+  "hat": {
+    "src": "/chase/whale-maid-tiger-run.png",
+    "frames": 6,
+    "columns": 3,
+    "rows": 2,
+    "cell": 512,
+    "fps": 12,
+    "faces": [],
+    "facing": 1,
+    "reference": "用户保留的原版戴头套大肥鱼",
+    "preserved": true
+  },
+  "discarded": "Optical flow introduced alpha artifacts and was not shipped; new lion-head drawing also not used."
+}

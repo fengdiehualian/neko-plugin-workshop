@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MO！策略积木工作台</title>
+  <link rel="stylesheet" href="/策略积木编辑器.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><strong>MO！策略积木</strong><span>像 Scratch 一样搭建猫娘战术</span></div>
+    <div class="strategy-heading"><span id="scopeBadge">临时方案</span><input id="strategyName" value="未命名策略" aria-label="策略名称"></div>
+    <div class="top-actions">
+      <button id="newStrategy">新建</button>
+      <button id="undo" title="撤销">↶</button>
+      <button id="redo" title="重做">↷</button>
+      <button id="checkStrategy">检查积木</button>
+      <button id="openData">变量与我的积木</button>
+      <button id="openMeta">策略信息</button>
+      <button id="saveStrategy" class="primary">保存</button>
+    </div>
+  </header>
+
+  <div class="app-shell">
+    <aside class="library-panel">
+      <div class="panel-title"><strong>策略总库</strong><span id="connection">正在连接</span></div>
+      <div class="scope-tabs"><button data-scope="permanent" class="active">正式策略</button><button data-scope="temporary">猫娘学习</button></div>
+      <input id="strategySearch" class="search" placeholder="搜索中文策略名称" aria-label="搜索策略">
+      <div id="categoryTree" class="category-tree" aria-label="策略分类树"></div>
+      <div class="list-head"><span id="resultCount">0 条</span><button id="clearCategory">显示全部</button></div>
+      <div id="strategyList" class="strategy-list"></div>
+      <div class="pager"><button id="previousPage">上一页</button><span id="pageLabel">1 / 1</span><button id="nextPage">下一页</button></div>
+    </aside>
+
+    <section class="toolbox-panel">
+      <nav id="blockCategories" class="block-categories" aria-label="积木分类"></nav>
+      <div class="block-drawer">
+        <div class="drawer-head"><strong id="drawerTitle">事件</strong><input id="blockSearch" placeholder="搜索积木" aria-label="搜索积木"></div>
+        <div id="blockCatalog" class="block-catalog"></div>
+      </div>
+    </section>
+
+    <main class="workspace-panel">
+      <div class="workspace-toolbar">
+        <div><strong>积木脚本</strong><span class="muted">拖到发光插槽或子栈中即可连接</span></div>
+        <div class="zoom-tools"><button id="zoomOut" title="缩小">−</button><button id="zoomReset">100%</button><button id="zoomIn" title="放大">＋</button><button id="clearWorkspace">清空</button></div>
+      </div>
+      <div id="workspaceViewport" class="workspace-viewport">
+        <div id="workspaceCanvas" class="workspace-canvas">
+          <div id="scriptArea" class="script-area"></div>
+          <div id="rootDrop" class="root-drop">把事件积木拖到这里，开始一条新策略</div>
+        </div>
+      </div>
+      <div class="diagnostics"><span id="saveState">尚未保存</span><div id="diagnosticList">积木结构检查会显示在这里。</div></div>
+    </main>
+  </div>
+
+  <dialog id="metaDialog" class="editor-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><strong>策略信息</strong><button value="cancel">关闭</button></div>
+      <div class="form-grid">
+        <label>中文分类<input id="metaCategory" list="categoryOptions"></label>
+        <label>策略用途<select id="metaType"><option value="action_flow">行动流程</option><option value="combat_matrix">接触战</option><option value="unit_response">单位反制</option><option value="resource_policy">经济发展</option><option value="target_policy">目标选择</option><option value="trigger">事件响应</option></select></label>
+        <label>优先级<input id="metaPriority" type="number" min="0" max="200" value="30"></label>
+        <label>风险<select id="metaRisk"><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select></label>
+        <label>状态<select id="metaStatus"><option value="draft">草稿</option><option value="experimental">试验中</option><option value="stable">稳定</option><option value="recommended">推荐</option><option value="paused">暂停</option></select></label>
+        <label>策略范围<select id="metaScope"><option value="temporary">猫娘临时学习</option><option value="permanent">正式策略</option></select></label>
+      </div>
+      <div class="category-membership"><strong>自动归类</strong><div id="metaCategoryPaths">保存后会根据积木树自动进入相关目录。</div></div>
+      <label>玩家备注<textarea id="metaNotes" placeholder="只写给玩家看的中文说明"></textarea></label>
+      <div class="dialog-actions"><button id="toggleStrategy" type="button">暂停策略</button><button id="deleteStrategy" type="button" class="danger">移入回收站</button><button value="default" class="primary">完成</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dataDialog" class="editor-dialog wide-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><strong>变量、列表与我的积木</strong><button value="cancel">关闭</button></div>
+      <div class="data-grid">
+        <section><h3>变量</h3><div class="inline"><input id="variableName" placeholder="变量名称"><select id="variableType"><option>数字</option><option>文字</option><option>真假</option><option>单位引用</option><option>队伍引用</option><option>位置引用</option></select><input id="variableValue" placeholder="初始值"><button id="addVariable" type="button">添加</button></div><div id="variableList" class="data-list"></div></section>
+        <section><h3>列表</h3><div class="inline"><input id="listName" placeholder="列表名称"><select id="listType"><option>文字</option><option>单位引用</option><option>目标引用</option><option>位置引用</option></select><button id="addList" type="button">添加</button></div><div id="listList" class="data-list"></div></section>
+      </div>
+      <section class="custom-section"><h3>我的积木</h3><div class="custom-form"><input id="customName" placeholder="中文积木名称"><select id="customShape"><option>命令</option><option>报告器</option><option>布尔</option></select><input id="customParameters" placeholder="参数，例如：队伍:队伍引用,数量:数字"><button id="createCustom" type="button">从当前选中子栈创建</button></div><div id="customList" class="data-list"></div></section>
+      <div class="dialog-actions"><button value="default" class="primary">完成</button></div>
+    </form>
+  </dialog>
+
+  <datalist id="categoryOptions"></datalist>
+  <div id="cascadePicker" class="cascade-picker" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+  <script src="/策略积木编辑器.js"></script>
+</body>
+</html>

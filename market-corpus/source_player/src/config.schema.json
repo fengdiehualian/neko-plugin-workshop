@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "object",
+      "title": "半条命 / 传送门 陪玩设置",
+      "description": "控制观察频率、截屏后端、解说节奏和安全护栏。修改后插件会热重载配置。",
+      "properties": {
+        "capture_backend": {
+          "type": "string",
+          "title": "截屏后端",
+          "description": "auto 会按 dxgi → gdi → pil 顺序自动降级；独占全屏需要 dxgi。",
+          "enum": ["auto", "dxgi", "gdi", "pil"],
+          "default": "auto"
+        },
+        "capture_monitor": {
+          "type": "integer",
+          "title": "显示器编号",
+          "description": "多显示器时选哪一块，从 0 开始。",
+          "minimum": 0,
+          "maximum": 8,
+          "default": 0
+        },
+        "min_capture_edge": {
+          "type": "integer",
+          "title": "最小窗口边长（像素）",
+          "description": "小于这个边长的窗口视为最小化/异常，拒绝按键。",
+          "minimum": 64,
+          "maximum": 2000,
+          "default": 160
+        },
+        "target_fps": {
+          "type": "number",
+          "title": "观察帧率",
+          "description": "截屏分析的目标帧率；实际节奏由 tick 间隔控制。",
+          "minimum": 0.5,
+          "maximum": 30,
+          "default": 4.0
+        },
+        "frame_max_edge_px": {
+          "type": "integer",
+          "title": "画面最长边（像素）",
+          "description": "推给视觉模型前把截图缩到这个最长边。",
+          "minimum": 320,
+          "maximum": 2560,
+          "default": 1024
+        },
+        "frame_jpeg_quality": {
+          "type": "integer",
+          "title": "截图 JPEG 质量",
+          "description": "越高越清晰，也越占带宽。",
+          "minimum": 30,
+          "maximum": 95,
+          "default": 75
+        },
+        "frame_max_bytes": {
+          "type": "integer",
+          "title": "单帧字节上限",
+          "description": "超过就自动降质量/降分辨率，避免超出消息通道上限。",
+          "minimum": 16384,
+          "maximum": 1048576,
+          "default": 102400
+        },
+        "stream_frames_to_llm": {
+          "type": "boolean",
+          "title": "把画面推进对话视觉上下文",
+          "description": "关闭后猫娘只能靠文字战况判断，不再看截图。",
+          "default": true
+        },
+        "frame_stream_interval_seconds": {
+          "type": "number",
+          "title": "画面推送间隔（秒）",
+          "description": "每隔多久把一张截图送进视觉上下文。",
+          "minimum": 1,
+          "maximum": 120,
+          "default": 8.0
+        },
+        "commentary_interval_seconds": {
+          "type": "number",
+          "title": "主动解说间隔（秒）",
+          "description": "每隔多久让猫娘说一次「我在干什么、下一步打算」。",
+          "minimum": 5,
+          "maximum": 600,
+          "default": 25.0
+        },
+        "problem_cooldown_seconds": {
+          "type": "number",
+          "title": "异常提示冷却（秒）",
+          "description": "卡住/截图失败之类的问题最多多久提醒一次。",
+          "minimum": 10,
+          "maximum": 600,
+          "default": 60.0
+        },
+        "require_foreground": {
+          "type": "boolean",
+          "title": "只在前台时操作",
+          "description": "游戏窗口不在前台时绝不注入按键（防打字到别的窗口）。",
+          "default": true
+        },
+        "autopilot_enabled": {
+          "type": "boolean",
+          "title": "启用自动操作",
+          "description": "关闭时只观察和解说；建议用 source_play 开始游戏。",
+          "default": false
+        },
+        "autopilot_tick_seconds": {
+          "type": "number",
+          "title": "控制周期（秒）",
+          "description": "两次决策之间的间隔，越小反应越快、越吃 CPU。",
+          "minimum": 0.05,
+          "maximum": 5,
+          "default": 0.35
+        },
+        "dry_run": {
+          "type": "boolean",
+          "title": "只看不按",
+          "description": "演练模式：截屏、解说、判断都正常，但永不按键。",
+          "default": false
+        },
+        "max_session_minutes": {
+          "type": "number",
+          "title": "单次会话上限（分钟）",
+          "description": "到点自动停手并松开所有按键。",
+          "minimum": 1,
+          "maximum": 600,
+          "default": 45.0
+        },
+        "blind_frame_limit": {
+          "type": "integer",
+          "title": "全黑帧容忍数",
+          "description": "连续多少帧看不到画面就停止按键并报告真实原因。",
+          "minimum": 1,
+          "maximum": 120,
+          "default": 8
+        },
+        "look_units_per_degree": {
+          "type": "number",
+          "title": "鼠标灵敏度（计数/度）",
+          "description": "Source 引擎约为 1/(sensitivity × m_yaw)，默认 15.15。",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 15.15
+        },
+        "horizontal_fov": {
+          "type": "number",
+          "title": "水平视野（度）",
+          "description": "用于把画面坐标换算成鼠标位移。",
+          "minimum": 60,
+          "maximum": 140,
+          "default": 90.0
+        },
+        "vertical_fov": {
+          "type": "number",
+          "title": "垂直视野（度）",
+          "description": "用于把画面坐标换算成鼠标位移。",
+          "minimum": 30,
+          "maximum": 120,
+          "default": 59.0
+        },
+        "invert_y": {
+          "type": "boolean",
+          "title": "反转垂直视角",
+          "description": "游戏里开了「反转鼠标 Y 轴」时才需要打开。",
+          "default": false
+        },
+        "yield_on_human_input": {
+          "type": "boolean",
+          "title": "玩家碰键就让位",
+          "description": "检测到主人按 WASD/开火/E 时立刻松开所有按键。",
+          "default": true
+        },
+        "human_input_grace_seconds": {
+          "type": "number",
+          "title": "让位后等待（秒）",
+          "description": "主人停手多久后猫娘自动恢复操作。",
+          "minimum": 0,
+          "maximum": 120,
+          "default": 12.0
+        },
+        "pause_hotkey_enabled": {
+          "type": "boolean",
+          "title": "启用 F8 暂停热键",
+          "description": "F8 硬暂停/继续，优先级高于自动恢复。",
+          "default": true
+        },
+        "auto_resume_from_menu": {
+          "type": "boolean",
+          "title": "暂停菜单自动按 Esc 恢复",
+          "description": "只在已经进入过游戏后生效，绝不会点「新游戏」。",
+          "default": true
+        },
+        "menu_stable_ticks": {
+          "type": "integer",
+          "title": "菜单判定稳定帧数",
+          "description": "连续多少帧判定为菜单才动手，避免误判。",
+          "minimum": 1,
+          "maximum": 30,
+          "default": 3
+        },
+        "start_in_game_required": {
+          "type": "boolean",
+          "title": "必须先进入游戏",
+          "description": "没看到真正的游戏画面（光标隐藏）就不操作，避免在主菜单乱点。",
+          "default": true
+        },
+        "objective": {
+          "type": "string",
+          "title": "当前目标",
+          "description": "给猫娘一个阶段目标，例如「找到出口」「打过这个 Boss」。",
+          "maxLength": 500,
+          "default": ""
+        },
+        "plan_steps": {
+          "type": "array",
+          "title": "计划步骤",
+          "description": "按顺序执行的文字计划，猫娘会边做边对照。",
+          "items": {
+            "type": "string",
+            "title": "步骤",
+            "description": "一行一个步骤。"
+          },
+          "default": []
+        },
+        "keys": {
+          "type": "object",
+          "title": "键位覆盖",
+          "description": "按动作覆盖键位，例如 forward = \"w\"、use = \"e\"、attack = \"mouse1\"。",
+          "additionalProperties": {
+            "type": "string",
+            "title": "按键名",
+            "description": "使用 config.cfg 里的按键名。"
+          }
+        }
+      }
+    }
+  }
+}

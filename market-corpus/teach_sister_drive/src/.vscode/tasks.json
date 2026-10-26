@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check teach_sister_drive",
+      "type": "shell",
+      "command": "uv run neko-plugin check teach_sister_drive",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync teach_sister_drive",
+      "type": "shell",
+      "command": "uv run neko-plugin sync teach_sister_drive --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r teach_sister_drive",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r teach_sister_drive",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build teach_sister_drive",
+      "type": "shell",
+      "command": "uv run neko-plugin build teach_sister_drive",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

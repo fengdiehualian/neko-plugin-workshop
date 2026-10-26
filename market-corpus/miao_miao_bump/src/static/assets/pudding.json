@@ -1,0 +1,11 @@
+{
+  "image": "pudding-expressions.png",
+  "frames": [
+    { "name": "idle", "x": 29, "y": 234, "width": 467, "height": 572 },
+    { "name": "impact", "x": 536, "y": 234, "width": 465, "height": 572 },
+    { "name": "rebound", "x": 1042, "y": 234, "width": 465, "height": 572 }
+  ],
+  "drawBox": { "x": -48, "y": -92, "width": 96, "height": 112 },
+  "pixelGrid": { "width": 48, "height": 56 },
+  "collisionRadius": 40
+}

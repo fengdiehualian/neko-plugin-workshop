@@ -1,0 +1,73 @@
+# 运行时配置模板 / Runtime config template
+#
+# 本文件只展示「用户可以覆盖的形状」，不含任何 [plugin] 表（校验会报 error）。
+# N.E.K.O 首次需要运行配置时会把本文件复制到用户数据目录：
+#   <用户数据根>/plugins/sticker_manager/config/plugin.toml
+# 已存在则不覆盖；用户改过的键作为覆盖层叠加在 plugin.toml 的默认值之上。
+
+[plugin_runtime]
+enabled = true
+# 随宿主自动启动：她的表情工具要在对话里随时可用。
+# 是否真的会发图由下面的 [sticker_manager].enabled 决定。
+auto_start = true
+
+[sticker_manager]
+# fail-closed 总开关。false = 她不发图、看不到目录；库的增删改不受影响。
+enabled = false
+
+[sticker_manager.send]
+# 同一角色卡两次发送之间的最小间隔（秒）。
+cooldown_sec = 20.0
+# 仅新宿主提供可信本轮上下文时请求准确尾发；旧宿主保持即时发送。
+host_reply_tail = true
+# 工具选图默认即时发送；true 沿用回复后排队，下一轮输入可能取消待发图。
+defer_tool_sends = false
+# 仅排队发送：生成结束后的逐段显示兼容缓冲（秒，0..30），不代表前端或 TTS 真正结束。
+# 0 = 恢复无额外缓冲；旧配置没有此键时自动使用默认值。
+reply_tail_display_buffer_sec = 2.0
+# 静态图走内联通道的字节上限（256 KiB）；超过改走宿主上传换 URL。
+# 整条消息 payload 上限 512 KiB（base64 膨胀 4/3），这里已留余量。
+inline_max_bytes = 262144
+# 是否允许 GIF/动画 WebP 走上传通道（代价：动画被归一成 JPEG 压平）。默认关闭。
+animated_via_upload = false
+# 跨轮去重：她自主选图时，同一角色卡最近 N 张成功发过的不再出现
+# （query 候选剔除；显式 id 在发送时被拦，主人点名要重看用 force 绕行）。0 = 关闭。
+# 数据源是持久台账（data/library/usage.json）——与冷却（内存表）不同。
+recent_dedup_count = 5
+# 概率闸门：她想发图时按此概率放行，未中则该轮回落纯文字。
+# 1.0 = 关闭。默认关：闸门会拒绝她已下的决定，属行为干预，主人显式打开才生效。
+probability = 1.0
+# 同一角色卡一次掷骰的复用窗口（秒）：同一轮里二次定夺不重掷（防 p²）。
+probability_reuse_sec = 60.0
+# 配表情积极度：reserved（矜持）/ natural（自然，默认）/ eager（爱发）。
+# 只管她有多想配图（存在感注入里的许可强度），不动冷却、去重与概率闸。
+# 矜持保留 0.9.8 基线，自然承接 0.9.10 实测策略，爱发偏向多数轻松回复配图。
+eagerness = "natural"
+# 爱发档独立补图的连续未配图轮数（0..10）；0 每轮帮选，默认 1 轮。
+eager_attachment_turns = 1
+
+[sticker_manager.storage]
+# 给模型看的目录最多列几条（按最近使用排序）。
+catalog_limit_for_model = 80
+# 使用台账保留多少条。
+usage_history_keep = 200
+
+[sticker_manager.awareness]
+# 存在感注入：静默往她的上下文里递一句「你有一间表情收藏间，这轮想配就发一张」
+# （visibility=[] 用户看不见；ai_behavior="read" 不起话轮）。与总开关是「与」关系。
+# v0.16.0 起由「用户开了新一轮」触发（轮询 bus.memory），不再按挂钟打点。
+# v0.17.0 起正文只剩这一句：分类目录改挂在 sticker_send 的工具描述上（每轮都在场），
+# 因为 read 注入是排干即弃的一次性 cue——语音模式还要等下一次自然热切换。
+enabled = true
+# every_user_message=每轮都注 | interval_n=攒够 N 条用户轮注一次。
+inject_mode = "interval_n"
+# interval_n 档下每 N 条用户轮注一次。0 = 跟随档位（矜持 3 / 自然 1 / 爱发 1）；
+# 写正数就是您自己定死的节奏，档位不再插手。
+inject_interval_n = 0
+# 相邻两次提醒的最小间隔（秒，0..60），面板可调；0 关闭时间限制，轮数门槛仍生效。
+min_interval_sec = 60.0
+# 事件门控点名（v0.20.0）：这句用户话里有情绪反应时不等轮次攒满就点名一次。
+# 判据是本地情绪词表 + 反应符号（不为这件事调用模型），上面的地板对它照样生效。
+event_gated = true
+# 降级节奏（秒）：总线一次都没读通过时退回按这个挂钟打点。
+interval_sec = 3600.0

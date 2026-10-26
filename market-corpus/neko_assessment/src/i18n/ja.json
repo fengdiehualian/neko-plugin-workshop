@@ -1,0 +1,20 @@
+{
+  "plugin.name": "心理診断室",
+  "plugin.description": "心理・性格・遊び心のある診断をひとつの画面に：ビッグファイブ、16 タイプ、職業興味、愛着スタイル、レジリエンス、そして PHQ-9 / GAD-7 / 孤独感などの公開尺度。すべて端末内で採点し、結果はこの端末だけに保存されます。",
+  "panel.title": "心理診断室",
+  "panel.subtitle": "心理・性格・お楽しみ診断 - 1 問ずつ、結果は端末内のみ",
+  "panel.tab.home": "一覧",
+  "panel.tab.quiz": "回答",
+  "panel.tab.result": "結果",
+  "panel.tab.records": "履歴",
+  "panel.tab.about": "情報",
+  "panel.search": "名前や説明で検索",
+  "panel.start": "ひとつ選んで開始",
+  "panel.disclaimer": "これらは自己理解と振り返りのためのものであり、医学的診断ではありません。",
+  "panel.copy": "結果をコピー",
+  "panel.share": "シェアカード作成",
+  "panel.retake": "もう一度",
+  "panel.export": "書き出し（テキスト）",
+  "panel.clear": "すべて削除",
+  "panel.empty_records": "まだ記録がありません。"
+}

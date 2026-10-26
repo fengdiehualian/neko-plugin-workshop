@@ -1,0 +1,30 @@
+[plugin]
+id = "neko_voice_bridge"
+name = "猫娘语音频道桥"
+version = "0.7.1"
+type = "plugin"
+passive = true
+entry = "plugin.plugins.neko_voice_bridge:NekoVoiceBridgePlugin"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.2.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "语音频道连接"
+entry = "ui/panel.tsx"
+mode = "hosted-tsx"
+context = "dashboard"
+permissions = ["state:read", "action:call"]

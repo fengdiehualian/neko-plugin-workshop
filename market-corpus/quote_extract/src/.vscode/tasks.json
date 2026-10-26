@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check quote_extract",
+      "type": "shell",
+      "command": "uv run neko-plugin check quote_extract",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync quote_extract",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync quote_extract --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r quote_extract",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r quote_extract",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build quote_extract",
+      "type": "shell",
+      "command": "uv run neko-plugin build quote_extract",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

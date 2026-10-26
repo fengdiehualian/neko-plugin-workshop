@@ -1,0 +1,108 @@
+[plugin]
+id = "sfs_bridge"
+name = "和猫娘一起造火箭(SFS)"
+description = "连接 Spaceflight Simulator（航天模拟器），让猫娘读取飞行遥测、查看游戏画面、操作游戏界面（主菜单、载入存档、建造菜单、设置），并能把整枚蓝图直接加载进建造台、对火箭设计给出建议。点击是游戏内输入派发，不会移动你的鼠标。需先在游戏 Mods 目录安装配套模组 SFS-Agent，下载：https://github.com/LShangPiao/SFS-Agent/releases"
+short_description = "让猫娘陪你玩航天模拟器：读懂火箭、操作界面、加载蓝图、还能帮你飞"
+keywords = [
+    "航天模拟器", "SFS", "spaceflight", "火箭", "造火箭", "发射", "遥测", "看画面",
+    "游戏", "模拟器", "界面操作", "UI", "点按钮", "主菜单", "存档", "蓝图",
+    "rocket", "launch", "telemetry", "screen", "ui automation", "blueprint"
+]
+version = "0.8.4"
+type = "plugin"
+entry = "plugin.plugins.sfs_bridge:SfsBridgePlugin"
+
+[plugin.author]
+name = "星河拓航Studio"
+email = "contact@xhth.top"
+url = "https://xhth.top/"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+# ---------------------------------------------------------------------------
+# 造火箭控制台（Hosted UI）
+#
+# 面板是 hosted-tsx surface：它只通过 props.api.call 调插件入口，所以
+# permissions 必须同时给出 action:call（调动作）和 state:read（读面板快照），
+# 少一个按钮就会变成 403；config:read 让面板能读到配置快照。
+#
+# context 指向 ui_api.py 里的 @ui.context(id="dashboard")。host 在每次执行
+# 面板动作前都会取一次这个 provider（用它拿动作白名单），所以两边 id 必须一致。
+# ---------------------------------------------------------------------------
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "dashboard"
+title = "造火箭控制台"
+entry = "ui/panel.tsx"
+mode = "hosted-tsx"
+context = "dashboard"
+permissions = ["state:read", "config:read", "action:call"]
+
+# 上手指南复用面板的 context：markdown 表面不需要自己的 provider，
+# 复用同一个可以少一条 "UI context not found" 警告。
+[[plugin.ui.guide]]
+id = "guide"
+title = "上手指南"
+entry = "docs/guide.md"
+context = "dashboard"
+permissions = ["state:read"]
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[sfs_bridge]
+# SFS-Agent 模组在游戏内监听的地址。
+# 注意：改端口要改两处 —— 模组侧的 sfs-agent.ini 和这里的 bridge_url，
+# 只改一处两边就连不上了。模组侧改完不用重启游戏。
+bridge_url = "http://127.0.0.1:21578"
+# 单次请求超时（秒），范围 3-60。
+# 调大适合机械硬盘加载慢的情况；调小会让「游戏没开」更快报错。
+timeout_seconds = 12
+# 点击后等多久再回读界面（秒），范围 0.5-30。
+# 游戏切场景/加载很慢，太短会读到旧界面、被误判成「点了没反应」；
+# 太长会让每次操作都卡住。机械硬盘或大型存档建议调大。
+post_click_wait_seconds = 3.0
+# 截图超时（秒），范围 5-120。
+# 游戏内截图需要等它渲染一帧，卡顿时可能要更久。
+screenshot_timeout_seconds = 20
+# 送识别前把画面缩放到的最大宽度（像素），范围 320-2048。
+# 调小省流量、识别更快；调大细节更多但可能超模型的图片限制。
+screenshot_max_width = 1024
+# JPEG 压缩质量，范围 1-100。60-85 之间通常够用。
+screenshot_jpeg_quality = 80
+# 是否把游戏画面交给 N.E.K.O 的模型识别。
+# 关掉后 see_sfs_screen 会如实返回「图片被跳过」，其余工具不受影响。
+vision_enabled = true
+# 视觉提示词：告诉模型这张图是什么、要看什么。
+vision_prompt = "这是航天模拟器 Spaceflight Simulator 的当前游戏画面。请描述你看到的火箭结构、飞行阶段与环境，并结合用户的提问回答。"
+# 自动播报：游戏在跑的时候，插件会自己在后台读遥测，把最新的火箭状况
+# 塞进角色的上下文里（不会打断对话），这样角色不用等你开口才去调工具。
+# 关掉它就退回旧的「问答式」行为：只有你问了才读。
+auto_brief_enabled = true
+# 自动播报的轮询间隔（秒），范围 5-300。
+# 同一时刻队列里只保留最新一条（coalesce），所以调小不会把上下文撑爆。
+# 默认 20 秒：起飞和入轨阶段参数变化快，间隔太大容易报旧数。
+auto_brief_interval_seconds = 20
+
+# ---------------------------------------------------------------------------
+# 可选：自带视觉模型
+# ---------------------------------------------------------------------------
+# 默认留空，此时画面由 N.E.K.O 自身的「视觉聊天模型」识别
+# （设置 → API → 视觉聊天模型）。
+# 正常情况下不需要动这里 —— N.E.K.O 本身就要配多模态模型。
+# 只有当你想让本插件用另一个模型单独看图时，才填下面几项。
+[vlm_fallback]
+enabled = false
+# 任意 OpenAI 兼容接口的 Base URL，例如
+#   https://dashscope.aliyuncs.com/compatible-mode/v1
+base_url = ""
+api_key = ""
+# 例如 qwen-vl-max、glm-4v、gpt-4o-mini
+model = ""
+# 描述的最大长度，范围 100-4000。
+max_tokens = 600

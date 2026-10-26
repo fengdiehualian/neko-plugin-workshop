@@ -1,0 +1,1236 @@
+"""PvZ 专用动作执行器 — 高层游戏动作到注入/鼠标的映射.
+
+执行策略:
+- 代码注入 (PvZCodeInjector): 直接调用游戏内部函数，100% 可靠
+- 鼠标操作 (fallback): 仅在注入器不可用时使用，不可靠
+
+坐标体系:
+- 注入模式: 传入 row/col 给游戏函数，游戏内部处理坐标
+- 鼠标模式: 通过 row/col + 场景类型 → 游戏像素坐标 → 屏幕坐标
+
+独立模块说明:
+- 零第三方运行时依赖：鼠标点击用 ctypes (GetCursorPos/SetCursorPos/mouse_event)
+  替代 pyautogui；窗口客户区用 ctypes (GetClientRect/ClientToScreen)
+- 日志使用标准库 logging，模块 logger 名为 "pvz_memory.executor"
+- 非 Windows 平台可安全 import (实例化时才报错)
+"""
+
+from __future__ import annotations
+
+import ctypes
+import ctypes.wintypes as wintypes
+import logging
+import time
+from typing import Any, Callable
+
+from .injector import PvZCodeInjector
+from .memory import PvZMemory, PvZMemoryError
+from .offsets import (
+    PLANT_NAMES,
+    PLANT_POT_TYPES,
+    PLANT_PUMPKIN_TYPE,
+    PLANT_UPGRADE_MAP,
+)
+from .reader import GameState, SeedInfo, level_is_conveyor
+
+logger = logging.getLogger(__name__)
+
+# ================================================================== #
+#  Windows API (鼠标 fallback + 默认客户区获取)
+# ================================================================== #
+
+_IS_WINDOWS = hasattr(ctypes, "windll")
+
+if _IS_WINDOWS:
+    _user32 = ctypes.windll.user32
+
+    # 鼠标
+    _GetCursorPos = _user32.GetCursorPos
+    _GetCursorPos.argtypes = [ctypes.POINTER(wintypes.POINT)]
+    _GetCursorPos.restype = wintypes.BOOL
+
+    _SetCursorPos = _user32.SetCursorPos
+    _SetCursorPos.argtypes = [ctypes.c_int, ctypes.c_int]
+    _SetCursorPos.restype = wintypes.BOOL
+
+    _mouse_event = _user32.mouse_event
+    _mouse_event.argtypes = [
+        wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, ctypes.c_ulonglong,
+    ]
+    _mouse_event.restype = None
+
+    # 窗口客户区 (默认 get_client_rect)
+    _GetClientRect = _user32.GetClientRect
+    _GetClientRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+    _GetClientRect.restype = wintypes.BOOL
+
+    _ClientToScreen = _user32.ClientToScreen
+    _ClientToScreen.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.POINT)]
+    _ClientToScreen.restype = wintypes.BOOL
+else:
+    _user32 = None
+    _GetCursorPos = None
+    _SetCursorPos = None
+    _mouse_event = None
+    _GetClientRect = None
+    _ClientToScreen = None
+
+_MOUSEEVENTF_LEFTDOWN = 0x0002
+_MOUSEEVENTF_LEFTUP = 0x0004
+
+
+def _get_cursor_pos() -> tuple[int, int]:
+    """获取当前屏幕鼠标坐标 (替代 pyautogui.position)."""
+    pt = wintypes.POINT()
+    if not _GetCursorPos(ctypes.byref(pt)):
+        return 0, 0
+    return pt.x, pt.y
+
+
+def _win_click(x: int, y: int, move_duration: float = 0.3) -> None:
+    """用 Windows API 移动鼠标并点击 (鼠标 fallback 用)."""
+    from_x, from_y = _get_cursor_pos()
+    steps = max(1, int(move_duration / 0.02))
+    for i in range(1, steps + 1):
+        t = i / steps
+        cur_x = int(from_x + (x - from_x) * t)
+        cur_y = int(from_y + (y - from_y) * t)
+        _SetCursorPos(cur_x, cur_y)
+        time.sleep(0.02)
+    time.sleep(0.03)
+    _mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+    time.sleep(0.05)
+    _mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+
+# ================================================================== #
+#  格子 → 游戏内像素坐标 (鼠标 fallback 用，注入模式不需要)
+# ================================================================== #
+
+COL_WIDTH = 80
+PVZ_STANDARD_WIDTH = 800
+PVZ_STANDARD_HEIGHT = 600
+SHOVEL_X = 755   # 铲子按钮中心 x (兜底值，教学关无卡片时使用)
+SHOVEL_Y = 50    # 工具栏垂直居中 y
+
+
+def _grid_y_by_scene(row: int, scene: int) -> int:
+    """根据场景类型近似计算格子中心的 y 坐标 (800x600 基准)."""
+    if scene in (2, 3):
+        return 50 + row * 85 + 42
+    elif scene in (4, 5):
+        return 40 + row * 85 + 42
+    else:
+        return 50 + row * 100 + 40
+
+
+def grid_to_game_pixel(row: int, col: int, scene: int = 0) -> tuple[int, int]:
+    """将 (行, 列) 转换为游戏内像素坐标 (鼠标 fallback 用).
+
+    注入模式下应使用 injector.grid_to_pixel() 调用游戏内部函数获取精确坐标。
+    """
+    x = (col + 1) * COL_WIDTH
+    y = _grid_y_by_scene(row, scene)
+    x = max(0, min(799, x))
+    y = max(0, min(599, y))
+    return x, y
+
+
+def game_pixel_to_screen(
+    gx: int,
+    gy: int,
+    get_client_rect: Callable[[], tuple[int, int, int, int]],
+) -> tuple[int, int]:
+    """将游戏内像素坐标 (800x600 基准) 转换为屏幕绝对坐标 (鼠标 fallback 用)."""
+    left, top, right, bottom = get_client_rect()
+    cw = right - left
+    ch = bottom - top
+    scale_x = cw / PVZ_STANDARD_WIDTH
+    scale_y = ch / PVZ_STANDARD_HEIGHT
+    return int(left + gx * scale_x), int(top + gy * scale_y)
+
+
+# 植物标准冷却总时长（厘秒）——putplant 直注路线开游戏原生冷却的时长来源
+# （快照 initial_cd 读不到或类型超出表范围时兜底）。
+# 大部分植物为快速冷却 7.5s；长冷却按原版数值。
+_RECHARGE_CS: dict[int, int] = {
+    0: 750,   # 豌豆射手
+    1: 750,   # 向日葵
+    2: 5000,  # 樱桃炸弹（50s）
+    3: 3000,  # 坚果墙（30s）
+    4: 3000,  # 土豆雷（30s）
+    5: 750,   # 寒冰射手
+    6: 750,   # 双发射手
+    7: 750,   # 大喷菇
+    8: 750,   # 小喷菇
+    9: 750,   # 阳光菇
+    10: 3000, # 墓碑吞噬者（30s）
+    11: 3000, # 倭瓜（30s）
+    12: 750,  # 三线射手
+    13: 3000, # 缠绕海草（30s）
+    14: 5000, # 火爆辣椒（50s）
+    15: 750,  # 地刺
+    16: 750,  # 火炬树桩
+    17: 3000, # 高坚果（30s）
+    18: 3000, # 海蘑菇（30s）
+    19: 3000, # 路灯花（30s）
+    20: 750,  # 仙人掌
+    21: 750,  # 三叶草
+    22: 750,  # 裂荚射手
+    23: 750,  # 杨桃
+    24: 3000, # 南瓜头（30s）
+    25: 3000, # 磁力菇（30s）
+    26: 750,  # 卷心菜投手
+    27: 750,  # 花盆
+    28: 3000, # 玉米投手（30s）
+    29: 750,  # 咖啡豆
+    30: 2000, # 大蒜（20s）
+    31: 2000, # 伞叶（20s）
+    32: 750,  # 金盏花
+    33: 3000, # 西瓜投手（30s）
+    34: 5000, # 机枪射手（50s）
+    35: 5000, # 双子向日葵（50s）
+    36: 5000, # 忧郁菇（50s）
+    37: 5000, # 香蒲（50s）
+    38: 5000, # 冰瓜投手（50s）
+    39: 5000, # 黄金磁力菇（50s）
+    40: 5000, # 地刺王（50s）
+    41: 5000, # 玉米加农炮（50s）
+}
+
+# ================================================================== #
+#  PvZ 动作执行器
+# ================================================================== #
+
+class PvZExecutor:
+    """PvZ 专用动作执行器.
+
+    优先使用代码注入，鼠标操作仅作为不可靠的后备。
+
+    get_client_rect 只在鼠标 fallback 用；注入模式下无需窗口坐标。
+    不传时用 ctypes 基于 PvZ 窗口句柄自动获取客户区屏幕坐标。
+    """
+
+    def __init__(
+        self,
+        memory: PvZMemory,
+        get_client_rect: Callable[[], tuple[int, int, int, int]] | None = None,
+        planting_mode: str = "putplant",
+    ) -> None:
+        if not _IS_WINDOWS:
+            raise PvZMemoryError("PvZ 动作执行仅支持 Windows 平台")
+        self._mem = memory
+        # 种植模式："putplant"=PutPlant 直接注入（默认，0.4.6 起为主路线，
+        # UI 语义由插件按游戏原生规则补齐：扣阳光/开冷却/传送带消耗卡牌）；
+        # "mouseclick"=注入 MouseClick 点卡片+点格子（游戏自管一切，可选）。
+        _pm = str(planting_mode or "putplant").strip().lower()
+        self._planting_mode = _pm if _pm in ("mouseclick", "putplant") else "putplant"
+        if get_client_rect is None:
+            get_client_rect = self._make_default_client_rect(memory)
+        self._get_rect = get_client_rect
+
+        # 初始化代码注入器
+        self._injector: PvZCodeInjector | None = None
+        self._inject_error: str = ""  # 注入器初始化失败原因 (诊断用)
+        if memory.is_connected():
+            try:
+                self._injector = PvZCodeInjector(memory)
+                logger.info("[PvZ执行] 代码注入器已启用")
+            except Exception as exc:
+                self._inject_error = str(exc)
+                logger.warning("[PvZ执行] 代码注入器初始化失败: %s，退回鼠标模式", exc)
+        # 关卡判定：逐轮纯推导（见 _conveyor_verdict），无实例级缓存。
+        # _direct_plants 供"疑似传送带漏判"阳光自愈使用（跨关时由时钟回卷重置）。
+        self._direct_plants: int = 0  # 本关已成功直注次数
+        self._last_clock: int = -1    # 上一动作的游戏时钟（回卷 = 换关）
+        # 冷却完全交给游戏：putplant 直注后按原生语义开卡槽冷却
+        # （见 _start_game_cooldown），内存 cd 由游戏真实递增，唯一冷却闸门
+        # 就是 place_plant 顶部的 seed.cd>0 检查。0.4.1 的插件侧 monotonic
+        # 封卡表（模拟冷却）已随原生冷却落地移除——每动作前 execute_tool_call
+        # 都会重读内存，直注后的 0.3s 验证等待足以让 cd 起跳。
+
+    def _conveyor_verdict(self, state: Any) -> bool:
+        """传送带判定：**逐轮纯推导**（level_is_conveyor），与 reader 完全一致。
+
+        0.4.8 起为权威白名单（GameMode {17,33,35} / 冒险关卡号 {5,35,50}），
+        覆盖坚果保龄球 1/2 与僵王博士（含小游戏/冒险两种形态）。传送带关
+        行为语义（0.4.9 统一免阳光/无冷却/零提示）见 reader 白名单常量注释。
+        """
+        verdict = level_is_conveyor(state)
+        try:
+            state._is_conveyor = verdict
+        except Exception:
+            pass
+        return verdict
+
+    def _belt_suspect(self, state: Any) -> bool:
+        """疑似传送带漏判：本关已成功直注过、阳光已耗尽、**且卡槽存在空位**
+        （传送带关特征——普通关/夜关卡槽全满，阳光合法地低，不放水）。
+        实测夜关（小喷菇+向日葵）阳光归零后被误判 → 无限补阳光"无阳光照种"。
+        """
+        try:
+            if self._direct_plants < 1 or self._safe_sun() > 0:
+                return False
+            return any(
+                getattr(s, "plant_type", -1) < 0 for s in (getattr(state, "seeds", []) or [])
+            )
+        except Exception:
+            return False
+
+    def _recharge_cs_for(self, plant_type: int, seed: Any) -> int:
+        """植物冷却总时长（厘秒）：标准冷却表优先（权威数值）。
+
+        0.4.1 起不再直接采信快照 initial_cd——卡槽数组迁移可能读到 0 或
+        残留脏值，直接采用会把超长冷却写进游戏，表现为"冷却时间一直不变、
+        一直无法种植"。表缺该类型时才用快照兜底（0x28 本义就是冷却总时长，
+        游戏开冷却时会写入正确值），并夹紧到 [1s, 75s]。
+        """
+        cs = _RECHARGE_CS.get(plant_type)
+        if cs is None:
+            cs = int(getattr(seed, "initial_cd", 0) or 0) or 750
+        return max(100, min(int(cs), 7500))
+
+    def _start_game_cooldown(self, state: Any, card_index: int, plant_type: int) -> None:
+        """PutPlant 绕过 UI：种植确认后按游戏原生语义开启卡槽冷却。
+
+        PutPlant 只创建植物对象，不触发 SeedCard 的任何 UI 逻辑（不开冷却）。
+        这里等价 pvzclass SeedCard::EnterCoolDown——Enable=0 + Interval=时长 +
+        CoolDown=0 + Active=1（见 injector.start_card_cooldown）。此后冷却
+        遮罩显示、逐帧倒计时、结束时的就绪闪光全部由游戏自己完成，游戏内
+        冷却条与真实鼠标种植完全一致；reader 读到的 0x24 也会被游戏真实
+        递增，模型每轮看到的 ⏳ 剩余时间同样是游戏权威数值。
+
+        冷却时长取 _recharge_cs_for（标准表优先，快照兜底）。写后回读验证：
+        卡槽数组被游戏迁移导致写不进去时明确记日志——此时代码里已没有插件侧
+        模拟冷却兜底，卡片会保持就绪（与 0.4.1 之前的原生行为一致），日志用于
+        排障定位。
+        """
+        if not (self._mem and self._injector):
+            return
+        try:
+            seeds = getattr(state, "seeds", []) or []
+            if card_index < 0 or card_index >= len(seeds):
+                return
+            expected = self._recharge_cs_for(plant_type, seeds[card_index])
+            off = self._mem.offsets
+            card_addr = self._seed_card_addr(card_index)
+            if not card_addr:
+                logger.info("[PvZ执行] 冷却开启跳过：卡槽组地址为 0")
+                return
+            self._injector.start_card_cooldown(card_addr, expected)
+            cd = self._mem.read_int(card_addr + off.sc_cd)
+            active = self._mem.read_bool(card_addr + off.sc_active)
+            interval = self._mem.read_int(card_addr + off.sc_initial_cd)
+            if cd == 0 and active and interval == expected:
+                logger.info(
+                    "[PvZ执行] ⏳ 卡片 [%s] 冷却已开启 %s 厘秒（游戏自管倒计时，回读验证一致）",
+                    card_index, expected,
+                )
+            else:
+                logger.info(
+                    "[PvZ执行] ⚠ 卡片 [%s] 冷却开启未生效（期望 %s 厘秒，回读 cd=%s "
+                    "active=%s interval=%s）——卡槽数组可能已被游戏迁移，游戏内冷却条可能不显示",
+                    card_index, expected, cd, active, interval,
+                )
+        except Exception as exc:
+            logger.info("[PvZ执行] 卡片冷却开启失败（不影响种植）: %s", exc)
+
+    def _seed_card_addr(self, card_index: int) -> int:
+        """第 card_index 张卡片对象首地址；卡槽数组不可读时返回 0."""
+        off = self._mem.offsets
+        seed_array = self._mem.read_pointer(self._mem.main_object + off.seed_array)
+        if not seed_array:
+            return 0
+        return seed_array + off.seed_card_offset + card_index * off.seed_card_size
+
+    def _consume_seed_card(self, card_index: int) -> None:
+        """传送带关：直注调用后把用掉的卡槽 type 写 -1（模拟游戏原生消耗）.
+
+        游戏原生行为（0.4.4 实测）：卡被用掉 → 槽位 SeedType=-1（空槽）→
+        传送带按自身节奏向空槽补送新坚果。PutPlant 不消耗卡牌，这里补上
+        这一步，否则用过的坚果永久占槽（0.4.2 实测 1-5 十槽全被废卡占满，
+        弹药枯竭）。与占位验证解耦——坚果落地即滚/爆，验证为 False 不代表
+        卡没用掉（0.4.5）。写后回读验证；失败只记日志不抛错（与开冷却同
+        策略，不影响种植本身已成功的事实）。
+        """
+        if not (self._mem and self._injector):
+            return
+        try:
+            card_addr = self._seed_card_addr(card_index)
+            if not card_addr:
+                logger.warning("[PvZ执行] ⚠ 卡牌消耗跳过：读不到卡槽数组")
+                return
+            self._injector.clear_seed_card(card_addr)
+            time.sleep(0.05)
+            if self._mem.read_int(card_addr + self._mem.offsets.sc_type) < 0:
+                logger.info(
+                    "[PvZ执行] 🧹 卡片 [%s] 已消耗（槽位清空，等待传送带补卡）",
+                    card_index,
+                )
+            else:
+                logger.warning(
+                    "[PvZ执行] ⚠ 卡片 [%s] 消耗写入未生效（回读非 -1）——"
+                    "该卡会留在卡槽，可能重复出现",
+                    card_index,
+                )
+        except Exception as exc:
+            logger.warning("[PvZ执行] ⚠ 卡牌消耗异常（不影响已完成的种植）: %s", exc)
+
+    @staticmethod
+    def _make_default_client_rect(mem: PvZMemory) -> Callable[[], tuple[int, int, int, int]]:
+        """基于 PvZ 窗口句柄的默认客户区获取 (ctypes, 零依赖)."""
+
+        def rect() -> tuple[int, int, int, int]:
+            hwnd = mem._hwnd
+            if not hwnd:
+                raise PvZMemoryError("未连接 PvZ 窗口，无法获取客户区矩形")
+            rc = wintypes.RECT()
+            _GetClientRect(hwnd, ctypes.byref(rc))
+            pt = wintypes.POINT(0, 0)
+            _ClientToScreen(hwnd, ctypes.byref(pt))
+            return pt.x, pt.y, pt.x + rc.right, pt.y + rc.bottom
+
+        return rect
+
+    def close(self) -> None:
+        """释放资源 (恢复所有 hack + 关注入句柄)."""
+        if self._injector:
+            self._injector.close()
+            self._injector = None
+
+    def __enter__(self) -> "PvZExecutor":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
+    @property
+    def injector(self) -> PvZCodeInjector | None:
+        """获取注入器实例（用于外部调用 hack 开关等）."""
+        return self._injector
+
+    @property
+    def inject_error(self) -> str:
+        """注入器初始化失败原因（空串表示已启用）."""
+        return self._inject_error
+
+    def pause_for_thinking(self) -> None:
+        """冻结 PvZ 主循环，用于推理期间暂停游戏。"""
+        if not self._injector:
+            raise PvZMemoryError("PvZ 注入器未启用，无法冻结主循环")
+        self._injector.set_main_loop_blocked(True)
+
+    def resume_after_thinking(self) -> None:
+        """恢复 PvZ 主循环，对应 pause_for_thinking。"""
+        if not self._injector:
+            raise PvZMemoryError("PvZ 注入器未启用，无法恢复主循环")
+        self._injector.set_main_loop_blocked(False)
+
+    def can_execute(self, action: str) -> bool:
+        """判断是否为 PvZ 专属动作."""
+        return action in (
+            "place_plant", "shovel",
+            "use_cob_cannon", "click_card", "win_level", "select_seeds",
+            "collect_belt",
+        )
+
+    def execute(self, action: str, args: dict[str, Any], state: GameState) -> dict[str, Any]:
+        """执行 PvZ 专属动作."""
+        logger.info("[PvZ执行] action=%s, args=%s", action, args)
+        result: dict[str, Any] = {"action": action, "status": "ok"}
+
+        try:
+            if action == "place_plant":
+                self._place_plant(args, state, result)
+            elif action == "click_card":
+                self._click_card(args, state, result)
+            elif action == "shovel":
+                self._shovel(args, state, result)
+            elif action == "use_cob_cannon":
+                self._use_cob_cannon(args, state, result)
+            elif action == "win_level":
+                self._win_level(args, state, result)
+            elif action == "select_seeds":
+                self._select_seeds(args, state, result)
+            elif action == "collect_belt":
+                self._collect_belt(args, state, result)
+            else:
+                raise ValueError(f"未知 PvZ 动作: {action}")
+        except Exception as exc:
+            logger.error("[PvZ执行] 动作失败: %s", exc)
+            result["status"] = "error"
+            result["error"] = str(exc)
+
+        return result
+
+    # ------------------------------------------------------------------ #
+    #  具体动作实现
+    # ------------------------------------------------------------------ #
+
+    def _place_plant(self, args: dict, state: GameState, result: dict) -> None:
+        """种植植物 — 按 planting_mode 选择直注或点击路线.
+
+        "putplant"（默认）: PutPlant 直接注入，插件按游戏原生语义补齐 UI
+        行为——阳光闸门拦截、种后开原生冷却（普通关）、传送带关免阳光并
+        消耗卡槽。
+        "mouseclick": MouseClick 点击卡片中心 + 点击格子中心，游戏自己处理
+        全部 UI 逻辑。
+        无注入器时: Windows API 点击屏幕坐标。
+        """
+        card_index = args.get("card_index")
+        row = args.get("row")
+        col = args.get("col")
+
+        # 换关检测：游戏时钟回卷 = 新的一局 → 重置自愈计数
+        try:
+            clock = int(getattr(state, "game_clock", 0) or 0)
+        except (TypeError, ValueError):
+            clock = 0
+        if clock < self._last_clock:
+            self._direct_plants = 0
+        self._last_clock = clock
+
+        if card_index is None or row is None or col is None:
+            raise ValueError("place_plant 需要 card_index, row, col 参数")
+
+        if card_index < 0 or card_index >= len(state.seeds):
+            raise ValueError(f"无效卡片序号: {card_index}，共 {len(state.seeds)} 张卡")
+
+        seed = state.seeds[card_index]
+        # 传送带判定提前到这里（纯推导幂等）：下方冷却/阳光闸门都要按它分流。
+        conveyor = bool(self._conveyor_verdict(state))
+        # 空槽位守卫：传送带关读到的 plant_type=-1 是空卡槽，点了也是无效操作
+        # （日志实证：模型对空槽发起种植，注入层报成功但什么都没发生）
+        if seed.plant_type < 0:
+            raise ValueError(
+                f"卡片 [{card_index}] 是空槽位（传送带尚未送来或已用完）——"
+                "先种其他卡；若全部空槽，本轮 wait 等待传送带补卡后重读"
+            )
+        if conveyor:
+            # 0.4.12：实时复核卡槽。state.seeds 是轮首快照；同轮连续种植会把
+            # 卡消耗掉（sc_type→-1）而快照不更新——不复核就会"预支"传送带
+            # 还没送到的植物（僵王关实测：模型照快照重复引用已消耗的卡）。
+            live_type = self._read_card_live_type(seed.index)
+            if live_type == -2:
+                raise ValueError(
+                    f"无法实时读取卡片 [{seed.index}] 的当前状态——传送带关必须确认"
+                    "卡片已送达才能种（防止种出传送带还没送到的植物）；"
+                    "请下一轮重读状态后重试"
+                )
+            if live_type < 0:
+                raise ValueError(
+                    f"卡片 [{seed.index}] {seed.name} 刚被用掉（或传送带还没送到）——"
+                    "不能重复种；请改种其它 ✅ 卡，全空就 wait 等待送卡后重读"
+                )
+            if live_type != seed.plant_type:
+                live_name = PLANT_NAMES.get(live_type, f"未知({live_type})")
+                raise ValueError(
+                    f"卡片 [{seed.index}] 已被传送带刷新，现在是 {live_name}（不再是 "
+                    f"{seed.name}）——请按最新卡片列表重新选择"
+                )
+            # 免阳光、无冷却、零提示（0.4.9 用户决策）：跳过冷却与阳光闸门，
+            # 不拦截不警告，种植按 0 费用直注（见下方）。
+        else:
+            # 就绪判定只看冷却——is_usable(0x48) 语义模糊（读取器注释同理）。
+            # 0x24 是"已冷却时长"（从 0 递增到 0x28 总时长），cd>0 即在冷却；
+            # 剩余时间 = 总时长 - 已冷却（见 SeedInfo.cd_remaining）。
+            if seed.cd > 0:
+                raise ValueError(
+                    f"卡片 [{card_index}] {seed.name} 冷却中（还剩 {seed.cd_remaining / 100:.1f}s）"
+                )
+            if state.sun < seed.sun_cost:
+                if self._belt_suspect(state):
+                    # 疑似传送带漏判（已直注过+阳光耗尽+卡就绪）：补阳光放行，
+                    # 避免把没有阳光机制的关卡卡死（实测 1-5 坚果保龄球）
+                    before = self._safe_sun()
+                    self._grant_sun(seed.sun_cost + 50)
+                    result["warning"] = (
+                        f"阳光耗尽但卡片就绪（疑似传送带关漏判）——已自动补阳光 "
+                        f"{before}→{self._safe_sun()}，继续种植"
+                    )
+                else:
+                    # 普通关：PutPlant 手动扣阳光，预检是唯一闸门，硬拦（3.0 语义）
+                    raise ValueError(
+                        f"卡片 [{card_index}] {seed.name} 需要 {seed.sun_cost} 阳光，当前只有 {state.sun}"
+                    )
+
+        # 教学关行号校正（0.4.2）：教学关只在草皮行有割草机，reader 由割草机
+        # 真实行号推导草皮行盖章 state._plantable_rows。模型按"row 0 起算"
+        # 选行会落到无草皮的空地（实测三行草皮关被【棋盘】旧文案带偏成
+        # row 0~2，草皮末行 row 3 的僵尸无人防守）。这里把非草皮行的请求
+        # 重定向到最近的草皮行；普通关草皮行=全部行，此分支不触发。
+        # 必须在占用/升级检查之前——那些检查都用校正后的行。
+        grass_rows = getattr(state, "_plantable_rows", None) or []
+        if grass_rows and row not in grass_rows:
+            try:
+                row_req = int(row)
+            except (TypeError, ValueError):
+                row_req = -1
+            nearest = min(grass_rows, key=lambda r: abs(r - row_req))
+            logger.info("[PvZ执行] 🌱 行%s 无草皮（教学关草皮行=%s）→ 改种行%s",
+                        row, grass_rows, nearest)
+            result["warning"] = (
+                f"行{row} 没有草皮（教学关只有行 {grass_rows} 可种）——"
+                f"已自动改种到最近的草皮行 {nearest}，之后请直接选草皮行"
+            )
+            row = nearest
+
+        # 升级植物检查：必须点在已有基础植物上
+        base_type = PLANT_UPGRADE_MAP.get(seed.plant_type)
+        if base_type is not None:
+            base_name = PLANT_NAMES.get(base_type, f"类型{base_type}")
+            target_plant = None
+            for p in state.plants:
+                if p.row == row and p.col == col:
+                    target_plant = p
+                    break
+            if target_plant is None:
+                raise ValueError(
+                    f"升级植物 {seed.name} 必须种在已有 {base_name} 上，"
+                    f"行{row}列{col} 为空地"
+                )
+            if target_plant.plant_type != base_type:
+                raise ValueError(
+                    f"升级植物 {seed.name} 必须种在 {base_name} 上，"
+                    f"行{row}列{col} 是 {target_plant.name}，不是 {base_name}"
+                )
+        else:
+            # 占用判定（0.4.10）：按游戏原生"一格三槽位"语义——
+            #   基座槽：花盆/荷叶（最多 1）；植物槽：普通植物（最多 1）；
+            #   外壳槽：南瓜壳（最多 1）。
+            # 花盆/荷叶上叠种、往空南瓜里种、给已有植物围南瓜都是正常玩法
+            # （0.4.9 前见植物就拦，屋顶关"花盆上不能叠种"根本没法玩）。
+            # 规则：种基座要完全空格；种南瓜只看外壳槽；种普通植物只看植物槽。
+            existing = [p for p in state.plants if p.row == row and p.col == col]
+            if existing:
+                occupant_names = "+".join(p.name for p in existing)
+                has_pot = any(p.plant_type in PLANT_POT_TYPES for p in existing)
+                has_pumpkin = any(p.plant_type == PLANT_PUMPKIN_TYPE for p in existing)
+                normals = [p for p in existing
+                           if p.plant_type not in PLANT_POT_TYPES
+                           and p.plant_type != PLANT_PUMPKIN_TYPE]
+                seed_type = seed.plant_type
+                if seed_type in PLANT_POT_TYPES:
+                    # 基座只能落在完全空格（不能垫在植物/南瓜下面）
+                    raise ValueError(
+                        f"行{row}列{col} 已有 {occupant_names}——花盆/荷叶只能种在空格上"
+                    )
+                if seed_type == PLANT_PUMPKIN_TYPE:
+                    # 外壳槽：一格一个南瓜壳；围在植物/基座外都行
+                    if has_pumpkin:
+                        raise ValueError(
+                            f"行{row}列{col} 已有 {occupant_names}——一格只能围一个南瓜壳"
+                        )
+                elif normals:
+                    # 植物槽被占：有基座说"基座里已种"，否则说不能叠种
+                    if has_pot:
+                        raise ValueError(
+                            f"行{row}列{col} 的花盆/荷叶里已种了 "
+                            f"{'+'.join(p.name for p in normals)}——一个基座只能种一株，"
+                            "换空基座或空格"
+                        )
+                    raise ValueError(
+                        f"行{row}列{col} 已有 {occupant_names}，不能叠种 {seed.name}"
+                    )
+
+        # conveyor 已在闸门前推导（此处直接复用，纯推导幂等）
+        plant_type = seed.imitator_type if seed.imitator_type >= 0 else seed.plant_type
+        imitater = seed.imitator_type >= 0
+
+        # "mouseclick" 配置走点击路线（可选）；默认与传送带关走 PutPlant 直注。
+        if self._injector is not None and self._injector.supports_mouse and self._planting_mode == "mouseclick":
+            # ============ 可选路线（planting_mode="mouseclick"）============
+            # 注入 MouseClick 点卡片 + 点格子：游戏自己处理全部 UI 逻辑
+            # （扣阳光/开冷却/查占用/阳光条冷却条显示），模型经 reader
+            # 看到的就是游戏真实状态。
+            if seed.x > 0 and seed.y > 0:
+                card_cx = seed.x + seed.width // 2
+                card_cy = seed.y + seed.height // 2
+            else:
+                card_cx = 80 + seed.index * 51 + 25
+                card_cy = 10
+            logger.info("[PvZ执行] 💉 点击卡片 [%s] (%s,%s)", seed.index, card_cx, card_cy)
+            self._injector.mouse_click(card_cx, card_cy)
+            time.sleep(0.1)
+            gx, gy = self._injector.grid_to_pixel(row, col)
+            logger.info("[PvZ执行] 💉 点击格子 (%s,%s) → (%s,%s)", row, col, gx, gy)
+            self._injector.mouse_click(gx, gy)
+            time.sleep(0.3)
+            self._direct_plants += 1
+            # 冷却完全由游戏接管：MouseClick 点卡+落格即走游戏原生
+            # EnterCoolDown，冷却条显示/倒计时/就绪闪光全程真实。内存 0x24
+            # 是"已冷却时长"（0 → 总时长递增），跨轮由 reader 读 cd>0 拦截。
+            # 插件侧不封卡——此前按 initial_cd 快照封 7.5s，而快照不可靠
+            # （常读到 0，见 _recharge_cs_for 注释），长冷却植物会陷入
+            # "锁到期→点击被游戏拒绝→再封 7.5s"循环：剩余时间显示永远
+            # 不变且一直种不下（0.4.1 实测）。同轮重复种植由游戏自己拒绝
+            # （点击无效果）。
+            # 种后轻验证：游戏拒绝（阳光/冷却/占用）时点击不产生植物
+            if self._cell_has_plant_type(row, col, plant_type):
+                result["detail"] = (
+                    f"种植 {seed.name} 到 行{row}列{col}（MouseClick，阳光/冷却由游戏处理）"
+                )
+            else:
+                result["warning"] = (
+                    f"点击后格子 行{row}列{col} 未确认种植（游戏可能因阳光/冷却/占用拒绝）——"
+                    "下轮请换目标或等待"
+                )
+                result["detail"] = f"尝试种植 {seed.name} 到 行{row}列{col}（未确认）"
+            result["card_index"] = card_index
+            result["grid"] = (row, col)
+            return
+
+        if self._injector is not None:
+            # ============ 默认路线：PutPlant 直接注入 ============
+            # UI 语义由插件按游戏原生规则补齐：普通关扣阳光+开原生冷却，
+            # 传送带关免阳光+种后消耗卡槽（_consume_seed_card）。
+            # 崩溃防护：类型必须已知——垃圾类型会让游戏创建非法植物闪退
+            if plant_type not in PLANT_NAMES:
+                raise ValueError(
+                    f"卡片 [{card_index}] 的植物类型异常（{plant_type}），放弃直接注入以防崩溃"
+                )
+            # 冷却闸门只有一处：顶部的 seed.cd>0（游戏原生冷却的内存读数），
+            # 且只对普通关生效（传送带关统一无冷却语义，见闸门注释）。
+            # 每个动作执行前 execute_tool_call 都会重读内存，本动作直注成功
+            # 后的 0.3s 验证等待足以让游戏把 cd 从 0 起跳，同轮连种同样会被
+            # 拦截。传送带关由喂卡节奏管理，没有冷却。
+            # 阳光（0.4.9 统一语义）：传送带关一律按 0 费用注入（不扣阳光）；
+            # 普通关按真实费用注入（put_plant 会手动扣阳光）。
+            sun_cost = 0 if conveyor else seed.sun_cost
+            logger.info("[PvZ执行] 💉 直接注入 PutPlant 行%s列%s type=%s imitater=%s 阳光=%s",
+                        row, col, plant_type, imitater, sun_cost)
+            self._injector.put_plant(row, col, plant_type, imitater=imitater,
+                                     sun_cost=sun_cost)
+            result["direct"] = True
+            # 种后内存验证：PutPlant 不查游戏规则，可能被静默拒绝。
+            # 0.4.10 起按类型验证——花盆/荷叶/南瓜让格子本来就被占，
+            # 只看 row/col 会把"没种上"误判成成功。
+            time.sleep(0.3)
+            cell_ok = self._cell_has_plant_type(row, col, plant_type)
+            if cell_ok:
+                self._direct_plants += 1
+                # 游戏原生冷却：Enable=0/Interval=时长/CoolDown=0/Active=1，
+                # 冷却条显示、逐帧倒计时、就绪闪光全由游戏自己完成，与真实
+                # 鼠标种植视觉一致；此后内存 cd 真实递增，顶部闸门自然生效。
+                if not conveyor:
+                    self._start_game_cooldown(state, card_index, plant_type)
+                result["detail"] = f"种植 {seed.name} 到 行{row}列{col} (直接注入)"
+            else:
+                result["warning"] = (
+                    f"直接注入后格子 行{row}列{col} 未在内存确认种植（可能被游戏规则拒绝）——"
+                    "下轮请换目标"
+                )
+            if conveyor:
+                # 传送带关消耗卡槽与占位验证解耦（0.4.5 实测教训）：坚果保龄球
+                # 的坚果落地即滚走/撞爆，0.3s 后的占位验证可能为 False，若只在
+                # 验证成功时消耗，卡会永远留在槽里（21:44 日志实证卡片[0]漏消耗）。
+                # PutPlant 调用本身即视为"卡已使用"，无论验证结果一律消耗。
+                self._consume_seed_card(card_index)
+                if cell_ok:
+                    result["detail"] += "，卡牌已消耗"
+            result["card_index"] = card_index
+            result["grid"] = (row, col)
+            return
+
+        # 无注入器（内存只读/初始化失败）兜底：真实鼠标模拟（游戏处理一切）
+        self._place_plant_mouse(seed, row, col, state)
+        result["detail"] = f"种植 {seed.name} 到 行{row}列{col}"
+        result["card_index"] = card_index
+        result["grid"] = (row, col)
+
+    def _place_plant_mouse(self, seed: SeedInfo, row: int, col: int, state: GameState) -> None:
+        """鼠标模式种植（不可靠的后备）."""
+        cx, cy = self._seed_center(seed)
+        logger.info("[PvZ执行] 🖱 点击卡片 [%s] 屏幕(%s,%s)", seed.index, cx, cy)
+        _win_click(cx, cy)
+        time.sleep(0.3)
+
+        gx, gy = grid_to_game_pixel(row, col, state.scene)
+        sx, sy = game_pixel_to_screen(gx, gy, self._get_rect)
+        logger.info("[PvZ执行] 🖱 点击格子 (%s,%s) 屏幕(%s,%s)", row, col, sx, sy)
+        _win_click(sx, sy, move_duration=0.4)
+        time.sleep(0.2)
+
+    def _click_card(self, args: dict, state: GameState, result: dict) -> None:
+        """点击卡片 (选中但暂不放置)."""
+        card_index = args.get("card_index")
+        if card_index is None:
+            raise ValueError("click_card 需要 card_index 参数")
+
+        if card_index < 0 or card_index >= len(state.seeds):
+            raise ValueError(f"无效卡片序号: {card_index}")
+
+        seed = state.seeds[card_index]
+
+        if self._injector:
+            # 注入模式: 用 MouseClick 点击卡片中心坐标
+            if seed.x > 0 and seed.y > 0:
+                cx = seed.x + seed.width // 2
+                cy = seed.y + seed.height // 2
+                self._injector.mouse_click(cx, cy)
+            else:
+                # 兜底估算
+                cx = 80 + seed.index * 51 + 25
+                cy = 10
+                self._injector.mouse_click(cx, cy)
+        else:
+            sx, sy = self._seed_center(seed)
+            _win_click(sx, sy)
+
+        result["detail"] = f"选中卡片 [{card_index}] {seed.name}"
+
+    def _shovel(self, args: dict, state: GameState, result: dict) -> None:
+        """铲除植物 — MouseClick 点铲子按钮 + 点目标格子.
+
+        走 MouseClick 路线由游戏自己处理铲子的选中/取消/教程等 UI 逻辑。
+        """
+        row = args.get("row")
+        col = args.get("col")
+        if row is None or col is None:
+            raise ValueError("shovel 需要 row, col 参数")
+
+        if self._injector:
+            # 1. 先释放当前鼠标选中状态
+            self._injector.release_mouse()
+            time.sleep(0.05)
+
+            # 2. 点击铲子按钮
+            shovel_x, shovel_y = self._get_shovel_button_pos(state)
+            using_fallback = not state.seeds or not state.seeds[-1].x > 0
+            logger.info("[PvZ执行] 💉 点击铲子 (%s,%s), fallback=%s", shovel_x, shovel_y, using_fallback)
+            self._injector.mouse_click(shovel_x, shovel_y)
+            time.sleep(0.3)  # 等待游戏进入铲子模式
+
+            # 3. 点击目标格子
+            gx, gy = self._injector.grid_to_pixel(row, col)
+            logger.info("[PvZ执行] 💉 点击格子 (%s,%s) → (%s,%s)", row, col, gx, gy)
+            self._injector.mouse_click(gx, gy)
+            time.sleep(0.1)
+        else:
+            sx, sy = game_pixel_to_screen(SHOVEL_X, SHOVEL_Y, self._get_rect)
+            _win_click(sx, sy)
+            time.sleep(0.25)
+            gx, gy = grid_to_game_pixel(row, col, state.scene)
+            sx, sy = game_pixel_to_screen(gx, gy, self._get_rect)
+            _win_click(sx, sy, move_duration=0.4)
+
+        result["detail"] = f"铲除 行{row}列{col} 的植物"
+        result["grid"] = (row, col)
+
+    def _use_cob_cannon(self, args: dict, state: GameState, result: dict) -> None:
+        """使用玉米加农炮: 先点击炮台，再点击落点."""
+        row = args.get("row")
+        col = args.get("col")
+        target_row = args.get("target_row")
+        target_col = args.get("target_col")
+
+        if any(v is None for v in (row, col, target_row, target_col)):
+            raise ValueError("use_cob_cannon 需要 row, col, target_row, target_col 参数")
+
+        if self._injector:
+            # 注入模式: 精确坐标点击
+            gx1, gy1 = self._injector.grid_to_pixel(row, col)
+            self._injector.mouse_click(gx1, gy1)
+            time.sleep(0.1)
+            gx2, gy2 = self._injector.grid_to_pixel(target_row, target_col)
+            self._injector.mouse_click(gx2, gy2)
+        else:
+            gx, gy = grid_to_game_pixel(row, col, state.scene)
+            sx, sy = game_pixel_to_screen(gx, gy, self._get_rect)
+            _win_click(sx, sy)
+            time.sleep(0.15)
+            gx, gy = grid_to_game_pixel(target_row, target_col, state.scene)
+            sx, sy = game_pixel_to_screen(gx, gy, self._get_rect)
+            _win_click(sx, sy)
+
+        result["detail"] = f"玉米炮 ({row},{col}) → ({target_row},{target_col})"
+
+    # 传送带排队区扫描点 (800x600 游戏画布): 传送带在顶部条带，未收取的
+    # 植物会堆积排队。从靠近卡栏右缘的一排点依次点击，点中即被收进卡栏。
+    # y 覆盖条带的典型高度带（传送带卡片视觉中心 y≈43±，卡高约 50px）。
+    _BELT_CLICK_POINTS: tuple[tuple[int, int], ...] = (
+        (120, 58), (170, 58), (220, 58), (270, 58), (320, 58), (390, 58),
+        (120, 42), (170, 42), (220, 42), (120, 74), (170, 74), (220, 74),
+    )
+
+    def _safe_sun(self) -> int:
+        """读当前内存阳光；失败返回 -1（不阻塞种植流程）。"""
+        try:
+            return int(self._mem.get_sun())
+        except Exception:
+            return -1
+
+    def _cancel_cursor(self) -> None:
+        """取消可能滞留在鼠标上的植物/铲子（双保险）。
+
+        用户实测：传送带关植物会挂在鼠标上，此时点卡片选不中新卡、
+        点格子种下去的是光标上的旧卡——所有后续点击都被污染。
+        - 右键空角落 (5,5)：PvZ 标准取消操作，手中无物时无任何效果
+        - release_mouse：游戏内部取消选中函数
+        """
+        if not self._injector:
+            return
+        try:
+            self._injector.mouse_click(5, 5, button=2)
+        except Exception:
+            pass
+        try:
+            self._injector.release_mouse()
+        except Exception:
+            pass
+        time.sleep(0.15)
+
+    def _grant_sun(self, target: int) -> None:
+        """把阳光补到 target——种植确认失败且阳光不足时的解卡手段。
+
+        传送带等版本拾取植物不要阳光、落格时才扣：阳光不足则游戏拒绝落格，
+        植物滞留鼠标。写入走注入器句柄（PvZMemory 句柄只读）。失败仅记日志。
+        """
+        inj = self._injector
+        if not inj:
+            return
+        try:
+            board_ptr = self._mem.main_object
+            if not board_ptr:
+                logger.warning("[PvZ执行] Board* 为空，无法补阳光")
+                return
+            sun_addr = board_ptr + self._mem.offsets.sun
+            inj.write_int(sun_addr, int(target))
+            logger.info("[PvZ执行] ☀ 阳光补至 %s（落格被拒的解卡处理）", target)
+        except Exception as exc:
+            logger.warning("[PvZ执行] 补阳光失败: %s", exc)
+
+    def _read_card_live_type(self, card_index: int) -> int:
+        """读内存取卡槽**当前**的植物类型（0.4.12）.
+
+        返回：>=0 = 卡槽当前真实类型；-1 = 确认空槽/已消耗；
+        -2 = 读失败/越界（状态无法确认）。
+
+        place_plant 拿到的 state 是轮首快照；传送带关同轮连续种植会消耗
+        卡槽（sc_type 置 -1），快照里却仍是旧类型。传送带种植前必须实时
+        复核，否则模型会"预支"传送带还没送到的植物。
+        """
+        try:
+            off = self._mem.offsets
+            mo = self._mem.main_object
+            seed_array = self._mem.read_pointer(mo + off.seed_array)
+            if not seed_array:
+                return -2
+            count = self._mem.read_int(seed_array + off.seed_count)
+            if card_index < 0 or card_index >= min(max(count, 0), 12):
+                return -2
+            card_addr = (seed_array + off.seed_card_offset
+                         + card_index * off.seed_card_size)
+            return self._mem.read_int(card_addr + off.sc_type)
+        except Exception:
+            return -2
+
+    def _cell_occupied(self, row: int, col: int) -> bool:
+        """读内存判断格子上是否有植物（读取失败按 False 处理）。
+
+        与 reader._read_plants 同源的简化版：只比对 row/col，避免循环依赖。
+        叠种场景（0.4.10）请用 _cell_has_plant_type——花盆/荷叶让格子
+        本来就被占，只看 row/col 会被基座骗过。
+        """
+        try:
+            off = self._mem.offsets
+            mo = self._mem.main_object
+            plant_array = self._mem.read_pointer(mo + off.plant_array)
+            if not plant_array:
+                return False
+            count_max = self._mem.read_int(mo + off.plant_count_max)
+            for i in range(min(max(count_max, 0), 200)):
+                addr = plant_array + i * off.plant_struct_size
+                try:
+                    if self._mem.read_bool(addr + off.p_is_disappeared):
+                        continue
+                    if (self._mem.read_int(addr + off.p_row) == row
+                            and self._mem.read_int(addr + off.p_col) == col):
+                        return True
+                except Exception:
+                    break
+            return False
+        except Exception:
+            return False
+
+    def _cell_has_plant_type(self, row: int, col: int, plant_type: int) -> bool:
+        """读内存判断格子上是否有指定类型的植物（种植结果确认，0.4.10）.
+
+        在花盆/荷叶上叠种、往南瓜里种之后，格子本来就有植物——按类型
+        匹配才能确认"这次种的东西"真的落地。读取失败按 False 处理。
+        """
+        try:
+            off = self._mem.offsets
+            mo = self._mem.main_object
+            plant_array = self._mem.read_pointer(mo + off.plant_array)
+            if not plant_array:
+                return False
+            count_max = self._mem.read_int(mo + off.plant_count_max)
+            for i in range(min(max(count_max, 0), 200)):
+                addr = plant_array + i * off.plant_struct_size
+                try:
+                    if self._mem.read_bool(addr + off.p_is_disappeared):
+                        continue
+                    if (self._mem.read_int(addr + off.p_row) == row
+                            and self._mem.read_int(addr + off.p_col) == col
+                            and self._mem.read_int(addr + off.p_type) == plant_type):
+                        return True
+                except Exception:
+                    break
+            return False
+        except Exception:
+            return False
+
+    def _valid_seed_count(self) -> int:
+        """读当前"有效卡片"数（plant_type>=0），供 collect_belt 收前/收后校验。
+
+        读失败返回 -1（调用方据此退化为"点满一轮就算"）。
+        """
+        try:
+            off = self._mem.offsets
+            mo = self._mem.main_object
+            seed_array = self._mem.read_pointer(mo + off.seed_array)
+            if not seed_array:
+                return 0
+            count = self._mem.read_int(seed_array + off.seed_count)
+            n = 0
+            for i in range(min(max(count, 0), 10)):
+                card_addr = seed_array + off.seed_card_offset + i * off.seed_card_size
+                if self._mem.read_int(card_addr + off.sc_type) >= 0:
+                    n += 1
+            return n
+        except Exception:
+            return -1
+
+    def _collect_belt(self, args: dict, state: GameState, result: dict) -> None:
+        """collect_belt — **已全面禁用**（0.4.8），任何调用都会收到明确报错.
+
+        历史：曾假设"传送带上未收取的植物会堆积排队，点击收进卡片栏"，
+        由于拿不到传送带队列的内存布局，实现为**扫描点击 + 收数校验**
+        （点击 _BELT_CLICK_POINTS，点击后卡栏计数增加即算收到）。
+
+        0.4.7/0.4.8 实测否定了该假设：
+        - 原版全部传送带关（坚果保龄球1/2、僵王博士的小游戏与冒险形态）
+          的卡栏都由传送带**自动喂卡**，没有"待收取队列"，无需收取；
+        - 扫描点与卡片栏区域重叠，点击只会误拾栏内卡（日志实证：
+          "扫描点(170,74)误拾卡片栏卡，已放回"）；
+        - "收到 N 张卡"多为传送带自动补卡被误记成点击功劳（假阳性），
+          且槽位序号曾被误当植物类型取名（1-5 报"收到 向日葵"）。
+        因此非传送带关与传送带关都直接报错，并给模型正确出路。
+        """
+        if not self._conveyor_verdict(state):
+            raise ValueError(
+                "本关不是传送带关（有固定卡组或模式未知）——卡槽里的卡直接 place_plant 种下，"
+                "不要 collect_belt（会误点卡片栏）"
+            )
+        # 传送带关一律禁用（0.4.8）：原版全部传送带关（坚果保龄球1/2、僵王博士
+        # 的小游戏与冒险形态）的卡栏都由传送带自动喂卡，没有"待收取队列"。
+        # 扫描点与卡片栏区域重叠（_BELT_CLICK_POINTS），点击只会误拾栏内卡
+        # （实测日志：扫描点(170,74)误拾卡片栏卡）；计数上涨还会把传送带自动
+        # 补卡误记成点击功劳（假阳性）。
+        raise ValueError(
+            "本关是传送带关：卡栏由传送带自动喂入，卡用后消失并自动补新卡——"
+            "collect_belt 无用且会误点卡片栏，已禁用。直接 place_plant 卡栏已有的卡；"
+            "全部空槽时本轮 wait 等待传送带补卡后重读"
+        )
+
+        try:
+            want = int(args.get("count", 3) or 3)
+        except (TypeError, ValueError):
+            want = 3
+        want = max(1, min(want, 10))
+
+        # 先取消可能滞留在鼠标上的植物/铲子光标，避免点击落空
+        self._cancel_cursor()
+
+        collected: list[int] = []   # 本次收到的卡（在卡栏中的序号）
+        gained_rounds = 0           # 校验计数成功的收取次数（不依赖名字读取）
+        picked_back = 0             # 误拾卡片栏卡后放回的次数
+        for _ in range(want):
+            base = self._valid_seed_count()
+            if base >= 10:
+                break  # 卡片栏已满，没有收集空间
+            gained = False
+            for gx, gy in self._BELT_CLICK_POINTS:
+                self._injector.mouse_click(gx, gy)
+                time.sleep(0.2)
+                now = self._valid_seed_count()
+                if base >= 0 and now > base:
+                    gained = True
+                    break
+                if base >= 0 and now < base:
+                    # 数量减少 = 这一焦点到的是卡片栏槽位，把栏里的卡拾上了鼠标
+                    # （扫描点与卡片栏区域重叠）。原点再点一次放回去，
+                    # 否则植物会一直挂在鼠标上——正是"植物卡在鼠标"的根因。
+                    self._injector.mouse_click(gx, gy)
+                    time.sleep(0.2)
+                    picked_back += 1
+                    logger.info(
+                        "[PvZ执行] ⚠ 扫描点(%s,%s)误拾卡片栏卡，已放回", gx, gy
+                    )
+                    continue
+                if base < 0:
+                    # 校验不可用：点满一整轮就视为尽力而为
+                    break
+            if not gained:
+                break  # 一整轮没收到 → 队列空或卡栏满，停
+            gained_rounds += 1
+            # 读卡栏最后一张的类型（给模型即时反馈；读失败不影响计数）。
+            # 0.4.6 修复：_mem_read_valid_seeds 返回 (槽位序号, 植物类型)，
+            # 此前误取 [0]（槽位序号）按植物类型取名——1-5 里新卡落在槽 1
+            # 就报"收到 向日葵"（其实是坚果）。
+            fresh = self._mem_read_valid_seeds()
+            if fresh:
+                collected.append(fresh[-1][1])
+            time.sleep(0.3)
+
+        # 扫描结束必做：最后一次点击可能把栏内卡拾上了鼠标（拾取时栏数量
+        # 不变，双向校验探测不到），右键取消防止植物滞留鼠标
+        self._cancel_cursor()
+
+        if gained_rounds:
+            if collected:
+                from .offsets import PLANT_NAMES  # noqa: PLC0415  # 局部导入避免环
+
+                names = ", ".join(PLANT_NAMES.get(t, f"类型{t}") for t in collected)
+                result["detail"] = f"从传送带收到 {gained_rounds} 张卡: {names}"
+            else:
+                result["detail"] = (
+                    f"从传送带收到 {gained_rounds} 张卡（种类读取失败，"
+                    "以下一轮【内存状态】的【卡片】列表为准）"
+                )
+            if picked_back:
+                result["detail"] += f"（期间误拾栏内卡 {picked_back} 次已自动放回）"
+        else:
+            result["detail"] = (
+                "传送带上暂时没有可收取的植物（队列空或卡片栏已满）。"
+                "不要干等：先种植卡片栏已有的植物（☀不足也照样种）；"
+                "若卡片栏也空，下一轮再 collect_belt 重试（传送带每隔几秒会送来新植物）"
+            )
+
+    def _mem_read_valid_seeds(self) -> list[tuple[int, int]]:
+        """读当前有效卡片 [(槽位序号, 植物类型)]，collect_belt 反馈用。"""
+        try:
+            off = self._mem.offsets
+            mo = self._mem.main_object
+            seed_array = self._mem.read_pointer(mo + off.seed_array)
+            if not seed_array:
+                return []
+            count = self._mem.read_int(seed_array + off.seed_count)
+            out: list[tuple[int, int]] = []
+            for i in range(min(max(count, 0), 10)):
+                card_addr = seed_array + off.seed_card_offset + i * off.seed_card_size
+                t = self._mem.read_int(card_addr + off.sc_type)
+                if t >= 0:
+                    out.append((i, t))
+            return out
+        except Exception:
+            return []
+
+    def _win_level(self, args: dict, state: GameState, result: dict) -> None:
+        """直接通关 — 跳过当前关卡.
+
+        用于跳过 AI 难以胜任的实时小游戏（坚果保龄球、传送带关卡等）。
+        调用游戏内部 FadeOutLevel 触发通关。纯注入功能，无鼠标 fallback。
+        """
+        if self._injector:
+            self._injector.win_level()
+        else:
+            raise PvZMemoryError("直接通关需要代码注入器，当前未启用")
+
+        result["detail"] = "已触发直接通关"
+
+    def _select_seeds(self, args: dict, state: GameState, result: dict) -> None:
+        """选卡界面: 选择植物并开始游戏.
+
+        传入植物类型列表，程序用游戏内部函数逐张选卡，再随机填满剩余
+        卡槽，最后开始游戏。完全绕过视觉坐标点击，避免选卡界面点不准。
+
+        Args (从 args 读):
+            seeds: 植物类型列表 (0~47)，如 [0, 1, 3, 5]。
+        """
+        seeds = args.get("seeds")
+        if not seeds or not isinstance(seeds, list):
+            raise ValueError("select_seeds 需要 seeds 参数（植物类型列表，如 [0,1,3]）")
+
+        if not self._injector:
+            raise PvZMemoryError("选卡需要代码注入器，当前未启用")
+
+        # 等待选卡 UI 完全渲染。
+        # 关卡结束→选卡界面过渡期间，game_ui 已变为 SELECT_CARD 但 UI 尚未就绪，
+        # 此时执行选卡会导致下一波 UI 异常（卡片栏/阳光/铲子不显示）。
+        # 判定条件（全部满足才视为就绪）：
+        #   1. SelectCardUi_p 非零 — UI 对象已创建
+        #   2. 卡槽数量可读且合理 — SeedArray 已初始化
+        #   3. 额外等待 0.5s — 确保 UI 动画/过渡完成
+        mem = self._injector._mem
+        ptr = 0
+        slot_count = 0
+        for _ in range(100):  # 最多等 10 秒
+            ptr = mem.get_select_card_ui_ptr()
+            slot_count = mem.get_card_slot_count(default=0)
+            if ptr and 1 <= slot_count <= 10:
+                break
+            time.sleep(0.1)
+        else:
+            raise PvZMemoryError(
+                "等待选卡 UI 就绪超时 (10s)，"
+                f"SelectCardUi_ptr={ptr}, 卡槽数={slot_count}"
+            )
+
+        # UI 对象和卡槽数据已就绪，再等一小段确保过渡动画完成
+        time.sleep(0.5)
+
+        # 逐张选卡。任何一张失败都应中止，避免带着残缺/错误的卡组继续
+        # pick_random_seeds → rock，那样会用错误的植物开局却误以为成功了。
+        chosen: list[int] = []
+        for plant_type in seeds:
+            try:
+                self._injector.choose_card(int(plant_type))
+                chosen.append(int(plant_type))
+            except Exception as exc:
+                logger.error("[PvZ执行] 选卡 %s 失败，中止选卡: %s", plant_type, exc)
+                raise PvZMemoryError(f"选卡失败 (植物 {plant_type}): {exc}") from exc
+
+        # 随机填满剩余卡槽
+        self._injector.pick_random_seeds()
+
+        # 开始游戏
+        self._injector.rock()
+
+        result["detail"] = f"已选卡 {len(chosen)} 张 {chosen} 并开始游戏"
+        result["seeds"] = chosen
+
+    # ------------------------------------------------------------------ #
+    #  内部工具
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _get_shovel_button_pos(state: GameState) -> tuple[int, int]:
+        """根据卡片位置推算铲子按钮中心坐标 (800x600 基准).
+
+        PvZ 工具栏布局: 阳光计数器 → 种子卡片 → 铲子按钮。
+        铲子按钮紧跟最后一张卡片右侧，y 与卡片对齐。
+
+        无卡片时返回兜底值 (按10张卡片估算)。
+        """
+        if state.seeds:
+            last = state.seeds[-1]
+            if last.x > 0 and last.width > 0:
+                # 铲子按钮紧跟最后一张卡片右侧
+                shovel_x = last.x + last.width + 10 + 24  # 右边缘 + 间距 + 半宽
+                shovel_y = last.y + last.height // 2      # 垂直居中
+                return shovel_x, shovel_y
+
+        # 兜底: 按10张卡片推算的位置
+        return SHOVEL_X, SHOVEL_Y
+
+    def _seed_center(self, seed: SeedInfo) -> tuple[int, int]:
+        """计算卡片中心屏幕坐标 (鼠标 fallback 用)."""
+        if seed.x > 0 and seed.y > 0 and seed.width > 0 and seed.height > 0:
+            cx = seed.x + seed.width // 2
+            cy = seed.y + seed.height // 2
+        else:
+            cx = 80 + seed.index * 51 + 25
+            cy = 10
+        return game_pixel_to_screen(cx, cy, self._get_rect)

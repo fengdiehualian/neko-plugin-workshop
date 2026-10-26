@@ -1,0 +1,56 @@
+[plugin]
+id = "neko_fishpower"
+name = "猫爪渔力陪玩"
+description = "渔力全开陪玩：mod 感知钓鱼/赌场/烤鱼/Boss/图鉴，上钩播报、稀有庆祝、氛围闲聊，全程有猫娘陪钓。"
+short_description = "How to Fish catgirl fishing companion."
+keywords = ["渔力全开", "how to fish", "钓鱼", "渔力", "钓", "陪玩", "鱼", "fishing", "fish"]
+version = "0.1.0"
+entry = "plugin.plugins.neko_fishpower:NekoFishpowerPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+# 本插件没有多语言资源（代码里不使用 i18n，i18n/ 目录为空），
+# 因此不声明 [plugin.i18n]，否则 `neko-plugin check` 会报
+# "locales_dir does not exist: i18n"。将来要支持多语言时再加回该段并补 i18n/<locale>.json。
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "猫爪渔力陪玩"
+entry = "static/index.html"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "guide"
+title = "使用指南"
+entry = "docs/ui/guide.md"
+mode = "markdown"
+permissions = ["state:read"]
+
+# 运行参数（宿主配置系统读取，改这里即时生效）
+[neko_fishpower]
+enabled = true
+dry_run = true
+telemetry_host = "127.0.0.1"
+telemetry_port = 9877
+event_cooldown_s = 10.0
+global_rate_limit_s = 12.0
+critical_cooldown_s = 5.0
+safety_window_s = 60.0
+broadcast_frequency = "standard"
+broadcast_categories = { caught = true, casino = true, grill = true, boss = true, journal = true, lifecycle = true, chatter = false }

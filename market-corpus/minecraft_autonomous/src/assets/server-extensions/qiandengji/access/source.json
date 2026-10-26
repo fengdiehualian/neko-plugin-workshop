@@ -1,0 +1,13 @@
+{
+  "website": "https://mc.kangqiang.site",
+  "documentation": [
+    "https://mc.kangqiang.site/join",
+    "https://mc.kangqiang.site/agent-api.html"
+  ],
+  "skill_version": "1.1.0",
+  "skill_sha256": "6a1be95fa174e37c330a756ffdbc32f0924254099390d1fc99a236c451d8fe7d",
+  "helper_url": "https://mc.kangqiang.site/agent-register.mjs",
+  "helper_sha256": "cfa9733c093a27093100b3c08b21de0727af24f486561a07bf5a7868d49ca5cd",
+  "license": "MIT",
+  "scope": "Official account helper only; no bundled 0.4.0 game core or second MCP body."
+}

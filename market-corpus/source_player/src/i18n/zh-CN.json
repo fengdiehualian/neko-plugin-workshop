@@ -1,0 +1,7 @@
+{
+  "plugin.name": "半条命 & 传送门 陪玩",
+  "plugin.description": "让 N.E.K.O 亲自玩《半条命》全系列与《传送门》全系列：主人先手动打开游戏，再说「去玩半条命重制版」「玩传送门2」，猫娘会识别当前游戏、截屏观察、制定并执行策略、主动解说判断；玩家可随时接手或让她停手。",
+  "action.source_play": "让猫娘玩半条命/传送门",
+  "action.source_stop": "让猫娘停手",
+  "action.source_status": "刷新状态"
+}

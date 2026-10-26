@@ -1,0 +1,10 @@
+{
+  "plugin.name": "翻译猫娘",
+  "plugin.description": "让猫娘帮你翻译。中/英/日/韩等 30 多种语言互译，支持整段、批量翻译，并可把译文作为消息推到聊天框，全程不需要 API Key",
+  "entry.translate_text.name": "翻译文本",
+  "entry.translate_text.description": "把一段文本翻译成目标语言",
+  "entry.translate_batch.name": "批量翻译",
+  "entry.translate_batch.description": "一次翻译多段文本，返回顺序一致的译文列表",
+  "entry.list_languages.name": "支持的语言",
+  "entry.list_languages.description": "列出支持翻译的语言和对应代码"
+}

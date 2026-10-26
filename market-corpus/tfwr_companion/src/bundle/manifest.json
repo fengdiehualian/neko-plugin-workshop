@@ -1,0 +1,5 @@
+{
+  "schema": 1,
+  "mods": [],
+  "note": "No external mod is required. The companion uses the game's own file watcher plus focused key input."
+}

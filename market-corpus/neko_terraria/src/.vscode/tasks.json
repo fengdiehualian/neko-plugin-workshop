@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "neko_terraria: build C# mod",
+      "type": "shell",
+      "command": "dotnet \"E:\\SteamLibrary\\steamapps\\common\\tModLoader\\tModLoader.dll\" -build \"${workspaceFolder}\\mod\\NekoTerrariaLink\"",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "neko_terraria: deploy C# mod",
+      "type": "shell",
+      "command": "copy \"C:\\Users\\10093\\Documents\\My Games\\Terraria\\tModLoader\\Mods\\NekoTerrariaLink.tmod\" \"${workspaceFolder}\\mod\\tModLoader\\Mods\\NekoTerrariaLink.tmod\"",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "neko_terraria: plugin check",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check ${workspaceFolder}",
+      "options": {
+        "cwd": "${config:nekoPlugin.hostRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "neko_terraria: ruff lint",
+      "type": "shell",
+      "command": "uv run ruff check .",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

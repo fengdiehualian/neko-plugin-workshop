@@ -1,0 +1,16 @@
+{
+  "plugin.name": "记账猫娘",
+  "plugin.description": "让猫娘帮你记账，并按花销的离谱程度切换语气：日常花销可爱卖萌，离谱价格吐槽乱花钱，猫咪或 AI 相关花销会哈气。会读取当前猫娘的人设，人设是「绝对不生气 / 温柔」时哈气自动降级为温和吐槽",
+  "entry.add_expense.name": "记一笔",
+  "entry.add_expense.description": "手动记一笔花销",
+  "entry.preview_expense.name": "预览语气",
+  "entry.preview_expense.description": "按当前配置预览一笔花销会得到什么语气和台词，不写入账本",
+  "entry.expense_summary.name": "花销汇总",
+  "entry.expense_summary.description": "查看某个区间的花销汇总",
+  "entry.recent_expenses.name": "最近记录",
+  "entry.recent_expenses.description": "列出最近的记账",
+  "entry.ledger_status.name": "账本状态",
+  "entry.ledger_status.description": "查看账本位置、记录数与当前语气设置",
+  "entry.check_persona.name": "检查人设哈气许可",
+  "entry.check_persona.description": "读取当前猫娘人设，判断是否允许哈气，并说明依据"
+}

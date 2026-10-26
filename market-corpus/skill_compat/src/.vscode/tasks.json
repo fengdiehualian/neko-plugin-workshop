@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check skill_compat",
+      "type": "shell",
+      "command": "uv run neko-plugin check skill_compat",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync skill_compat",
+      "type": "shell",
+      "command": "uv run neko-plugin sync skill_compat --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r skill_compat",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r skill_compat",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build skill_compat",
+      "type": "shell",
+      "command": "uv run neko-plugin build skill_compat",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

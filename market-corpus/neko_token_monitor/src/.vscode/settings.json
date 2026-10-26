@@ -1,0 +1,6 @@
+{
+  "nekoPlugin.repoRoot": "../../../../../Documents/trae_projects/N.E.K.O-verify",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/../../../../../Documents/trae_projects/N.E.K.O-verify"
+  ]
+}

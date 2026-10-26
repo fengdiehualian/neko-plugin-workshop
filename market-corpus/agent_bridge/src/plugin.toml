@@ -1,0 +1,87 @@
+[plugin]
+id = "agent_bridge"
+name = "本机 Agent 桥接"
+description = "把本机的编码 Agent CLI（CodeBuddy / Claude Code / dsh / omp / EvoX / OpenCode / OpenClaw / AtomCode / QwenPaw）桥接成 N.E.K.O 的运行时入口，并注册为对话期 LLM 工具，让猫娘在聊天里就能直接派活给它们。 反方向见 skill/neko-bridge：把 N.E.K.O. 做成可移植 skill 装到这些 Agent 里，让它们能反过来调用 N.E.K.O.。"
+short_description = "Bridge local coding-agent CLIs (CodeBuddy / Claude Code / dsh / omp / EvoX / OpenCode / OpenClaw / AtomCode / QwenPaw) into N.E.K.O as entries and LLM tools."
+keywords = ["agent", "代理", "编码", "代码", "codebuddy", "claude", "dsh", "omp", "evox", "opencode", "openclaw", "atomcode", "qwenpaw", "CLI", "命令行", "派发", "跑一下", "写个脚本", "改代码"]
+version = "0.1.0"
+entry = "plugin.plugins.agent_bridge:AgentBridgePlugin"
+
+[plugin.author]
+name = "local"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+# 静态声明入口（只写 id + name，其余元数据仍以 @plugin_entry 装饰器为准）。
+# 宿主重扫插件时只认 plugin.meta.json / 这里的声明来重建入口列表；不写的话
+# 一次 /plugins/refresh 就会把入口清空，面板 action 全部 404。
+# tests/test_manifest_entries.py 校验这里与装饰器保持一致。
+
+[[plugin.entries]]
+id = "agents_list"
+name = "列出可用 Agent"
+
+[[plugin.entries]]
+id = "agent_run"
+name = "派发任务给 Agent"
+
+[[plugin.entries]]
+id = "agent_run_parallel"
+name = "并行派发多个任务"
+
+[[plugin.entries]]
+id = "agent_doctor"
+name = "诊断桥接链路"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = false
+
+# ---------------------------------------------------------------------------
+# 业务配置：这一段会被复制到用户数据目录的 config/plugin.toml，改那里才生效。
+# 源码里这个文件只是首次运行的模板（config.example.toml 的角色说明见 README）。
+# ---------------------------------------------------------------------------
+
+[bridge]
+# 一次派发的默认超时与上限（秒）。宿主对入口有自己的看门狗，插件入口已显式声明
+# timeout，这里控制的是桥接内部等待 Agent CLI 的时间。
+default_timeout_seconds = 600
+max_timeout_seconds = 3600
+
+# 单个 Agent 的单次输出上限（字节），超出会截断尾部并标注。
+max_output_bytes = 400000
+
+# 工作目录：留空表示不切换（用宿主进程的当前目录）。建议显式指定一个仓库根目录。
+default_cwd = ""
+
+# 审计日志：留空则写到插件数据目录下的 dispatch.jsonl。
+audit_log = ""
+
+# 并行派发（agent_run_parallel）开关与并发上限。
+allow_parallel = true
+max_parallel = 4
+
+# 逐个 Agent 的覆盖项。把不需要的关掉可以减少 Agent 路由阶段的干扰。
+# [bridge.agents.dsh]
+# enabled = true
+# model = "anthropic/claude-sonnet-4"
+# timeout_seconds = 900
+# exe_override = "C:\\full\\path\\to\\dsh.exe"
+# extra_args = ["--verbose"]
+# [bridge.agents.qwenpaw]
+# enabled = false
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = 'Agent 桥接'
+entry = "ui/panel.tsx"
+context = "agent_bridge_panel"
+permissions = ["state:read", "action:call"]

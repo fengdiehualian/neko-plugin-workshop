@@ -1,0 +1,126 @@
+[plugin]
+id = "sticker_manager"
+name = "表情包管理"
+description = "给她一个自己的表情包收藏间：内置官方收藏（190 张已分好 22 类、逐张标了梗义，首启自动收进「官方」区，拆掉后可恢复；包更新时标签会自动下发），也可自建分类收图；她在对话里按分类和情境自己挑一张发出去。支持 png/jpg/gif/webp，动图保留动画；每次发送都记台账，供跨轮去重与最近爱用排序。"
+short_description = "表情包收藏与发送：内置官方收藏 + 面板管理库，猫娘自主挑图发到聊天"
+keywords = [
+    "表情包",
+    "贴纸",
+    "收藏",
+    "聊天",
+    "图片",
+    "sticker",
+    "meme",
+    "gallery",
+]
+version = "0.9.5"
+type = "plugin"
+entry = "plugin.plugins.sticker_manager:StickerManagerPlugin"
+
+[plugin.author]
+name = "qaqms"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.models.eager_attachment]
+label = "爱发补图选图"
+description = "爱发档按面板设定的未配图轮数独立选图，0 表示每轮帮选。仅返回图片 ID 或跳过；需绑定文字模型，增加模型调用，不续写对话。"
+required = false
+capabilities = ["text"]
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "表情包管理"
+entry = "ui/panel.tsx"
+context = "dashboard"
+# state:read 读目录快照；config:read 读当前配置形状；action:call 才能点按钮。
+# 写库不经过 config 通道（走 entry），所以不声明 config:write。
+permissions = ["state:read", "config:read", "action:call"]
+
+[plugin_runtime]
+enabled = true
+# 随宿主自动启动：她的工具（sticker_list / sticker_send）要在对话里随时可用。
+# 知情同意由总开关 [sticker_manager].enabled = false（fail-closed）保证——
+# 未显式打开前她不发图、看不到目录，管理入口仍可用。
+auto_start = true
+
+# ---------------------------------------------------------------------------
+# 业务配置。这里的值是「默认值」；用户在 <用户数据根>/plugins/sticker_manager/
+# config/plugin.toml 里的覆盖层优先。config.example.toml 是同一份形状的镜像
+# （那份不含任何 [plugin*] 表）。core/configuration.py 的 dataclass 默认值是
+# 第三个来源——三处由 tests/test_config_docs_sync.py 钉死同源。
+# ---------------------------------------------------------------------------
+
+[sticker_manager]
+# fail-closed 总开关：false = 她不发图、看不到目录；库的增删改不受影响。
+enabled = false
+
+[sticker_manager.send]
+# 同一角色卡两次发送之间的最小间隔（秒）。防刷屏，也防模型连着甩图。
+cooldown_sec = 20.0
+# 可信宿主上下文与新 SDK 同时可用时，把图片排在本轮全部文字显示之后。
+host_reply_tail = true
+# 工具选图默认即时发送；true 沿用回复后排队，下一轮输入可能取消待发图。
+defer_tool_sends = false
+# 仅排队发送：生成结束后的逐段显示兼容缓冲（秒，0..30），不代表前端或 TTS 真正结束。
+# 0 = 恢复无额外缓冲；旧配置没有此键时自动使用默认值。
+reply_tail_display_buffer_sec = 2.0
+# 静态图走内联通道的字节上限；超过改走宿主上传换 URL（GIF/动画 WebP 例外：
+# 上传会把动图压平成 JPEG，动图内联不下就如实拒绝）。
+inline_max_bytes = 262144
+# 是否允许动图也走上传通道（代价：动画被压平）。默认关闭。
+animated_via_upload = false
+# 跨轮去重（轮 D①）：她自主选图时，同一角色卡最近 N 张成功发过的不再出现
+# （query 候选剔除；显式 id 拦下，主人点名要重看用 force 绕行）。0 = 关闭。
+# 数据源是持久台账——与冷却（内存表）不同，"最近发过什么"是事实记忆。
+recent_dedup_count = 5
+# 概率闸门（轮 D②）：她想发图时按此概率放行，未中则该轮回落纯文字。
+# 1.0 = 关闭。默认关：闸门会拒绝她已下的决定，属行为干预，主人显式打开才生效。
+probability = 1.0
+# 同一角色卡一次掷骰的复用窗口（秒）：同一轮里二次定夺不重掷（防 p²）。
+probability_reuse_sec = 60.0
+# 配表情积极度（v0.14.0）：三档 reserved / natural / eager，只管**她有多想配图**
+# （存在感注入里的许可强度）。与上面三把尺各管各的：cooldown 是节奏、
+# recent_dedup_count 是"最近不重复"、probability 是她决定发了之后的放行闸。
+# natural 承接 0.9.10 实测策略；reserved 固定 0.9.8，eager 继续加强配图意愿。
+eagerness = "natural"
+# 爱发档独立补图的连续未配图轮数（0..10）；0 每轮帮选，默认 1 轮。
+eager_attachment_turns = 1
+
+[sticker_manager.storage]
+# 给模型看的目录最多列几条（按最近使用排序）。
+catalog_limit_for_model = 80
+# 使用台账保留多少条。
+usage_history_keep = 200
+
+[sticker_manager.awareness]
+# 存在感注入：静默往她的上下文里递一句「你有一间表情收藏间，想配就发一张」
+# （visibility=[]，用户看不见；ai_behavior="read"，不起话轮）。
+# 与总开关是「与」的关系：[sticker_manager].enabled=false 时这里全不生效。
+enabled = true
+# v0.16.0：注入改由「用户开了新一轮」触发（轮询 bus.memory 的 user_message），
+# 不再按挂钟打点——实机量过：44 轮对话只覆盖 12 次提醒、3 次发表情，
+# 瓶颈是她没被提醒到，不是提醒得不够客气。
+# every_user_message=每轮都注 | interval_n=攒够 N 条用户轮注一次。
+inject_mode = "interval_n"
+# interval_n 档下每 N 条用户轮注一次。v0.19.0：**0 = 跟随「配表情积极度」档位**
+# （矜持 3 / 自然 1 / 爱发 1 轮）；写正数 = 您自己定死，档位不再插手。
+inject_interval_n = 0
+# 相邻两次提醒的最小间隔（秒，0..60），面板可调；0 关闭时间限制，轮数门槛仍生效。
+min_interval_sec = 60.0
+# 事件门控点名（v0.20.0）：这句用户话里有情绪反应时，不等轮次攒满就点名一次。
+# 判据是本地情绪词表 + 反应符号（不为这件事调用模型），上面的地板对它照样生效。
+# 关掉它 = 回到「只按轮次计数点名」。
+event_gated = true
+# 降级节奏（秒）：总线一次都没读通过时（宿主换了桶形状/总线断开）退回按这个挂钟
+# 打点，好过整条存在感链路静默死掉。默认一小时 = v0.15.0 之前的老行为。
+interval_sec = 3600.0

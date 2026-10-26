@@ -1,0 +1,147 @@
+[plugin]
+id = "pvz_agent"
+name = "PVZ Agent"
+description = "让猫娘自己玩《植物大战僵尸》"
+version = "0.4.17"
+entry = "plugin.plugins.pvz_agent:PVZAgentPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+# 用户配置覆盖文件（宿主"最新配置系统"）：宿主 GUI 配置界面与本插件配置
+# 面板保存都写 profiles/default.toml（深合并覆盖 [pvz_agent] 同名键），
+# config.dump() 会汇入覆盖值。该文件已被 .gitignore 排除，密钥不进仓库。
+# 可用环境变量 NEKO_PLUGIN_PVZ_AGENT_PROFILE 切换 profile。
+[plugin.config_profiles]
+active = "default"
+
+[plugin.config_profiles.files]
+default = "profiles/default.toml"
+
+# 插件级行为配置。AI 决策密钥/模型用插件配置面板填写（保存写入
+# profiles/default.toml），也可直接填在下面 [pvz_agent] 的 api_* 键。
+# 不再读取 pvz/.env 与环境变量。
+# 布局坐标与 OpenCV 阈值仍在 pvz/config.json（calibrate 校准工具读写，保持联动）。
+[pvz_agent]
+# ── AI 决策服务（OpenAI 兼容接口；猫娘自主决策用，必填）──
+# 填一次，vision / text 两种模式共用；纯文本模式想用不同模型/密钥时，
+# 再填 text_api_* 覆盖（留空 = 复用上面这组）。
+api_base_url = ""   # 如 "https://api.example.com/v1"
+api_model = ""      # 模型名
+api_key = ""        # 服务密钥
+text_api_base_url = ""
+text_api_model = ""
+text_api_key = ""
+
+# 插件启动时是否自动开始游玩（猫娘实时操作；需游戏已打开 + AI 服务已配置）。
+auto_start = false
+
+# 运行模式：
+#   "vision" = OpenCV 视觉方案（默认）：OpenCV 扫描截图识别状态 + VLM 看截图决策 + 鼠标执行。
+#   "text"   = 纯文本内存方案：读 pvz_memory 获取状态（不用视觉模型/OpenCV），决策喂内存状态
+#              文本给 LLM，动作走内存注入执行；仍照常截图发给主模型供其指挥。
+#   text 模式需要管理员权限运行宿主 + 受支持的游戏版本（见 pvz/vendor/pvz_memory/README）。
+mode = "text"
+
+# 是否允许 AgentB 操控选卡界面（默认关）。
+#   false = 选卡场景不触发 LLM，由你手动选卡后进入战斗（推荐）；
+#   true  = 选卡界面也喂 LLM，让模型按【可选植物库】用 select_seeds 自动选卡。
+agent_controls_seed_selection = false
+
+# 工具调用模式：
+#   "regex" = 简化正则提取（默认）：模型直接输出 <tool_call>{"name":...,"arguments":{...}}，
+#            插件用正则提取（参考 LLM_PvZ_Player 的 parser），不依赖 OpenAI 原生函数调用。
+#   "fc"    = OpenAI 原生 function calling（tools 参数）。
+tool_call_mode = "fc"
+
+# 种植模式（text 模式的注入种植路线）：
+#   "putplant"   = PutPlant 直接注入（默认，0.4.6 起为主路线）：插件按游戏
+#                  原生语义补齐整套 UI 行为——普通关阳光不足时拒绝种植，种后
+#                  按原生语义开启卡槽冷却（Enable=0/Interval=时长/CoolDown=0/
+#                  Active=1，冷却条显示与倒计时由游戏自己完成）。传送带关
+#                  （坚果保龄球 1/2、僵王博士，判定见 0.4.8 白名单）统一
+#                  免阳光/无冷却/零提示（0.4.9）：按 0 费用注入、种后消耗
+#                  卡槽（写 type=-1 等价游戏原生"用后消失"），并校验占位。
+#                  速度更快；非原版游戏（无 MouseClick 函数地址）自动使用
+#                  本路线。
+#   "mouseclick" = 注入 MouseClick 点卡片 + 点格子（可选）：
+#                  游戏自己处理扣阳光/冷却/占位，游戏内冷却条照常显示。
+planting_mode = "putplant"
+
+# 游戏窗口标题关键词（模糊匹配：窗口标题包含任一关键词即命中；另按 PopCap 引擎
+# 窗口类 MainWindow 兜底识别。cmd/资源管理器/终端等已被核心自动排除）。
+# 多个匹配窗口时默认用第一个；面板「游戏窗口」卡片会列出全部匹配项，可手动切换。
+# 获取窗口时会轮询本配置 + pvz/config.json 的 window_titles，改完保存即生效、无需重启。
+window_titles = [
+  "plant vs zombie", "植物大战僵尸", "pvz", "杂交版",
+  "plants vs. zombies", "plants vs zombies", "植物大战僵尸中文版",
+  "植物大战僵尸杂交版", "Plants vs. Zombies GOTY",
+]
+
+# ── 猫娘观察通道（周期推送纯截图，猫娘是玩家）──
+# 被动 feed：周期把最新游戏**纯截图**推进主模型视野（ai_behavior="read"，不打断，只更新上下文）。
+screenshot_feed_enabled = true
+# 被动 feed 最小间隔（秒）。画面没变化时不会重复推。
+screenshot_feed_interval = 8.0
+# 主动 nudge：游玩中时，周期性推截图+短触发文本给主模型（ai_behavior="respond"），
+# 唤起猫娘看画面并继续行动。触发文本只负责让模型起回合，不是游戏信息。
+screenshot_nudge_enabled = true
+# 主动 nudge 最小间隔（秒）。太短会让猫娘频繁开口，太长则反应迟钝。
+screenshot_nudge_interval = 5.0
+# nudge 的短触发文本（设空则只推图；注意纯图不会让模型起回合，离线会话下将不再被主动唤起）。
+# {MASTER_NAME} 会被替换为对用户的称呼；引导猫娘：阳光自动收集不用管、先分析局势再给
+# 针对性打法、不重复旧指令、用工具调整打法、不反问用户。
+screenshot_nudge_text = "【PVZ】最新战况。阳光会自动收集，不用管。先分析局势，再给一句针对性的打法，别重复旧指令；要调整就用 pvz_instruction / pvz_goal，别问 {MASTER_NAME}。"
+# 给主模型的截图：原图优先（0 = 不缩放）+ 高质量 JPEG；超字节预算才自动降质。
+# 与后台执行核心用的降采样帧是两套，辅助扫描文本绝不发给主模型。
+screenshot_max_edge_px = 0
+# 推送 JPEG 压缩质量（1~95）。
+screenshot_jpeg_quality = 95
+# 单帧 JPEG 字节预算（超限才降质；message_plane 单条 payload 上限默认 256KB）。
+screenshot_max_bytes = 163840
+
+# ── 游玩行为开关 ──
+# 后台是否用 OpenCV 自动收集阳光（猫娘无需操心）。
+sun_auto_collect = true
+# 是否启用网格扫描（植物/僵尸坐标辅助决策）。
+scan_grid_enabled = true
+# 是否启用卡片扫描（可用/不可用卡片辅助决策）。
+scan_cards_enabled = true
+# 种植植物时定位卡片的方式：
+# "opencv" = OpenCV 实时识别卡片位置（适配传送带/布局变化；识别失败会自动回退固定坐标）
+# "fixed"  = 直接用 config.json 预定的固定坐标（card_left/card_step/card_top；更稳定、省资源）
+card_position_mode = "fixed"
+
+# ── 通知主模型的事件 ──
+# 游戏内判定本关结束时（terminate）推送通报。
+notify_on_terminate = true
+# 游戏窗口丢失/不可用时推送通报（并自动停止循环）。
+notify_window_lost = true
+
+[plugin.ui]
+enabled = true
+
+# 插件面板「快速开始」教程（hosted-tsx surface，前端运行时编译）。
+# 指向 @ui.context(id="quickstart") provider；缺了 host 的 get_ui_context 会报
+# "UI context not found"，api.call 拿不到 action 列表必败。
+# permissions 授权 surface 经 props.api.call 调插件 entry（pvz_get_status /
+# pvz_start / pvz_pause / pvz_stop / pvz_select_window，均需 @ui.action 暴露）。
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "快速开始"
+entry = "surfaces/quickstart.tsx"
+context = "quickstart"
+permissions = ["state:read", "action:call"]
+
+# 配置表单在 static/index.html（/plugin/pvz_agent/ui/），不依赖 hosted 桥接，
+# 宿主经 ui-info 自动识别，不在此声明。其 action 调用沿用 quickstart surface
+# 的 action:call 授权（hosted-ui/action 按 surface 权限校验，静态面板无独立
+# 授权身份，见 static/index.html 内注释）。

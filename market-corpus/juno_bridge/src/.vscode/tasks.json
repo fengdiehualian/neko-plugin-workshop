@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check juno_bridge",
+      "type": "shell",
+      "command": "uv run neko-plugin check juno_bridge",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync juno_bridge",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync juno_bridge --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r juno_bridge",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r juno_bridge",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build juno_bridge",
+      "type": "shell",
+      "command": "uv run neko-plugin build juno_bridge",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

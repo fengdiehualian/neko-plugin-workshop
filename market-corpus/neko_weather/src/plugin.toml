@@ -1,0 +1,67 @@
+[plugin]
+id = "neko_weather"
+name = "天气猫娘"
+type = "plugin"
+description = "让猫娘帮你查天气。支持当前天气、逐小时降水、未来 3~7 天预报，并给出穿衣、带伞和出行建议。完整播报由插件直接显示在聊天里，不会被压缩；还可以设置常用城市、每天早上主动播报，偶尔还会蹦出一段阴阳怪气翻译腔的彩蛋。数据来自 Open-Meteo，完全免费，不需要 API Key。"
+short_description = "Live weather, hourly rain chance, multi-day forecast, daily morning brief and a snarky easter egg — no API key required."
+keywords = ["天气", "weather", "气温", "下雨", "带伞", "穿衣", "预报", "forecast", "降雨", "気温", "天気", "날씨", "погода"]
+version = "0.1.0"
+entry = "plugin.plugins.neko_weather:NekoWeatherPlugin"
+
+[plugin.author]
+name = "yousei1216"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.store]
+enabled = false
+
+[plugin_runtime]
+enabled = true
+# 需要每天定时播报，所以随 N.E.K.O 启动
+auto_start = true
+
+[weather]
+# 常用城市；留空则第一次询问时必须显式给出城市
+home_city = ""
+# 地理编码返回的语言
+geocode_language = "zh"
+# 单次请求超时（秒）
+timeout_seconds = 15
+# 默认看几天预报（1-7）
+default_days = 3
+temperature_unit = "celsius"
+# 是否开启每日天气播报
+daily_push = true
+# 每天几点播报（本地时间）
+push_time = "07:30"
+# 错过这个窗口就不再补推，避免开机瞬间刷屏（分钟）
+push_window_minutes = 180
+# 每日播报用哪个城市；留空则用 home_city
+push_city = ""
+# 是否在播报里包含穿衣/带伞建议
+include_advice = true
+# 猫娘语气（撒娇口吻 + 喵）
+cute = true
+# 自定义语气后缀；留空用默认的「喵～」
+cat_suffix = ""
+# 让猫娘把播报念出来（push_message 的 ai_behavior=respond，会走角色语音）
+voice = true
+
+# ---------------- 阴阳怪气翻译腔彩蛋 ----------------
+# 是否启用彩蛋
+snark_enabled = true
+# 触发概率：0.2 = 20%
+snark_probability = 0.2
+# 冷却：两次彩蛋之间至少要有多少次正常播报
+snark_cooldown = 2
+# 模板风格：zh = 中文阴阳怪气翻译腔，en = 英语阴阳怪气管家腔
+snark_style = "zh"
+# 是否随机追加一句结尾（"阿门，喵。" 之类）
+snark_tags = true

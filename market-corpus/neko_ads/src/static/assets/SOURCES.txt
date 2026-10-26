@@ -1,0 +1,7 @@
+N.E.K.O. logo: existing project asset, frontend/plugin-manager/src/assets/neko-logo.png.
+Background, title and Yui layer: generated artwork adapted from the official N.E.K.O. Yui character and brand assets for this plugin.
+Icons: Phosphor Icons, MIT; see icons/LICENSE.
+Desktop ad x.svg and megaphone-simple.svg: @phosphor-icons/core 2.1.1, regular/x.svg and fill/megaphone-simple-fill.svg; same MIT license.
+Fonts: Rajdhani and Sarasa UI SC; see ../fonts/sources.json and the bundled font licenses.
+Posters project-takeover.png and project-companion.png: generated promotional artwork based on official N.E.K.O. Yui and brand references.
+Posters project-play.png and plugin-market.png: generated geometric promotional artwork for the desktop game and plugin market, based on official N.E.K.O. Yui and brand references. Images are assigned by purpose; automatic artwork rotation is not implemented.

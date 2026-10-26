@@ -1,0 +1,54 @@
+# ---------------------------------------------------------------------------
+# 这是**示例**，不是被加载的配置文件。
+#
+# 没有任何代码读它：宿主不会，插件也不会。它存在的意义是把 plugin.toml 里那些
+# 「可以改的默认值」单独摊开写一遍，方便抄、方便对照，也方便 `neko-plugin check`
+# 分清「清单（很少变）」和「运行参数（经常变）」。
+#
+# 真正生效的读取顺序是：plugin.toml 的 [stellaris] > 环境变量
+# NEKO_STELLARIS_<大写键名> > 代码默认值。要改就改 plugin.toml 的那一段。
+# ---------------------------------------------------------------------------
+
+[plugin_runtime]
+enabled = true
+# 手动启动：默认不去跑几分钟的 TTS 批量合成。
+auto_start = false
+
+# ---------------------------------------------------------------------------
+# [stellaris] 的全部可变项与默认值，与 plugin.toml 中同名段一一对应。
+# ---------------------------------------------------------------------------
+[stellaris]
+# 留空 = 用 N.E.K.O core_config.json 里你正在用的音色（含克隆音色）。
+voice_id = ""
+# 留空 = 按 region 选免费端点：cn -> www.lanlan.tech，intl -> www.lanlan.app
+tts_url = ""
+tts_api_key = ""
+region = "cn"
+
+# 启动时是否自动开始实时解说。
+live_enabled = false
+# 尾随 game.log 的轮询间隔（秒）。
+poll_interval_s = 2.0
+# 防刷屏刹车，四个一起才管得住爆发式事件。
+urgent_cooldown_s = 45.0
+digest_interval_s = 120.0
+max_per_minute = 2
+min_gap_s = 12.0
+# 丢掉 AI 国家的事件；关掉会让角色开始播报别人家的战报。
+ignore_ai_events = true
+
+# 每个事件最多几条不同录音（按组另有分档，这里是全局上限）。
+variants = 4
+# 生成完是否自动安装到 Stellaris mod 目录。
+auto_install = true
+
+# 运行时再生：游戏开着的时候改写顾问将要说的话。
+live_voice_enabled = true
+# 对应 [plugin.models.analysis]，要在插件详情页绑定模型槽位才生效。
+live_model_usage = "analysis"
+live_budget_per_minute = 4
+live_min_seconds_between = 8.0
+
+# 启动自检：游戏里那份语音包和 N.E.K.O 现在用的音色对得上吗？
+check_on_startup = true
+auto_refresh_voice = true

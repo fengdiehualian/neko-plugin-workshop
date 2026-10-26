@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "engine_sha256": "0a4030b5f5538cc3682610ac3e7b39e8e31ec34f9aeafe7a1d036bfa33819166",
+  "cli": "tcmod-cli.exe",
+  "mod_id": "local.tc-bridge",
+  "mods": [
+    "local.tc-bridge.mod"
+  ],
+  "loaders": [
+    {
+      "game": "2.1.334",
+      "exe_sha256": "8875da0e88cc878cb0fce30cfb63d20c5500cae341608af4d786649b88c8eb21",
+      "file": "loaders/tc-loader-2.1.334.dll",
+      "sha256": "fa1133f0eb47bcbe16c1199521b524ade5e5cc0d731b9712c7c429e8109cf015"
+    },
+    {
+      "game": "2.1.335",
+      "exe_sha256": "0e19effdb73bb5d446e8136667637c1c3b6d222730bd46ba485a6ae994b4a7c8",
+      "file": "loaders/tc-loader-2.1.335.dll",
+      "sha256": "92d41fa066a69f0b0cccf33c32bd06bfc70101159e115ef42608a6d015c0a672"
+    }
+  ]
+}

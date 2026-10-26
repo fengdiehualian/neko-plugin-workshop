@@ -1,0 +1,20 @@
+{
+  "plugin.name": "心理測評室",
+  "plugin.description": "心理測評 · 人格測評 · 趣味測評合集：大五人格、16 型、職業興趣、依附類型、心理韌性，以及 PHQ-9 / GAD-7 / 孤獨感等公開量表；本機計分、結果可追蹤，資料只存本機。",
+  "panel.title": "心理測評室",
+  "panel.subtitle": "心理 · 人格 · 趣味測評合集，一題一屏，結果只存在你這台機器上",
+  "panel.tab.home": "量表",
+  "panel.tab.quiz": "答題",
+  "panel.tab.result": "結果",
+  "panel.tab.records": "紀錄",
+  "panel.tab.about": "關於",
+  "panel.search": "搜尋量表名稱或簡介",
+  "panel.start": "選一份開始",
+  "panel.disclaimer": "這些測評只用於自我了解與反思，不是醫學診斷，也不能替代心理諮商或治療。",
+  "panel.copy": "複製結果",
+  "panel.share": "產生分享卡",
+  "panel.retake": "再測一次",
+  "panel.export": "匯出（文字）",
+  "panel.clear": "清空全部",
+  "panel.empty_records": "還沒有紀錄，去做一份量表吧。"
+}

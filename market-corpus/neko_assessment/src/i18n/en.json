@@ -1,0 +1,20 @@
+{
+  "plugin.name": "Assessment Room",
+  "plugin.description": "Personality, psychology and fun assessments in one panel: Big Five, 16-type, career interests, attachment, resilience, plus openly reproducible PHQ-9 / GAD-7 / loneliness screens. Scored locally; answers never leave your machine.",
+  "panel.title": "Assessment Room",
+  "panel.subtitle": "Personality, psychology and fun tests - one question at a time, stored only on your machine",
+  "panel.tab.home": "Tests",
+  "panel.tab.quiz": "Quiz",
+  "panel.tab.result": "Result",
+  "panel.tab.records": "Records",
+  "panel.tab.about": "About",
+  "panel.search": "Search by name or description",
+  "panel.start": "Pick one to start",
+  "panel.disclaimer": "These assessments are for self-understanding and reflection only. They are not a medical diagnosis and do not replace professional care.",
+  "panel.copy": "Copy result",
+  "panel.share": "Share card",
+  "panel.retake": "Take again",
+  "panel.export": "Export (text)",
+  "panel.clear": "Clear all",
+  "panel.empty_records": "No records yet - take an assessment first."
+}

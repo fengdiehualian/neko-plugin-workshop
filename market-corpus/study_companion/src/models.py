@@ -1,0 +1,1329 @@
+from __future__ import annotations
+
+import logging
+import math
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Literal, Mapping, TypedDict, cast
+
+from .adaptive_learning.cognitive_versions import (
+    DEFAULT_COGNITIVE_VERSION_SET,
+    LEGACY_COGNITIVE_VERSION_SET,
+    get_cognitive_version_set,
+)
+from .constants import (
+    MODE_COMPANION,
+)
+from .json_utils import json_copy
+from .mode_manager import normalize_mode
+
+PLUGIN_ID = "study_companion"
+StudyMode = Literal["companion", "interactive", "teaching"]
+STUDY_EXPORT_FORMATS = ("markdown", "pdf", "docx", "xmind")
+STUDY_EXPORT_STYLES = ("neko", "academic", "compact")
+_LOGGER = logging.getLogger(__name__)
+
+RAPIDOCR_LANG_TYPES = frozenset({"ch", "japan", "korean", "en"})
+RAPIDOCR_LANG_TYPE_FALLBACK = "ch"
+RAPIDOCR_LANG_TYPE_INVALID_DIAGNOSTIC = "rapidocr_language_invalid"
+
+
+def normalize_rapidocr_lang_type(value: object) -> tuple[str, str]:
+    normalized = str(value or "").strip().lower()
+    if normalized in RAPIDOCR_LANG_TYPES:
+        return normalized, ""
+    _LOGGER.warning(
+        "StudyConfig: invalid rapidocr_lang_type=%r, falling back to %r",
+        value,
+        RAPIDOCR_LANG_TYPE_FALLBACK,
+    )
+    return RAPIDOCR_LANG_TYPE_FALLBACK, RAPIDOCR_LANG_TYPE_INVALID_DIAGNOSTIC
+
+
+OCR_SNIPPET_MAX_CHARS = 200
+OCR_SESSION_TEXT_TTL_SECONDS = 30 * 60
+_SCREEN_CLASSIFICATION_PUBLIC_FIELDS = frozenset({"screen_type", "confidence", "reason", "signals", "at"})
+PRIVATE_CURRENT_QUESTION_FIELDS = frozenset(
+    {
+        "answer",
+        "reference_answer",
+        "accepted_answers",
+        "key_points",
+        "rubric",
+        "solution_steps",
+        "math_equivalence_engine",
+        "internal_private_payload",
+        "current_question_private",
+        "target_binding",
+        "question_style",
+        "_answer_reference_answer_consistent",
+        "attempt_evaluated",
+        # Cognitive intervention provenance stays server-side.  In
+        # particular, HypothesisRef contains an internal score which V2 must
+        # never present as a calibrated user-facing probability.
+        "learning_intent",
+        "hypothesis_target",
+        "cognitive_hypothesis_target",
+        "repair_strategy",
+        "cognitive_decision_id",
+        "cognitive_validator_version",
+        "diagnostic_validation_id",
+        "cognitive_blueprint_id",
+        "cognitive_question_family_id",
+        "cognitive_strategy",
+        "obligation_refs",
+        "cognitive_episode_id",
+        "cognitive_obligation_id",
+        "cognitive_claim_id",
+        "cognitive_claim_token",
+        "cognitive_claim_worker_id",
+        "cognitive_claim_lease_expires_at",
+        "retention_blueprint_version",
+        "retention_validator_version",
+        "cognitive_independence_group",
+        "cognitive_transfer_question_family_id",
+        "competing_hypothesis_codes",
+        "diagnostic_signature",
+    }
+)
+
+
+def public_current_question_payload(
+    value: dict[str, Any] | None,
+    *,
+    include_reference_answer: bool = False,
+) -> dict[str, Any]:
+    payload = json_copy(value or {})
+    if not isinstance(payload, dict):
+        return {}
+    private_fields = set(PRIVATE_CURRENT_QUESTION_FIELDS)
+    if include_reference_answer:
+        private_fields.discard("reference_answer")
+    for field_name in private_fields:
+        payload.pop(field_name, None)
+    payload.pop("answer_evaluation_cache", None)
+    return payload
+
+
+def public_screen_classification_payload(value: object) -> dict[str, Any]:
+    """Return only non-identifying screen-classification fields.
+
+    OCR excerpts and window titles are useful only while a capture is being
+    classified.  They must not enter persisted state or status responses.
+    """
+
+    if not isinstance(value, dict):
+        return {}
+    return {key: json_copy(item) for key, item in value.items() if key in _SCREEN_CLASSIFICATION_PUBLIC_FIELDS}
+
+
+def _parse_utc_iso(value: object) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
+class ModeIntentPayload(TypedDict, total=False):
+    matched: bool
+    pure_switch: bool
+    kind: str
+    mode: StudyMode
+    remaining_text: str
+    keyword: str
+    transition_phrase: str
+
+
+class ModeSwitchPayload(TypedDict, total=False):
+    changed: bool
+    old_mode: StudyMode
+    new_mode: StudyMode
+    reason: str
+    transition_phrase: str
+    locked: bool
+    lock_reason: str
+    lock_until: float
+    checkpoint: dict[str, Any]
+
+
+class StudyStatusPayload(TypedDict, total=False):
+    status: str
+    active_mode: StudyMode
+    mode: StudyMode
+    current_question: dict[str, Any]
+    last_answer_evaluation: dict[str, Any]
+    screen_classification: dict[str, Any]
+    last_error: str
+    history: list[dict[str, Any]]
+
+
+class TutorReplyPayload(TypedDict, total=False):
+    question: str
+    answer: str
+    hint: str
+    difficulty: int
+    topic: str
+    verdict: str
+    score: int
+    error_type: str
+    feedback: str
+    next_action: str
+    mastery_delta: float
+    confidence: float
+    weak_points: list[str]
+    next_steps: list[str]
+    summary: str
+    highlights: list[str]
+    next_actions: list[str]
+    markdown: str
+
+
+class ActivitySummary(TypedDict):
+    current_app: str
+    current_activity: str
+    app_duration_seconds: float
+    recent_apps: list[str]
+    total_focus_minutes: float
+    ocr_text_snippet: str
+    app_distribution: dict[str, float]
+
+
+@dataclass(frozen=True, slots=True)
+class NotebookMeta:
+    id: str
+    name: str
+    description: str = ""
+    sort_order: int = 0
+    created_at: str = ""
+    updated_at: str = ""
+    note_count: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class NoteItem:
+    id: str
+    notebook_id: str | None
+    title: str
+    content: str
+    content_plain: str
+    snippet: str
+    is_ai_generated: bool = False
+    source_type: str = "manual"
+    source_ref: str = ""
+    topic_ids: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    word_count: int = 0
+    created_at: str = ""
+    updated_at: str = ""
+    edited_at: str = ""
+
+
+class NoteSearchResult(TypedDict, total=False):
+    notes: list[dict[str, Any]]
+    topics: list[dict[str, Any]]
+    sessions: list[dict[str, Any]]
+    wrong_questions: list[dict[str, Any]]
+    query: str
+
+
+STATUS_READY = "ready"
+STATUS_STOPPED = "stopped"
+STATUS_ERROR = "error"
+
+STORE_CONFIG = "config"
+STORE_STATE = "state"
+
+
+def utc_now_iso() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _range_or_default(value: object, minimum: int, maximum: int, default: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+    return number if minimum <= number <= maximum else default
+
+
+def _clamp_int_or_default(
+    value: object,
+    minimum: int,
+    maximum: int,
+    default: int,
+) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+    return max(minimum, min(maximum, number))
+
+
+@dataclass(slots=True)
+class DocExportConfig:
+    enabled: bool = False
+    pdf_backend: str = "reportlab"
+    default_style: str = "neko"
+    xmind_enabled: bool = False
+
+    def __post_init__(self) -> None:
+        self.enabled = bool(self.enabled)
+        self.pdf_backend = str(self.pdf_backend or "reportlab").strip() or "reportlab"
+        style = str(self.default_style or "neko").strip().lower() or "neko"
+        self.default_style = style if style in STUDY_EXPORT_STYLES else "neko"
+        self.xmind_enabled = bool(self.xmind_enabled)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class PomodoroConfig:
+    focus_minutes: int = 25
+    short_break_minutes: int = 5
+    long_break_minutes: int = 15
+    long_break_interval: int = 4
+    allow_skip_break: bool = True
+    allow_custom_duration: bool = True
+
+    def __post_init__(self) -> None:
+        self.focus_minutes = _range_or_default(self.focus_minutes, 1, 120, 25)
+        self.short_break_minutes = _range_or_default(self.short_break_minutes, 1, 30, 5)
+        self.long_break_minutes = _range_or_default(self.long_break_minutes, 1, 60, 15)
+        self.long_break_interval = _range_or_default(self.long_break_interval, 1, 10, 4)
+        self.allow_skip_break = bool(self.allow_skip_break)
+        self.allow_custom_duration = bool(self.allow_custom_duration)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class SupervisionConfig:
+    enabled: bool = True
+    remind_interval_minutes: int = 10
+    inactivity_timeout_minutes: int = 5
+    idle_away_seconds: int = 900
+    allow_disable_by_chat: bool = True
+
+    def __post_init__(self) -> None:
+        self.enabled = bool(self.enabled)
+        self.remind_interval_minutes = _range_or_default(self.remind_interval_minutes, 1, 60, 10)
+        self.inactivity_timeout_minutes = _range_or_default(self.inactivity_timeout_minutes, 1, 30, 5)
+        self.idle_away_seconds = _range_or_default(self.idle_away_seconds, 60, 3600, 900)
+        self.allow_disable_by_chat = bool(self.allow_disable_by_chat)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class CheckinConfig:
+    streak_timezone: str = "local"
+    makeup_window_days: int = 3
+    auto_derive_from_session: bool = True
+
+    def __post_init__(self) -> None:
+        self.streak_timezone = str(self.streak_timezone or "local").strip() or "local"
+        self.makeup_window_days = _range_or_default(self.makeup_window_days, 0, 7, 3)
+        self.auto_derive_from_session = bool(self.auto_derive_from_session)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class CommunicationConfig:
+    enabled: bool = True
+    solution_narration_enabled: bool = True
+    general_narration_enabled: bool = True
+
+    def __post_init__(self) -> None:
+        self.enabled = bool(self.enabled)
+        self.solution_narration_enabled = bool(self.solution_narration_enabled)
+        self.general_narration_enabled = bool(self.general_narration_enabled)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class AwarenessConfig:
+    enabled: bool = False
+    snapshot_interval_seconds: int = 5
+    context_window_minutes: int = 5
+    classify_mode: str = "title_first"
+    image_max_bytes: int = 65_536
+    push_to_llm_interval_seconds: int = 300
+    push_to_llm_mode: str = "read"
+    os_signals_enabled: bool = True
+    distraction_detection: bool = True
+
+    def __post_init__(self) -> None:
+        self.enabled = bool(self.enabled)
+        self.snapshot_interval_seconds = _clamp_int_or_default(self.snapshot_interval_seconds, 1, 60, 5)
+        self.context_window_minutes = _clamp_int_or_default(self.context_window_minutes, 1, 60, 5)
+        classify_mode = str(self.classify_mode or "title_first").strip()
+        if classify_mode not in {"title_first", "ocr_text", "both"}:
+            _LOGGER.warning(
+                "AwarenessConfig: invalid classify_mode=%r, falling back to 'title_first'",
+                classify_mode,
+            )
+            classify_mode = "title_first"
+        self.classify_mode = classify_mode
+        self.image_max_bytes = _clamp_int_or_default(self.image_max_bytes, 10240, 512_000, 65_536)
+        self.push_to_llm_interval_seconds = _clamp_int_or_default(self.push_to_llm_interval_seconds, 30, 300, 300)
+        push_mode = str(self.push_to_llm_mode or "read").strip()
+        if push_mode not in {"read", "blind", "respond"}:
+            _LOGGER.warning(
+                "AwarenessConfig: invalid push_to_llm_mode=%r, falling back to 'read'",
+                push_mode,
+            )
+            push_mode = "read"
+        self.push_to_llm_mode = push_mode
+        self.os_signals_enabled = bool(self.os_signals_enabled)
+        self.distraction_detection = bool(self.distraction_detection)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class AssessmentConfig:
+    """Opt-in deterministic assessment routing switches.
+
+    All switches intentionally default to ``False``.  Parsing this section is
+    side-effect free: it neither changes an evaluator nor adjusts any model
+    gateway policy until the answer entry explicitly consults the flags.
+    """
+
+    exact_short_answer_enabled: bool = False
+    numeric_tolerance_enabled: bool = False
+    math_expression_enabled: bool = False
+
+    def __post_init__(self) -> None:
+        # Do not treat strings such as ``"false"`` as truthy configuration.
+        self.exact_short_answer_enabled = (
+            self.exact_short_answer_enabled if isinstance(self.exact_short_answer_enabled, bool) else False
+        )
+        self.numeric_tolerance_enabled = (
+            self.numeric_tolerance_enabled if isinstance(self.numeric_tolerance_enabled, bool) else False
+        )
+        self.math_expression_enabled = (
+            self.math_expression_enabled if isinstance(self.math_expression_enabled, bool) else False
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class MasteryConfig:
+    """Versioned mastery shadow-model controls with a V1-safe default."""
+
+    v2_shadow_enabled: bool = False
+    read_model: str = "v1"
+    model_version: str = "mastery-v2-shadow-1"
+
+    def __post_init__(self) -> None:
+        self.v2_shadow_enabled = self.v2_shadow_enabled if isinstance(self.v2_shadow_enabled, bool) else False
+        read_model = str(self.read_model or "v1").strip().lower()
+        self.read_model = read_model if read_model in {"v1", "v2"} else "v1"
+        model_version = str(self.model_version or "").strip()
+        self.model_version = model_version if model_version == "mastery-v2-shadow-1" else "mastery-v2-shadow-1"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+COGNITIVE_V1_MODEL_VERSION = "cognitive-v1"
+COGNITIVE_V1_SUPPORTED_TOPICS = (
+    "calculus.chain_rule",
+    "college_chain_rule",
+)
+CognitiveReadMode = Literal["off", "shadow", "active"]
+CognitiveIntentPolicyMode = Literal["off", "shadow", "on"]
+
+
+@dataclass(slots=True)
+class CognitiveConfig:
+    """Fail-closed switches for the Cognitive Evidence Engine V2.
+
+    This is deliberately a standalone configuration contract in PR0. Runtime
+    wiring is deferred so merely parsing the section cannot enqueue work, read
+    projections, alter question intent, or expose UI.
+    """
+
+    projection_enabled: bool = False
+    read_mode: CognitiveReadMode = "off"
+    intent_policy: CognitiveIntentPolicyMode = "off"
+    ui_enabled: bool = False
+    retention_enabled: bool = False
+    strategy_shadow_enabled: bool = False
+    strategy_rotation_enabled: bool = False
+    knowledge_graph_enabled: bool = True
+    version_set: str = DEFAULT_COGNITIVE_VERSION_SET
+    # Deprecated compatibility input/output. New code selects the projection
+    # version through ``version_set``; old config files containing only
+    # ``model_version = cognitive-v1`` continue to open their old projection.
+    model_version: str = ""
+    supported_topics: tuple[str, ...] = COGNITIVE_V1_SUPPORTED_TOPICS
+    strategy_personalization_enabled: bool = False
+    strategy_personalization_exploration_enabled: bool = False
+    strategy_personalization_stopped: bool = False
+
+    def __post_init__(self) -> None:
+        self.projection_enabled = self.projection_enabled if isinstance(self.projection_enabled, bool) else False
+        read_mode = str(self.read_mode or "off").strip().lower()
+        self.read_mode = cast(
+            CognitiveReadMode,
+            read_mode if read_mode in {"off", "shadow", "active"} else "off",
+        )
+        intent_policy = str(self.intent_policy or "off").strip().lower()
+        self.intent_policy = cast(
+            CognitiveIntentPolicyMode,
+            intent_policy if intent_policy in {"off", "shadow", "on"} else "off",
+        )
+        self.ui_enabled = self.ui_enabled if isinstance(self.ui_enabled, bool) else False
+        self.retention_enabled = (
+            self.retention_enabled
+            if isinstance(self.retention_enabled, bool)
+            else False
+        )
+        self.strategy_shadow_enabled = (
+            self.strategy_shadow_enabled
+            if isinstance(self.strategy_shadow_enabled, bool)
+            else False
+        )
+        self.strategy_rotation_enabled = (
+            self.strategy_rotation_enabled
+            if isinstance(self.strategy_rotation_enabled, bool)
+            else False
+        )
+        self.knowledge_graph_enabled = (
+            self.knowledge_graph_enabled
+            if isinstance(self.knowledge_graph_enabled, bool)
+            else False
+        )
+        self.strategy_personalization_enabled = self.strategy_personalization_enabled is True
+        self.strategy_personalization_exploration_enabled = (
+            self.strategy_personalization_exploration_enabled is True
+        )
+        self.strategy_personalization_stopped = self.strategy_personalization_stopped is not False
+        requested_set = str(self.version_set or "").strip()
+        legacy_model_version = str(self.model_version or "").strip()
+        requested_versions = get_cognitive_version_set(requested_set)
+        if (
+            legacy_model_version == COGNITIVE_V1_MODEL_VERSION
+            and requested_set == DEFAULT_COGNITIVE_VERSION_SET
+        ):
+            requested_set = LEGACY_COGNITIVE_VERSION_SET
+        elif legacy_model_version and (
+            requested_versions is None
+            or legacy_model_version != requested_versions.projection_version
+        ):
+            requested_set = ""
+        versions = get_cognitive_version_set(requested_set)
+        self.version_set = requested_set
+        self.model_version = versions.projection_version if versions else ""
+        if versions is None:
+            # Unknown component combinations are unusable. Keep the raw name
+            # visible for diagnostics, but switch every behaviour off.
+            self.projection_enabled = False
+            self.read_mode = "off"
+            self.intent_policy = "off"
+            self.ui_enabled = False
+            self.retention_enabled = False
+            self.strategy_shadow_enabled = False
+            self.strategy_rotation_enabled = False
+            self.strategy_personalization_enabled = False
+            self.strategy_personalization_exploration_enabled = False
+        if not isinstance(self.supported_topics, (list, tuple)):
+            self.supported_topics = ()
+        else:
+            allowed_topics = set(COGNITIVE_V1_SUPPORTED_TOPICS)
+            self.supported_topics = tuple(
+                dict.fromkeys(
+                    topic
+                    for raw_topic in self.supported_topics
+                    if isinstance(raw_topic, str) and (topic := raw_topic.strip()) in allowed_topics
+                )
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def build_cognitive_config(raw: Mapping[str, Any]) -> CognitiveConfig:
+    """Parse the isolated top-level ``cognitive`` section without side effects."""
+
+    section = raw.get("cognitive")
+    cognitive = section if isinstance(section, Mapping) else {}
+    has_version_set = "version_set" in cognitive
+    legacy_model = cognitive.get("model_version", "")
+    return CognitiveConfig(
+        projection_enabled=cognitive.get("projection_enabled", False),
+        read_mode=cognitive.get("read_mode", "off"),
+        intent_policy=cognitive.get("intent_policy", "off"),
+        ui_enabled=cognitive.get("ui_enabled", False),
+        retention_enabled=cognitive.get("retention_enabled", False),
+        strategy_shadow_enabled=cognitive.get("strategy_shadow_enabled", False),
+        strategy_rotation_enabled=cognitive.get("strategy_rotation_enabled", False),
+        strategy_personalization_enabled=cognitive.get("strategy_personalization_enabled", False),
+        strategy_personalization_exploration_enabled=cognitive.get(
+            "strategy_personalization_exploration_enabled", False
+        ),
+        strategy_personalization_stopped=cognitive.get("strategy_personalization_stopped", False),
+        knowledge_graph_enabled=cognitive.get("knowledge_graph_enabled", True),
+        version_set=cognitive.get(
+            "version_set",
+            LEGACY_COGNITIVE_VERSION_SET
+            if legacy_model
+            else DEFAULT_COGNITIVE_VERSION_SET,
+        ),
+        model_version="" if has_version_set else legacy_model,
+        supported_topics=cognitive.get("supported_topics", COGNITIVE_V1_SUPPORTED_TOPICS),
+    )
+
+
+@dataclass(slots=True)
+class AdaptiveLoopConfig:
+    next_step_preview_enabled: bool = True
+    material_learning_plans_enabled: bool = False
+    auto_prepare_plan: bool = True
+    max_core_topics: int = 12
+    max_prerequisite_topics: int = 5
+    auto_generate_next_question: bool = False
+
+    def __post_init__(self) -> None:
+        self.next_step_preview_enabled = (
+            self.next_step_preview_enabled if isinstance(self.next_step_preview_enabled, bool) else True
+        )
+        self.material_learning_plans_enabled = (
+            self.material_learning_plans_enabled if isinstance(self.material_learning_plans_enabled, bool) else False
+        )
+        self.auto_prepare_plan = self.auto_prepare_plan if isinstance(self.auto_prepare_plan, bool) else True
+        self.max_core_topics = _clamp_int_or_default(self.max_core_topics, 1, 12, 12)
+        self.max_prerequisite_topics = _clamp_int_or_default(self.max_prerequisite_topics, 0, 5, 5)
+        # This remains opt-in false even if a malformed string such as "true"
+        # is supplied. Answer submission must never trigger hidden LLM work.
+        self.auto_generate_next_question = (
+            self.auto_generate_next_question if isinstance(self.auto_generate_next_question, bool) else False
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class StudyConfig:
+    mode: StudyMode = MODE_COMPANION
+    default_mode: StudyMode = MODE_COMPANION
+    language: str = "zh-CN"
+    history_limit: int = 50
+    # Deprecated compatibility field. Plugin lifecycle never opens external UI.
+    auto_open_ui: bool = False
+    ocr_enabled: bool = True
+    ocr_question_persistence_mode: str = "save_when_used"
+    # Legacy rollback-only backend choice. 0.2.1 keeps it serializable so a
+    # user can return to 0.2.0, but the active OCR runtime never reads it.
+    ocr_backend_selection: str = "rapidocr"
+    ocr_capture_backend: str = "auto"
+    # Legacy rollback-only Tesseract values.
+    ocr_tesseract_path: str = ""
+    ocr_install_manifest_url: str = ""
+    ocr_install_target_dir: str = ""
+    # Still active for RapidOCR model downloads.
+    ocr_install_timeout_seconds: float = 300.0
+    # Legacy rollback-only language list for the removed Tesseract backend.
+    ocr_languages: str = "chi_sim+jpn+eng"
+    ocr_left_inset_ratio: float = 0.03
+    ocr_right_inset_ratio: float = 0.03
+    ocr_top_ratio: float = 0.0
+    ocr_bottom_inset_ratio: float = 0.0
+    rapidocr_install_target_dir: str = ""
+    rapidocr_engine_type: str = "onnxruntime"
+    rapidocr_lang_type: str = "ch"
+    rapidocr_model_type: str = "mobile"
+    rapidocr_ocr_version: str = "PP-OCRv4"
+    _rapidocr_lang_type_diagnostic: str = field(default="", init=False, repr=False, compare=False)
+    llm_call_timeout_seconds: float = 30.0
+    llm_vision_enabled: bool = False
+    llm_vision_max_image_px: int = 768
+    # Opt-in only.  When disabled, requests continue through the configured
+    # N.E.K.O model gateway; enabling this setting must never download models.
+    local_models_enabled: bool = False
+    # Empty means that the local asset manager chooses its application default.
+    # This field never selects a model, cache policy, or execution device.
+    local_models_directory: str = ""
+    # Opt-in relationship evidence for concept explanations only.  The
+    # retrieval implementation remains fail-closed unless this is enabled.
+    knowledge_relation_retrieval_v2_enabled: bool = False
+    fsrs_retention_target: float = 0.90
+    fsrs_auto_optimize_interval_days: int = 30
+    # Applies only to automatic recommended/default targeted-question choices.
+    # Explicit user choices, retry, due-review, and weak-topic paths bypass it.
+    adaptive_practice_readiness_enabled: bool = True
+    knowledge_contribution_opt_in: bool = False
+    knowledge_contribution_min_sample_count: int = 3
+    doc_export: DocExportConfig = field(default_factory=DocExportConfig)
+    pomodoro: PomodoroConfig = field(default_factory=PomodoroConfig)
+    supervision: SupervisionConfig = field(default_factory=SupervisionConfig)
+    checkin: CheckinConfig = field(default_factory=CheckinConfig)
+    communication: CommunicationConfig = field(default_factory=CommunicationConfig)
+    awareness: AwarenessConfig = field(default_factory=AwarenessConfig)
+    assessment: AssessmentConfig = field(default_factory=AssessmentConfig)
+    mastery: MasteryConfig = field(default_factory=MasteryConfig)
+    adaptive_loop: AdaptiveLoopConfig = field(default_factory=AdaptiveLoopConfig)
+    cognitive: CognitiveConfig = field(default_factory=CognitiveConfig)
+
+    def __post_init__(self) -> None:
+        self.mode = normalize_mode(self.mode)
+        self.default_mode = normalize_mode(self.default_mode or self.mode)
+        self.language = str(self.language or "zh-CN").strip() or "zh-CN"
+        self.history_limit = max(1, self._coerce_int(self.history_limit, 50))
+        self.auto_open_ui = bool(self.auto_open_ui)
+        persistence_mode = str(self.ocr_question_persistence_mode or "").strip().lower()
+        if persistence_mode not in {"save_when_used", "auto_save_questions"}:
+            _LOGGER.warning(
+                "StudyConfig: invalid ocr_question_persistence_mode=%r, falling back to 'save_when_used'",
+                persistence_mode,
+            )
+            persistence_mode = "save_when_used"
+        self.ocr_question_persistence_mode = persistence_mode
+        (
+            self.rapidocr_lang_type,
+            self._rapidocr_lang_type_diagnostic,
+        ) = normalize_rapidocr_lang_type(self.rapidocr_lang_type)
+        self.ocr_install_timeout_seconds = self._clamp_float(self.ocr_install_timeout_seconds, 1.0, 3600.0, 300.0)
+        self.ocr_left_inset_ratio = self._clamp_float(self.ocr_left_inset_ratio, 0.0, 1.0, 0.03)
+        self.ocr_right_inset_ratio = self._clamp_float(self.ocr_right_inset_ratio, 0.0, 1.0, 0.03)
+        self.ocr_top_ratio = self._clamp_float(self.ocr_top_ratio, 0.0, 1.0, 0.0)
+        self.ocr_bottom_inset_ratio = self._clamp_float(self.ocr_bottom_inset_ratio, 0.0, 1.0, 0.0)
+        self.llm_call_timeout_seconds = self._clamp_float(self.llm_call_timeout_seconds, 1.0, 3600.0, 30.0)
+        self.llm_vision_enabled = bool(self.llm_vision_enabled)
+        self.llm_vision_max_image_px = max(64, min(4096, self._coerce_int(self.llm_vision_max_image_px, 768)))
+        self.local_models_enabled = bool(self.local_models_enabled)
+        self.local_models_directory = self._normalize_local_models_directory(self.local_models_directory)
+        self.fsrs_retention_target = self._clamp_float(self.fsrs_retention_target, 0.1, 0.99, 0.90)
+        self.fsrs_auto_optimize_interval_days = max(1, self._coerce_int(self.fsrs_auto_optimize_interval_days, 30))
+        self.adaptive_practice_readiness_enabled = (
+            self.adaptive_practice_readiness_enabled
+            if isinstance(self.adaptive_practice_readiness_enabled, bool)
+            else True
+        )
+        self.knowledge_contribution_opt_in = bool(self.knowledge_contribution_opt_in)
+        self.knowledge_contribution_min_sample_count = max(
+            1,
+            self._coerce_int(self.knowledge_contribution_min_sample_count, 3),
+        )
+        if not isinstance(self.doc_export, DocExportConfig):
+            self.doc_export = (
+                DocExportConfig(**self.doc_export) if isinstance(self.doc_export, dict) else DocExportConfig()
+            )
+        if not isinstance(self.pomodoro, PomodoroConfig):
+            self.pomodoro = PomodoroConfig(**self.pomodoro) if isinstance(self.pomodoro, dict) else PomodoroConfig()
+        if not isinstance(self.supervision, SupervisionConfig):
+            self.supervision = (
+                SupervisionConfig(**self.supervision) if isinstance(self.supervision, dict) else SupervisionConfig()
+            )
+        if not isinstance(self.checkin, CheckinConfig):
+            self.checkin = CheckinConfig(**self.checkin) if isinstance(self.checkin, dict) else CheckinConfig()
+        if not isinstance(self.communication, CommunicationConfig):
+            self.communication = (
+                CommunicationConfig(**self.communication)
+                if isinstance(self.communication, dict)
+                else CommunicationConfig()
+            )
+        if not isinstance(self.awareness, AwarenessConfig):
+            self.awareness = (
+                AwarenessConfig(**self.awareness) if isinstance(self.awareness, dict) else AwarenessConfig()
+            )
+        if not isinstance(self.assessment, AssessmentConfig):
+            self.assessment = (
+                AssessmentConfig(**self.assessment) if isinstance(self.assessment, dict) else AssessmentConfig()
+            )
+        if not isinstance(self.mastery, MasteryConfig):
+            self.mastery = MasteryConfig(**self.mastery) if isinstance(self.mastery, dict) else MasteryConfig()
+        if not isinstance(self.adaptive_loop, AdaptiveLoopConfig):
+            self.adaptive_loop = (
+                AdaptiveLoopConfig(**self.adaptive_loop)
+                if isinstance(self.adaptive_loop, dict)
+                else AdaptiveLoopConfig()
+            )
+        if not isinstance(self.cognitive, CognitiveConfig):
+            self.cognitive = (
+                CognitiveConfig(**self.cognitive) if isinstance(self.cognitive, dict) else CognitiveConfig()
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload.pop("_rapidocr_lang_type_diagnostic", None)
+        cognitive = payload.get("cognitive")
+        if isinstance(cognitive, dict):
+            supported_topics = cognitive.get("supported_topics")
+            if isinstance(supported_topics, tuple):
+                cognitive["supported_topics"] = list(supported_topics)
+        return payload
+
+    @staticmethod
+    def _coerce_int(value: object, default: int) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError, OverflowError):
+            return default
+
+    @staticmethod
+    def _clamp_float(value: object, minimum: float, maximum: float, default: float) -> float:
+        try:
+            number = float(value)
+        except (TypeError, ValueError, OverflowError):
+            number = default
+        if not math.isfinite(number):
+            number = default
+        return max(minimum, min(maximum, number))
+
+    @staticmethod
+    def _normalize_local_models_directory(value: object) -> str:
+        """Keep an optional, safe-to-serialize asset directory value.
+
+        Directory creation and permission checks belong to the local asset
+        manager.  Configuration parsing must remain side-effect free so an
+        old or malformed config cannot start a runtime or touch the network.
+        """
+
+        if not isinstance(value, str):
+            return ""
+        directory = value.strip()
+        if not directory or "\x00" in directory or len(directory) > 4096:
+            return ""
+        try:
+            if not Path(directory).is_absolute():
+                return ""
+        except (OSError, ValueError):
+            return ""
+        return directory
+
+
+@dataclass(slots=True)
+class PracticeScopeV1:
+    schema_version: int = 1
+    mode: str = "explicit_scope"
+    stage: str = ""
+    subject: str = ""
+    course_family: str = ""
+    chapter: str = ""
+    unit: str = ""
+    topic_id: str = ""
+    scope_key: str = ""
+    scope_revision: int = 0
+    display_path: list[str] = field(default_factory=list)
+    source: str = "knowledge_map"
+    set_at: str = ""
+    eligible_topic_ids: list[str] = field(default_factory=list, repr=False)
+
+    def to_public_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload.pop("eligible_topic_ids", None)
+        return payload
+
+    def to_state_dict(self) -> dict[str, Any]:
+        return self.to_public_dict()
+
+
+@dataclass(slots=True)
+class StudyState:
+    status: str = STATUS_STOPPED
+    active_mode: str = MODE_COMPANION
+    mode_started_at: float = 0.0
+    recent_mode_switches: list[dict[str, Any]] = field(default_factory=list)
+    suggestion_cooldowns: dict[str, float] = field(default_factory=dict)
+    session_suggestions: list[dict[str, Any]] = field(default_factory=list)
+    mode_lock_until: float = 0.0
+    last_error: str = ""
+    last_started_at: str = ""
+    last_ocr_text: str = ""
+    last_vision_image_base64: str = ""
+    last_ocr_at: str = ""
+    # Runtime-only link populated when an OCR capture is promoted to a
+    # persisted question asset.  Storage will be owned by captured_questions.
+    last_captured_question_id: str = ""
+    last_screen_classification: dict[str, Any] = field(default_factory=dict)
+    recent_screen_classifications: list[dict[str, Any]] = field(default_factory=list)
+    current_question: dict[str, Any] = field(default_factory=dict)
+    last_answer_evaluation: dict[str, Any] = field(default_factory=dict)
+    session_summary_seed: dict[str, Any] = field(default_factory=dict)
+    recent_learning_events: list[dict[str, Any]] = field(default_factory=list)
+    last_question_at: str = ""
+    last_answer_evaluated_at: str = ""
+    last_session_summary: str = ""
+    last_session_summary_at: str = ""
+    checkpoint: dict[str, Any] = field(default_factory=dict)
+    dependency_status: dict[str, Any] = field(default_factory=dict)
+    active_practice_scope: dict[str, Any] = field(default_factory=dict)
+    practice_scope_revision: int = 0
+
+    def __post_init__(self) -> None:
+        # Old state rows may still contain these fields.  Sanitizing during
+        # construction prevents a legacy row from leaking through status APIs
+        # before the next state save removes it from SQLite.
+        self.last_ocr_text = ""
+        self.last_vision_image_base64 = ""
+        self.last_screen_classification = public_screen_classification_payload(self.last_screen_classification)
+        self.recent_screen_classifications = [
+            public_screen_classification_payload(item)
+            for item in self.recent_screen_classifications
+            if isinstance(item, dict)
+        ][-8:]
+        self.last_captured_question_id = ""
+
+    def clear_ocr_session(self, *, captured_at: str = "") -> None:
+        """Drop the in-memory OCR buffer while retaining safe capture metadata."""
+
+        self.last_ocr_text = ""
+        if captured_at:
+            self.last_ocr_at = str(captured_at)
+
+    def set_ocr_session_text(self, text: object, *, captured_at: str = "") -> None:
+        """Replace the session-only OCR buffer for a newly completed capture."""
+
+        self.last_ocr_text = str(text or "")
+        self.last_ocr_at = str(captured_at or utc_now_iso())
+
+    def clear_expired_ocr_session(
+        self,
+        *,
+        now: datetime | None = None,
+        ttl_seconds: int = OCR_SESSION_TEXT_TTL_SECONDS,
+    ) -> bool:
+        """Clear cached OCR text once it has exceeded its session TTL."""
+
+        if not self.last_ocr_text:
+            return False
+        captured_at = _parse_utc_iso(self.last_ocr_at)
+        current = now or datetime.now(timezone.utc)
+        if captured_at is None or (current - captured_at).total_seconds() >= max(0, int(ttl_seconds)):
+            self.clear_ocr_session()
+            return True
+        return False
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload.pop("last_ocr_text", None)
+        payload.pop("last_vision_image_base64", None)
+        payload.pop("last_captured_question_id", None)
+        payload["last_screen_classification"] = public_screen_classification_payload(self.last_screen_classification)
+        payload["recent_screen_classifications"] = [
+            public_screen_classification_payload(item)
+            for item in self.recent_screen_classifications
+            if isinstance(item, dict)
+        ][-8:]
+        return payload
+
+
+@dataclass(slots=True)
+class OcrSnapshot:
+    text: str = ""
+    boxes: list[dict[str, Any]] = field(default_factory=list)
+    status: str = "empty"
+    backend: str = ""
+    captured_at: str = ""
+    diagnostic: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True, frozen=True)
+class ActivitySnapshot:
+    timestamp: float
+    first_seen_at: float
+    app_type: str
+    activity_type: str
+    classify_method: str
+    ocr_text_snippet: str
+    window_title: str
+    has_content_change: bool
+    _thumbnail_hash: str = ""
+
+
+@dataclass(slots=True)
+class TutorReply:
+    operation: str
+    input_text: str
+    reply: str
+    payload: dict[str, Any] = field(default_factory=dict)
+    degraded: bool = False
+    diagnostic: str = ""
+    created_at: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        if not payload["created_at"]:
+            payload["created_at"] = utc_now_iso()
+        return payload
+
+
+def build_config(raw: dict[str, Any]) -> StudyConfig:
+    study = raw.get("study") if isinstance(raw.get("study"), dict) else {}
+    study_companion = raw.get("study_companion") if isinstance(raw.get("study_companion"), dict) else {}
+    llm = raw.get("llm") if isinstance(raw.get("llm"), dict) else {}
+    ocr = raw.get("ocr_reader") if isinstance(raw.get("ocr_reader"), dict) else {}
+    rapidocr = raw.get("rapidocr") if isinstance(raw.get("rapidocr"), dict) else {}
+    fsrs = raw.get("fsrs") if isinstance(raw.get("fsrs"), dict) else {}
+    contribution = raw.get("knowledge_contribution") if isinstance(raw.get("knowledge_contribution"), dict) else {}
+    knowledge_retrieval = raw.get("knowledge_retrieval") if isinstance(raw.get("knowledge_retrieval"), dict) else {}
+    doc_export = raw.get("doc_export") if isinstance(raw.get("doc_export"), dict) else {}
+    pomodoro = study.get("pomodoro") if isinstance(study.get("pomodoro"), dict) else {}
+    supervision = study.get("supervision") if isinstance(study.get("supervision"), dict) else {}
+    checkin = study.get("checkin") if isinstance(study.get("checkin"), dict) else {}
+    awareness = (
+        study.get("awareness")
+        if isinstance(study.get("awareness"), dict)
+        else raw.get("awareness")
+        if isinstance(raw.get("awareness"), dict)
+        else {}
+    )
+    assessment = raw.get("assessment") if isinstance(raw.get("assessment"), dict) else {}
+    mastery = raw.get("mastery") if isinstance(raw.get("mastery"), dict) else {}
+    adaptive_loop = (
+        study.get("adaptive_loop")
+        if isinstance(study.get("adaptive_loop"), dict)
+        else raw.get("adaptive_loop")
+        if isinstance(raw.get("adaptive_loop"), dict)
+        else {}
+    )
+    communication = (
+        study_companion.get("communication")
+        if isinstance(study_companion.get("communication"), dict)
+        else (raw.get("communication") if isinstance(raw.get("communication"), dict) else {})
+    )
+
+    def _raw(section: dict[str, Any], key: str, default: Any, flat_key: str | None = None) -> Any:
+        if key in section:
+            return section.get(key, default)
+        if flat_key and flat_key in raw:
+            return raw.get(flat_key, default)
+        return default
+
+    def _str(section: dict[str, Any], key: str, default: str, flat_key: str | None = None) -> str:
+        return str(_raw(section, key, default, flat_key) or default)
+
+    def _bool(section: dict[str, Any], key: str, default: bool, flat_key: str | None = None) -> bool:
+        value = _raw(section, key, default, flat_key)
+        return value if isinstance(value, bool) else default
+
+    def _int(section: dict[str, Any], key: str, default: int, flat_key: str | None = None) -> int:
+        try:
+            return int(_raw(section, key, default, flat_key))
+        except (TypeError, ValueError):
+            return default
+
+    def _float(section: dict[str, Any], key: str, default: float, flat_key: str | None = None) -> float:
+        try:
+            return float(_raw(section, key, default, flat_key))
+        except (TypeError, ValueError):
+            return default
+
+    def _float_alias(
+        section: dict[str, Any],
+        keys: tuple[str, ...],
+        default: float,
+        flat_key: str | None = None,
+    ) -> float:
+        for key in keys:
+            if key in section:
+                try:
+                    return float(section.get(key, default))
+                except (TypeError, ValueError):
+                    return default
+        if flat_key and flat_key in raw:
+            try:
+                return float(raw.get(flat_key, default))
+            except (TypeError, ValueError):
+                return default
+        return default
+
+    def _clamp(value: float, minimum: float, maximum: float, default: float) -> float:
+        if not math.isfinite(value):
+            value = default
+        return max(minimum, min(maximum, value))
+
+    default_mode = (
+        _str(
+            study,
+            "default_mode",
+            _str(study, "mode", MODE_COMPANION, "mode"),
+            "default_mode",
+        ).strip()
+        or MODE_COMPANION
+    )
+    default_mode = normalize_mode(default_mode)
+    mode = normalize_mode(_str(study, "mode", default_mode, "mode"))
+
+    return StudyConfig(
+        mode=mode,
+        default_mode=default_mode,
+        language=_str(study, "language", "zh-CN", "language"),
+        history_limit=max(1, _int(study, "history_limit", 50, "history_limit")),
+        auto_open_ui=_bool(study, "auto_open_ui", False, "auto_open_ui"),
+        ocr_enabled=_bool(ocr, "enabled", True, "ocr_enabled"),
+        ocr_question_persistence_mode=_str(
+            ocr,
+            "question_persistence_mode",
+            "save_when_used",
+            "ocr_question_persistence_mode",
+        ),
+        ocr_backend_selection=_str(ocr, "backend_selection", "rapidocr", "ocr_backend_selection"),
+        ocr_capture_backend=_str(ocr, "capture_backend", "auto", "ocr_capture_backend"),
+        ocr_tesseract_path=_str(ocr, "tesseract_path", "", "ocr_tesseract_path"),
+        ocr_install_manifest_url=_str(ocr, "install_manifest_url", "", "ocr_install_manifest_url"),
+        ocr_install_target_dir=_str(ocr, "install_target_dir", "", "ocr_install_target_dir"),
+        ocr_install_timeout_seconds=_clamp(
+            _float(ocr, "install_timeout_seconds", 300.0, "ocr_install_timeout_seconds"),
+            1.0,
+            3600.0,
+            300.0,
+        ),
+        ocr_languages=_str(ocr, "languages", "chi_sim+jpn+eng", "ocr_languages"),
+        ocr_left_inset_ratio=_clamp(
+            _float(ocr, "left_inset_ratio", 0.03, "ocr_left_inset_ratio"),
+            0.0,
+            1.0,
+            0.03,
+        ),
+        ocr_right_inset_ratio=_clamp(
+            _float(ocr, "right_inset_ratio", 0.03, "ocr_right_inset_ratio"),
+            0.0,
+            1.0,
+            0.03,
+        ),
+        ocr_top_ratio=_clamp(_float(ocr, "top_ratio", 0.0, "ocr_top_ratio"), 0.0, 1.0, 0.0),
+        ocr_bottom_inset_ratio=_clamp(
+            _float(ocr, "bottom_inset_ratio", 0.0, "ocr_bottom_inset_ratio"),
+            0.0,
+            1.0,
+            0.0,
+        ),
+        rapidocr_install_target_dir=_str(rapidocr, "install_target_dir", "", "rapidocr_install_target_dir"),
+        rapidocr_engine_type=_str(rapidocr, "engine_type", "onnxruntime", "rapidocr_engine_type"),
+        rapidocr_lang_type=_str(rapidocr, "lang_type", "ch", "rapidocr_lang_type"),
+        rapidocr_model_type=_str(rapidocr, "model_type", "mobile", "rapidocr_model_type"),
+        rapidocr_ocr_version=_str(rapidocr, "ocr_version", "PP-OCRv4", "rapidocr_ocr_version"),
+        llm_call_timeout_seconds=_clamp(
+            _float_alias(
+                llm,
+                ("call_timeout_seconds", "llm_call_timeout_seconds"),
+                30.0,
+                "llm_call_timeout_seconds",
+            ),
+            1.0,
+            3600.0,
+            30.0,
+        ),
+        llm_vision_enabled=_bool(llm, "llm_vision_enabled", False, "llm_vision_enabled"),
+        llm_vision_max_image_px=max(
+            64,
+            min(
+                4096,
+                _int(llm, "llm_vision_max_image_px", 768, "llm_vision_max_image_px"),
+            ),
+        ),
+        local_models_enabled=_bool(llm, "local_models_enabled", False, "local_models_enabled"),
+        local_models_directory=(
+            _raw(llm, "local_models_directory", "", "local_models_directory")
+            if isinstance(
+                _raw(llm, "local_models_directory", "", "local_models_directory"),
+                str,
+            )
+            else ""
+        ),
+        knowledge_relation_retrieval_v2_enabled=_bool(
+            knowledge_retrieval,
+            "relationship_v2_enabled",
+            False,
+            "knowledge_relation_retrieval_v2_enabled",
+        ),
+        fsrs_retention_target=_clamp(
+            _float(fsrs, "retention_target", 0.90, "fsrs_retention_target"),
+            0.1,
+            0.99,
+            0.90,
+        ),
+        fsrs_auto_optimize_interval_days=max(
+            1,
+            _int(
+                fsrs,
+                "auto_optimize_interval_days",
+                30,
+                "fsrs_auto_optimize_interval_days",
+            ),
+        ),
+        knowledge_contribution_opt_in=_bool(
+            contribution,
+            "opt_in",
+            False,
+            "knowledge_contribution_opt_in",
+        ),
+        knowledge_contribution_min_sample_count=max(
+            1,
+            _int(
+                contribution,
+                "min_sample_count",
+                3,
+                "knowledge_contribution_min_sample_count",
+            ),
+        ),
+        adaptive_loop=AdaptiveLoopConfig(
+            next_step_preview_enabled=_bool(adaptive_loop, "next_step_preview_enabled", True),
+            material_learning_plans_enabled=_bool(adaptive_loop, "material_learning_plans_enabled", False),
+            auto_prepare_plan=_bool(adaptive_loop, "auto_prepare_plan", True),
+            max_core_topics=_int(adaptive_loop, "max_core_topics", 12),
+            max_prerequisite_topics=_int(adaptive_loop, "max_prerequisite_topics", 5),
+            auto_generate_next_question=_bool(adaptive_loop, "auto_generate_next_question", False),
+        ),
+        doc_export=DocExportConfig(
+            enabled=_bool(doc_export, "enabled", False, "doc_export_enabled"),
+            pdf_backend=_str(doc_export, "pdf_backend", "reportlab", "doc_export_pdf_backend"),
+            default_style=_str(doc_export, "default_style", "neko", "doc_export_default_style"),
+            xmind_enabled=_bool(doc_export, "xmind_enabled", False, "doc_export_xmind_enabled"),
+        ),
+        pomodoro=PomodoroConfig(
+            focus_minutes=_int(pomodoro, "focus_minutes", 25, "pomodoro_focus_minutes"),
+            short_break_minutes=_int(pomodoro, "short_break_minutes", 5, "pomodoro_short_break_minutes"),
+            long_break_minutes=_int(pomodoro, "long_break_minutes", 15, "pomodoro_long_break_minutes"),
+            long_break_interval=_int(pomodoro, "long_break_interval", 4, "pomodoro_long_break_interval"),
+            allow_skip_break=_bool(pomodoro, "allow_skip_break", True, "pomodoro_allow_skip_break"),
+            allow_custom_duration=_bool(
+                pomodoro,
+                "allow_custom_duration",
+                True,
+                "pomodoro_allow_custom_duration",
+            ),
+        ),
+        supervision=SupervisionConfig(
+            enabled=_bool(supervision, "enabled", True, "supervision_enabled"),
+            remind_interval_minutes=_int(
+                supervision,
+                "remind_interval_minutes",
+                10,
+                "supervision_remind_interval_minutes",
+            ),
+            inactivity_timeout_minutes=_int(
+                supervision,
+                "inactivity_timeout_minutes",
+                5,
+                "supervision_inactivity_timeout_minutes",
+            ),
+            idle_away_seconds=_int(
+                supervision,
+                "idle_away_seconds",
+                900,
+                "supervision_idle_away_seconds",
+            ),
+            allow_disable_by_chat=_bool(
+                supervision,
+                "allow_disable_by_chat",
+                True,
+                "supervision_allow_disable_by_chat",
+            ),
+        ),
+        checkin=CheckinConfig(
+            streak_timezone=_str(checkin, "streak_timezone", "local", "checkin_streak_timezone"),
+            makeup_window_days=_int(checkin, "makeup_window_days", 3, "checkin_makeup_window_days"),
+            auto_derive_from_session=_bool(
+                checkin,
+                "auto_derive_from_session",
+                True,
+                "checkin_auto_derive_from_session",
+            ),
+        ),
+        communication=CommunicationConfig(
+            enabled=_bool(
+                communication,
+                "enabled",
+                True,
+                "communication_enabled",
+            ),
+            solution_narration_enabled=_bool(
+                communication,
+                "solution_narration_enabled",
+                True,
+                "solution_narration_enabled",
+            ),
+            general_narration_enabled=_bool(
+                communication,
+                "general_narration_enabled",
+                True,
+                "general_narration_enabled",
+            ),
+        ),
+        awareness=AwarenessConfig(
+            enabled=_bool(awareness, "enabled", False, "awareness_enabled"),
+            snapshot_interval_seconds=_int(
+                awareness,
+                "snapshot_interval_seconds",
+                5,
+                "awareness_snapshot_interval_seconds",
+            ),
+            context_window_minutes=_int(
+                awareness,
+                "context_window_minutes",
+                5,
+                "awareness_context_window_minutes",
+            ),
+            classify_mode=_str(
+                awareness,
+                "classify_mode",
+                "title_first",
+                "awareness_classify_mode",
+            ),
+            image_max_bytes=_int(
+                awareness,
+                "image_max_bytes",
+                65_536,
+                "awareness_image_max_bytes",
+            ),
+            push_to_llm_interval_seconds=_int(
+                awareness,
+                "push_to_llm_interval_seconds",
+                300,
+                "awareness_push_to_llm_interval_seconds",
+            ),
+            push_to_llm_mode=_str(
+                awareness,
+                "push_to_llm_mode",
+                "read",
+                "awareness_push_to_llm_mode",
+            ),
+            os_signals_enabled=_bool(
+                awareness,
+                "os_signals_enabled",
+                True,
+                "awareness_os_signals_enabled",
+            ),
+            distraction_detection=_bool(
+                awareness,
+                "distraction_detection",
+                True,
+                "awareness_distraction_detection",
+            ),
+        ),
+        assessment=AssessmentConfig(
+            exact_short_answer_enabled=_bool(assessment, "exact_short_answer_enabled", False),
+            numeric_tolerance_enabled=_bool(assessment, "numeric_tolerance_enabled", False),
+            math_expression_enabled=_bool(assessment, "math_expression_enabled", False),
+        ),
+        mastery=MasteryConfig(
+            v2_shadow_enabled=_bool(mastery, "v2_shadow_enabled", False),
+            read_model=_str(mastery, "read_model", "v1"),
+            model_version=_str(mastery, "model_version", "mastery-v2-shadow-1"),
+        ),
+        cognitive=build_cognitive_config(raw),
+    )

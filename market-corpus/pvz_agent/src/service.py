@@ -1,0 +1,2001 @@
+"""PvZAgentService：让猫娘玩《植物大战僵尸》的后台运行服务（线程安全）。
+
+协作模型（观感 = 猫娘自己在玩；实现在她背后）：
+
+- **猫娘（主模型）**：周期性收到最新游戏**截图**，看画面后自己给出策略
+  （说给用户听），需要调整打法时用自然语言下发目标与引导
+  （``set_goal`` / ``inject_instruction`` → ``planner.add_user_note``）；
+- **执行核心**（``Planner``，VLM）：在后台循环线程里实时看截图、把猫娘的目标与
+  引导翻译成具体动作实时执行（种到哪格、何时铲等），保证游玩实时性。
+  它是猫娘的"双手"，对外统一表现为"猫娘自己在操作"，不暴露内部实现；
+- **观察通道**：主模型侧周期截图推送（feed 纯截图 read + nudge 截图+短触发
+  respond），本服务负责产出最新帧与执行循环。
+
+关键行为修正：
+- 窗口查找排除 cmd/资源管理器/终端（核心 ``window.py``）；
+- 窗口丢失 → 通知主模型并**彻底停止循环**（不再无限重试）；
+- 游戏内 terminate → 通知主模型并**彻底停止循环**，保证可再次 ``start``；
+- ``push_message`` 走宿主 ZMQ outbox，后台线程可安全调用（与 sts2/minecraft 同模式）。
+
+核心仅改动 ``window.py`` 排除规则；本模块把 ``pvz/`` 加入 sys.path 后 ``import pvz_agent``。
+"""
+
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import io
+import json
+import os
+import sys
+import threading
+import time
+from pathlib import Path
+from typing import Any, Callable
+
+# 注入 pvz 核心所在目录（去重，幂等）。真正的 `import pvz_agent` 在
+# ``_import_core`` 里懒加载，避免本模块在 cv2 缺失时 import 即失败。
+CORE_DIR = Path(__file__).resolve().parent / "pvz"
+if str(CORE_DIR) not in sys.path:
+    sys.path.insert(0, str(CORE_DIR))
+
+# 内置 OpenCV：cv2 已随插件装进 pvz/vendor/（无需用户显式安装），加入 sys.path。
+VENDOR_DIR = CORE_DIR / "vendor"
+if str(VENDOR_DIR) not in sys.path:
+    sys.path.insert(0, str(VENDOR_DIR))
+
+# ── 打包宿主兜底（同 cv2 的 vendor 思路）─────────────────────────────────
+# Steam 版宿主的内嵌 Python 环境依赖不全：pywin32 只留了 .pyd（缺 win32gui/
+# win32con/win32process）、PIL 只剩 6 个 .pyd（缺 __init__.py/Image.py，成为
+# 命名空间包）、pyautogui/pyperclip/openai 整体缺失（自检报 "No module named
+# 'win32gui'" → 窗口永远显示"未找到"）。内置副本放在
+# pvz/vendor/{pywin32,pyautogui_stack,pillow,openai_stack}/（同 CPython 3.11）。
+#
+# 机制：探测宿主自带库可用 → 什么都不做（pyd 与解释器版本强相关，健康宿主
+# 永远优先用自带的）；缺失/残缺 → 用 importlib spec 按"绝对路径"把内置副本
+# 逐个注册进 sys.modules。import 系统永远先查 sys.modules，之后插件任何位置
+# 的 `import xxx` 都会直接命中内置副本——不依赖 sys.path 的查找顺序，宿主
+# 如何重排/清理导入路径都不影响（v0.2.7 的 sys.path 挂载方案在真实宿主中
+# 未生效，本版改为 sys.modules 预注册）。注册顺序严格按依赖树，先依赖后使用。
+_VENDOR_BOOTSTRAP_TRACE: list[str] = []  # 诊断：兜底轨迹（核心导入失败时随日志输出）
+
+
+def _vendor_probe(pkg: str, attr: str | None = None) -> bool:
+    """宿主自带库是否真实可用（能导入且属性齐全；命名空间残缺包视为不可用）。"""
+    try:
+        mod = __import__(pkg)
+    except Exception:
+        return False
+    if attr is not None and not hasattr(mod, attr):
+        return False
+    return True
+
+
+def _vendor_spec_load(mod_name: str, path: str, pkg_dir: str | None = None) -> None:
+    """按绝对路径加载模块/包并强制注册进 sys.modules（失败仅记录不抛出）。
+
+    调用前提：探测已判定宿主该模块缺失/残缺。加载前强制弹出 sys.modules
+    里的旧实例（例如只剩 .pyd 的命名空间 PIL）——否则残缺实例残留会让后续
+    import 持续失败。
+    """
+    try:
+        sys.modules.pop(mod_name, None)
+        spec = importlib.util.spec_from_file_location(
+            mod_name, path, submodule_search_locations=([pkg_dir] if pkg_dir else None)
+        )
+        if spec is None or spec.loader is None:
+            _VENDOR_BOOTSTRAP_TRACE.append(f"{mod_name}: spec 不可用, 跳过 ({path})")
+            return
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[mod_name] = mod
+        spec.loader.exec_module(mod)
+        _VENDOR_BOOTSTRAP_TRACE.append(f"{mod_name}: 兜底加载 OK ({path})")
+    except Exception as exc:  # pyd 版本不符等 → 留给原生 import 报真实错误
+        sys.modules.pop(mod_name, None)
+        _VENDOR_BOOTSTRAP_TRACE.append(f"{mod_name}: 兜底加载失败 ({exc!r})")
+
+
+def _vendor_pkg_dir(group: str, name: str) -> tuple[str, str]:
+    """返回 (包 __init__.py 路径, 包目录)。"""
+    d = str(VENDOR_DIR / group / name)
+    return os.path.join(d, "__init__.py"), d
+
+
+def _win32_gui_ok() -> bool:
+    """win32gui/win32process 能否真实导入（find_spec 发现不了 DLL 加载失败）。"""
+    try:
+        importlib.import_module("win32gui")
+        importlib.import_module("win32process")
+        return True
+    except Exception:
+        return False
+
+
+def _pil_ok() -> bool:
+    """PIL 是否真实可用（必须试导入子模块：PIL.__init__ 不预绑 Image 属性，
+    hasattr(PIL, "Image") 对任何健康 Pillow 都返回 False）。"""
+    try:
+        importlib.import_module("PIL.Image")
+        importlib.import_module("PIL.ImageGrab")
+        return True
+    except Exception:
+        return False
+
+
+# 内置 pyd 均为 cp311 编译：仅解释器为 3.11 时兜底才适用；其他版本宿主缺库
+# 时宁可走原生导入报真实错误，也不加载版本不符的二进制。
+_VENDOR_PY_OK = sys.version_info[:2] == (3, 11)
+
+
+# 1) pywin32 核心集：pyd 与 pywintypes311.dll 同目录分发（DLL_LOAD_DIR 解析，
+#    不依赖进程的 DLL 搜索路径——Steam 版宿主把它收得很紧，只带 pyd 不带 dll
+#    会报 "DLL load failed: 找不到指定的模块"）。加载顺序保证 pywintypes
+#    单实例：先 _win32sysloader（C 层探测/加载 DLL），再 pywintypes 垫片
+#    （内部回退到"与垫片同目录找 dll"），再 win32api，最后其余。
+if _win32_gui_ok():
+    _VENDOR_BOOTSTRAP_TRACE.append("win32gui: 宿主自带, 未兜底")
+elif _VENDOR_PY_OK:
+    _pywin = str(VENDOR_DIR / "pywin32")
+    _vendor_spec_load("_win32sysloader", os.path.join(_pywin, "_win32sysloader.pyd"))
+    _vendor_spec_load("pywintypes", os.path.join(_pywin, "pywintypes.py"))
+    _vendor_spec_load("win32api", os.path.join(_pywin, "win32api.pyd"))
+    _vendor_spec_load("win32con", os.path.join(_pywin, "win32con.py"))
+    _vendor_spec_load("win32process", os.path.join(_pywin, "win32process.pyd"))
+    _vendor_spec_load("win32gui", os.path.join(_pywin, "win32gui.pyd"))
+else:
+    _VENDOR_BOOTSTRAP_TRACE.append("win32gui: 宿主缺失且解释器非 3.11, 跳过内置副本")
+
+# 2) PIL（Steam 版宿主的 PIL 是只剩 .pyd 的残缺命名空间包）
+if _pil_ok():
+    _VENDOR_BOOTSTRAP_TRACE.append("PIL: 宿主自带, 未兜底")
+elif _VENDOR_PY_OK:
+    _init, _dir = _vendor_pkg_dir("pillow", "PIL")
+    _vendor_spec_load("PIL", _init, _dir)
+else:
+    _VENDOR_BOOTSTRAP_TRACE.append("PIL: 宿主缺失且解释器非 3.11, 跳过内置副本")
+
+# 3) pyautogui 执行栈（依赖序：先依赖后使用；pyrect 是 pygetwindow 的依赖）
+if not _vendor_probe("pyautogui") and _VENDOR_PY_OK:
+    for _pkg in ("pytweening", "pymsgbox", "pyrect", "pyperclip", "mouseinfo", "pygetwindow", "pyscreeze"):
+        if not _vendor_probe(_pkg):
+            _init, _dir = _vendor_pkg_dir("pyautogui_stack", _pkg)
+            _vendor_spec_load(_pkg, _init, _dir)
+    _init, _dir = _vendor_pkg_dir("pyautogui_stack", "pyautogui")
+    _vendor_spec_load("pyautogui", _init, _dir)
+else:
+    _VENDOR_BOOTSTRAP_TRACE.append("pyautogui: 宿主自带或无需兜底, 未挂载")
+
+# 4) openai 及其依赖栈（pydantic 纯 py 部分必须与 pydantic_core 成套，
+#    兜底时全套用内置副本，避免与宿主残缺环境交叉配对）
+if not _vendor_probe("openai") and _VENDOR_PY_OK:
+    _need_pydantic = not _vendor_probe("pydantic")
+    for _pkg in ("typing_extensions", "annotated_types", "sniffio", "idna", "anyio",
+                 "distro", "tqdm", "typing_inspection", "jiter", "certifi",
+                 "h11", "httpcore", "httpx"):
+        if not _vendor_probe(_pkg):
+            _p = str(VENDOR_DIR / "openai_stack" / _pkg)
+            if os.path.isdir(_p):
+                _vendor_spec_load(_pkg, os.path.join(_p, "__init__.py"), _p)
+            else:
+                _f = str(VENDOR_DIR / "openai_stack" / (_pkg + ".py"))
+                if os.path.isfile(_f):
+                    _vendor_spec_load(_pkg, _f)
+    if _need_pydantic:
+        # 成套强制内置：只要纯 py 部分缺失，core 也必须用内置副本（版本配对），
+        # 即便宿主恰好带了一个孤立/残缺的 pydantic_core
+        _init, _dir = _vendor_pkg_dir("openai_stack", "pydantic_core")
+        _vendor_spec_load("pydantic_core", _init, _dir)
+        _init, _dir = _vendor_pkg_dir("openai_stack", "pydantic")
+        _vendor_spec_load("pydantic", _init, _dir)
+    _init, _dir = _vendor_pkg_dir("openai_stack", "openai")
+    _vendor_spec_load("openai", _init, _dir)
+else:
+    _VENDOR_BOOTSTRAP_TRACE.append("openai: 宿主自带, 未兜底")
+
+DEFAULT_GOAL = "自动玩完当前这一关并尽可能取得胜利"
+
+# 防循环：同一动作 + 同坐标连续失败达到该次数则强制停止该轮并提示换策略。
+# 与 pvz/pvz_agent/main.py 保持一致。
+MAX_CONSECUTIVE_FAIL = 2
+
+# 窗口精确标题默认值（与 pvz/config.json 一致；插件未配置时兜底）。
+DEFAULT_WINDOW_TITLES = [
+    "plant vs zombie", "植物大战僵尸", "pvz",
+    "杂交版", "plants vs. zombies", "plants vs zombies",
+]
+
+
+def _build_feedback(results: list[dict]) -> str:
+    """把执行结果文本化为反馈，回填给后台执行核心。"""
+    if not results:
+        return "[执行结果] 本轮没有产生任何动作。"
+    lines = ["[上轮动作与反馈]"]
+    for r in results:
+        action = r.get("action", "?")
+        status = r.get("status", "ok")
+        if action == "terminate":
+            lines.append(f"  terminate: 已报告 {r.get('terminate_status', 'success')}")
+            continue
+        if action == "answer":
+            lines.append(f"  answer: {r.get('text', '')}")
+            continue
+        if status == "error":
+            lines.append(f"  {action}: 失败 - {r.get('error', '未知错误')}")
+        else:
+            detail = ", ".join(f"{k}={v}" for k, v in r.items() if k not in ("action", "status"))
+            lines.append(f"  {action}: 成功 ({detail})")
+    return "\n".join(lines)
+
+
+def _compute_wait(results: list[dict], executor, base: float) -> float:
+    """本轮等待时间 = max(基础节拍, 动作感知延迟, 模型主动 wait)。"""
+    max_delay = 0.0
+    has_game_action = False
+    for r in results:
+        action = r.get("action", "")
+        if action == "wait":
+            max_delay = max(max_delay, float(r.get("waited", 0.0)))
+            continue
+        has_game_action = True
+        max_delay = max(max_delay, executor.ACTION_DELAYS.get(action, executor.DEFAULT_DELAY))
+    if not has_game_action:
+        max_delay = max(max_delay, executor.DEFAULT_DELAY)
+    return max(base, max_delay)
+
+
+class PvZAgentService:
+    """让猫娘玩 PVZ 的后台运行服务（线程安全）。"""
+
+    PHASE_IDLE = "idle"
+    PHASE_RUNNING = "running"
+    PHASE_PAUSED = "paused"
+    PHASE_STOPPING = "stopping"
+    PHASE_ERROR = "error"
+
+    def __init__(
+        self,
+        logger: Any,
+        notifier: Callable[..., None] | None = None,
+    ) -> None:
+        """``notifier``：可选推送回调，收到 ``text``（与可选 ``kind`` 等 kwargs）。
+        后台线程用它把游戏内 Agent 的 answer/terminate/窗口丢失等转达给主模型。"""
+        self._logger = logger
+        self._notifier = notifier
+
+        # 锁与事件（线程同步）。RLock（0.4.16）：reconfigure 持锁调用 configure
+        # （重入），热应用路径需要原子地"刷新配置 + 重建决策运行时"。
+        self._lock = threading.RLock()         # 保护共享状态字段
+        self._stop_evt = threading.Event()     # set → 循环退出
+        self._pause_evt = threading.Event()    # set → 暂停（只观察不执行）
+        self._wake_evt = threading.Event()     # set → 提前唤醒 sleep（命令即时生效）
+        self._thread: threading.Thread | None = None
+        self._mouse_lock = threading.Lock()    # 阳光线程 与 执行器 共享
+
+        # 懒加载的运行时组件（_ensure_window / _ensure_runtime 填充）
+        self._core: Any = None                 # pvz_agent 核心模块
+        self._cfg: Any = None                  # AppConfig
+        self._win: Any = None                  # WindowHandle
+        self._capturer: Any = None
+        self._executor: Any = None
+        self._sun_collector: Any = None
+        self._grid_scanner: Any = None
+        self._card_scanner: Any = None
+        self._select_scanner: Any = None
+        self._vlm: Any = None
+        self._planner: Any = None
+        self._img_fmt = "jpeg"
+        self._img_mime = "image/jpeg"
+
+        # 插件级配置（configure 填充）
+        self._mode = "text"                      # "vision"=OpenCV 视觉方案 / "text"=纯文本内存方案
+        self._agent_selects_seeds = False        # 是否允许 AgentB 操控选卡（默认关）
+        self._tool_call_mode = "fc"              # "regex"=简化正则 / "fc"=原生函数调用
+        self._planting_mode = "putplant"         # "putplant"=PutPlant 直注(默认) / "mouseclick"=注入点击
+        self._api_cfg: dict[str, str] = {}       # AI 服务配置（plugin.toml api_*，configure 填充）
+        self._thinking = ""                      # 视觉模式思考预设（configure 填充；""=config.json 语义）
+        self._text_thinking = ""                 # 纯文本模式思考预设（同上）
+        self._runtime_mode: str | None = None    # 已构建决策运行时的模式（热应用/模式切换判定）
+        self._window_titles: list[str] = list(DEFAULT_WINDOW_TITLES)
+        self._window_poll_interval: float = 1.0   # 等待窗口时的轮询间隔（秒）
+        self._memory_engine: Any = None           # text 模式的内存运行时（_ensure_memory 填充）
+        self._notify_on_terminate = True
+        self._notify_window_lost = True
+        self._sun_auto_collect = True
+        self._scan_grid_enabled = True
+        self._scan_cards_enabled = True
+        self._card_position_mode = "opencv"  # 种植时定位卡片："opencv"=实时识别 / "fixed"=固定坐标
+
+        # 观察通道（主模型观察：周期截图，原图高质量优先）
+        self._feed_enabled = True
+        self._feed_interval = 8.0
+        self._nudge_enabled = True
+        self._nudge_interval = 5.0
+        # 配置热应用（0.4.16）：观察线程每秒监视 profiles/default.toml 的
+        # mtime——宿主 GUI/手编配置不会通知插件，只能轮询。变更即回调 facade
+        # 重新合并 + reconfigure。
+        self._config_watch_path: Any = None
+        self._config_watch_mtime: float | None = None
+        self._on_config_change: Callable[[], None] | None = None
+        # 给主模型的截图：原图优先（0 = 不缩放）+ 高质量 JPEG；超字节预算才降质。
+        self._feed_max_edge = 0
+        self._feed_quality = 95
+        self._feed_max_bytes = 160 * 1024
+        self._last_feed_at = 0.0
+        self._last_feed_fingerprint = ""
+        self._last_feed_jpeg: bytes | None = None   # 最近一帧 JPEG，nudge 复用
+        self._last_nudge_at = 0.0
+        self._observer_thread: threading.Thread | None = None
+        self._observer_stop = threading.Event()
+        self._on_observation: Callable[[bytes, bool], None] | None = None
+
+        # 命令状态
+        self._goal = DEFAULT_GOAL
+        self._speed = 1.0
+        self._pending_instructions: list[str] = []
+
+        # 可观测状态（供 get_status）
+        self._phase = self.PHASE_IDLE
+        self._last_error = ""
+        self._last_grid_text = ""
+        self._last_card_text = ""
+        self._last_feedback = ""
+        self._last_action_at = 0.0
+        self._step_count = 0
+        self._last_turn_time = 0.0
+        self._text_round_no = 0                      # 决策轮序号（日志用）
+        self._plan_worker: threading.Thread | None = None   # 决策看门狗工作线程
+        self._plan_abandoned = False                 # 上一轮是否因超时被放弃
+        self._belt_level_notified = False            # 本局是否已向主模型通报传送带关卡
+        self._last_sig_game_mode: int | None = None  # 关卡特征标定：上次记录的 game_mode
+        self._last_sig_game_ui: int | None = None    # 关卡特征标定：上次记录的 game_ui
+
+        # 故障上报节流
+        self._empty_rounds = 0                       # 连续无动作轮数
+        self._last_notify_at: dict[str, float] = {}  # kind → 最近通报时间
+
+        # 防循环状态
+        self._last_fail_key: tuple | None = None
+        self._consecutive_fail = 0
+
+    # ------------------------------------------------------------------ #
+    #  配置
+    # ------------------------------------------------------------------ #
+    def configure(self, plugin_cfg: dict) -> None:
+        """注入插件级配置（``[pvz_agent]``），含截图推送 / 开关 / 通知。"""
+        with self._lock:
+            # 运行模式："vision" / "text"（非法值回退 "vision"）
+            _mode = str(plugin_cfg.get("mode", "vision") or "vision").strip().lower()
+            self._mode = _mode if _mode in ("vision", "text") else "vision"
+            # 是否允许 AgentB 操控选卡界面（默认关）
+            self._agent_selects_seeds = bool(plugin_cfg.get("agent_controls_seed_selection", False))
+            # 工具调用模式："regex" / "fc"（非法回退 "regex"）
+            _tcm = str(plugin_cfg.get("tool_call_mode", "regex") or "regex").strip().lower()
+            self._tool_call_mode = _tcm if _tcm in ("regex", "fc") else "regex"
+            # 种植模式："putplant"=PutPlant 直接注入（默认，UI 语义由插件按
+            # 游戏原生规则补齐）；"mouseclick"=注入 MouseClick 点卡片+点格子。
+            _pm = str(plugin_cfg.get("planting_mode", "putplant") or "putplant").strip().lower()
+            self._planting_mode = _pm if _pm in ("mouseclick", "putplant") else "putplant"
+            if self._memory_engine is not None:
+                self._memory_engine.set_planting_mode(self._planting_mode)
+            # 窗口精确标题：优先新键 window_titles，兼容旧键 window_title_keywords。
+            _raw = plugin_cfg.get("window_titles") or plugin_cfg.get("window_title_keywords") or []
+            self._window_titles = [
+                str(k).strip() for k in _raw if isinstance(k, str) and str(k).strip()
+            ] or list(DEFAULT_WINDOW_TITLES)
+            self._notify_on_terminate = bool(plugin_cfg.get("notify_on_terminate", True))
+            self._notify_window_lost = bool(plugin_cfg.get("notify_window_lost", True))
+            self._sun_auto_collect = bool(plugin_cfg.get("sun_auto_collect", True))
+            self._scan_grid_enabled = bool(plugin_cfg.get("scan_grid_enabled", True))
+            self._scan_cards_enabled = bool(plugin_cfg.get("scan_cards_enabled", True))
+            _mode = str(plugin_cfg.get("card_position_mode", "opencv") or "opencv").strip().lower()
+            self._card_position_mode = _mode if _mode in ("opencv", "fixed") else "opencv"
+            self._feed_enabled = bool(plugin_cfg.get("screenshot_feed_enabled", True))
+            self._feed_interval = float(plugin_cfg.get("screenshot_feed_interval", 8.0) or 8.0)
+            self._nudge_enabled = bool(plugin_cfg.get("screenshot_nudge_enabled", True))
+            self._nudge_interval = float(plugin_cfg.get("screenshot_nudge_interval", 5.0) or 5.0)
+            self._feed_max_edge = int(plugin_cfg.get("screenshot_max_edge_px", 0) or 0)
+            self._feed_quality = int(plugin_cfg.get("screenshot_jpeg_quality", 95) or 95)
+            self._feed_max_bytes = int(plugin_cfg.get("screenshot_max_bytes", 160 * 1024) or (160 * 1024))
+            # AI 服务配置（注入的 [pvz_agent] api_* 键，含 profiles/default.toml
+            # 用户覆盖）：load_config 只认该通道，密钥不再读 pvz/.env。
+            self._api_cfg = {
+                k: str(plugin_cfg.get(k, "") or "").strip()
+                for k in (
+                    "api_base_url", "api_model", "api_key",
+                    "text_api_base_url", "text_api_model", "text_api_key",
+                )
+            }
+            # 思考预设（0.4.16 修复：此前 thinking/text_thinking 只写 profiles、
+            # 从未进运行时——load_config 只认 config.json，面板设置形同虚设）。
+            # "" = 不覆盖（维持 config.json 的 thinking 值）。
+            self._thinking = str(plugin_cfg.get("thinking", "") or "").strip().lower()
+            self._text_thinking = str(plugin_cfg.get("text_thinking", "") or "").strip().lower()
+
+    def reconfigure(self, plugin_cfg: dict) -> dict[str, Any]:
+        """热应用配置（0.4.16）：不重启插件、不中断游玩。
+
+        - 轻量项（开关/间隔/窗口标题/种植模式/通知等）：``configure`` 立即生效
+          （游玩/观察循环每轮现读属性）；
+        - AI 服务项（密钥/模型/地址/思考预设）：重建 VLM 客户端并热替换——
+          游玩中 ``planner.vlm`` 单点换引用，**决策历史完整保留**，下一轮生效；
+        - Planner 结构（tool_call_mode 变更）：非游玩时才重建（system prompt
+          与解析器都变）；游玩中保留旧结构，下次开始游玩生效；
+        - 运行模式（vision↔text）：执行器结构不同。未游玩 → 丢弃运行时，
+          下次开始按新模式重建；游玩中 → 记为 deferred，``_ensure_runtime``
+          在下次 start 时自动 teardown 重建。
+        - 任何重建失败都保留旧运行时（返回 error，不抛出——保存配置本身已成功）。
+
+        调用方需已把 ``plugin_cfg`` 合并好（含 profiles 覆盖）。返回热应用报告。
+        """
+        with self._lock:
+            old_mode = self._mode
+            old_tcm = self._tool_call_mode
+            old_phase = self._phase
+            self.configure(plugin_cfg)  # RLock 可重入
+            if self._planner is None:
+                return {
+                    "hot_applied": True, "runtime": "pending",
+                    "summary": "决策运行时未构建——开始游玩时将按新配置构建",
+                }
+            if self._mode != old_mode:
+                if old_phase == self.PHASE_RUNNING:
+                    return {
+                        "hot_applied": True, "runtime": "deferred", "deferred": ["mode"],
+                        "summary": "运行模式变更需重建执行器——正在游玩，下次开始游玩时切换；其余改动已生效",
+                    }
+                self._teardown_runtime()
+                return {
+                    "hot_applied": True, "runtime": "torn_down",
+                    "summary": "运行模式已变更——下次开始游玩时按新模式重建执行器",
+                }
+            # 模式未变：重建 VLM 客户端（密钥/模型/思考预设在这里生效）
+            core = self._import_core()
+            try:
+                cfg = core.config.load_config(self._api_cfg)
+                self._apply_plugin_overrides(cfg)
+            except Exception as exc:
+                return {
+                    "hot_applied": True, "runtime": "kept",
+                    "error": f"加载新配置失败，保留旧运行时：{exc}",
+                }
+            self._cfg = cfg
+            try:
+                if self._mode == "text":
+                    new_vlm = core.vlm.VLMClient(cfg.text_vlm)
+                else:
+                    new_vlm = core.vlm.VLMClient(cfg.vlm)
+            except Exception as exc:
+                return {
+                    "hot_applied": True, "runtime": "kept",
+                    "error": f"VLM 客户端重建失败，保留旧运行时：{exc}",
+                }
+            self._vlm = new_vlm
+            try:
+                if self._planner is not None:
+                    self._planner.vlm = new_vlm  # 游玩中热替换，历史保留
+                    # 配置已更换（0.4.17）：重置 legacy 降级，重新协商原生
+                    # 工具——错误期间 planner 可能因瞬时故障被永久降到
+                    # legacy 文本模式（症状：恢复后模型持续 wait）；若端点
+                    # 真不支持 fc，下一轮 tools 被拒会再次自动降级。
+                    restore = getattr(self._planner, "restore_native_tools", None)
+                    if callable(restore):
+                        restore()
+            except Exception:
+                pass
+            detail = "VLM 客户端已热替换（当前这轮用旧配置跑完，下一轮生效）"
+            if old_phase != self.PHASE_RUNNING and self._tool_call_mode != old_tcm:
+                # 非游玩才动 Planner 结构（system prompt/解析器都变）
+                try:
+                    if self._mode == "text":
+                        self._build_text_decision(core, cfg)
+                    else:
+                        self._build_vision_decision(core, cfg)
+                    detail += "；Planner 已按新 tool_call_mode 重建"
+                except Exception as exc:
+                    detail += f"；Planner 重建失败（保留旧结构）：{exc}"
+            self._note_config_file_seen()
+            return {"hot_applied": True, "runtime": "rebuilt", "summary": detail}
+
+    def _teardown_runtime(self) -> None:
+        """丢弃已构建的决策运行时（调用方持锁）：_ensure_runtime 下次重建。
+
+        只丢决策层（planner/vlm/cfg）——窗口/执行器/观察线程不动，模式切换
+        后由 _ensure_runtime 走完整构建（执行器随新模式重建）。
+        """
+        self._planner = None
+        self._vlm = None
+        self._cfg = None
+        self._runtime_mode = None
+
+    def set_config_watch(self, path: Any, on_change: Callable[[], None]) -> None:
+        """让观察线程每秒监视配置覆盖文件的 mtime，变更即回调 ``on_change``。
+
+        覆盖宿主 GUI 与插件面板两条保存通道——宿主改配置不会通知插件，
+        只能轮询。首个 tick 只建立基线不触发。
+        """
+        with self._lock:
+            self._config_watch_path = path
+            self._on_config_change = on_change
+            self._config_watch_mtime = None
+
+    def _note_config_file_seen(self) -> None:
+        """把监视基线刷成当前 mtime（自己刚写完文件/刚热应用后防重复触发）。"""
+        path = self._config_watch_path
+        if path is None:
+            return
+        try:
+            with self._lock:
+                self._config_watch_mtime = Path(path).stat().st_mtime
+        except OSError:
+            pass
+
+    def _check_config_watch(self) -> None:
+        """观察线程 tick 首步：配置覆盖文件变更 → 回调 facade 重新合并热应用。"""
+        path = self._config_watch_path
+        callback = self._on_config_change
+        if path is None or callback is None:
+            return
+        try:
+            mtime = Path(path).stat().st_mtime
+        except OSError:
+            return
+        with self._lock:
+            baseline = self._config_watch_mtime
+            self._config_watch_mtime = mtime
+        if baseline is not None and mtime != baseline:
+            try:
+                callback()
+            except Exception as exc:
+                self._logger.warning("[pvz-agent] 配置热应用回调失败: %s", exc)
+
+    # ------------------------------------------------------------------ #
+    #  懒加载：窗口（无需 VLM）与完整运行时（需要 VLM 密钥）
+    # ------------------------------------------------------------------ #
+    def _import_core(self) -> Any:
+        if self._core is None:
+            import importlib
+            import traceback as _tb
+
+            import pvz_agent  # noqa: PLC0415  # pvz/ 已在 sys.path
+
+            # 核心包的 __init__ 只 re-export config，不会自动导入其它子模块。
+            # 用 importlib 显式导入无 cv2 依赖的子模块，使其成为包属性
+            # （core.window / core.executor / core.planner / core.memory_engine 等）。
+            # 不用 `from pvz_agent import window` 是为了避免 ruff F401 误删
+            # （这些导入的用途是"产生包属性"副作用，不是绑定名字）。
+            # memory_engine 依赖 vendored pvz_memory（零第三方依赖），导入安全。
+            for _name in (
+                "executor", "parser", "planner", "prompts", "vlm", "window",
+                "memory_engine",
+            ):
+                try:
+                    importlib.import_module(f"pvz_agent.{_name}")
+                except Exception:
+                    # 诊断：完整 traceback + 运行环境快照（排查打包宿主缺依赖/路径问题）
+                    try:
+                        self._logger.error(
+                            "[pvz-agent] 核心模块 %r 导入失败\n%s\n"
+                            "exe=%r\npvz_agent=%r\npvz_agent.service=%r\nsys.path=%r\nbootstrap=%r",
+                            _name,
+                            _tb.format_exc(),
+                            sys.executable,
+                            getattr(pvz_agent, "__file__", None),
+                            __file__,
+                            sys.path,
+                            _VENDOR_BOOTSTRAP_TRACE,
+                        )
+                    except Exception:  # 日志器不可用时不掩盖原异常
+                        pass
+                    raise
+            self._core = pvz_agent
+        return self._core
+
+    def _read_window_titles(self) -> list[str]:
+        """返回当前窗口精确标题配置：插件级标题 + 实时重读 pvz/config.json 合并。
+
+        轮询期间编辑任一配置（plugin.toml 的 [pvz_agent] / pvz/config.json 的
+        window_titles）都会在下一轮轮询生效，无需重启。
+        """
+        titles = [t for t in self._window_titles if t]
+        try:
+            cfg_path = CORE_DIR / "config.json"
+            if cfg_path.is_file():
+                j = json.loads(cfg_path.read_text(encoding="utf-8"))
+                raw = j.get("window_titles") or j.get("window_title_keywords") or []
+                for t in raw:
+                    if isinstance(t, str):
+                        t = t.strip()
+                        if t and t not in titles:
+                            titles.append(t)
+        except Exception:
+            pass
+        return titles
+
+    def _ensure_window(
+        self,
+        *,
+        timeout: float | None = None,
+        cancel: threading.Event | None = None,
+    ) -> Any:
+        """找到目标窗口并创建截图器。只需窗口标题，无需 VLM 密钥。
+
+        - 会**轮询**等待：每次轮询重读标题配置（``_read_window_titles``）并枚举
+          窗口，直到命中或 ``timeout`` 超时 / ``cancel`` 被 set（返回时抛
+          ``WindowNotFoundError``）。运行中改配置即可让新标题生效。
+        - ``timeout``：秒；``None`` = 无限等待（配合 ``cancel`` 在后台线程使用）。
+        - 匹配按关键词模糊匹配 + PvZ 引擎窗口类（MainWindow）兜底；**多个匹配
+          窗口时默认取第一个**（核心的 ``pick_single`` 是交互式 input()，在插件
+          进程里会挂起，不能复用）——面板「游戏窗口」卡片可手动切换目标窗口。
+        """
+        if self._win is not None:
+            return self._win
+
+        core = self._import_core()
+        win = core.window.wait_for_window(
+            titles_provider=self._read_window_titles,
+            timeout=timeout,
+            interval=self._window_poll_interval,
+            cancel=cancel,
+            on_try=self._log_window_wait,
+        )
+        if win is None:
+            raise core.window.WindowNotFoundError(
+                "未找到匹配的 PVZ 窗口（关键词: "
+                + "/".join(self._read_window_titles()[:5])
+                + " 等）。请确认游戏已启动，或把窗口标题里的关键词写入配置"
+                "（改完保存即生效）；也可在面板「游戏窗口」卡片里手动选择。"
+            )
+        if len(core.window.find_target_windows(self._read_window_titles())) > 1:
+            self._logger.info("找到多个匹配窗口，自动使用第一个: %s", win.title)
+        self._bind_window(win)
+        return win
+
+    def _screenshot_dir(self) -> str:
+        """截图目录：读 pvz/config.json 的 agent.screenshot_dir（缺省 screenshots）。"""
+        screenshot_dir = "screenshots"
+        try:
+            cfg_path = CORE_DIR / "config.json"
+            if cfg_path.is_file():
+                j = json.loads(cfg_path.read_text(encoding="utf-8"))
+                sd = j.get("agent", {}).get("screenshot_dir")
+                if isinstance(sd, str) and sd:
+                    screenshot_dir = sd
+        except Exception:
+            pass
+        return screenshot_dir
+
+    def _bind_window(self, win: Any) -> None:
+        """绑定目标窗口并重建截图器（_ensure_window / select_window 共用）。"""
+        self._win = win
+        self._capturer = self._import_core().window.Capturer(win, self._screenshot_dir())
+
+    def select_window(self, hwnd: int) -> dict[str, Any]:
+        """手动选择游玩目标窗口（面板「游戏窗口」卡片切换用）。
+
+        只允许切换到当前实时匹配列表里的窗口；切换会同步重建截图器，游玩中
+        调用即热切换。返回 get_status 同款状态快照（外加 status/summary），
+        面板调完直接整体刷新。
+        """
+        handles = self._live_windows()
+        try:
+            hwnd_int = int(hwnd)
+        except (TypeError, ValueError):
+            hwnd_int = -1
+        target = next((h for h in handles if int(h.hwnd) == hwnd_int), None)
+        if target is None:
+            return {
+                "status": "error",
+                "summary": "该窗口已关闭或不再匹配，请刷新「游戏窗口」列表后重试。",
+                "windows": self._window_infos(handles),
+            }
+        self._bind_window(target)
+        self._logger.info(
+            "[pvz-agent] 手动切换目标窗口: %s (hwnd=%s)", target.title, target.hwnd
+        )
+        return {
+            "status": "ok",
+            "summary": f"已选择游戏窗口：{target.title}",
+            **self.get_status(),
+        }
+
+    def _log_window_wait(self, attempt: int, titles: list[str]) -> None:
+        """轮询未命中时打日志（只在开头与每 10 轮提示一次，避免刷屏）。"""
+        if attempt == 0:
+            self._logger.info("[pvz-agent] 未找到 PVZ 窗口，开始轮询（标题: %s）...", titles)
+        elif attempt % 10 == 0:
+            self._logger.info("[pvz-agent] 仍在等待 PVZ 窗口（第 %d 轮，标题: %s）...", attempt + 1, titles)
+
+    def _live_windows(self) -> list[Any]:
+        """只读实时探测：当前桌面上所有匹配的 PVZ 窗口（WindowHandle 列表）。
+
+        供 get_status（面板窗口列表/状态回显）与 select_window（手动切换目标
+        窗口）用。不绑定句柄、不建运行时，纯查询（EnumWindows 一次毫秒级）。
+        任何异常都吞掉返回空列表（非 Windows / 核心未导入等场景回退缓存行为）。
+        """
+        try:
+            core = self._import_core()
+            return list(core.window.find_target_windows(self._read_window_titles()))
+        except Exception:
+            return []
+
+    @staticmethod
+    def _window_infos(handles: list[Any]) -> list[dict[str, Any]]:
+        """WindowHandle 列表 → 可 JSON 序列化的 {hwnd, title} 列表。"""
+        return [{"hwnd": int(h.hwnd), "title": str(h.title)} for h in handles]
+
+    def _ensure_runtime(
+        self,
+        *,
+        window_timeout: float | None = None,
+        window_cancel: threading.Event | None = None,
+    ) -> Any:
+        """构建完整运行时（执行器/扫描器/VLM/planner）。
+
+        需要 AI 决策密钥：插件配置面板保存（写 profiles/default.toml）或
+        plugin.toml [pvz_agent] 的 api_key；缺失时抛 RuntimeError（携带指引），
+        由调用方转成可读错误返回。反复调用幂等。
+        ``window_timeout``/``window_cancel`` 透传给窗口轮询（见 ``_ensure_window``）。
+        """
+        if self._planner is not None:
+            # 模式切换（deferred）后到站：旧运行时是旧模式建的，丢弃重建
+            with self._lock:
+                if self._runtime_mode is not None and self._runtime_mode != self._mode:
+                    self._teardown_runtime()
+            if self._planner is None:
+                pass  # 已 teardown → 走完整构建
+            else:
+                return self._cfg
+        win = self._ensure_window(timeout=window_timeout, cancel=window_cancel)
+        core = self._import_core()
+        try:
+            cfg = core.config.load_config(self._api_cfg)
+        except SystemExit as exc:
+            detail = str(exc).strip() or str(exc.code)
+            raise RuntimeError(
+                f"PVZ 配置不完整：{detail}。可在插件配置面板填写 api_base_url / "
+                "api_model / api_key（保存写入 profiles/default.toml），或直接填 "
+                "plugin.toml [pvz_agent]。"
+            )
+        # 应用插件级开关/模式/思考预设（覆盖 config.json 对应项）
+        self._apply_plugin_overrides(cfg)
+        self._cfg = cfg
+
+        # 纯文本模式：读内存获取状态 + 注入执行，不用 OpenCV/视觉模型。
+        if self._mode == "text":
+            return self._ensure_runtime_text(core, cfg)
+
+        # cv2 相关子模块（sun/grid_scan/card_scan/select_scan）模块级 import cv2。
+        # opencv 在仓库的 galgame 依赖组；缺失时降级为纯 VLM 游玩（无 OpenCV 扫描）。
+        try:
+            from pvz_agent import (  # noqa: PLC0415, F401
+                card_scan,
+                grid_scan,
+                select_scan,
+                sun,
+            )
+            has_cv2 = True
+        except ImportError as exc:
+            card_scan = grid_scan = select_scan = sun = None  # type: ignore[assignment]
+            has_cv2 = False
+            self._logger.warning(
+                "[pvz_agent] opencv(cv2) 未安装（%s），降级为无 OpenCV 辅助扫描的纯 VLM 模式；"
+                "如需植物/僵尸/卡片扫描，请 `uv sync --group galgame` 后重启插件。", exc,
+            )
+
+        self._executor = core.executor.Executor(
+            win, cfg.layout, mouse_lock=self._mouse_lock,
+            card_position_mode=self._card_position_mode,
+        )
+        if has_cv2:
+            self._sun_collector = sun.SunCollector(win, cfg.layout, cfg.sun, mouse_lock=self._mouse_lock)
+            if cfg.grid_scan.enabled:
+                self._grid_scanner = grid_scan.GridScanner(cfg.layout, cfg.grid_scan)
+            if cfg.card_scan.enabled:
+                self._card_scanner = card_scan.CardScanner(cfg.layout, cfg.card_scan)
+                self._executor.attach_card_scanner(self._card_scanner)
+            if cfg.select_scan.enabled:
+                self._select_scanner = select_scan.SelectScanner(cfg.layout, cfg.select_scan)
+                self._executor.attach_select_scanner(self._select_scanner)
+
+        self._build_vision_decision(core, cfg)
+        return cfg
+
+    def _ensure_runtime_text(self, core: Any, cfg: Any) -> Any:
+        """纯文本模式运行时：内存引擎（读状态 + 注入执行）+ 文本 LLM 决策。
+
+        不构建 OpenCV 扫描器 / 阳光线程 / pyautogui 执行器；``self._executor``
+        直接指向 ``MemoryGameEngine``（接口与 ``Executor`` 对齐）。
+        """
+        engine = self._ensure_memory()  # 内存引擎（_ensure_memory 幂等，同时写 self._memory_engine）
+        engine.set_seed_selection_enabled(self._agent_selects_seeds)  # 选卡是否交给 AgentB
+        self._executor = engine  # 内存引擎即执行器（接口与 Executor 对齐）
+        engine.start_force_run()   # 失焦不暂停：看门狗清 game_paused
+        self._build_text_decision(core, cfg)
+        return cfg
+
+    def _build_vision_decision(self, core: Any, cfg: Any) -> None:
+        """构建视觉模式决策组件：VLM 客户端 + Planner（_ensure_runtime / 热应用共用）。"""
+        self._vlm = core.vlm.VLMClient(cfg.vlm)
+        self._img_fmt = cfg.agent.image_format
+        self._img_mime = "image/png" if cfg.agent.image_format == "png" else "image/jpeg"
+        # 工具调用模式：regex=简化正则（系统提示用 XML 输出格式）；fc=原生函数调用。
+        _xml_mode = cfg.tool_call_mode == "regex"
+        self._planner = core.planner.Planner(
+            vlm=self._vlm,
+            system_prompt=core.prompts.build_planner_system_xml(cfg) if _xml_mode else core.prompts.build_planner_system(cfg),
+            max_rounds=cfg.agent.max_history_rounds,
+            mime=self._img_mime,
+            system_prompt_xml=core.prompts.build_planner_system_xml(cfg),
+            tool_call_mode=cfg.tool_call_mode,
+        )
+        self._last_turn_time = time.perf_counter()
+        self._runtime_mode = "vision"
+
+    def _build_text_decision(self, core: Any, cfg: Any) -> None:
+        """构建纯文本模式决策组件：VLM 客户端 + Planner（不含引擎/执行器）。"""
+        self._vlm = core.vlm.VLMClient(cfg.text_vlm)  # 纯文本模式用独立模型配置（可不同模型+思考模式）
+        self._img_fmt = cfg.agent.image_format
+        self._img_mime = "image/png" if cfg.agent.image_format == "png" else "image/jpeg"
+        # 工具调用模式：regex=简化正则（用 <tool_call> 输出提示）；fc=原生函数调用。
+        _xml_mode = cfg.tool_call_mode == "regex"
+        _sys_prompt = (
+            core.prompts.build_planner_system_text_xml(cfg) if _xml_mode
+            else core.prompts.build_planner_system_text(cfg)
+        )
+        self._planner = core.planner.Planner(
+            vlm=self._vlm,
+            system_prompt=_sys_prompt,
+            max_rounds=cfg.text_max_history_rounds,  # 更多历史上下文（纯文本便宜）
+            mime=self._img_mime,
+            system_prompt_xml=_sys_prompt,
+            include_image=False,  # 纯文本：决策只看内存状态文本，不看图
+            tools_builder=core.prompts.build_planner_tools_text,
+            tool_call_mode=cfg.tool_call_mode,
+        )
+        self._last_turn_time = time.perf_counter()
+        self._runtime_mode = "text"
+
+    def _apply_plugin_overrides(self, cfg: Any) -> None:
+        """把插件级开关/模式/思考预设覆盖到 AppConfig（构建与热应用共用）。
+
+        插件 runtime 的模式以插件配置为准，否则 cfg.mode 与真实运行模式
+        不一致（核心内按 cfg.mode 选 VLM 配置）。思考预设 "" = 不覆盖
+        （维持 config.json 的 thinking 值）。
+        """
+        cfg.sun.enabled = bool(cfg.sun.enabled) and self._sun_auto_collect
+        cfg.grid_scan.enabled = bool(cfg.grid_scan.enabled) and self._scan_grid_enabled
+        cfg.card_scan.enabled = bool(cfg.card_scan.enabled) and self._scan_cards_enabled
+        cfg.tool_call_mode = self._tool_call_mode
+        cfg.mode = self._mode
+        if self._thinking:
+            cfg.vlm.thinking = self._thinking
+        if self._text_thinking:
+            cfg.text_vlm.thinking = self._text_thinking
+
+    def _ensure_memory(self) -> Any:
+        """连接内存引擎（幂等）；失败抛 RuntimeError（携带指引）。"""
+        if self._memory_engine is not None and self._memory_engine.is_connected():
+            return self._memory_engine
+        if self._memory_engine is None:
+            self._memory_engine = self._import_core().memory_engine.MemoryGameEngine(logger=self._logger)
+            self._memory_engine.set_planting_mode(getattr(self, "_planting_mode", "putplant"))
+        if not self._memory_engine.connect():
+            raise RuntimeError(self._memory_engine.error or "无法连接 PvZ 内存（需管理员权限 + 游戏已启动）")
+        return self._memory_engine
+
+    def _stop_memory(self) -> None:
+        """断开内存引擎（幂等）：停失焦看门狗 + 恢复注入 + 断连。"""
+        try:
+            if self._memory_engine is not None:
+                self._memory_engine.stop_force_run()
+                self._memory_engine.close()
+        except Exception:
+            pass
+
+    def _runtime_ready(self) -> bool:
+        return self._planner is not None
+
+    # ------------------------------------------------------------------ #
+    #  只读操作（任何 phase 下都可用）
+    # ------------------------------------------------------------------ #
+    def probe(self) -> dict[str, Any]:
+        """启动自检：模式依赖 → 找窗口 → 截图。不抛异常，返回可读结果。
+
+        - vision：检查 OpenCV(cv2)；
+        - text：检查内存连接（需管理员权限 + 游戏已启动）。
+        窗口/截图两种模式都保留（截图发给主模型用）。
+        """
+        result: dict[str, Any] = {"mode": self._mode, "window": False, "screenshot": False}
+        if self._mode == "text":
+            result["memory"] = False
+            try:
+                self._ensure_memory()
+                result["memory"] = True
+            except Exception as exc:
+                result["message"] = f"内存连接失败：{exc}"
+                return result
+        else:
+            result["cv2"] = False
+            try:
+                import cv2  # noqa: PLC0415  # 核心的 sun/grid_scan 模块级依赖
+                result["cv2"] = True
+                result["cv2_version"] = str(getattr(cv2, "__version__", ""))
+            except Exception:
+                result["message"] = (
+                    "缺少 opencv(cv2)。请执行 `uv sync --group galgame` 或 "
+                    "`uv pip install opencv-python-headless` 后重启插件。"
+                )
+                return result
+        try:
+            # 启动自检：短轮询（不阻塞插件启动），窗口缺失只报状态不失败。
+            self._ensure_window(timeout=2.0)
+            result["window"] = True
+        except Exception as exc:
+            result["message"] = f"窗口查找失败：{exc}"
+            return result
+        try:
+            img = self._capturer.grab_pil()
+            result["screenshot"] = True
+            result["width"], result["height"] = int(img.size[0]), int(img.size[1])
+        except Exception as exc:
+            result["message"] = f"截图失败：{exc}"
+        return result
+
+    def get_status(self) -> dict[str, Any]:
+        """当前可观测状态快照（线程安全）。"""
+        with self._lock:
+            phase = self._phase
+            goal = self._goal
+            speed = self._speed
+            last_error = self._last_error
+            last_grid = self._last_grid_text
+            last_card = self._last_card_text
+            last_feedback = self._last_feedback
+            last_action_at = self._last_action_at
+            step_count = self._step_count
+            feed_enabled = self._feed_enabled
+            last_feed_at = self._last_feed_at
+            window_found = self._win is not None
+            window_title = self._win.title if self._win is not None else ""
+            window_hwnd = self._win.hwnd if self._win is not None else None
+        # 实时枚举全部匹配窗口：未绑定时回退用第一个（默认行为）；windows 列表
+        # 供面板展示并手动切换（probe/开始游玩 才会写 self._win 缓存，游戏后开时
+        # 面板否则永远显示"未找到"）。
+        windows = self._window_infos(self._live_windows())
+        if not window_found and windows:
+            window_found = True
+            window_title = str(windows[0]["title"])
+            window_hwnd = int(windows[0]["hwnd"])
+        return {
+            "phase": phase,
+            "mode": self._mode,
+            "goal": goal,
+            "speed": speed,
+            "running": phase == self.PHASE_RUNNING,
+            "paused": phase == self.PHASE_PAUSED,
+            "ready": self._runtime_ready(),
+            "window": {
+                "found": window_found,
+                "title": window_title,
+                "hwnd": window_hwnd,
+            },
+            "windows": windows,
+            "memory": self._memory_status(),
+            "config_paths": {
+                # 配置文件绝对路径，方便用户直接去对应文件夹编辑。
+                # AI 密钥/模型走配置面板（写 profiles/default.toml）或 plugin.toml
+                # [pvz_agent]（api_* 键）；不再读取 .env。
+                "plugin_toml": str(Path(__file__).resolve().parent / "plugin.toml"),
+                "core_config": str(CORE_DIR / "config.json"),
+                "profile": str(Path(__file__).resolve().parent / "profiles" / "default.toml"),
+            },
+            "feed": {"enabled": feed_enabled, "last_push_at": last_feed_at},
+            "steps": step_count,
+            "last_action_at": last_action_at,
+            "last_error": last_error,
+            "last_grid": last_grid,
+            "last_card": last_card,
+            "last_feedback": last_feedback,
+        }
+
+    def _memory_status(self) -> dict[str, Any]:
+        """纯文本模式的内存引擎状态（vision 模式返回空 dict）。"""
+        if self._mode != "text" or self._memory_engine is None:
+            return {}
+        return {
+            "connected": self._memory_engine.is_connected(),
+            "injector": bool(self._memory_engine.injector_ok),
+            "auto_collect": bool(self._memory_engine.auto_collect_ok),
+            "error": self._memory_engine.error,
+        }
+
+    def grab_screenshot(self):
+        """截取最新一帧并返回 PIL 图片（失败抛异常，由调用方处理）。
+
+        被动/按需路径：窗口短轮询（最多约 5 秒），不无限等待。
+        """
+        self._ensure_window(timeout=5.0)
+        assert self._capturer is not None
+        return self._capturer.grab_pil()
+
+    def scan_now(self) -> dict[str, Any]:
+        """对当前状态做一次扫描：vision=OpenCV 网格+卡片；text=读内存状态文本。"""
+        if self._mode == "text":
+            return self._scan_now_text()
+        try:
+            img = self.grab_screenshot()
+        except Exception as exc:
+            return {"status": "error", "message": str(exc), "summary": str(exc)}
+        self._ensure_scan_only_runtime()
+        result: dict[str, Any] = {"status": "ok", "grid_text": "", "card_text": ""}
+        if self._grid_scanner is not None:
+            try:
+                res = self._grid_scanner.scan(img)
+                result["grid_text"] = res.to_text()
+                result["plants"] = [list(p) for p in res.plants]
+                result["zombie_rows"] = list(res.zombie_rows)
+                result["zombie_cells"] = [list(c) for c in res.zombie_cells]
+                result["empty"] = [list(e) for e in res.empty]
+                result["occluded"] = res.occluded
+                with self._lock:
+                    self._last_grid_text = result["grid_text"]
+            except Exception as exc:
+                result["grid_error"] = str(exc)
+        if self._card_scanner is not None:
+            try:
+                res = self._card_scanner.scan(img)
+                result["card_text"] = res.to_text()
+                result["available_cards"] = list(res.available)
+                result["unavailable_cards"] = list(res.unavailable)
+                with self._lock:
+                    self._last_card_text = result["card_text"]
+            except Exception as exc:
+                result["card_error"] = str(exc)
+        result["summary"] = (
+            (result.get("grid_text") or "") + ("；" + result["card_text"] if result.get("card_text") else "")
+        ) or "画面扫描无异常（当前可能不在战斗/选卡界面）。"
+        return result
+
+    def _scan_now_text(self) -> dict[str, Any]:
+        """纯文本模式：读内存状态文本作为"扫描"结果（无需 OpenCV/VLM）。"""
+        try:
+            self._ensure_memory()
+            text = self._memory_engine.read_state_text()
+        except Exception as exc:
+            return {"status": "error", "message": str(exc), "summary": str(exc)}
+        with self._lock:
+            self._last_grid_text = text
+        return {
+            "status": "ok",
+            "grid_text": text,
+            "memory_text": text,
+            "summary": "已从游戏内存读取最新状态。",
+        }
+
+    def _ensure_scan_only_runtime(self) -> None:
+        """在没有 VLM 配置时，仍能按 pvz/config.json 构建 OpenCV 扫描器（幂等）。"""
+        if self._grid_scanner is not None or self._card_scanner is not None:
+            return
+        core = self._import_core()
+        j: dict = {}
+        cfg_path = CORE_DIR / "config.json"
+        try:
+            if cfg_path.is_file():
+                j = json.loads(cfg_path.read_text(encoding="utf-8"))
+        except Exception:
+            j = {}
+
+        def _apply(target, section: str) -> None:
+            data = j.get(section, {})
+            if not isinstance(data, dict):
+                return
+            for k, v in data.items():
+                if hasattr(target, k):
+                    setattr(target, k, v)
+
+        layout = core.config.LayoutConfig()
+        _apply(layout, "layout")
+        if self._scan_grid_enabled:
+            try:
+                from pvz_agent import grid_scan  # noqa: PLC0415, F401
+                gs_cfg = core.config.GridScanConfig()
+                _apply(gs_cfg, "grid_scan")
+                self._grid_scanner = grid_scan.GridScanner(layout, gs_cfg)
+            except Exception as exc:
+                self._logger.warning("[pvz-agent] 网格扫描器构建失败: %s", exc)
+        if self._scan_cards_enabled:
+            try:
+                from pvz_agent import card_scan  # noqa: PLC0415, F401
+                cs_cfg = core.config.CardScanConfig()
+                _apply(cs_cfg, "card_scan")
+                self._card_scanner = card_scan.CardScanner(layout, cs_cfg)
+            except Exception as exc:
+                self._logger.warning("[pvz-agent] 卡片扫描器构建失败: %s", exc)
+
+    # ------------------------------------------------------------------ #
+    #  命令（线程安全）
+    # ------------------------------------------------------------------ #
+    def start(self, goal: str | None = None, *, restart: bool = False) -> dict[str, Any]:
+        """开始游玩（猫娘在玩，后台实时执行）。
+
+        - 已在运行：仅更新目标；
+        - 已暂停：恢复并（可选）更新目标；
+        - 空闲/已停止/出错：新建循环线程（可干净重启——terminate/窗口丢失后都能再 start）。
+        - 窗口暂缺：**不阻塞**——立即返回"等待窗口"状态，由后台循环线程持续轮询
+          （每次重读 window_titles 配置），窗口出现即自动开始游玩。
+        """
+        with self._lock:
+            phase = self._phase
+        if restart and phase in (self.PHASE_RUNNING, self.PHASE_PAUSED):
+            self.stop(reason="restart")
+            phase = self.PHASE_IDLE
+        try:
+            # 短轮询：窗口在就马上开玩；不在则交给后台循环线程继续等。
+            self._ensure_runtime(window_timeout=2.0)
+            window_pending = False
+        except Exception as exc:
+            window_pending = self._is_window_error(exc)
+            if not window_pending:
+                with self._lock:
+                    self._phase = self.PHASE_ERROR
+                    self._last_error = str(exc)
+                # 错误同时落日志：此前只返回面板，日志无痕导致无法排障
+                self._logger.warning("[pvz-agent] 启动失败: %r", exc)
+                return {"status": "error", "message": str(exc), "summary": str(exc)}
+            # 窗口缺失：继续走下面逻辑，让循环线程轮询等待
+        with self._lock:
+            if goal:
+                self._goal = goal.strip()
+            if self._phase == self.PHASE_PAUSED:
+                self._pause_evt.clear()
+                self._phase = self.PHASE_RUNNING
+                self._last_error = ""
+                self._wake_evt.set()
+                msg = "已恢复游玩。" + (" 目标已更新。" if goal else "")
+                return {"status": "ok", "message": msg, "summary": msg, "resumed": True, "goal": self._goal}
+            if self._phase == self.PHASE_RUNNING:
+                self._last_error = ""
+                self._wake_evt.set()
+                msg = "猫娘已在游玩。" + (" 目标已更新。" if goal else "")
+                return {"status": "ok", "message": msg, "summary": msg, "already_running": True, "goal": self._goal}
+            # 空闲/停止/出错 → 新建循环（清干净所有停止/暂停标记）
+            self._last_error = ""
+            self._pause_evt.clear()
+            self._stop_evt.clear()
+            self._last_fail_key = None
+            self._consecutive_fail = 0
+            self._belt_level_notified = False  # 新一局重新感知传送带关
+            self._last_sig_game_mode = None    # 新一局重记关卡特征
+            self._last_sig_game_ui = None
+            self._phase = self.PHASE_RUNNING
+        if self._thread is None or not self._thread.is_alive():
+            self._thread = threading.Thread(target=self._loop, name="pvz-agent-loop", daemon=True)
+            self._thread.start()
+        if self._sun_collector is not None and not self._sun_collector.alive:
+            self._sun_collector.start()
+        if window_pending:
+            msg = (
+                "正在等待游戏窗口出现（后台会轮询 window_titles 配置，找到后自动开始游玩）。"
+                "可编辑 pvz/config.json 或插件配置里的 window_titles 指定窗口精确标题。"
+            )
+            return {"status": "ok", "message": msg, "summary": msg, "waiting_window": True, "goal": self._goal}
+        # 开局：立即把一张高质量原图推给主模型，让她一开打就能看到当前战局。
+        # 截图抖动不应让整个启动失败——吞掉异常，循环里下一轮会再推。
+        try:
+            self._push_startup_screenshot()
+        except Exception as exc:
+            self._logger.warning("[pvz-agent] 开局截图推送失败（不影响启动）: %r", exc)
+        msg = f"已开始游玩（猫娘自己看画面操作）。目标：{self._goal}"
+        self._logger.info("[pvz-agent] 开始游玩: mode=%s goal=%s", self._mode, self._goal)
+        return {"status": "ok", "message": msg, "summary": msg, "goal": self._goal}
+
+    def _is_window_error(self, exc: Exception) -> bool:
+        """判断异常是否为"窗口未找到"（区别于缺密钥等其它运行时错误）。"""
+        try:
+            return isinstance(exc, self._import_core().window.WindowNotFoundError)
+        except Exception:
+            return False
+
+    def pause(self, reason: str = "user") -> dict[str, Any]:
+        with self._lock:
+            if self._phase == self.PHASE_RUNNING:
+                self._pause_evt.set()
+                self._phase = self.PHASE_PAUSED
+            phase = self._phase
+        self._wake_evt.set()
+        msg = "已暂停游玩（截图/扫描仍可用）。" if phase == self.PHASE_PAUSED else f"当前状态 {phase}，无需暂停。"
+        return {"status": "ok" if phase == self.PHASE_PAUSED else "idle", "message": msg, "summary": msg}
+
+    def resume(self) -> dict[str, Any]:
+        with self._lock:
+            if self._phase == self.PHASE_PAUSED:
+                self._pause_evt.clear()
+                self._phase = self.PHASE_RUNNING
+            phase = self._phase
+        self._wake_evt.set()
+        msg = "已恢复游玩。" if phase == self.PHASE_RUNNING else f"当前状态 {phase}，无需恢复。"
+        return {"status": "ok" if phase == self.PHASE_RUNNING else "idle", "message": msg, "summary": msg}
+
+    def stop(self, reason: str = "manual") -> dict[str, Any]:
+        with self._lock:
+            was_running = self._phase in (self.PHASE_RUNNING, self.PHASE_PAUSED)
+        self._stop_loop(self.PHASE_IDLE)
+        if was_running:
+            msg = f"已停止游玩（{reason}）。"
+        else:
+            msg = "游玩当前未在运行。"
+        return {"status": "ok", "message": msg, "summary": msg}
+
+    def set_goal(self, goal: str) -> dict[str, Any]:
+        if not goal or not goal.strip():
+            return {"status": "error", "message": "goal 不能为空", "summary": "goal 不能为空"}
+        with self._lock:
+            self._goal = goal.strip()
+        self._wake_evt.set()
+        msg = f"目标已更新：{goal.strip()}"
+        return {"status": "ok", "message": msg, "summary": msg, "goal": goal.strip()}
+
+    def inject_instruction(self, instruction: str) -> dict[str, Any]:
+        """注入一条自然语言打法引导，下轮 tick 时交给后台执行核心（持久进历史）。
+
+        例如"先种豌豆射手"、"寒冰射手守第二行"——猫娘用自然语言调整打法，
+        不提供精确坐标/步骤，具体执行由执行核心完成。
+        """
+        if not instruction or not instruction.strip():
+            return {"status": "error", "message": "instruction 不能为空", "summary": "instruction 不能为空"}
+        with self._lock:
+            self._pending_instructions.append(instruction.strip())
+        self._wake_evt.set()
+        msg = f"已记录打法引导：{instruction.strip()}"
+        return {"status": "ok", "message": msg, "summary": msg}
+
+    def set_speed(self, speed: float) -> dict[str, Any]:
+        try:
+            val = float(speed)
+            if val < 0.1:
+                raise ValueError
+        except (TypeError, ValueError):
+            return {"status": "error", "message": "speed 需要 >= 0.1 的数字", "summary": "speed 需要 >= 0.1 的数字"}
+        with self._lock:
+            self._speed = val
+        self._wake_evt.set()
+        msg = f"每轮间隔倍率已设为 {val:.1f}"
+        return {"status": "ok", "message": msg, "summary": msg}
+
+    def shutdown(self) -> None:
+        """停止并清理（插件 shutdown 时调用）。"""
+        self.stop_observer()
+        self.stop(reason="plugin_shutdown")
+        self._stop_memory()
+
+    # ------------------------------------------------------------------ #
+    #  主模型观察通道（周期截图）：观察线程
+    # ------------------------------------------------------------------ #
+    def start_observer(self, on_observation: Callable[[bytes, bool], None]) -> None:
+        """启动观察线程（独立于执行循环，持续给主模型推截图）。
+
+        ``on_observation(jpeg, nudge)`` 由 facade 注册：nudge=False → 纯截图(read)；
+        nudge=True → 截图 + 短触发文本(respond)。插件重载时可干净重启。
+        """
+        self._on_observation = on_observation
+        if self._observer_thread is not None and self._observer_thread.is_alive() and not self._observer_stop.is_set():
+            return  # 已在运行
+        # 旧线程正在退出（stop 事件已置位）→ 等它结束再起新的，避免重载后线程丢失
+        if self._observer_thread is not None and self._observer_thread.is_alive():
+            self._observer_thread.join(timeout=2.0)
+        self._observer_stop.clear()
+        self._observer_thread = threading.Thread(
+            target=self._observer_loop, name="pvz-observer", daemon=True
+        )
+        self._observer_thread.start()
+
+    def stop_observer(self) -> None:
+        self._observer_stop.set()
+
+    def _observer_loop(self) -> None:
+        while not self._observer_stop.is_set():
+            self._observer_stop.wait(1.0)
+            if self._observer_stop.is_set():
+                break
+            try:
+                self._observer_tick()
+            except Exception as exc:
+                self._logger.warning("[pvz-agent] 观察线程异常: %s", exc)
+        self._logger.info("[pvz-agent] 观察线程已退出。")
+
+    def _observer_tick(self) -> None:
+        """一次观察决策：feed（纯截图 read）+ nudge（截图+触发 respond）。可单测直调。"""
+        try:
+            self._check_config_watch()
+        except Exception as exc:
+            self._logger.warning("[pvz-agent] 配置监视异常: %s", exc)
+        now = time.time()
+        # 被动 feed：每 feed_interval 推一帧纯截图（画面没变不推）
+        if self._feed_enabled:
+            with self._lock:
+                feed_due = not (self._last_feed_at and now - self._last_feed_at < self._feed_interval)
+            if feed_due:
+                data = self._grab_feed_frame()
+                if data:
+                    self._push_observation(data, nudge=False)
+        # 主动 nudge：游玩中时，每 nudge_interval 推截图+短触发，催猫娘看并行动
+        if self._nudge_enabled:
+            with self._lock:
+                running = self._phase == self.PHASE_RUNNING
+                nudge_due = not (self._last_nudge_at and now - self._last_nudge_at < self._nudge_interval)
+            if running and nudge_due:
+                data = self._nudge_frame()
+                if data is not None:
+                    with self._lock:
+                        self._last_nudge_at = time.time()
+                    self._push_observation(data, nudge=True)
+
+    def _grab_feed_frame(self) -> bytes | None:
+        """截最新一帧 → 指纹去重 → JPEG 压缩 → 缓存。窗口不可用/画面没变返回 None。"""
+        try:
+            img = self.grab_screenshot()
+        except Exception:
+            return None
+        fp = self._frame_fingerprint(img)
+        if fp == self._last_feed_fingerprint:
+            return None
+        self._last_feed_fingerprint = fp
+        with self._lock:
+            self._last_feed_at = time.time()
+        jpeg = self.encode_jpeg(img)
+        self._last_feed_jpeg = jpeg
+        return jpeg
+
+    def _nudge_frame(self) -> bytes | None:
+        """供 nudge 用的截图帧：优先复用最近一次 feed 缓存帧，否则现场截一帧。
+
+        与 ``_grab_feed_frame`` 不同，**不做画面指纹去重**——nudge 的目的是周期性
+        唤起猫娘行动，即使画面几乎没变也要推（画面静止时 feed 不会更新缓存帧，
+        若只依赖 feed 缓存，nudge 会一直拿不到帧而静默）。
+        """
+        if self._last_feed_jpeg is not None:
+            return self._last_feed_jpeg
+        try:
+            img = self.grab_screenshot()
+        except Exception:
+            return None
+        return self.encode_jpeg(img)
+
+    def _push_startup_screenshot(self) -> None:
+        """开始游玩时，立即把一张高质量原图推给主模型（开局画面），
+        让她一开打就能看到当前战局。算作一次 nudge（更新节流时间戳）。
+
+        窗口尚未就绪（``_win`` 为空）时直接跳过，不触发窗口轮询。
+        """
+        if self._on_observation is None or self._win is None or self._capturer is None:
+            return
+        jpeg = self._nudge_frame()
+        if jpeg is None:
+            return
+        with self._lock:
+            self._last_nudge_at = time.time()
+        self._push_observation(jpeg, nudge=True)
+
+    def _push_observation(self, jpeg: bytes, nudge: bool) -> None:
+        if self._on_observation is None:
+            return
+        try:
+            self._on_observation(jpeg, nudge)
+        except Exception as exc:
+            self._logger.warning("[pvz-agent] 观察推送回调失败: %s", exc)
+
+    @staticmethod
+    def _frame_fingerprint(img) -> str:
+        """96px 缩略图的 md5，用于判定画面是否变化（稳定、廉价）。"""
+        thumb = img.copy()
+        thumb.thumbnail((96, 96))
+        if thumb.mode != "RGB":
+            thumb = thumb.convert("RGB")
+        return hashlib.md5(thumb.tobytes()).hexdigest()
+
+    def encode_jpeg(self, img) -> bytes:
+        """把画面编码为主模型视野用的 JPEG：**优先原图 + 高质量**。
+
+        先按原分辨率、高 JPEG 质量编码；若超过 ``_feed_max_bytes`` 字节预算
+        （message_plane 单条 payload 上限默认 256KB，图片走 base64 有 ~33% 膨胀），
+        再按 edge→quality 阶梯逐步降质，直到落入预算——主模型看到尽可能清晰
+        的原图，同时不会撑爆消息通道。``_feed_max_edge = 0`` 表示不缩放。
+        """
+        from PIL import Image
+
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        budget = self._feed_max_bytes
+        base_edge = self._feed_max_edge
+        base_quality = self._feed_quality
+
+        edges: list[int] = []
+        for e in (base_edge, base_edge // 2, base_edge // 4):
+            if e and e > 0 and e not in edges:
+                edges.append(e)
+        if not edges:  # max_edge=0 → 原图优先
+            edges = [max(img.size) or 1]
+        # 质量阶梯：绝不高于配置质量；超预算时逐步降。
+        qualities = [q for q in (base_quality, 80, 65, 50, 40, 30) if q <= base_quality]
+        if not qualities:
+            qualities = [base_quality]
+
+        smallest: bytes | None = None
+        last: bytes | None = None
+        for edge in edges:
+            frame = img if max(img.size) <= edge else img.copy()
+            if max(frame.size) > edge:
+                frame.thumbnail((edge, edge), Image.LANCZOS)
+            for ql in qualities:
+                buf = io.BytesIO()
+                frame.save(buf, format="JPEG", quality=ql, optimize=True)
+                data = buf.getvalue()
+                last = data
+                if budget <= 0 or len(data) <= budget:
+                    return data
+                if smallest is None or len(data) < len(smallest):
+                    smallest = data
+        return smallest if smallest is not None else (last if last is not None else b"")
+
+    # ------------------------------------------------------------------ #
+    #  后台主循环（实时游玩执行）
+    # ------------------------------------------------------------------ #
+    def _loop(self) -> None:
+        # 运行时未就绪（通常是启动时窗口暂缺）→ 在本线程轮询等待窗口并构建运行时。
+        # 每次轮询重读 window_titles 配置，改配置即可让新标题生效；stop 可随时打断。
+        if self._planner is None:
+            try:
+                self._ensure_runtime(window_timeout=None, window_cancel=self._stop_evt)
+            except Exception as exc:
+                with self._lock:
+                    self._last_error = str(exc)
+                    # 主动停止不算错误
+                    self._phase = self.PHASE_IDLE if self._stop_evt.is_set() else self.PHASE_ERROR
+                self._logger.warning("[pvz-agent] 运行时构建失败，停止循环: %s", exc)
+                self._stop_sun()
+                self._stop_memory()
+                return
+        while not self._stop_evt.is_set():
+            if self._pause_evt.is_set():
+                # 暂停中：只观察不执行，短睡以响应 resume/stop
+                self._sleep_interruptible(0.5)
+                continue
+            try:
+                self._tick()
+            except Exception as exc:
+                with self._lock:
+                    self._last_error = str(exc)
+                    self._phase = self.PHASE_ERROR
+                self._logger.warning("[pvz-agent] 本轮异常: %s", exc)
+                self._sleep_interruptible(1.0)
+        self._stop_sun()
+        self._stop_memory()
+        self._logger.info("[pvz-agent] 主循环已退出。")
+
+    def _sleep_interruptible(self, seconds: float) -> None:
+        """节拍等待，可被任何命令（pause/resume/stop/instruction）提前唤醒。"""
+        if seconds <= 0:
+            return
+        self._wake_evt.clear()
+        if self._wake_evt.wait(seconds):
+            self._wake_evt.clear()
+
+    def _tick(self) -> None:
+        """一轮迭代（按模式分支）：vision 看截图+OpenCV；text 读内存状态文本。"""
+        cfg = self._cfg
+        assert cfg is not None and self._capturer is not None
+        if self._mode == "text":
+            return self._tick_text(cfg)
+        return self._tick_vision(cfg)
+
+    def _tick_vision(self, cfg) -> None:
+        """视觉方案一轮迭代：拍帧 → 消费指令 → OpenCV 扫描 → VLM 规划 → 执行。"""
+        capturer = self._capturer
+        assert capturer is not None
+
+        # 1. 拍一帧（供执行核心复用）
+        try:
+            img = capturer.grab_pil()
+        except Exception as exc:
+            # 窗口丢失/最小化到抓不到 → 通知主模型并彻底停止，不再无限重试
+            self._handle_window_lost(exc)
+            return
+
+        # 2. 消费主模型注入的自然语言引导
+        for note in self._drain_instructions():
+            self._planner.add_user_note(note)
+
+        # 3. OpenCV 网格/卡片扫描（执行核心辅助信息）
+        grid_text = self._scan_grid(img)
+        card_text = self._scan_cards(img)
+
+        now = time.perf_counter()
+        elapsed = now - self._last_turn_time
+        self._last_turn_time = now
+
+        user_text = self._core.prompts.build_planner_user_footer(
+            goal=self._goal,
+            elapsed=elapsed,
+            last_summary=self._last_feedback,
+            note="",
+            grid_state=grid_text,
+            card_state=card_text,
+        )
+        img_b64 = capturer.to_base64(
+            img, image_format=self._img_fmt, jpeg_quality=cfg.agent.jpeg_quality
+        )
+
+        # 4. 执行核心（VLM）规划：看截图 + 目标/引导 → 具体动作
+        calls, raw = self._plan_tick(img_b64, user_text)
+        if calls is None:
+            return  # 规划失败已通报
+        if self._stop_evt.is_set():
+            return  # 规划期间被 stop，不执行动作
+        self._execute_and_feedback(calls, raw, cfg)
+
+    def _tick_text(self, cfg) -> None:
+        """纯文本模式一轮迭代：消费指令 → 读内存状态 → 文本 LLM 规划 → 注入执行。
+
+        决策不依赖截图/OpenCV；截图仍由观察线程发给主模型指挥。
+        """
+        # 1. 消费主模型注入的自然语言引导
+        for note in self._drain_instructions():
+            self._planner.add_user_note(note)
+
+        # 2. 读内存状态（权威文本，一切决策依据）
+        try:
+            state = self._memory_engine.read_state()
+        except Exception as exc:
+            with self._lock:
+                self._last_error = str(exc)
+            self._logger.warning("[pvz-agent] 内存状态读取失败: %s", exc)
+            self._notify_throttled(
+                f"[PVZ] 内存状态读取失败（{exc}）。", kind="action_error", cooldown=30.0,
+            )
+            if not self._memory_engine.is_connected():
+                # 游戏进程/内存断开 → 视为游戏丢失，彻底停止（可再 start）
+                self._notify_text(
+                    f"[PVZ] 游戏进程/内存已断开（{exc}）。已停止游玩；确认游戏运行后可重新开始。",
+                    kind="window_lost",
+                )
+                self._stop_loop(self.PHASE_IDLE)
+            self._sleep_interruptible(1.0)
+            return
+
+        # 2.1 非可操作界面（主菜单/结算/未知）：不喂 LLM，只轮询等待。
+        #     设计决策：LLM 思考期间**不冻结游戏**（不用 pause_for_thinking）；循环在
+        #     非可操作界面**绝不自动 pause/stop**——短睡后继续轮询，让游戏自行推进。
+        if not self._memory_engine.is_actionable(state):
+            with self._lock:
+                self._last_grid_text = self._memory_engine.format_state(state)
+            self._logger.info(
+                "[pvz-agent] 非战斗界面，跳过本轮 LLM 决策（UI=%s）", getattr(state, "game_ui", "?")
+            )
+            self._notify_throttled(
+                f"[PVZ] 当前处于非战斗界面（UI={getattr(state, 'game_ui', '?')}），"
+                "等待进入选卡/战斗...",
+                kind="no_action", cooldown=60.0,
+            )
+            self._sleep_interruptible(1.0)
+            return
+
+        # 2.2 传送带关卡感知：战斗中卡片栏空 → 首次向主模型通报机制，
+        #     避免她按"先种向日葵攒阳光"的常规套路指挥/解说。
+        self._maybe_notify_belt_level(state)
+        # 2.3 关卡特征标定：game_mode 变化时落一行日志（为"传送带/普通/教程"
+        #     硬判别收集真实特征值；判别落地后此日志保留作排障依据）。
+        self._log_level_signature(state)
+
+        memory_text = self._memory_engine.read_state_text(
+            state, fallback_grid=(cfg.layout.rows, cfg.layout.cols)
+        )
+
+        now = time.perf_counter()
+        elapsed = now - self._last_turn_time
+        self._last_turn_time = now
+
+        user_text = self._core.prompts.build_planner_user_footer(
+            goal=self._goal,
+            elapsed=elapsed,
+            last_summary=self._last_feedback,
+            note="",
+            memory_state=memory_text,
+        )
+
+        # 3. 文本 LLM 规划（include_image=False，不传图）
+        self._text_round_no += 1
+        round_no = self._text_round_no
+        t0 = time.perf_counter()
+        self._logger.info("[pvz-agent] 决策轮 #%d 开始（上一轮间隔 %.1fs）", round_no, elapsed)
+        calls, raw = self._plan_tick_guarded(user_text)
+        if calls is None and raw is None and getattr(self, "_plan_abandoned", False):
+            # 看门狗超时：本轮放弃（循环继续，接口恢复后自动接上）
+            return
+        round_secs = time.perf_counter() - t0
+        if calls is None:
+            self._logger.warning(
+                "[pvz-agent] 决策轮 #%d 失败（耗时 %.1fs，接口异常已重试）", round_no, round_secs
+            )
+            return
+        if self._stop_evt.is_set():
+            return
+
+        try:
+            def _call_label(c: Any) -> str:
+                # calls 元素是 ToolCall 对象（不是 dict）——按对象属性取，兜底字典
+                if isinstance(c, dict):
+                    return str(c.get("name") or "?")
+                return str(getattr(c, "name", "?") or "?")
+
+            self._logger.info(
+                "[pvz-agent] 决策轮 #%d 完成: 耗时 %.1fs, %d 个动作 (%s)",
+                round_no, round_secs, len(calls),
+                ", ".join(_call_label(c) for c in calls) or "无",
+            )
+        except Exception:
+            pass  # 日志自身的任何问题都不允许杀死决策轮（4731a1e 教训）
+        if round_secs > 25.0:
+            # 决策太慢会表现为"长时间无动静"——让用户在面板上看见原因
+            self._notify_throttled(
+                f"[PVZ] 本轮决策耗时 {round_secs:.0f}s（接口较慢），游戏节奏会受影响。",
+                kind="planner_error", cooldown=60.0,
+            )
+        self._execute_and_feedback(calls, raw, cfg)
+
+    # 决策看门狗：超过该秒数即放弃本轮等待（底层 HTTP 有自己的超时/重试，
+    # 接口挂起时最坏 120s×2——不设看门狗的话整个游玩循环会冻死同样长的时间）
+    _PLAN_DEADLINE_SECONDS = 90.0
+
+    def _plan_tick_guarded(self, user_text: str):
+        """带看门狗的规划：阻塞调用放进工作线程，主循环最多等 _PLAN_DEADLINE_SECONDS。
+
+        - 超时 → 记日志 + 面板提示，返回 (None, None) 并置 _plan_abandoned；
+        - 上一轮工作线程还活着 → 跳过本轮（避免线程堆积），返回 (None, None)。
+        """
+        self._plan_abandoned = False
+        worker = getattr(self, "_plan_worker", None)
+        if worker is not None and worker.is_alive():
+            self._logger.warning("[pvz-agent] 上一轮决策仍在进行，跳过本轮（接口可能挂起）")
+            self._notify_throttled(
+                "[PVZ] 上一轮决策还没返回（接口可能挂起），已跳过本轮等待恢复。",
+                kind="planner_error", cooldown=30.0,
+            )
+            return None, None
+
+        box: dict[str, Any] = {}
+
+        def _run() -> None:
+            try:
+                calls, raw = self._planner.plan("", user_text)
+                box["calls"], box["raw"] = calls, raw
+            except Exception as exc:  # 异常交给原有 _plan_tick 语义之外：直接记 None
+                box["error"] = f"{type(exc).__name__}: {exc}"
+
+        t = threading.Thread(target=_run, name="pvz-plan-worker", daemon=True)
+        self._plan_worker = t
+        t.start()
+        t.join(self._PLAN_DEADLINE_SECONDS)
+        if t.is_alive():
+            self._plan_abandoned = True
+            self._logger.warning(
+                "[pvz-agent] 决策超过 %.0fs 未返回，放弃本轮等待（工作线程仍在后台跑）",
+                self._PLAN_DEADLINE_SECONDS,
+            )
+            self._notify_throttled(
+                f"[PVZ] 决策接口超过 {self._PLAN_DEADLINE_SECONDS:.0f}s 没有响应，"
+                "已放弃本轮；若持续请检查决策模型接口。",
+                kind="planner_error", cooldown=30.0,
+            )
+            return None, None
+        if "error" in box:
+            with self._lock:
+                self._last_error = str(box["error"])
+            self._logger.warning("[pvz-agent] 执行核心规划失败: %s", box["error"])
+            self._notify_throttled(
+                f"[PVZ] 决策引擎调用失败（{box['error']}）。已在重试。",
+                kind="planner_error", cooldown=30.0,
+            )
+            self._sleep_interruptible(2)
+            return None, None
+        return box.get("calls"), box.get("raw")
+
+    def _log_level_signature(self, state: Any) -> None:
+        """game_mode 变化时落一行关卡特征日志（传送带/普通/教程硬判别的标定数据）。
+
+        每种 game_mode 只记一次（跨关变化才记）；异常静默（纯观测，不影响游玩）。
+        """
+        try:
+            mode = int(getattr(state, "game_mode", -1))
+            ui = int(getattr(state, "game_ui", -1))
+            seeds = [int(getattr(s, "plant_type", -1)) for s in (getattr(state, "seeds", []) or [])]
+            sun = int(getattr(state, "sun", -1) or -1)
+        except Exception:
+            return
+        with self._lock:
+            if mode == self._last_sig_game_mode and ui == self._last_sig_game_ui:
+                return
+            self._last_sig_game_mode, self._last_sig_game_ui = mode, ui
+        self._logger.info(
+            "[pvz-agent] 关卡特征标定: game_mode=%s game_ui=%s sun=%s 卡槽类型=%s",
+            mode, ui, sun, seeds[:10],
+        )
+
+    def _maybe_notify_belt_level(self, state: Any) -> None:
+        """reader 判定为传送带关 → 首次向主模型通报一次关卡机制。
+
+        主模型只看截图，容易把传送带关当普通关解说/指挥（"先种向日葵"）。
+        本提示每次开始游玩最多推送一次（start 时复位）。
+        与 reader 粘性判定对齐：冒险传送带关 game_mode=0（实测 1-5 坚果
+        保龄球），旧的"卡槽空+mode非冒险"启发式既漏判、又误伤教程关，弃用。
+        """
+        if getattr(state, "_is_conveyor", None) is not True:
+            return
+        with self._lock:
+            already = self._belt_level_notified
+            self._belt_level_notified = True
+        if already:
+            return
+        self._notify_text(
+            "[PVZ] 传送带关卡提示：本关植物由传送带持续供给（卡片栏为空、无固定卡组），"
+            "不存在\"先种向日葵攒阳光\"的常规开局。后台执行核心会自动从传送带收取植物并种植；"
+            "给建议时请基于场上已有植物与僵尸，不要建议种植卡组里没有的植物。",
+            kind="no_action",
+        )
+        self._logger.info("[pvz-agent] 已向主模型通报传送带关卡机制")
+
+    def _plan_tick(self, img_b64: str, user_text: str):
+        """规划一次（两种模式共用错误处理）；失败返回 (None, None)。"""
+        try:
+            return self._planner.plan(img_b64, user_text)
+        except Exception as exc:
+            with self._lock:
+                self._last_error = str(exc)
+            self._logger.warning("[pvz-agent] 执行核心规划失败: %s", exc)
+            self._notify_throttled(
+                f"[PVZ] 决策引擎调用失败（{type(exc).__name__}: {exc}）。已在重试。",
+                kind="planner_error",
+                cooldown=30.0,
+            )
+            self._sleep_interruptible(2)
+            return None, None
+
+    def _execute_and_feedback(self, calls, raw, cfg) -> None:
+        """执行动作 → 反馈回填 → 节拍等待（两种模式共用）。
+
+        ``calls`` 来自 planner（可能为空列表）；``raw`` 是模型原始输出。
+        """
+        results: list[dict] = []
+        if not calls:
+            # 空动作：绝不静默——通报主模型（按连续轮数节流/升级）
+            self._handle_no_actions()
+            self._last_feedback = _build_feedback(results)
+            self._sleep_interruptible(self._compute_wait_seconds([], cfg))
+            return
+        with self._lock:
+            self._empty_rounds = 0  # 有动作了，重置空动作计数
+
+        stop_round = False
+        terminate_status: str | None = None
+        for tc in calls:
+            action = tc.arguments.get("action") or tc.name
+            if action == "terminate":
+                terminate_status = tc.arguments.get("status", "success")
+                results.append({"action": "terminate", "status": "ok", "terminate_status": terminate_status})
+                stop_round = True
+                break
+            if action == "answer":
+                ans = tc.arguments.get("text", "")
+                self._notify_text(f"[PVZ] {ans}", kind="answer")
+                results.append({"action": "answer", "status": "ok", "text": ans})
+                continue
+
+            result = self._executor.execute_tool_call(tc.name, tc.arguments)
+            results.append(result)
+            if result.get("status") == "error":
+                self._logger.warning("[pvz-agent] %s 失败: %s", tc.name, result.get("error", ""))
+            else:
+                detail = result.get("detail") or result.get("summary") or ""
+                self._logger.info(
+                    "[pvz-agent] %s 执行成功%s", tc.name, f"（{detail}）" if detail else ""
+                )
+            fail_key = self._fail_key(tc, result)
+            if fail_key is not None:
+                if fail_key == self._last_fail_key:
+                    self._consecutive_fail += 1
+                else:
+                    self._consecutive_fail = 1
+                    self._last_fail_key = fail_key
+                if self._consecutive_fail >= MAX_CONSECUTIVE_FAIL:
+                    results.append({
+                        "action": "_loop_guard", "status": "error",
+                        "error": "连续失败，请换目标或坐标，不要重复相同操作",
+                    })
+                    stop_round = True
+                    break
+
+        # 反馈回填给执行核心
+        self._planner.add_assistant(raw)
+        feedback = _build_feedback(results)
+        self._planner.add_feedback(feedback)
+        with self._lock:
+            self._last_feedback = feedback
+            self._step_count += 1
+            self._last_action_at = time.time()
+
+        # 本轮有失败动作（未触发循环守卫时也要通报主模型，不静默）
+        failed = [r for r in results if r.get("status") == "error"]
+        if failed:
+            first = failed[0]
+            self._notify_throttled(
+                f"[PVZ] 本轮有 {len(failed)} 个操作失败"
+                f"（如 {first.get('action', '?')}: {first.get('error', '')}）。"
+                "已反馈给执行核心；必要时可暂停或调整打法。",
+                kind="action_error",
+                cooldown=30.0,
+            )
+
+        if terminate_status is not None:
+            self._planner.reset()  # 清历史，准备新目标
+            self._on_terminate(terminate_status)
+            return
+
+        if stop_round:
+            self._planner.add_user_note(
+                "上轮同一动作连续失败多次。请停止重复，重新观察战局状态，换一个目标或调整坐标。"
+            )
+            self._notify_throttled(
+                "[PVZ] 连续重复操作失败，已中止本轮并自动换打法；"
+                "你也可以用 pvz_instruction 明确引导换个打法。",
+                kind="action_error",
+                cooldown=30.0,
+            )
+
+        # 节拍等待（可被命令唤醒）
+        self._sleep_interruptible(self._compute_wait_seconds(results, cfg))
+
+    # ------------------------------------------------------------------ #
+    #  辅助
+    # ------------------------------------------------------------------ #
+    def _drain_instructions(self) -> list[str]:
+        with self._lock:
+            notes = list(self._pending_instructions)
+            self._pending_instructions.clear()
+        return notes
+
+    def _scan_grid(self, img) -> str:
+        if self._grid_scanner is None:
+            return ""
+        try:
+            res = self._grid_scanner.scan(img)
+            text = res.to_text()
+            with self._lock:
+                self._last_grid_text = text
+            return text
+        except Exception as exc:
+            self._logger.warning("[pvz-agent] 网格扫描异常: %s", exc)
+            return ""
+
+    def _scan_cards(self, img) -> str:
+        if self._card_scanner is None:
+            return ""
+        try:
+            res = self._card_scanner.scan(img)
+            text = res.to_text()
+            with self._lock:
+                self._last_card_text = text
+            return text
+        except Exception as exc:
+            self._logger.warning("[pvz-agent] 卡片扫描异常: %s", exc)
+            return ""
+
+    def _handle_window_lost(self, exc: Exception) -> None:
+        """窗口抓不到（游戏被关/最小化/画面不可见）→ 通报主模型并彻底停止循环。"""
+        self._logger.warning("[pvz-agent] 窗口丢失: %s", exc)
+        with self._lock:
+            self._last_error = str(exc)
+        if self._notify_window_lost:
+            self._notify_text(
+                f"[PVZ] 游戏窗口丢失/不可用（{exc}）。已停止游玩；"
+                "确认游戏仍在运行后可让主模型重新开始。",
+                kind="window_lost",
+            )
+        self._stop_loop(self.PHASE_IDLE)
+
+    def _on_terminate(self, status: str) -> None:
+        """游戏内判定本关结束：通报主模型并**彻底停止**，保证可再次 start。
+
+        步数已在 _tick 的动作执行段累计，这里不再重复计数。
+        """
+        if self._notify_on_terminate:
+            self._notify_text(
+                f"PVZ 本关已判定结束（{status}）。已停止游玩，可发新指令重新开始。",
+                kind="terminate",
+            )
+        self._logger.info("[pvz-agent] 本关结束: %s，已停止（可重启）。", status)
+        self._stop_loop(self.PHASE_IDLE)
+
+    def _stop_loop(self, phase_after: str) -> None:
+        """彻底停掉循环线程与阳光收集，phase 置为 ``phase_after``。幂等。"""
+        self._stop_evt.set()
+        self._wake_evt.set()
+        thread = self._thread
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=3.0)
+            if thread.is_alive():
+                self._logger.warning("[pvz-agent] 循环线程在超时内未退出，转为后台继续结束（daemon）。")
+        self._stop_sun()
+        with self._lock:
+            self._phase = phase_after
+
+    def _notify_text(self, text: str, *, kind: str = "") -> None:
+        """后台线程安全地转达文本给宿主（无 notifier 时仅记日志）。"""
+        try:
+            if self._notifier is not None:
+                self._notifier(text=text, kind=kind)
+        except Exception as exc:
+            self._logger.warning("[pvz-agent] 推送失败(%s): %s", kind, exc)
+
+    def _notify_throttled(self, text: str, *, kind: str, cooldown: float = 30.0) -> None:
+        """按 kind 节流地通报（避免同一种故障每轮刷屏）。"""
+        now = time.time()
+        with self._lock:
+            last = self._last_notify_at.get(kind, 0.0)
+            if now - last < cooldown:
+                return
+            self._last_notify_at[kind] = now
+        self._notify_text(text, kind=kind)
+
+    def _handle_no_actions(self) -> None:
+        """本轮没做出有效操作——绝不静默。
+
+        首次出现即通报主模型，连续出现按 1/3/6/9... 轮升级（消息带轮数与原因）。
+        """
+        with self._lock:
+            self._empty_rounds += 1
+            empty_rounds = self._empty_rounds
+        reason = ""
+        try:
+            if self._planner is not None:
+                reason = str(getattr(self._planner, "last_status_text", "") or "")
+        except Exception:
+            pass
+        self._logger.warning(
+            "[pvz-agent] 本轮无动作（连续第 %d 轮）: %s",
+            empty_rounds, reason or "原因未知",
+        )
+        if empty_rounds == 1 or empty_rounds % 3 == 0:
+            reason_part = reason or "执行核心未产出可执行动作"
+            self._notify_text(
+                f"[PVZ] 已连续 {empty_rounds} 轮没有做出有效操作"
+                f"（{reason_part}）。已继续观察；若持续可暂停或调整打法。",
+                kind="no_action",
+            )
+
+    def _compute_wait_seconds(self, results: list[dict], cfg) -> float:
+        base = cfg.agent.tick_interval * self._speed
+        return _compute_wait(results, self._executor, base)
+
+    def _stop_sun(self) -> None:
+        try:
+            if self._sun_collector is not None:
+                self._sun_collector.stop()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _fail_key(tc, result: dict) -> tuple | None:
+        """提取"动作+坐标"作为防循环标识；仅对失败的带坐标动作有意义。"""
+        if result.get("status") != "error":
+            return None
+        action = tc.arguments.get("action") or tc.name
+        if action in ("place_plant",):
+            return ("place_plant", tc.arguments.get("card_index"), tc.arguments.get("row"), tc.arguments.get("col"))
+        if action in ("shovel",):
+            return ("shovel", tc.arguments.get("row"), tc.arguments.get("col"))
+        if action == "left_click":
+            coord = tuple(tc.arguments.get("coordinate", []))
+            return ("left_click", coord)
+        return (action,)
+
+
+__all__ = ["PvZAgentService", "DEFAULT_GOAL", "CORE_DIR"]

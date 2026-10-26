@@ -1,0 +1,58 @@
+{
+  "image": "milkcap-expressions.png",
+  "artSet": "concept-v2",
+  "integratedFloat": true,
+  "frames": [
+    {
+      "name": "idle",
+      "x": 40,
+      "y": 66,
+      "width": 640,
+      "height": 672
+    },
+    {
+      "name": "impact",
+      "x": 684,
+      "y": 66,
+      "width": 640,
+      "height": 672
+    },
+    {
+      "name": "rebound",
+      "x": 1327,
+      "y": 66,
+      "width": 640,
+      "height": 672
+    }
+  ],
+  "drawBox": {
+    "x": -51.36,
+    "y": -91.84,
+    "width": 102.4,
+    "height": 107.52
+  },
+  "pixelGrid": {
+    "width": 88,
+    "height": 92
+  },
+  "portraitBox": {
+    "x": 2,
+    "y": 0,
+    "width": 84,
+    "height": 84
+  },
+  "portraitResolution": 64,
+  "hud": {
+    "healthY": -107,
+    "nameY": 23
+  },
+  "collisionRadius": 40,
+  "floatReference": {
+    "diameterInSource": 500,
+    "centerInFirstFrame": {
+      "x": 321,
+      "y": 574
+    },
+    "diameterInWorld": 80
+  }
+}

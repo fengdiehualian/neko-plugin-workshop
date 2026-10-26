@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ledger": {
+      "type": "object",
+      "title": "记账设置",
+      "properties": {
+        "absolute_threshold": {
+          "type": "number",
+          "title": "离谱金额阈值（元）",
+          "description": "单笔超过这个金额就算「花太多」，会触发吐槽。",
+          "x-title-i18n": { "zh-CN": "离谱金额阈值（元）", "en": "Outrageous amount (CNY)" },
+          "x-description-i18n": {
+            "zh-CN": "单笔超过这个金额就算「花太多」，会触发吐槽。",
+            "en": "A single expense above this triggers the snarky tone."
+          },
+          "minimum": 0,
+          "default": 200
+        },
+        "category_multiplier": {
+          "type": "number",
+          "title": "同类倍数阈值",
+          "description": "超过同类历史均值的这么多倍也算离谱。需要足够的同类记录才启用。",
+          "x-title-i18n": { "zh-CN": "同类倍数阈值", "en": "Category multiplier" },
+          "x-description-i18n": {
+            "zh-CN": "超过同类历史均值的这么多倍也算离谱。",
+            "en": "Also counts as outrageous when it exceeds the category average by this factor."
+          },
+          "minimum": 1,
+          "default": 4
+        },
+        "min_samples": {
+          "type": "integer",
+          "title": "同类判定最少样本数",
+          "description": "同类记录少于这个数时不按均值判定，避免样本太少误判。",
+          "x-title-i18n": { "zh-CN": "同类判定最少样本数", "en": "Minimum samples for category average" },
+          "minimum": 1,
+          "maximum": 100,
+          "default": 3
+        },
+        "snark_enabled": {
+          "type": "boolean",
+          "title": "开启吐槽",
+          "description": "关闭后，离谱花销也只按日常可爱语气回复。",
+          "x-title-i18n": { "zh-CN": "开启吐槽", "en": "Enable snark" },
+          "default": true
+        },
+        "hiss_enabled": {
+          "type": "boolean",
+          "title": "开启哈气",
+          "description": "猫咪或 AI 相关花销会哈气（因为猫娘自己既是猫又是 AI）。",
+          "x-title-i18n": { "zh-CN": "开启哈气", "en": "Enable hissing" },
+          "default": true
+        },
+        "respect_persona": {
+          "type": "boolean",
+          "title": "尊重人设（推荐开启）",
+          "description": "读取当前猫娘的人设；检测到「绝对不生气 / 温柔」这类设定时，哈气会降级成温和的念叨。",
+          "x-title-i18n": { "zh-CN": "尊重人设（推荐开启）", "en": "Respect the persona (recommended)" },
+          "x-description-i18n": {
+            "zh-CN": "读取猫娘人设；设定是「不生气 / 温柔」时哈气降级为温和吐槽。",
+            "en": "When the persona says she never gets angry, hissing is downgraded to a gentle grumble."
+          },
+          "default": true
+        },
+        "cat_suffix": {
+          "type": "string",
+          "title": "句尾落款",
+          "description": "留空则从内置池随机（喵～ / 喵♪ / 呜喵～）。",
+          "x-title-i18n": { "zh-CN": "句尾落款", "en": "Trailing suffix" },
+          "default": ""
+        },
+        "emoji": {
+          "type": "boolean",
+          "title": "配一点表情",
+          "description": "日常记账时随机附上一个可爱表情。",
+          "x-title-i18n": { "zh-CN": "配一点表情", "en": "Add a little emoji" },
+          "default": true
+        },
+        "catgirl": {
+          "type": "string",
+          "title": "生效的猫娘",
+          "description": "留空表示当前猫娘。",
+          "x-title-i18n": { "zh-CN": "生效的猫娘", "en": "Target catgirl" },
+          "default": ""
+        },
+        "characters_json": {
+          "type": "string",
+          "title": "角色卡文件路径",
+          "description": "留空则自动查找。只有自定义了数据目录时才需要填。",
+          "x-title-i18n": { "zh-CN": "角色卡文件路径", "en": "Character card path" },
+          "default": ""
+        }
+      }
+    }
+  }
+}

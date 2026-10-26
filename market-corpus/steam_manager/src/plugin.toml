@@ -1,0 +1,31 @@
+[plugin]
+id = "steam_manager"
+name = "Steam管理"
+description = "让 YUI 管理本地 Steam 客户端与游戏库，并充当游戏助手与 Steam 账号助手：查询客户端状态、列出已安装游戏、按名称或 AppID 启动游戏；截取当前游戏画面、后台监控行为时间线、汇总局面供 YUI 给出建议；玩家可显式授权 YUI 接管键鼠代为操作。v0.3.0 新增：读取 Steam 账户信息与好友列表（需配置 STEAM_API_KEY）、通过 steamcommunity 回复好友消息（需 steam_cookie.txt）、查询任意游戏国区价格与商店促销（无需凭证）、打开任意 Steam 游戏/应用（已装启动、未装开商店页）。v0.3.1 复查修复：游戏库超 100 个时名称匹配漏项（先全扫后过滤）、好友超 100 人概要分批、重复开启监控线程泄漏、监控帧目录无限膨胀（自动清理）、入口 action 子操作不可达。v0.3.2 新增凭证自动配置三模式：skip（不配置）/ yui（提供凭证由 YUI 写入）/ auto（全自动：先自动探测本机 Chrome/Edge 里已登录的 steamcommunity Cookie，探测不到再打开官方获取页并指引），API Key 与 Cookie 写入后立即用官方接口验证，通过才报告配置成功。安全边界：只读本地库元数据与账号昵称，键鼠接管默认关闭且仅作用于前台游戏窗口，API Key/cookie 只读取不输出、自动探测仅解本地浏览器 steamcommunity 域 cookie。何时用：用户说'Steam 开着吗/我 Steam 里有什么游戏/打开/启动 <游戏>/现在游戏什么情况/截个图看看/帮我盯着游戏/让 YUI 接管/你来玩/停止接管/我的 Steam 账号/好友列表/XX 在不在线/给好友发消息/回复好友/XX 游戏多少钱/有没有打折/打开其他游戏/配置 Steam/自动配置'等 Steam 与游戏相关请求时。"
+short_description = "Steam 游戏库管理 + 游戏助手 + 账号/好友/价格/促销助手：查库、启动、截图读局、代打、账户信息、好友消息、查价、促销、凭证自动配置（skip/yui/auto+自动探测浏览器Cookie+验证）"
+keywords = ["steam", "游戏", "游戏库", "启动", "launch", "appid", "library", "库", "客户端", "game", "截图", "capture", "监控", "watch", "接管", "control", "操作", "辅助", "建议", "助手", "游戏助手", "代打", "账号", "account", "好友", "friend", "消息", "message", "价格", "price", "促销", "折扣", "特惠", "promotion", "steam community", "商店"]
+version = "0.4.0"
+type = "plugin"
+entry = "plugin.plugins.steam_manager:SteamManagerPlugin"
+
+[plugin.author]
+name = "起诉人"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = "使用说明"
+entry = "docs/guide.md"

@@ -1,0 +1,35 @@
+[neko_study_copilot]
+exam_type = "gaokao"
+region = "广东"
+grade = "高三"
+daily_minutes = 180
+teach_style = "gentle"
+quiz_stage = "auto"
+quiz_count = 3
+quiz_with_traps = true
+credits = ""
+vision_enabled = true
+memory_enabled = true
+progress_enabled = true
+game_enabled = true
+memory_short_days = 7
+memory_recall_turns = 8
+persona_level = "full"
+network_enabled = true
+free_source_search = true
+platform_sync_enabled = true
+crawl_interval_ms = 1500
+crawl_respect_robots = true
+crawl_max_pages = 6
+crawl_timeout = 15
+psychology_enabled = true
+psychology_level = "normal"
+admin_password = "CHANGE_ME"
+panel_port = 15880
+llm_timeout = 60
+request_timeout = 20
+catgirl_name = "猫娘"
+
+[plugin_runtime]
+enabled = true
+auto_start = true

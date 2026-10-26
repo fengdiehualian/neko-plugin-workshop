@@ -1,0 +1,177 @@
+
+[
+    {
+        "name":"烤土豆",
+        "热量":1,
+        "inputs":[
+            {"name":"土豆","class":"食材","amount":1,"const_amount":0},
+            {"name":"熔炉","class":"道具","amount":0,"const_amount":0}
+        ],
+        "outputs":[
+            {"name":"烤土豆","class":"食材","amount":1,"const_amount":0}
+        ]
+    },
+    {
+        "name":"熟肉",
+        "热量":1,
+        "inputs":[
+            {"name":"生肉","class":"食材","amount":1,"const_amount":0},
+            {"name":"熔炉","class":"道具","amount":0,"const_amount":0}
+        ],
+        "outputs":[
+            {"name":"熟肉","class":"食材","amount":1,"const_amount":0}
+        ]
+    },
+      {
+  "name": "烤面包",
+  "热量": 3,  
+  "inputs": [
+    {
+      "name": "小麦",
+      "class": "食材",
+      "amount": 3,      
+      "const_amount": 0  
+    },
+    {
+      "name": "熔炉",    
+      "class": "道具",
+      "amount": 0,       
+      "const_amount": 0
+    }
+  ],
+  "outputs": [
+    {
+      "name": "烤面包",
+      "class": "食材",
+      "amount": 1,       
+      "const_amount": 0
+    }
+  ]
+},
+    {
+        "name":"烤鱼",
+        "热量":1,
+        "inputs":[
+            {"name":"鱼肉","class":"食材","amount":1,"const_amount":0},
+            {"name":"熔炉","class":"道具","amount":0,"const_amount":0}
+        ],
+        "outputs":[
+            {"name":"烤鱼","class":"食材","amount":1,"const_amount":0}
+        ]
+    },
+    {
+        "name":"铁锭",
+        "热量":1,
+        "inputs":[
+            {"name":"铁矿","class":"材料","amount":1,"const_amount":0},
+            {"name":"熔炉","class":"道具","amount":0,"const_amount":0}
+        ],
+        "outputs":[
+            {"name":"铁锭","class":"材料","amount":1,"const_amount":0}
+        ]
+    },
+    {
+        "name":"金锭",
+        "热量":1,
+        "inputs":[
+            {"name":"黄金矿","class":"材料","amount":1,"const_amount":0},
+            {"name":"熔炉","class":"道具","amount":0,"const_amount":0}
+        ],
+        "outputs":[
+            {"name":"金锭","class":"材料","amount":1,"const_amount":0}
+        ]
+    },
+    {
+        "name":"下界合金锭",
+        "热量":10,
+        "inputs":[
+            {"name":"下界合金矿","class":"材料","amount":1,"const_amount":0},
+            {"name":"熔炉","class":"道具","amount":0,"const_amount":0}
+        ],
+        "outputs":[
+            {"name":"下界合金锭","class":"材料","amount":1,"const_amount":0}
+        ]
+    },
+    {
+        "name":"野鸡",
+        "热量":0,
+        "inputs":[
+            {"name":"野鸡","class":"食材","amount":1,"const_amount":0},
+            {"name":"菜刀","class":"道具","amount":0,"const_amount":1}
+        ],
+        "outputs":[
+            {"name":"生肉","class":"食材","amount":1,"const_amount":0},
+             {"name":"羽毛","class":"食材","amount":1,"const_amount":0}
+        ]
+    },
+    {
+        "name":"野兔",
+        "热量":0,
+        "inputs":[
+            {"name":"野兔","class":"食材","amount":1,"const_amount":0},
+            {"name":"菜刀","class":"道具","amount":0,"const_amount":1}
+        ],
+        "outputs":[
+            {"name":"生肉","class":"食材","amount":1,"const_amount":0},
+            {"name":"皮革","class":"食材","amount":1,"const_amount":0}
+        ]
+    },
+    {
+        "name":"野猪",
+        "热量":0,
+        "inputs":[
+            {"name":"野猪","class":"食材","amount":1,"const_amount":0},
+            {"name":"菜刀","class":"道具","amount":0,"const_amount":1}
+        ],
+        "outputs":[
+            {"name":"生肉","class":"食材","amount":2,"const_amount":0},
+            {"name":"皮革","class":"食材","amount":1,"const_amount":0}
+        ]
+    },
+    {
+        "name":"野牛",
+        "热量":0,
+        "inputs":[
+            {"name":"野牛","class":"食材","amount":1,"const_amount":0},
+            {"name":"菜刀","class":"道具","amount":0,"const_amount":1}
+        ],
+        "outputs":[
+            {"name":"生肉","class":"食材","amount":2,"const_amount":0},
+            {"name":"皮革","class":"食材","amount":2,"const_amount":0}
+        ]
+    },
+    {
+        "name":"野羊",
+        "热量":0,
+        "inputs":[
+            {"name":"野羊","class":"食材","amount":1,"const_amount":0},
+            {"name":"菜刀","class":"道具","amount":0,"const_amount":1}
+        ],
+        "outputs":[
+            {"name":"生肉","class":"食材","amount":2,"const_amount":0},
+            {"name":"羊毛","class":"食材","amount":2,"const_amount":0}
+        ]
+    },
+    {
+        "name":"木炭",
+        "热量":1,
+        "inputs":[
+            {"name":"原木","class":"材料","amount":1,"const_amount":0},
+            {"name":"熔炉","class":"道具","amount":0,"const_amount":0}
+        ],
+        "outputs":[
+            {"name":"木炭","class":"材料","amount":1,"const_amount":0}
+        ]
+    },
+    {
+        "name":"未点燃的火把",
+        "热量":0,
+        "inputs":[
+            {"name":"木炭","class":"材料","amount":1,"const_amount":0},
+            {"name":"木棍","class":"材料","amount":1,"const_amount":0}
+        ],
+        "outputs":[
+            {"name":"未点燃的火把","class":"道具","amount":5,"const_amount":0}
+        ]
+    }
+]

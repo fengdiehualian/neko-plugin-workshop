@@ -1,0 +1,20 @@
+{
+  "plugin.name": "Sala de testes",
+  "plugin.description": "Testes de personalidade, psicologia e divertidos em um painel: Big Five, 16 tipos, interesses profissionais, apego, resiliencia, alem de PHQ-9 / GAD-7 / solidao de reproducao aberta. Tudo e corrigido localmente; os dados ficam na sua maquina.",
+  "panel.title": "Sala de testes",
+  "panel.subtitle": "Testes de personalidade e psicologia - uma pergunta por vez, resultados so na sua maquina",
+  "panel.tab.home": "Testes",
+  "panel.tab.quiz": "Perguntas",
+  "panel.tab.result": "Resultado",
+  "panel.tab.records": "Registros",
+  "panel.tab.about": "Sobre",
+  "panel.search": "Buscar por nome ou descricao",
+  "panel.start": "Escolha um para comecar",
+  "panel.disclaimer": "Estes testes servem para autoconhecimento e reflexao; nao sao um diagnostico medico.",
+  "panel.copy": "Copiar resultado",
+  "panel.share": "Cartao para compartilhar",
+  "panel.retake": "Refazer",
+  "panel.export": "Exportar (texto)",
+  "panel.clear": "Limpar tudo",
+  "panel.empty_records": "Ainda nao ha registros."
+}

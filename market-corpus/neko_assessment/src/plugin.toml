@@ -1,0 +1,42 @@
+[plugin]
+name = "心理测评室"
+description = "心理测评 · 人格测评 · 趣味测评一个面板全包：大五人格（IPIP，Goldberg 公共领域题库，每因子 20 题）、16 型人格（OEJTS 1.2 原题）、职业兴趣（O*NET 霍兰德）、成人依恋、心理韧性，以及公开可复现的 PHQ-9 / GAD-7 / 孤独感简版；外加默契测试（题目发给她本人、她在真实对话里作答）、魔法分院、灵魂动物等纯娱乐小测。一题一屏、实时看维度剖面、结果可追踪趋势、可导出与生成分享卡。答案与结果只存在你本机的 data/，不上传、不联网。所有量表仅供自我了解与反思，不构成医学诊断。"
+short_description = "Personality, psychology and fun assessments in one panel: Big Five (public-domain IPIP/Goldberg pool), 16-type (OEJTS), O*NET career interests, attachment style, resilience, plus openly reproducible PHQ-9 / GAD-7 / loneliness screens and playful quizzes. One question at a time, live dimension profile, trend tracking, exportable results. Everything is scored and stored locally; not a medical diagnosis."
+keywords = ["心理测评", "psychology", "人格", "personality", "大五", "big five", "16型", "霍兰德", "career", "依恋", "attachment", "PHQ-9", "GAD-7", "焦虑", "趣味测试", "quiz", "测评", "assessment", "性格", "診断", "心理テスト", "성격", "심리테스트"]
+version = "1.0.0.2"
+type = "plugin"
+id = "neko_assessment"
+entry = "plugin.plugins.neko_assessment:AssessmentPlugin"
+
+[plugin.author]
+name = "MENGYAOYUE"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[plugin.store]
+enabled = true
+
+[neko_assessment]
+# 面板端口（会自动向后寻找可用端口）
+# panel_port = 15800
+
+# ── 面板声明：有了它，宿主插件管理里才会出现「打开界面」入口 ──────
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "心理测评室"
+entry = "static/index.html"
+context = "neko_assessment"
+permissions = ["state:read", "action:call"]

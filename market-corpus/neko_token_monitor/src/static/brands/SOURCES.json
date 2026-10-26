@@ -1,0 +1,51 @@
+{
+  "purpose": "Provider identification on locally bundled catfood bags; no endorsement implied. Brand artwork belongs to its respective owner.",
+  "retrieved": "2026-10-20",
+  "icons": [
+    {
+      "key": "deepseek",
+      "source": "https://www.deepseek.com/favicon.ico",
+      "sha256": "6b67dfe2437107e574d7b7471e33d00bc96f92dc401b53c0c904632fd10d91d7"
+    },
+    {
+      "key": "trae",
+      "source": "https://lf-cdn.trae.com.cn/obj/trae-com-cn/trae_website_prod_cn/favicon.png",
+      "sha256": "d249dfa1e8f8f184d7168f1da0d4c880fe5fc590026a1ab00431cbef94d71490"
+    },
+    {
+      "key": "kimi",
+      "source": "https://www.kimi.com/favicon.ico",
+      "sha256": "1368108db8df6ca3cb070b03ecf78157f2ad158a0f9658cf4c3d324b6f282d66"
+    },
+    {
+      "key": "qwen",
+      "source": "https://assets.alicdn.com/g/qwenweb/qwen-chat-fe/0.3.20/favicon.png",
+      "sha256": "9d7484872ba9fbbef4a45015ce67b5f1f8826fe080130edd2301ff2c7e16fcae"
+    },
+    {
+      "key": "gemini",
+      "source": "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png",
+      "sha256": "3c90722c85d1c3fbc8bed7d4db44530b77314e7de1fb755b8a58cb45df79df52"
+    },
+    {
+      "key": "codex",
+      "source": "Installed official Codex app: com.openai.codex / electron.icns",
+      "sha256": "d944a487cd9bc57225d6b79fe230d8e86b966628f281fc1e64e0922137f5db6e"
+    },
+    {
+      "key": "gpt",
+      "source": "Installed official Codex app: icon-chatgpt.icns",
+      "sha256": "d944a487cd9bc57225d6b79fe230d8e86b966628f281fc1e64e0922137f5db6e"
+    },
+    {
+      "key": "claude",
+      "source": "Installed official Claude app: com.anthropic.claudefordesktop / electron.icns",
+      "sha256": "73907fe2900f6c0462231bcd97c27a699f9ffad3bc58c9d9f02894ef0bd4633a"
+    },
+    {
+      "key": "workbuddy",
+      "source": "https://assets.workbuddy.cn/web/workbuddy/7e170c91f6fb3aa5720dd4381254492d08bf980c/assets/logo.svg",
+      "sha256": "10ccbc099e7bc3d5ff12c315c4edd7b21386aa7166c1ec19997b3d55010d5c7d"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+ "schema": "kards.trusted-cards",
+ "version": 1,
+ "generated_at": "2026-10-24T21:12:23.888569+00:00",
+ "source": "E:\\kards_training\\card_cls\\whitelist_candidates_all.json",
+ "rules": {
+  "min_independent_instances": 3,
+  "require_clip_consistent": true
+ },
+ "entries": [],
+ "trusted_count": 0,
+ "note": "白名单为空：全部 113 张真实画面验证裁图中，分类器=CLIP 一致且达到 ≥3 独立实例的卡为 0（最高 nzans/war_bonds 仅 2 实例，冻结规则见 training/docs/BUDGET-yolo-v1.md）。因此运行时所有卡牌一律输出 unknown。候选证据见 E:/kards_training/card_cls/validation_report_all.json。"
+}

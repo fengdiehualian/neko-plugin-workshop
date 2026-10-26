@@ -1,0 +1,141 @@
+[plugin]
+id = "neko_rimworld"
+name = "N.E.K.O RimWorld"
+version = "3.2.0"
+type = "plugin"
+entry = "plugin.plugins.neko_rimworld.entry:NekoRimworldPlugin"
+description = "RimWorld research agent with persistent colony work and a read-only local game bridge."
+short_description = "Investigate the colony and continue your work across consultations."
+keywords = ["rimworld", "colony", "game", "advisor", "consult", "analysis"]
+
+[plugin.i18n]
+default_locale = "en"
+locales_dir = "locales"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.4.0"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = { "$i18n" = "panel.surfaceTitle", "default" = "RimWorld advice" }
+entry = "ui/panel.tsx"
+mode = "hosted-tsx"
+context = "dashboard"
+permissions = ["state:read", "config:write", "action:call"]
+
+[[plugin.ui.guide]]
+id = "quickstart"
+title = { "$i18n" = "guide.surfaceTitle", "default" = "RimWorld setup guide" }
+entry = "ui/guide/guide-page.tsx"
+mode = "hosted-tsx"
+context = "dashboard"
+permissions = []
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+timeout = 10
+startup_failure = "warn"
+
+[neko_rimworld]
+port = 48919
+pairing_token = ""
+diagnostic_log_capacity = 200
+
+[neko_rimworld.agent]
+base_url = ""
+model = ""
+api_key = ""
+request_timeout_seconds = 60.0
+connect_timeout_seconds = 10.0
+first_response_timeout_seconds = 45.0
+stream_idle_timeout_seconds = 20.0
+finalization_reserve_seconds = 15.0
+stream_include_usage = true
+run_budget_seconds = 90.0
+max_output_tokens = 32768
+temperature = 0.2
+
+# Static discovery metadata: Hosted UI validates these without importing plugin code.
+
+[[entries]]
+id = "workspace_view"
+name = "Read persistent colony work"
+description = "Hosted UI read-only access to saved work, exchanges, evidence and audit."
+timeout = 8.0
+metadata = { "agent_auto" = false }
+input_schema = { "type" = "object", "properties" = { "action" = { "type" = "string", "enum" = ["list", "work", "turn", "observation", "audit"] }, "workspace_id" = { "type" = "string" }, "turn_id" = { "type" = "string" }, "observation_id" = { "type" = "string" }, "search" = { "type" = "string", "maxLength" = 256 }, "colony_only" = { "type" = "boolean" }, "offset" = { "type" = "integer", "minimum" = 0 }, "limit" = { "type" = "integer", "minimum" = 1, "maximum" = 50 } }, "required" = ["action"], "additionalProperties" = false }
+
+[[entries]]
+id = "get_agent_run_details"
+name = "Read retained agent run"
+description = "Hosted UI access to one retained run and a bounded page of audit events."
+timeout = 5.0
+llm_result_fields = []
+metadata = { "agent_auto" = false }
+input_schema = { "type" = "object", "properties" = { "run_id" = { "type" = "string", "minLength" = 1, "maxLength" = 128 }, "event_offset" = { "type" = "integer", "minimum" = 0, "maximum" = 512 }, "event_limit" = { "type" = "integer", "minimum" = 1, "maximum" = 100 } }, "required" = ["run_id"], "additionalProperties" = false }
+
+[[entries]]
+id = "probe_game_overview"
+name = "Probe RimWorld game overview"
+description = "Request the colony overview section from the authenticated local RimWorld session."
+timeout = 5.0
+llm_result_fields = ["summary"]
+metadata = { "agent_auto" = false }
+input_schema = { "type" = "object", "properties" = {  } }
+
+[[entries]]
+id = "rimworld_consult"
+name = "Consult RimWorld specialist"
+description = "Ask the RimWorld specialist a question in natural language. It investigates the colony, continues relevant previous work, and retrieves historical reports and evidence when needed. Express changes of topic, goals or requested scope in the question."
+timeout = 100.0
+llm_result_fields = ["summary"]
+metadata = { "llm_result_fields" = ["summary"] }
+input_schema = { "type" = "object", "properties" = { "question" = { "type" = "string", "minLength" = 1, "maxLength" = 2000, "description" = "The user's RimWorld question, preserving their language and intent." } }, "required" = ["question"], "additionalProperties" = false }
+
+[[entries]]
+id = "rimworld_report"
+name = "Retrieve RimWorld reports"
+description = "Hosted UI access to saved historical reports; list or read one report and export its full artifact."
+timeout = 8.0
+llm_result_fields = ["summary"]
+metadata = { "agent_auto" = false, "llm_result_fields" = ["summary"] }
+input_schema = { "type" = "object", "properties" = { "action" = { "type" = "string", "enum" = ["list", "read"] }, "report_id" = { "type" = "string", "pattern" = "^[0-9a-f]{32}$" }, "offset" = { "type" = "integer", "minimum" = 0, "maximum" = 1000 }, "limit" = { "type" = "integer", "minimum" = 1, "maximum" = 20 } }, "required" = ["action"], "additionalProperties" = false }
+
+[[entries]]
+id = "save_agent_settings"
+name = "Save RimWorld research agent settings"
+description = "Hosted UI configuration action for the plugin-owned model client."
+timeout = 15.0
+llm_result_fields = ["summary"]
+metadata = { "agent_auto" = false }
+input_schema = { "type" = "object", "properties" = { "base_url" = { "type" = "string", "minLength" = 1, "maxLength" = 2048 }, "model" = { "type" = "string", "minLength" = 1, "maxLength" = 256 }, "api_key" = { "type" = "string", "writeOnly" = true, "maxLength" = 4096, "description" = "Leave empty to retain the currently configured API key." }, "ui_nonce" = { "type" = "string", "writeOnly" = true, "minLength" = 1 }, "budgets" = { "type" = "object", "additionalProperties" = false, "properties" = { "connect_timeout_seconds" = { "type" = "number", "minimum" = 1, "maximum" = 30 }, "first_response_timeout_seconds" = { "type" = "number", "minimum" = 1, "maximum" = 60 }, "stream_idle_timeout_seconds" = { "type" = "number", "minimum" = 1, "maximum" = 60 }, "request_timeout_seconds" = { "type" = "number", "minimum" = 3, "maximum" = 60 }, "run_budget_seconds" = { "type" = "number", "minimum" = 10, "maximum" = 90 }, "finalization_reserve_seconds" = { "type" = "number", "minimum" = 0, "maximum" = 30 }, "max_output_tokens" = { "type" = "integer", "minimum" = 64, "maximum" = 131072 } } } }, "required" = ["base_url", "model", "api_key", "ui_nonce"], "additionalProperties" = false }
+
+[[entries]]
+id = "save_bridge_settings"
+name = "Save RimWorld bridge settings"
+description = "Save local bridge credentials and immediately restart the loopback listener."
+timeout = 15.0
+llm_result_fields = ["summary"]
+metadata = { "agent_auto" = false }
+input_schema = { "type" = "object", "properties" = { "port" = { "type" = "integer", "minimum" = 1, "maximum" = 65535 }, "pairing_token" = { "type" = "string", "writeOnly" = true, "maxLength" = 128, "description" = "Leave empty to retain the currently configured token." }, "ui_nonce" = { "type" = "string", "writeOnly" = true, "minLength" = 1 } }, "required" = ["port", "pairing_token", "ui_nonce"], "additionalProperties" = false }
+
+[[entries]]
+id = "begin_settings_save"
+name = "Save panel settings"
+description = "Start one settings save and return a receipt without waiting for persistence."
+timeout = 3.0
+metadata = { "agent_auto" = false }
+input_schema = { "type" = "object", "additionalProperties" = false, "required" = ["operation_id", "kind", "ui_nonce"], "properties" = { "operation_id" = { "type" = "string", "pattern" = "^[a-f0-9]{32}$" }, "kind" = { "type" = "string", "enum" = ["bridge", "agent"] }, "ui_nonce" = { "type" = "string", "writeOnly" = true }, "port" = { "type" = "integer", "minimum" = 1, "maximum" = 65535 }, "pairing_token" = { "type" = "string", "writeOnly" = true, "maxLength" = 128 }, "base_url" = { "type" = "string", "maxLength" = 2048 }, "model" = { "type" = "string", "maxLength" = 256 }, "api_key" = { "type" = "string", "writeOnly" = true, "maxLength" = 4096 }, "budgets" = { "type" = "object" } } }
+
+[[entries]]
+id = "get_settings_save"
+name = "Read settings save receipt"
+description = "Read the status of a panel settings save; never repeats a write."
+timeout = 3.0
+metadata = { "agent_auto" = false }
+input_schema = { "type" = "object", "additionalProperties" = false, "required" = ["operation_id"], "properties" = { "operation_id" = { "type" = "string", "pattern" = "^[a-f0-9]{32}$" } } }

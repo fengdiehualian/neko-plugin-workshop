@@ -1,0 +1,18 @@
+{
+  "platform": "windows-x64",
+  "source_commit": "b9051a0bba4fde08a565f001e83d22634f0a303e",
+  "sources": {
+    "native/windows/CatFood.csproj": "6b858db3d209cc2d96c831b68bdfd4421e065f4b3a83a6b58effaea6045884c1",
+    "native/windows/Program.cs": "9c5072cb955831961ec7430cc27fd99b3ee13e69de47b8e3ba1e51f174d461d1",
+    "native/windows/WindowOwnership.cs": "cad42bf337882c9e8c1713fe2726246b5a620baaf2dbcfd804c7da61551689a9"
+  },
+  "files": {
+    "CatFood.exe": "951591c0788d5d1fff4090ddb6e35c5575e7fe35558f653f60df003b4ec9829e",
+    "CatFood.exe.config": "051099983b896673909e01a1f631b6652abb88da95c9f06f3efef4be033091fa",
+    "Microsoft.Web.WebView2.Core.dll": "88a3b62f45225a811cdb85df6dfd95c2bff9a0e43e3b04f813b125eaca56cc9f",
+    "Microsoft.Web.WebView2.WinForms.dll": "29fc954c3fde1749817d158f3dd5ebe9efd3b3ce9708d86092fb1e9f023a1cb0",
+    "Microsoft.Web.WebView2.Wpf.dll": "1c5b6c792916d168093ef9b836f33e818d2d15d0c81f0864b5cddff97d913319",
+    "WebView2Loader.dll": "462b36fd1be6ca9f7563466a89e57c41ef4a4def3e0a84fa885d203aea4a3aaf",
+    "runtimes/win-x64/native/WebView2Loader.dll": "462b36fd1be6ca9f7563466a89e57c41ef4a4def3e0a84fa885d203aea4a3aaf"
+  }
+}

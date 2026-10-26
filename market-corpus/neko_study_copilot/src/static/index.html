@@ -1,0 +1,3571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>学习辅助猫娘</title>
+<style>
+/* ── 自托管字体：只有拉丁与数字（各 15~22KB），中文字形走系统字体栈 ── */
+@font-face{font-family:'Quicksand';src:url("fonts/quicksand-500.woff2") format("woff2");font-weight:400 600;font-style:normal;font-display:swap}
+@font-face{font-family:'Lora';src:url("fonts/lora-500.woff2") format("woff2");font-weight:400 600;font-style:normal;font-display:swap}
+@font-face{font-family:'JBMono';src:url("fonts/jetbrains-mono-400.woff2") format("woff2");font-weight:400 600;font-style:normal;font-display:swap}
+
+:root{
+  --ink:#2b2640; --ink2:#585070; --dim:#8d86a8;
+  --glass:rgba(255,255,255,.72); --glass-soft:rgba(255,255,255,.55);
+  --line:rgba(255,255,255,.85); --edge:rgba(122,110,175,.20);
+  --accent:#7c6cf0; --accent-lt:#a99cf8;
+  --ok:#2c9d72; --bad:#d24f6d; --warn:#b8811f;
+  --shadow:0 10px 28px rgba(58,48,110,.13);
+  --radius:18px;
+  /* 字体三件套：界面 / 正文 / 等宽，由「字体」下拉切换 */
+  --font-ui:'Quicksand',system-ui,'Microsoft YaHei','PingFang SC',sans-serif;
+  --font-body:'Quicksand',system-ui,'Microsoft YaHei','PingFang SC',sans-serif;
+  --font-mono:'JBMono',ui-monospace,Consolas,'Microsoft YaHei',monospace;
+  /* 字号只调 --fs，其余全部按比例派生——否则"改了没反应"（每个组件都写死 px 就是以前的问题） */
+  --fs:14px;
+  --fs-2xs: calc(var(--fs) * 0.82);    /* ≈11.5 角标 */
+  --fs-xs:  calc(var(--fs) * 0.86);    /* ≈12   小标签 */
+  --fs-sm:  calc(var(--fs) * 0.89);    /* ≈12.5 次要说明 */
+  --fs-base: calc(var(--fs) * 0.92);   /* ≈12.9 输出区正文 */
+  --fs-in:  calc(var(--fs) * 0.93);    /* ≈13   输入框与按钮 */
+  --fs-md:  calc(var(--fs) * 0.96);    /* ≈13.5 卡片内小节 */
+  --fs-lg:  calc(var(--fs) * 1.04);    /* ≈14.5 卡片标题 */
+  --fs-xl:  calc(var(--fs) * 1.36);    /* ≈19   统计数字 */
+  --fs-h1:  calc(var(--fs) * 1.43);    /* ≈20   页面标题 */
+  /* 背景整栈由 JS 按「模式 + 蒙层强度」重建：默认是插件自带那张插画 */
+  --bg-stack:
+    linear-gradient(180deg,rgba(255,255,255,.34) 0%,rgba(255,255,255,.58) 45%,rgba(253,251,255,.74) 100%),
+    url("bg.jpg") center top / cover no-repeat fixed,
+    linear-gradient(160deg,#e9e4ff,#fdf7ff 60%,#eaf4ff);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;color:var(--ink);font-family:var(--font-body);font-size:var(--fs);line-height:1.7;
+  background:var(--bg-stack);
+}
+.app{max-width:1120px;margin:0 auto;padding:20px 18px 64px}
+
+/* ── 顶部 ─────────────────────────────────────────── */
+.topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.mark{
+  width:46px;height:46px;border-radius:15px;flex:none;display:grid;place-items:center;
+  background:linear-gradient(160deg,#8f80f5,#6f5ee8);color:#fff;
+  box-shadow:0 8px 20px rgba(110,94,232,.35);
+}
+.mark svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+h1{font-family:var(--font-ui);font-size:var(--fs-h1);margin:0;letter-spacing:.3px}
+.sub{color:var(--ink2);font-size:var(--fs-sm);margin-top:2px}
+.topStatus{
+  margin-left:auto;display:flex;align-items:center;gap:8px;
+  background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--line);border-radius:999px;padding:6px 14px;
+  font-size:var(--fs-sm);color:var(--ink2);box-shadow:var(--shadow);white-space:nowrap;
+}
+.dot{width:8px;height:8px;border-radius:50%;background:#c6c0dc;flex:none}
+.dot.on{background:#3dbd8b;box-shadow:0 0 0 4px rgba(61,189,139,.2)}
+.dot.off{background:#e0778e;box-shadow:0 0 0 4px rgba(224,119,142,.2)}
+
+/* ── 工具条：字体 / 字号 / 教学模式 ─────────────────── */
+.tools{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;
+  background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--line);border-radius:16px;padding:8px 12px;box-shadow:var(--shadow);font-size:var(--fs-sm);
+}
+.tools label{display:flex;align-items:center;gap:6px;color:var(--ink2);margin:0}
+.tools select{width:auto;min-width:140px;padding:5px 9px;font-size:var(--fs-sm);border-radius:9px}
+.sep{width:1px;height:18px;background:var(--edge)}
+.switch{
+  display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+  background:rgba(255,255,255,.7);border:1px solid var(--edge);border-radius:10px;
+  padding:5px 11px;font-size:var(--fs-sm);color:var(--ink2);font-family:inherit;transition:.15s;
+}
+.switch:hover{border-color:var(--accent-lt);color:var(--accent)}
+.switch .knob{width:30px;height:16px;border-radius:9px;background:#d6d0ea;position:relative;transition:.18s;flex:none}
+.switch .knob::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:.18s}
+.switch.on .knob{background:linear-gradient(90deg,#8f80f5,#6f5ee8)}
+.switch.on .knob::after{left:16px}
+.switch.on{border-color:var(--accent-lt);color:var(--accent)}
+
+/* ── 布局 ─────────────────────────────────────────── */
+.layout{display:grid;grid-template-columns:92px minmax(0,1fr);gap:16px;align-items:start}
+.rail{
+  position:sticky;top:16px;display:flex;flex-direction:column;gap:4px;padding:8px;
+  background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);
+}
+.tab{
+  display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 6px;
+  border:1px solid transparent;border-radius:16px;background:transparent;color:var(--ink2);
+  font-size:var(--fs-2xs);font-family:inherit;cursor:pointer;transition:.16s;
+}
+.tab svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tab:hover{background:rgba(255,255,255,.62);color:var(--ink)}
+.tab.on{background:linear-gradient(180deg,#9184f6,#7c6cf0);color:#fff;box-shadow:0 8px 18px rgba(124,108,240,.36)}
+.content{min-width:0}
+
+/* ── 卡片 ─────────────────────────────────────────── */
+.card{
+  background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow);
+}
+.card h2{display:flex;align-items:center;gap:9px;font-family:var(--font-ui);font-size:var(--fs-lg);margin:0 0 13px;color:#40375f;font-weight:600}
+.card h2::before{content:"";width:4px;height:15px;border-radius:3px;flex:none;
+  background:linear-gradient(180deg,var(--accent),var(--accent-lt))}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:11px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:11px}
+label{display:block;font-size:var(--fs-xs);color:var(--dim);margin-bottom:5px;font-weight:500}
+
+/* ── 控件 ─────────────────────────────────────────── */
+input,select,textarea{
+  width:100%;background:rgba(255,255,255,.86);color:var(--ink);
+  border:1px solid var(--edge);border-radius:11px;padding:8px 11px;
+  font-size:var(--fs-in);font-family:inherit;transition:.15s;
+}
+input::placeholder,textarea::placeholder{color:#a8a2be}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent-lt);box-shadow:0 0 0 3px rgba(124,108,240,.16)}
+input[type=file]{padding:6px 8px;font-size:var(--fs-sm)}
+textarea{min-height:112px;resize:vertical;line-height:1.6}
+select{cursor:pointer}
+button{
+  display:inline-flex;align-items:center;gap:6px;
+  background:linear-gradient(180deg,#8b7cf2,#7365e6);color:#fff;border:0;
+  border-radius:11px;padding:8px 17px;font-size:var(--fs-in);font-family:inherit;cursor:pointer;
+  box-shadow:0 6px 16px rgba(115,101,230,.28);transition:.15s;
+}
+button:hover{filter:brightness(1.06);transform:translateY(-1px)}
+button:active{transform:translateY(0)}
+button.ghost{background:rgba(255,255,255,.7);color:var(--ink2);border:1px solid var(--edge);box-shadow:none;backdrop-filter:blur(8px)}
+button.ghost:hover{color:var(--accent);border-color:var(--accent-lt);filter:none}
+
+/* ── 输出区：结构化渲染，不再把裸文本塞进 pre ───────── */
+.out{
+  font-family:var(--font-body);font-size:var(--fs-base);line-height:1.75;color:#3f3859;
+  background:rgba(255,255,255,.55);border:1px solid var(--line);border-radius:14px;
+  padding:13px 15px;max-height:520px;overflow:auto;
+}
+.out h3{font-family:var(--font-ui);font-size:var(--fs-md);margin:14px 0 8px;color:#4b3f80;
+  display:flex;align-items:center;gap:8px;font-weight:600}
+.out h3:first-child{margin-top:0}
+.out h3::before{content:"";width:3px;height:13px;border-radius:2px;background:linear-gradient(180deg,var(--accent),var(--accent-lt))}
+.out ul,.out ol{margin:6px 0 6px 2px;padding-left:18px}
+.out li{margin:4px 0}
+.out li::marker{color:var(--accent-lt)}
+.out p{margin:6px 0}
+.out p.sub{margin:2px 0 2px 14px;color:#5b5375}
+.out b{color:#3a2f6b;font-weight:600}
+.out a{color:var(--accent);text-decoration:none;border-bottom:1px dashed rgba(124,108,240,.45);word-break:break-all}
+.out a:hover{border-bottom-style:solid}
+.out hr{border:0;border-top:1px dashed var(--edge);margin:12px 0}
+.out .callout{margin:9px 0;padding:8px 12px;border-radius:10px;
+  background:rgba(255,244,219,.75);border-left:3px solid #e0b155;color:#6d4f18;font-size:var(--fs-base)}
+.out .bar{display:inline-block;width:74px;height:7px;border-radius:5px;background:rgba(124,108,240,.16);
+  vertical-align:middle;margin-right:6px;overflow:hidden}
+.out .bar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#9b8cf7,#6f5ee8)}
+.out .bar-num{font-family:var(--font-mono);font-size:var(--fs-xs);color:#5b5375}
+.out pre.raw{font-family:var(--font-mono);font-size:var(--fs-2xs);white-space:pre-wrap;word-break:break-word;margin:0}
+
+/* ── 状态总览（数值卡片）─────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(124px,1fr));gap:10px;margin-bottom:12px}
+.stat{background:rgba(255,255,255,.66);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.stat b{display:block;font-family:var(--font-ui);font-size:var(--fs-xl);color:#40375f;line-height:1.25}
+.stat span{font-size:var(--fs-2xs);color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:rgba(255,255,255,.7);border:1px solid var(--edge);border-radius:999px;padding:3px 11px;font-size:var(--fs-xs);color:var(--ink2)}
+.chip b{color:#40375f}
+
+.muted{color:var(--dim);font-size:var(--fs-sm)}
+.muted code,.notice code,.out code{background:rgba(255,255,255,.7);border:1px solid var(--edge);border-radius:6px;
+  padding:1px 6px;font-size:var(--fs-xs);font-family:var(--font-mono)}
+.status{margin-left:8px;font-size:var(--fs-xs);color:var(--dim)}
+.pill{display:inline-block;padding:2px 11px;border-radius:999px;font-size:var(--fs-xs);margin:2px 4px 2px 0}
+.pill.on{background:rgba(61,189,139,.18);color:var(--ok)}
+.pill.off{background:rgba(224,119,142,.16);color:var(--bad)}
+.pill.info{background:rgba(124,108,240,.14);color:#6558c9}
+.notice{background:rgba(255,244,219,.82);border-left:3px solid #e0b155;color:#71521a;
+  padding:11px 14px;border-radius:0 12px 12px 0;font-size:var(--fs-sm);margin-bottom:13px;backdrop-filter:blur(8px)}
+.links{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+.link{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(255,255,255,.66);
+  border:1px solid var(--line);border-radius:11px;padding:7px 11px;font-size:var(--fs-sm)}
+.link a{color:var(--accent);text-decoration:none;word-break:break-all}
+.link span{color:var(--dim);font-size:var(--fs-2xs)}
+a{color:var(--accent);text-decoration:none}
+.hidden{display:none}
+#captcha-img{background:#fff;border-radius:10px;max-height:70px;margin:6px 0;border:1px solid var(--edge)}
+
+/* ── 页头：切页时的位置感 ────────────────────────────── */
+.pagehead{margin:0 0 12px}
+.pagehead h2{font-family:var(--font-ui);font-size:var(--fs-xl);margin:0 0 2px;color:#3a3160;letter-spacing:.2px}
+.pagehead p{margin:0;color:var(--ink2);font-size:var(--fs-sm)}
+
+/* ── 外观抽屉：默认收起，顶栏才清爽 ───────────────────── */
+.toolsbar{margin-bottom:10px}
+.drawer{
+  margin-bottom:14px;background:var(--glass);border:1px solid var(--line);border-radius:16px;
+  box-shadow:var(--shadow);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  padding:0 12px;max-height:0;overflow:hidden;opacity:0;visibility:hidden;
+  transition:max-height .24s ease,opacity .18s ease,padding .24s ease,visibility .24s;
+}
+.drawer.open{max-height:360px;opacity:1;visibility:visible;padding:11px 12px}
+.drawer .grid{grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
+.icon{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── 输出区：右上角复制 + 空态 ────────────────────────── */
+.outwrap{position:relative;margin-top:13px}
+.outwrap .out{padding-top:32px}
+.outbar{position:absolute;top:7px;right:9px;z-index:2;opacity:.5;transition:.15s}
+.outwrap:hover .outbar,.outbar:focus-within{opacity:1}
+.outbar button{
+  background:rgba(255,255,255,.88);border:1px solid var(--edge);color:var(--ink2);
+  border-radius:8px;padding:2px 10px;font-size:var(--fs-2xs);box-shadow:none;backdrop-filter:blur(6px);
+}
+.outbar button:hover{color:var(--accent);border-color:var(--accent-lt);filter:none;transform:none}
+.out.empty{
+  display:flex;align-items:center;justify-content:center;min-height:78px;
+  border-style:dashed;color:var(--dim);font-size:var(--fs-sm);text-align:center;padding:22px 15px;
+}
+
+/* ── 进行中：看得见的 spinner ─────────────────────────── */
+.spin{
+  display:inline-block;width:11px;height:11px;border-radius:50%;flex:none;margin-right:5px;
+  border:2px solid rgba(124,108,240,.3);border-top-color:var(--accent);
+  animation:spin .7s linear infinite;vertical-align:-1px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status{display:inline-flex;align-items:center;gap:2px}
+
+/* ── 细滚动条（原来输出区那条又粗又抢眼）───────────────── */
+*{scrollbar-width:thin;scrollbar-color:rgba(124,108,240,.32) transparent}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{
+  background:rgba(124,108,240,.3);border-radius:6px;
+  border:2px solid transparent;background-clip:content-box;
+}
+*::-webkit-scrollbar-thumb:hover{background:rgba(124,108,240,.5);background-clip:content-box}
+
+/* ── 键盘可达：focus 要看得见 ─────────────────────────── */
+:focus-visible{outline:2px solid var(--accent-lt);outline-offset:2px;border-radius:9px}
+
+/* ── 更多设置（少用的字段折起来，别变表单墙）────────────── */
+details.more{margin-top:12px;border-top:1px dashed var(--edge);padding-top:11px}
+details.more>summary{
+  cursor:pointer;color:var(--ink2);font-size:var(--fs-sm);list-style:none;
+  display:flex;align-items:center;gap:7px;width:fit-content;
+}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::before{content:"▸";color:var(--accent);transition:transform .15s;display:inline-block}
+details.more[open]>summary::before{transform:rotate(90deg)}
+details.more .grid{margin-top:11px}
+details.more .muted{margin-top:9px}
+.notice.inline{margin:10px 0 0}
+
+/* ── 等级胶囊（顶栏）─────────────────────────────────── */
+.lvpill{
+  display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none;
+  background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(244,240,255,.86));
+  border:1px solid rgba(124,108,240,.35);border-radius:999px;padding:5px 13px 5px 11px;
+  box-shadow:0 6px 16px rgba(115,101,230,.16);transition:.16s;
+}
+.lvpill:hover{border-color:var(--accent);box-shadow:0 8px 20px rgba(115,101,230,.26)}
+.lvpill .lvnum{font-family:var(--font-ui);font-weight:600;color:#5b4bd6;font-size:var(--fs-sm)}
+.lvpill .lvtitle{color:var(--ink2);font-size:var(--fs-sm)}
+.lvpill .lvbar{width:56px;height:6px;border-radius:4px;background:rgba(124,108,240,.18);overflow:hidden}
+.lvpill .lvbar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#9b8cf7,#6f5ee8);transition:width .5s ease}
+.lvpill.flash{animation:lvflash .7s ease}
+@keyframes lvflash{0%{transform:scale(1)}35%{transform:scale(1.07);box-shadow:0 0 0 6px rgba(124,108,240,.18)}100%{transform:scale(1)}}
+
+/* ── 修行进度卡片 ────────────────────────────────────── */
+.lvhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.lvbig{
+  font-family:var(--font-ui);font-weight:700;font-size:calc(var(--fs) * 1.6);line-height:1;
+  color:#fff;padding:12px 16px;border-radius:16px;
+  background:linear-gradient(160deg,#9184f6,#6f5ee8);box-shadow:0 10px 24px rgba(110,94,232,.32);
+}
+.lvname{font-family:var(--font-ui);font-size:var(--fs-xl);color:#3a3160;font-weight:600}
+.lvexp{margin-left:auto;font-family:var(--font-mono);font-size:var(--fs-sm);color:var(--ink2)}
+.lvbar.big{height:10px;border-radius:6px;background:rgba(124,108,240,.16);overflow:hidden;margin-bottom:13px}
+.lvbar.big i{display:block;height:100%;border-radius:6px;
+  background:linear-gradient(90deg,#9b8cf7,#6f5ee8);transition:width .6s ease}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.badge{
+  display:flex;gap:8px;align-items:flex-start;background:rgba(255,255,255,.66);
+  border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:var(--fs-sm);
+}
+.badge.locked{opacity:.45;border-style:dashed}
+.badge .ico{font-size:var(--fs-md);line-height:1.2}
+.badge b{display:block;color:#3f3859}
+.badge span{color:var(--dim);font-size:var(--fs-xs)}
+
+/* ── 经验飘字 / 升级特效 ─────────────────────────────── */
+.expfloat{
+  position:fixed;z-index:99;pointer-events:none;font-family:var(--font-ui);font-weight:600;
+  color:#6f5ee8;text-shadow:0 1px 0 #fff,0 0 14px rgba(124,108,240,.55);
+  animation:floatUp 1.2s cubic-bezier(.2,.8,.3,1) forwards;
+}
+@keyframes floatUp{
+  0%{opacity:0;transform:translate(-50%,0) scale(.85)}
+  18%{opacity:1;transform:translate(-50%,-12px) scale(1.06)}
+  100%{opacity:0;transform:translate(-50%,-78px) scale(1)}
+}
+.spark{position:fixed;z-index:98;pointer-events:none;width:7px;height:7px;border-radius:2px;
+  animation:sparkFly .95s ease-out forwards}
+@keyframes sparkFly{
+  0%{opacity:1;transform:translate(-50%,-50%) rotate(0)}
+  100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(220deg)}
+}
+.levelup{
+  position:fixed;inset:0;z-index:100;display:grid;place-items:center;pointer-events:none;
+  background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.55),rgba(255,255,255,0) 60%);
+  animation:lvFade 2.6s ease forwards;
+}
+@keyframes lvFade{0%{opacity:0}12%{opacity:1}78%{opacity:1}100%{opacity:0}}
+.levelup .box{
+  text-align:center;background:rgba(255,255,255,.92);border:1px solid rgba(124,108,240,.4);
+  border-radius:22px;padding:22px 34px;box-shadow:0 20px 50px rgba(90,76,190,.28);
+  animation:lvPop .5s cubic-bezier(.2,1.3,.4,1) both;
+}
+@keyframes lvPop{0%{transform:scale(.7) translateY(14px)}100%{transform:scale(1) translateY(0)}}
+.levelup .t1{font-family:var(--font-ui);font-size:var(--fs-sm);color:var(--ink2);letter-spacing:2px}
+.levelup .t2{font-family:var(--font-ui);font-size:calc(var(--fs) * 2);font-weight:700;color:#5b4bd6;line-height:1.2;margin:4px 0}
+.levelup .t3{font-size:var(--fs-md);color:#3f3859}
+.levelup .stars{font-size:var(--fs-xl);letter-spacing:6px;color:#e0b155;margin-top:6px}
+
+/* ── 鼠标轨迹画布：铺满视口，不吃事件 ─────────────────── */
+#trail-canvas{
+  position:fixed;inset:0;width:100%;height:100%;pointer-events:none;
+  z-index:90;display:block;
+}
+#trail-canvas.off{display:none}
+
+/* ── 解压钢琴：平铺键，每个键一个音 ───────────────────── */
+.piano-wrap{
+  background:linear-gradient(160deg,rgba(57,197,187,.16),rgba(124,108,240,.12));
+  border:1px solid var(--line);border-radius:18px;padding:14px;
+}
+.piano{
+  display:grid;gap:7px;
+  grid-template-columns:repeat(var(--cols,7),minmax(0,1fr));
+}
+.key{
+  position:relative;overflow:hidden;cursor:pointer;user-select:none;
+  aspect-ratio:1 / 0.72;border-radius:12px;border:1px solid rgba(255,255,255,.75);
+  background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(236,246,248,.85));
+  box-shadow:0 4px 12px rgba(58,48,110,.10);transition:transform .07s ease,box-shadow .12s ease,background .12s;
+}
+.key .lbl{
+  position:absolute;left:8px;bottom:6px;font-family:var(--font-mono);
+  font-size:var(--fs-xs);color:#5d6b86;opacity:.85;
+}
+.key .dot{
+  position:absolute;right:8px;top:7px;width:7px;height:7px;border-radius:50%;
+  background:var(--key-hue,#39c5bb);opacity:.75;
+}
+.key:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(58,48,110,.16)}
+.key.hit{
+  background:linear-gradient(180deg,var(--key-hue,#39c5bb),rgba(255,255,255,.85));
+  transform:translateY(1px) scale(.985);
+  box-shadow:0 0 0 3px rgba(57,197,187,.28),0 2px 8px rgba(58,48,110,.2);
+}
+.key .ripple{
+  position:absolute;left:50%;top:50%;width:8px;height:8px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.9);transform:translate(-50%,-50%);
+  animation:keyRipple .55s ease-out forwards;pointer-events:none;
+}
+@keyframes keyRipple{0%{opacity:.85;width:8px;height:8px}100%{opacity:0;width:150px;height:150px}}
+.piano-tips{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.piano-tips kbd{
+  font-family:var(--font-mono);font-size:var(--fs-2xs);background:rgba(255,255,255,.85);
+  border:1px solid var(--edge);border-radius:6px;padding:1px 6px;color:var(--ink2);
+}
+@media (prefers-reduced-motion: reduce){
+  .key,.key.hit{transition:none}
+}
+
+/* ── 解压页的模式切换 ─────────────────────────────────── */
+.seg{display:inline-flex;gap:4px;background:rgba(255,255,255,.66);border:1px solid var(--line);
+  border-radius:12px;padding:4px;margin-bottom:13px}
+.segbtn{
+  border:0;background:transparent;color:var(--ink2);border-radius:9px;
+  padding:6px 14px;font-size:var(--fs-sm);font-family:inherit;cursor:pointer;box-shadow:none;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.segbtn:hover{filter:none;transform:none;background:rgba(255,255,255,.7)}
+.segbtn.on{background:linear-gradient(180deg,#9184f6,#7c6cf0);color:#fff;box-shadow:0 6px 14px rgba(124,108,240,.3)}
+.segbtn.on:hover{background:linear-gradient(180deg,#9184f6,#7c6cf0)}
+
+/* ── 切水果舞台 ───────────────────────────────────────── */
+.fr-stage{
+  position:relative;width:100%;aspect-ratio:16 / 9;border-radius:16px;overflow:hidden;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  background:
+    radial-gradient(120% 80% at 50% 110%,rgba(57,197,187,.22),rgba(255,255,255,0) 70%),
+    linear-gradient(180deg,rgba(255,255,255,.72),rgba(240,246,255,.6));
+  border:1px solid var(--line);box-shadow:inset 0 0 40px rgba(90,76,190,.08);cursor:crosshair;
+  touch-action:none;
+}
+.fr-stage.shake{animation:frShake .32s ease}
+@keyframes frShake{0%,100%{transform:translate(0)}25%{transform:translate(-5px,3px)}50%{transform:translate(4px,-3px)}75%{transform:translate(-3px,-2px)}}
+#fr-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.fr-hud{
+  position:absolute;top:8px;left:10px;right:10px;display:flex;gap:14px;flex-wrap:wrap;
+  font-size:var(--fs-sm);color:var(--ink2);pointer-events:none;
+}
+.fr-hud b{font-family:var(--font-ui);color:#3f3859}
+.fr-hud .lost{color:var(--bad)}
+.fr-overlay{
+  position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+  background:rgba(255,255,255,.5);backdrop-filter:blur(3px);
+}
+.fr-overlay.hidden{display:none}
+.fr-box{background:rgba(255,255,255,.94);border:1px solid rgba(124,108,240,.3);border-radius:18px;
+  padding:18px 26px;box-shadow:0 16px 40px rgba(90,76,190,.2);max-width:min(92%,430px)}
+.fr-title{font-family:var(--font-ui);font-size:var(--fs-xl);color:#3a3160;margin-bottom:4px}
+.fr-sub{color:var(--ink2);font-size:var(--fs-sm);margin-bottom:12px}
+.fr-box .stats{margin:12px 0 0}
+.fr-line{font-size:var(--fs-sm);color:#3f3859;margin:3px 0}
+.fr-line b{font-family:var(--font-ui)}
+#fr-badges .badge{min-height:52px}
+
+/* ── 电子板（Mikutap 风）：整块都是乐器 ────────────────── */
+.mk-stage{
+  position:relative;width:100%;aspect-ratio:16 / 9;border-radius:16px;overflow:hidden;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  background:#fbfbff;border:1px solid var(--line);
+  box-shadow:inset 0 0 40px rgba(90,76,190,.08);cursor:crosshair;touch-action:none;
+}
+#mk-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* Mikutap 式的背景分段变色：色调由调度器每 4 小节推进一步，CSS 自己做平滑过渡 */
+.mk-tint{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;
+  background-color:hsl(var(--mk-hue,190),72%,86%);opacity:.16;transition:background-color 1.6s ease}
+.mk-hud{
+  position:absolute;top:8px;left:10px;right:10px;display:flex;gap:14px;flex-wrap:wrap;
+  font-size:var(--fs-sm);color:#6b6b85;pointer-events:none;mix-blend-mode:multiply;
+}
+.mk-hud b{font-family:var(--font-ui);color:#3f3859}
+.mk-overlay{
+  position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+  background:rgba(255,255,255,.62);backdrop-filter:blur(3px);
+}
+.mk-overlay.hidden{display:none}
+
+/* 解压页放宽一点，舞台更大 */
+.app.wide{max-width:1500px}
+.mk-stage:fullscreen, .mk-stage:-webkit-full-screen{
+  width:100vw;height:100vh;aspect-ratio:auto;border-radius:0;border:0;
+}
+.fr-stage:fullscreen, .fr-stage:-webkit-full-screen{
+  width:100vw;height:100vh;aspect-ratio:auto;border-radius:0;border:0;
+}
+.mk-stage:fullscreen .mk-hud, .fr-stage:fullscreen .fr-hud{top:14px;left:18px;font-size:var(--fs-md)}
+
+@media (max-width:760px){
+  .layout{grid-template-columns:1fr}
+  .rail{position:static;flex-direction:row;overflow-x:auto;border-radius:18px}
+  .tab{min-width:76px}
+  .topStatus{margin-left:0}
+}
+</style>
+</head>
+<body>
+<canvas id="trail-canvas" aria-hidden="true"></canvas>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4 6.5h6.2l1.8 2.2 1.8-2.2H20V18H4z"/><path d="M8 21l1.6-3M16 21l-1.6-3"/></svg>
+      </div>
+      <div>
+        <h1>学习辅助猫娘</h1>
+        <div class="sub">档案 · 计划 · 平台 · 资源 · 诊断 · 疏导　·　数据全部留在本机</div>
+      </div>
+    </div>
+    <div class="topStatus" id="plug-pill" role="button" tabindex="0"
+         title="点一下重新探测插件连接并刷新状态">
+      <span class="dot" id="plug-dot"></span>
+      <span id="plug-text">正在连接插件…</span>
+    </div>
+  </header>
+
+  <div class="tools toolsbar">
+    <div class="switch" id="btn-teach" title="开启后讲解更严谨、结构更清楚，猫娘口癖基本消失">
+      <span class="knob"></span><span id="teach-label">教学模式</span>
+    </div>
+    <span class="muted" id="persona-note">人设：猫娘人格</span>
+    <button class="ghost" id="btn-look" aria-expanded="false" aria-controls="look-drawer"
+            style="padding:5px 13px;font-size:var(--fs-sm)">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.5 1.5M16.2 16.2l1.5 1.5M17.7 6.3l-1.5 1.5M7.8 16.2l-1.5 1.5"/></svg>
+      外观
+    </button>
+    <span class="muted" id="bg-note"></span>
+    <div class="lvpill" id="lv-pill" role="button" tabindex="0" title="修行等级：点开看进度与徽章">
+      <span class="lvnum" id="lv-num">Lv.1</span>
+      <span class="lvtitle" id="lv-title">懵懂猫崽</span>
+      <span class="lvbar"><i id="lv-fill" style="width:0%"></i></span>
+    </div>
+  </div>
+
+  <div class="drawer" id="look-drawer">
+    <div class="grid">
+      <div><label>字体</label><select id="ui-font"></select></div>
+      <div><label>字号</label>
+        <select id="ui-size">
+          <option value="s">小</option>
+          <option value="m">标准</option>
+          <option value="l">大</option>
+          <option value="xl">特大</option>
+        </select>
+      </div>
+      <div><label>背景</label>
+        <select id="ui-bg" title="默认是插件自带的那张插画">
+          <option value="default">插件自带（默认）</option>
+          <option value="custom">我上传的图</option>
+          <option value="plain">纯色渐变（不要图）</option>
+        </select>
+      </div>
+      <div><label>蒙层</label>
+        <select id="ui-bg-dim" title="字看不清就把蒙层调厚">
+          <option value="light">薄</option>
+          <option value="medium">中</option>
+          <option value="strong">厚</option>
+        </select>
+      </div>
+      <div><label>鼠标轨迹</label>
+        <select id="ui-trail" title="鼠标划过时留一条会散开的轨迹">
+          <option value="on">开</option>
+          <option value="off">关</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <button class="ghost" id="btn-bg-upload" style="padding:5px 12px;font-size:var(--fs-sm)">换背景图</button>
+      <button class="ghost" id="btn-bg-reset" style="padding:5px 12px;font-size:var(--fs-sm)">恢复默认背景</button>
+      <span class="muted">背景图存在本机 <code>data/</code>，不上传</span>
+    </div>
+    <input type="file" id="bg-file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+  </div>
+
+  <div class="layout">
+    <nav class="rail">
+      <button class="tab on" data-tab="profile">
+        <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16.4c.9-1.7 4.5-1.7 5.4 0M14.5 10h4M14.5 13.5h4"/></svg>
+        <span>档案</span>
+      </button>
+      <button class="tab" data-tab="plan">
+        <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3.5v3M16 3.5v3M8 14h3M13 14h3M8 17h3"/></svg>
+        <span>计划</span>
+      </button>
+      <button class="tab" data-tab="platform">
+        <svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l2.8-2.8a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0L5.5 12.8a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+        <span>平台</span>
+      </button>
+      <button class="tab" data-tab="resources">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.2"/><path d="M15.6 15.6 20 20M4 4.5 6 6.5"/></svg>
+        <span>资源</span>
+      </button>
+      <button class="tab" data-tab="diagnose">
+        <svg viewBox="0 0 24 24"><path d="M3.5 13h3.2l1.8-4.2 2.6 8.4 2.2-6 1.6 3.4h5.6"/></svg>
+        <span>诊断</span>
+      </button>
+      <button class="tab" data-tab="comfort">
+        <svg viewBox="0 0 24 24"><path d="M12 19.5s-7-4.3-7-9a3.8 3.8 0 0 1 7-2.2A3.8 3.8 0 0 1 19 10.5c0 4.7-7 9-7 9z"/></svg>
+        <span>疏导</span>
+      </button>
+      <button class="tab" data-tab="play">
+        <svg viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="12" rx="2.5"/><path d="M8.5 6v7M12 6v7M15.5 6v7M3.5 13h17"/></svg>
+        <span>解压</span>
+      </button>
+    </nav>
+
+    <main class="content">
+
+      <div class="pagehead">
+        <h2 id="page-title">学习档案</h2>
+        <p id="page-sub">考试、地区、目标分与每天可用时间——后面所有推算都基于这里</p>
+      </div>
+
+      <!-- 档案 -->
+      <div id="tab-profile">
+        <div class="card">
+          <h2>考试与目标</h2>
+          <div class="grid">
+            <div><label>目标考试</label><select id="f-exam"></select></div>
+            <div><label>地区（省 / 直辖市）</label><input id="f-region" placeholder="广东"></div>
+            <div><label>考试日期</label><input id="f-date" placeholder="2027-06-07"></div>
+            <div><label>每天可用分钟</label><input id="f-minutes" type="number" placeholder="180"></div>
+            <div><label>目标总分</label><input id="f-target" type="number" placeholder="600"></div>
+          </div>
+          <details class="more">
+            <summary>更多设置（学校、年级、科目、学分）</summary>
+            <div class="grid">
+              <div><label>学校</label><input id="f-school" placeholder="选填"></div>
+              <div><label>年级</label><input id="f-grade" placeholder="高三"></div>
+              <div><label>科目（英文 key，逗号分隔）</label><input id="f-subjects" placeholder="chinese,math,english"></div>
+              <div><label>学分（大学考试填）</label><input id="f-credits" placeholder="math_adv:5,english:3,politics:3"></div>
+            </div>
+            <div class="notice inline">
+              大学考试请务必填学分（例如 <code>math_adv:5,english:3,politics:3,cs:4</code>）：
+              时间分配会按学分加权，挂科风险高的科目会被自动前置，绩点也按学分加权计算。
+            </div>
+          </details>
+          <div class="row">
+            <button id="btn-save">保存档案</button>
+            <span class="status" id="st-profile"></span>
+          </div>
+          <div class="muted" style="margin-top:9px">
+            科目 key：<span id="subject-hint">chinese 语文 · math 数学 · english 英语 · physics 物理 ·
+            chemistry 化学 · biology 生物 · politics 政治 · history 历史 · geography 地理 · major 专业课</span>
+          </div>
+          <div class="muted" style="margin-top:6px">
+            大学学分课：math_adv 高等数学 · linear 线性代数 · prob 概率论 · cs 计算机 · economics 经管 ·
+            physics 大学物理 · english 大学英语 · politics 思政 · major 专业课｜
+            证书类：教资 quality/pedagogy/subject_teaching · 软考 morning/afternoon ·
+            注会 accounting/auditing/finance/econ_law/tax/strategy · 法考 objective/subjective ·
+            计算机等级 choice/operation
+          </div>
+        </div>
+        <div class="card">
+          <h2>当前状态</h2>
+          <div id="overview"></div>
+        </div>
+        <div class="card" id="lv-card">
+          <h2>修行进度</h2>
+          <div class="lvhead">
+            <div class="lvbig" id="lv-big">Lv.1</div>
+            <div>
+              <div class="lvname" id="lv-name">懵懂猫崽</div>
+              <div class="muted" id="lv-note">经验只来自真实学习行为。</div>
+            </div>
+            <div class="lvexp" id="lv-exp">0 / 60</div>
+          </div>
+          <div class="lvbar big"><i id="lv-fill2" style="width:0%"></i></div>
+          <div class="row" style="margin-top:0">
+            <button class="ghost" id="btn-fx-preview" style="padding:5px 13px;font-size:var(--fs-sm)">
+              预览特效
+            </button>
+            <span class="muted" id="lv-hint">特效在拿到经验的那一刻播放——答对一题、做一次诊断、听讲解、出题、生成计划都会给经验。</span>
+          </div>
+          <div class="stats" id="lv-stats" style="margin-top:12px"></div>
+          <div class="muted" style="margin:12px 0 7px">
+            徽章 <b id="badge-count">0/13</b>　（灰掉的是还没拿到的）
+          </div>
+          <div class="badges" id="badge-wall"></div>
+          <div class="muted" style="margin:14px 0 7px">最近获得</div>
+          <div id="lv-recent"></div>
+          <details class="more">
+            <summary>经验是怎么算的（只算真实学习行为）</summary>
+            <div class="muted" id="lv-rules" style="white-space:pre-wrap;margin-top:8px"></div>
+          </details>
+        </div>
+
+        <div class="card">
+          <h2>记忆</h2>
+          <div class="muted" style="margin-bottom:10px">
+            分两级：<b>短期</b>（对话回合、截图转写、当次讲解与诊断的原话，到期自动清理）与
+            <b>长期</b>（进度、薄弱点、错因、偏好，不自动删）。清理短期记忆前，会先把这一周压成一条长期结论——
+            删的是原话，留下的是结论。全部存在本机 <code>data/study.db</code>，不上传。
+          </div>
+          <div class="stats" id="memory-stats"></div>
+          <div class="row" style="margin-top:0">
+            <button class="ghost" id="btn-mem-refresh">刷新</button>
+            <button class="ghost" id="btn-mem-purge">清理过期短期</button>
+            <button class="ghost" id="btn-mem-forget-short">忘掉刚才（清短期）</button>
+            <button class="ghost" id="btn-mem-forget-all">清空全部记忆</button>
+            <span class="status" id="st-memory"></span>
+          </div>
+          <div id="memory-list" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <!-- 计划 -->
+      <div id="tab-plan" class="hidden">
+        <div class="card">
+          <h2>生成学习计划</h2>
+          <div class="row" style="margin-top:0">
+            <button id="btn-plan-long">生成长期计划（到考试）</button>
+            <button class="ghost" id="btn-plan-short">本周安排</button>
+            <span class="status" id="st-plan"></span>
+          </div>
+          <div class="outwrap">
+            <div class="outbar"><button class="ghost" data-copy="plan-out" title="复制这块内容">复制</button></div>
+            <div class="out" id="plan-out">还没有生成计划。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 平台 -->
+      <div id="tab-platform" class="hidden">
+        <div class="notice">
+          这里只会访问<b>你本人账号</b>下的数据，只读不写、不外传；凭据加密存在本机 data/ 目录。
+          遇到验证码时插件会把图片地址回传，需要你手动输入——插件不会去破解验证码。
+        </div>
+        <div class="card">
+          <h2>已接入的平台</h2>
+          <div id="platform-list" class="muted">加载中...</div>
+        </div>
+        <div class="card">
+          <h2>连接账号</h2>
+          <div class="grid">
+            <div><label>平台</label><select id="p-id"></select></div>
+            <div><label>账号</label><input id="p-user" placeholder="手机号 / 学号"></div>
+            <div><label>密码</label><input id="p-pass" type="password" placeholder="登录密码"></div>
+            <div><label>验证码（需要时填）</label><input id="p-captcha" placeholder="看图输入"></div>
+            <div><label>教务系统首页（仅 jwc 需要）</label><input id="p-base" placeholder="https://jwc.xxx.edu.cn"></div>
+          </div>
+          <div class="row">
+            <button id="btn-connect">连接</button>
+            <button class="ghost" id="btn-sync">同步进度</button>
+            <button class="ghost" id="btn-disconnect">断开并清除</button>
+            <span class="status" id="st-platform"></span>
+          </div>
+          <div class="outwrap">
+            <div class="outbar"><button class="ghost" data-copy="platform-out" title="复制这块内容">复制</button></div>
+            <div class="out" id="platform-out"></div>
+          </div>
+          <div id="captcha-box" class="hidden" style="margin-top:11px">
+            <div class="muted">该平台需要验证码：</div>
+            <img id="captcha-img" alt="验证码">
+          </div>
+        </div>
+      </div>
+
+      <!-- 资源 -->
+      <div id="tab-resources" class="hidden">
+        <div class="card">
+          <h2>检索免费公开资源</h2>
+          <div class="row" style="margin-top:0">
+            <input id="r-query" placeholder="例如：导数 单调性" style="max-width:420px">
+            <button id="btn-search">检索并分析</button>
+            <button class="ghost" id="btn-links">只要平台直链</button>
+            <span class="status" id="st-search"></span>
+          </div>
+          <div class="muted" style="margin-top:7px">
+            「检索并分析」会抓取候选页正文，再按你的需求逐条给出「讲了什么 / 和需求的关系 / 适合阶段 / 怎么用」；
+            「只要平台直链」不抓取、秒回，适合自己点进去看。
+          </div>
+          <div class="links" id="link-list"></div>
+          <div class="outwrap">
+            <div class="outbar"><button class="ghost" data-copy="search-out" title="复制这块内容">复制</button></div>
+            <div class="out" id="search-out">还没有检索。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 诊断 -->
+      <div id="tab-diagnose" class="hidden">
+        <div class="card">
+          <h2>诊断：贴题目 / 试卷 / 成绩 / 截图</h2>
+          <textarea id="d-text" placeholder="把题目、试卷、成绩单或一段自述贴在这里。例如：数学 92/150，导数大题没写出来，选择错了 3 道..."></textarea>
+          <div class="row">
+            <input id="d-subject" placeholder="科目 key（可留空）" style="max-width:200px">
+            <button id="btn-diagnose">诊断</button>
+            <button class="ghost" id="btn-forecast">分数预估</button>
+            <span class="status" id="st-diagnose"></span>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <input id="d-image" type="file" accept="image/png,image/jpeg,image/webp" style="max-width:260px">
+            <input id="d-question" placeholder="想问什么（可留空）" style="max-width:220px">
+            <button id="btn-vision">识图诊断</button>
+          </div>
+          <div class="muted" style="margin-top:7px">
+            更推荐：直接在 N.E.K.O 聊天框把题目截图发给猫娘，再说『识图诊断』或『讲讲这道题』，
+            不用手动上传。
+          </div>
+          <div class="outwrap">
+            <div class="outbar"><button class="ghost" data-copy="diagnose-out" title="复制这块内容">复制</button></div>
+            <div class="out" id="diagnose-out">还没有诊断记录。</div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>出题与讲解</h2>
+          <div class="row" style="margin-top:0">
+            <input id="q-topic" placeholder="知识点，例如 导数及其应用" style="max-width:280px">
+            <select id="q-stage" style="max-width:170px">
+              <option value="auto">按掌握度自动</option>
+              <option value="basic">基础（定义题）</option>
+              <option value="medium">中期（易错设坑）</option>
+              <option value="hard">后期（综合创新）</option>
+            </select>
+            <button id="btn-quiz">出题</button>
+            <button class="ghost" id="btn-teach-run">讲解</button>
+            <span class="status" id="st-quiz"></span>
+          </div>
+          <div class="outwrap">
+            <div class="outbar"><button class="ghost" data-copy="quiz-out" title="复制这块内容">复制</button></div>
+            <div class="out" id="quiz-out"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 解压 -->
+      <div id="tab-play" class="hidden">
+        <div class="seg" id="play-modes">
+          <button class="segbtn on" data-mode="pad">🎛️ 电子板</button>
+          <button class="segbtn" data-mode="piano">🎹 钢琴键</button>
+          <button class="segbtn" data-mode="fruit">🍉 切水果</button>
+        </div>
+        <div id="card-pad">
+          <div class="card">
+            <h2>电子板 · 点哪都出声</h2>
+            <div class="muted" style="margin-bottom:11px">
+              参考 Mikutap 的玩法：<b>点/拖任意位置</b>触发声音，会被<b>对齐到节拍</b>，随便点都不难听。
+              屏幕分成 <b>8×4 = 32 个小方块</b>（对齐 Mikutap 的 32 个声音），<b>同一块永远是同一个声音</b>；方块的边界只在按下的瞬间短暂闪现，
+              平时完全看不见、也完全安静——特效只在按下的一瞬出现。背景有鼓、贝斯和声垫的循环。
+              默认音源是 <b>FluidR3_GM</b>（CC BY 3.0，署名见 <code>static/audio/pad/CREDITS.md</code>）的人声、八音盒与木琴采样；
+加载不到时自动退回实时合成的 20 种音色。
+            </div>
+            <div class="mk-stage" id="mk-stage">
+              <div class="mk-tint" aria-hidden="true"></div>
+              <canvas id="mk-canvas"></canvas>
+              <div class="mk-hud">
+                <span>BPM <b id="mk-bpm">128</b></span>
+                <span>小节 <b id="mk-bar">1</b></span>
+                <span>已触发 <b id="mk-taps">0</b></span>
+              </div>
+              <div class="mk-overlay" id="mk-overlay">
+                <div class="fr-box">
+                  <div class="fr-title">电子板</div>
+                  <div class="fr-sub">点一下开始（浏览器要求先有一次点击才允许出声）<br>
+                    之后点/拖屏幕任意位置，或按键盘任意键</div>
+                  <button id="mk-start">开始</button>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <button class="ghost" id="mk-stop">停止</button>
+              <button class="ghost" id="mk-full">满屏</button>
+              <button class="ghost" id="mk-import"
+                      title="导入的音源只会存到本机的 data/mikutap_audio/，不会打进安装包">导入本地音源</button>
+              <input type="file" id="mk-files" webkitdirectory directory multiple class="hidden"
+                     accept="audio/*,.mp3,.ogg,.wav,.m4a">
+              <span class="status" id="st-pad"></span>
+              <span class="muted" id="mk-audio-note">正在装默认音源…</span>
+            </div>
+          </div>
+        </div>
+        <div id="card-piano" class="hidden">
+        <div class="card">
+          <h2>钢琴键 · 解压</h2>
+          <div class="muted" style="margin-bottom:12px">
+            平铺的每个键音高都不同（键面写着音名），声音是实时合成的，不加载任何音频文件。
+            <b>这里不给经验</b>——经验只来自真实学习行为，解压就是解压。
+          </div>
+          <div class="piano-wrap">
+            <div class="piano" id="piano-grid"></div>
+          </div>
+          <div class="row">
+            <label style="margin:0">音阶
+              <select id="piano-scale" style="width:auto;min-width:120px">
+                <option value="chromatic" selected>半音阶（每个键音高都不同）</option>
+                <option value="penta">五声音阶（最不容易弹难听）</option>
+                <option value="major">大调</option>
+                <option value="blues">蓝调</option>
+                
+              </select>
+            </label>
+            <label style="margin:0">音色
+              <select id="piano-timbre" style="width:auto;min-width:110px">
+                <option value="electric">电子（初音感）</option>
+                <option value="bell">风铃</option>
+                <option value="marimba">木琴</option>
+              </select>
+            </label>
+            <label style="margin:0">键数
+              <select id="piano-cols" style="width:auto;min-width:100px">
+                <option value="5">少（5 列）</option>
+                <option value="7" selected>中（7 列）</option>
+                <option value="9">多（9 列）</option>
+                <option value="12">很多（12 列）</option>
+              </select>
+            </label>
+            <span class="status" id="st-piano"></span>
+          </div>
+          <div class="piano-tips">
+            <span class="muted">也能用键盘弹：</span>
+            <span class="muted"><kbd>1234567890</kbd> 第一排，<kbd>qwertyuiop</kbd> 第二排，<kbd>asdfghjkl</kbd> 第三排</span>
+          </div>
+          <div class="muted" style="margin-top:8px" id="piano-note">点一下任意键开始（浏览器要求先有一次点击才允许出声）。</div>
+        </div>
+        </div>
+
+        <div id="card-fruit" class="hidden">
+          <div class="card">
+            <h2>切水果</h2>
+            <div class="muted" style="margin-bottom:11px">
+              按住鼠标在果盘上划过去切水果（触屏直接划）。漏掉水果、或者切到炸弹，各扣一条命，
+              三条命用完就结束。<b>游戏成绩不会加修行经验</b>——玩就是玩，两条线分开算。
+            </div>
+            <div class="fr-stage" id="fr-stage">
+              <canvas id="fr-canvas"></canvas>
+              <div class="fr-hud">
+                <span>得分 <b id="fr-score">0</b></span>
+                <span>等级 <b id="fr-level">Lv.1</b></span>
+                <span>连击 <b id="fr-combo">0</b></span>
+                <span>命 <b id="fr-lives">♥♥♥</b></span>
+                <span id="fr-time">0.0 秒</span>
+              </div>
+              <div class="fr-overlay" id="fr-overlay">
+                <div class="fr-box" id="fr-box">
+                  <div class="fr-title" id="fr-title">切水果</div>
+                  <div class="fr-sub" id="fr-sub">按住鼠标划过去切，漏掉三个就结束</div>
+                  <div id="fr-result"></div>
+                  <div class="fr-line" id="fr-gained"></div>
+                  <button id="fr-start">开始</button>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <button class="ghost" id="fr-restart">重开一局</button>
+              <span class="status" id="st-fruit"></span>
+              <span class="muted" id="fr-best">最高分：0</span>
+            </div>
+            <div class="stats" id="fr-stats"></div>
+            <div class="muted" style="margin:13px 0 7px">游戏成就 <b id="fr-badge-count">0/0</b></div>
+            <div class="badges" id="fr-badges"></div>
+            <details class="more">
+              <summary>最近几局</summary>
+              <div id="fr-recent" style="margin-top:8px"></div>
+            </details>
+          </div>
+        </div>
+      </div>
+
+      <!-- 疏导 -->
+      <div id="tab-comfort" class="hidden">
+        <div class="card">
+          <h2>说说现在的状态</h2>
+          <textarea id="c-text" placeholder="例如：最近学不动，感觉分数一直不涨，还有 40 天就考了..."></textarea>
+          <div class="row">
+            <button id="btn-comfort">聊聊</button>
+            <span class="status" id="st-comfort"></span>
+          </div>
+          <div class="outwrap">
+            <div class="outbar"><button class="ghost" data-copy="comfort-out" title="复制这块内容">复制</button></div>
+            <div class="out" id="comfort-out"></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+// ── 字体方案：中文用「流行字体 + 常见回退」，拉丁/数字用自托管字体 ──────────
+const FONTS = [
+  {id:'system', name:'系统默认',
+   ui:`'Quicksand',system-ui,'Microsoft YaHei','PingFang SC',sans-serif`,
+   mono:`'JBMono',ui-monospace,Consolas,'Microsoft YaHei',monospace`},
+  {id:'yahei', name:'微软雅黑 / 苹方',
+   ui:`'Quicksand','Microsoft YaHei','PingFang SC','Hiragino Sans GB',sans-serif`,
+   mono:`'JBMono',Consolas,'Microsoft YaHei',monospace`},
+  {id:'source', name:'思源黑体 / Noto',
+   ui:`'Quicksand','Source Han Sans SC','Noto Sans SC','HarmonyOS Sans SC','MiSans','Microsoft YaHei',sans-serif`,
+   mono:`'JBMono','Sarasa Mono SC','Noto Sans Mono CJK SC',Consolas,monospace`},
+  {id:'wenkai', name:'霞鹜文楷（文书感）',
+   ui:`'Lora','LXGW WenKai','LXGW WenKai Screen','霞鹜文楷',STKaiti,'Songti SC','Noto Serif SC',serif`,
+   mono:`'JBMono','LXGW WenKai Mono','Sarasa Mono SC',Consolas,serif`},
+  {id:'rounded', name:'圆体（可爱）',
+   ui:`'Quicksand',YouYuan,'幼圆','Yuanti SC','Hiragino Maru Gothic ProN','Microsoft YaHei',sans-serif`,
+   mono:`'JBMono',Consolas,monospace`},
+  {id:'mono', name:'等宽 / 代码',
+   ui:`'JBMono','Cascadia Mono',Consolas,'Sarasa Mono SC','Microsoft YaHei',monospace`,
+   mono:`'JBMono','Cascadia Mono',Consolas,monospace`},
+];
+const SIZES = {s:'12.5px', m:'14px', l:'15.5px', xl:'17px'};
+let PREFS = {ui_font:'system', ui_font_size:'m', ui_trail: 'on'};
+
+function applyPrefs(){
+  const font = FONTS.find(f => f.id === PREFS.ui_font) || FONTS[0];
+  const root = document.documentElement.style;
+  root.setProperty('--font-ui', font.ui);
+  root.setProperty('--font-body', font.ui);
+  root.setProperty('--font-mono', font.mono);
+  root.setProperty('--fs', SIZES[PREFS.ui_font_size] || SIZES.m);
+  if ($('ui-font').value !== font.id) $('ui-font').value = font.id;
+  if ($('ui-size').value !== PREFS.ui_font_size) $('ui-size').value = PREFS.ui_font_size;
+  // 轨迹：'auto' 跟随系统的"减少动态效果"，'on'/'off' 是用户显式选择
+  const pref = PREFS.ui_trail || 'auto';
+  let trailOn = pref === 'off' ? false : (pref === 'on' ? true : true);
+  try {
+    if (pref === 'auto') trailOn = !trail.reduced;
+    trail.enable(trailOn);
+  } catch (err) { /* 首屏这一趟 trail 还没定义，等 loadStatus 再补 */ }
+  if ($('ui-trail').value !== (trailOn ? 'on' : 'off')) $('ui-trail').value = trailOn ? 'on' : 'off';
+}
+$('ui-font').innerHTML = FONTS.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+applyPrefs();
+
+async function savePrefs(){
+  try { await api('/api/prefs', PREFS); } catch (e) { /* 存不上也不影响本次使用 */ }
+}
+$('ui-font').onchange = () => { PREFS.ui_font = $('ui-font').value; applyPrefs(); savePrefs(); };
+$('ui-size').onchange = () => { PREFS.ui_font_size = $('ui-size').value; applyPrefs(); savePrefs(); };
+$('ui-trail').onchange = () => { PREFS.ui_trail = $('ui-trail').value; applyPrefs(); savePrefs(); };
+
+// ── 背景：插件自带的图（默认）/ 自己上传的图 / 纯色渐变 ─────────────
+// 蒙层三档；自定义图必须从插件自己的端口取（宿主只代理 /api/*）。
+const BG_DIM = {
+  light:  'rgba(255,255,255,.26) 0%,rgba(255,255,255,.44) 45%,rgba(253,251,255,.60) 100%',
+  medium: 'rgba(255,255,255,.34) 0%,rgba(255,255,255,.58) 45%,rgba(253,251,255,.74) 100%',
+  strong: 'rgba(255,255,255,.52) 0%,rgba(255,255,255,.72) 45%,rgba(253,251,255,.86) 100%',
+};
+const BG_FALLBACK = 'linear-gradient(160deg,#e9e4ff,#fdf7ff 60%,#eaf4ff)';
+const BG_DEFAULT_LAYER = 'url("bg.jpg") center top / cover no-repeat fixed';
+let BACKGROUND = {mode:'default', dim:'medium', has_custom:false};
+let ASSET_BASE = null;        // 取自定义背景图用的地址（插件自己的端口）
+let ASSET_PROBING = null;
+let bgStamp = 0;
+
+function bgCustomUrl(){
+  return ASSET_BASE === null ? '' : `${ASSET_BASE}/bg/custom?v=${bgStamp}`;
+}
+function bgStack(imageLayer, dim){
+  const overlay = `linear-gradient(180deg,${BG_DIM[dim] || BG_DIM.medium})`;
+  return imageLayer ? `${overlay}, ${imageLayer}, ${BG_FALLBACK}` : `${overlay}, ${BG_FALLBACK}`;
+}
+function paintBackground(imageLayer){
+  document.documentElement.style.setProperty('--bg-stack', bgStack(imageLayer, BACKGROUND.dim));
+}
+function applyBackground(){
+  const custom = BACKGROUND.mode === 'custom';
+  const url = bgCustomUrl();
+  let note;
+  if (custom && url){
+    paintBackground(`url("${url}") center top / cover no-repeat fixed`);
+    note = '使用你上传的图';
+  } else if (custom){
+    // 图有了但还没拿到取图地址：先显示自带背景，探测完再换，绝不留在空白上
+    paintBackground(BG_DEFAULT_LAYER);
+    note = '正在取你上传的图…（先显示自带背景）';
+    ensureAssetBase();
+  } else if (BACKGROUND.mode === 'plain'){
+    paintBackground('');
+    note = '纯色渐变';
+  } else {
+    paintBackground(BG_DEFAULT_LAYER);
+    note = '插件自带';
+  }
+  if ($('ui-bg').value !== BACKGROUND.mode) $('ui-bg').value = BACKGROUND.mode;
+  if ($('ui-bg-dim').value !== BACKGROUND.dim) $('ui-bg-dim').value = BACKGROUND.dim;
+  $('bg-note').textContent = note;
+  if (custom && url) verifyCustomImage(url);
+}
+
+// 真去加载一次：拿不到就老实退回自带背景，并把原因写出来
+function verifyCustomImage(url){
+  const probe = new Image();
+  probe.onerror = () => {
+    paintBackground(BG_DEFAULT_LAYER);
+    $('bg-note').textContent = '你上传的图取不到，已临时回到自带背景；刷新面板或重开界面即可';
+  };
+  probe.src = url;
+}
+
+// 自定义图只能从插件自己的端口拿：宿主只代理 /api/*，不代理 /bg/custom。
+// 这里探测「哪个候选地址能答 /api/status」，拿到就直接用它取图。
+async function ensureAssetBase(){
+  if (ASSET_BASE !== null) return ASSET_BASE;
+  if (ASSET_PROBING) return ASSET_PROBING;
+  ASSET_PROBING = (async () => {
+    const q = Number(new URLSearchParams(location.search).get('port') || 0);
+    const start = q || DEFAULT_PORT;
+    const candidates = [];
+    for (let p = start; p <= start + 11; p++) candidates.push(`http://127.0.0.1:${p}`);
+    candidates.push('');   // 同源兜底（万一宿主也代发静态资源）
+    for (const base of candidates){
+      try{
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 1200);
+        const res = await fetch(`${base}/api/status`, {signal: ctrl.signal});
+        clearTimeout(timer);
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (data && data.ok){
+          ASSET_BASE = base;
+          applyBackground();    // 拿到地址立刻重画
+          return base;
+        }
+      }catch(e){ /* 换下一个候选 */ }
+    }
+    return null;
+  })();
+  try { return await ASSET_PROBING; } finally { ASSET_PROBING = null; }
+}
+
+async function setBackground(body){
+  busy($('bg-note'), '处理中...');
+  try {
+    const res = await api('/api/background', body);
+    if (res.background){
+      BACKGROUND = Object.assign({}, BACKGROUND, res.background);
+      bgStamp = Date.now();
+      applyBackground();
+      if (BACKGROUND.mode === 'custom' && ASSET_BASE === null){
+        const base = await ensureAssetBase();
+        if (base === null) $('bg-note').textContent = '图已保存，但没找到插件端口，刷新面板即可显示';
+      }
+    }
+    if (!res.ok) $('bg-note').textContent = res.error || '失败';
+    else if (res.message) $('bg-note').textContent = res.message;
+    return res;
+  } catch (err) {
+    $('bg-note').textContent = '失败：' + err;
+    return {ok:false};
+  }
+}
+
+$('ui-bg').onchange = async () => {
+  const mode = $('ui-bg').value;
+  if (mode === 'custom' && !BACKGROUND.has_custom){
+    $('ui-bg').value = BACKGROUND.mode;   // 还没上传过，先弹选择框
+    $('bg-file').click();
+    return;
+  }
+  await setBackground({action:'mode', mode});
+};
+$('ui-bg-dim').onchange = () => setBackground({action:'mode', mode: BACKGROUND.mode, dim: $('ui-bg-dim').value});
+$('btn-bg-reset').onclick = () => setBackground({action:'reset'});
+$('btn-bg-upload').onclick = () => $('bg-file').click();
+$('bg-file').onchange = async () => {
+  const file = $('bg-file').files && $('bg-file').files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024){
+    $('bg-note').textContent = `图片 ${(file.size/1048576).toFixed(1)}MB，超过 8MB 限制`;
+    $('bg-file').value = '';
+    return;
+  }
+  $('bg-note').textContent = `上传中（${(file.size/1048576).toFixed(1)}MB）...`;
+  try {
+    const dataUrl = await readFileAsDataURL(file);
+    await setBackground({action:'upload', image_base64: dataUrl});
+  } catch (err) { $('bg-note').textContent = String(err); }
+  $('bg-file').value = '';
+};
+applyBackground();   // 先按默认背景画一帧，避免白闪
+
+// ── 面板寻址：宿主托管（同源）或插件自己的端口，逐个探测 ──────────────────
+const DEFAULT_PORT = 15880;
+function candidateBases(){
+  const bases = [""];
+  const q = Number(new URLSearchParams(location.search).get('port') || 0);
+  const start = q || DEFAULT_PORT;
+  for (let p = start; p <= start + 11; p++) bases.push(`http://127.0.0.1:${p}`);
+  return bases;
+}
+let API_BASE = null;
+async function findBase(){
+  if (API_BASE !== null) return API_BASE;
+  for (const base of candidateBases()){
+    try{
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 1200);
+      const res = await fetch(base + '/api/status', {signal: ctrl.signal});
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data && data.ok){ API_BASE = base; return base; }
+    }catch(e){ /* 换下一个候选 */ }
+  }
+  return null;
+}
+
+// 自定义背景图必须从插件自己的端口拿：宿主只代理 /api/*，不会代理 /bg/custom
+async function legacyResolveAssetBase(){
+  if (ASSET_BASE !== null) return ASSET_BASE;
+  const q = Number(new URLSearchParams(location.search).get('port') || 0);
+  const start = q || DEFAULT_PORT;
+  for (let p = start; p <= start + 11; p++){
+    const base = `http://127.0.0.1:${p}`;
+    try{
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 1200);
+      const res = await fetch(base + '/api/status', {signal: ctrl.signal});
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data && data.ok){ ASSET_BASE = base; applyBackground(); return base; }
+    }catch(e){ /* 换下一个候选 */ }
+  }
+  return null;
+}
+async function api(path, body) {
+  const base = await findBase();
+  if (base === null) {
+    const err = new Error('没连上插件服务：请确认插件已启动（插件管理里打开它），或稍等几秒再刷新。');
+    err.noService = true;
+    throw err;
+  }
+  const res = await fetch(base + path, body === undefined
+    ? {method:'GET'}
+    : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body || {})});
+  return await res.json();
+}
+
+// ── 结构化渲染：认识 ## / - / 1. / > / **粗体** / [[bar:x|w]] / 链接 ─────
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const barHtml = (rate, width) => {
+  const pct = Math.round(Math.max(0, Math.min(1, rate)) * 100);
+  return `<span class="bar" data-w="${width}"><i style="width:${pct}%"></i></span><span class="bar-num">${pct}%</span>`;
+};
+function inline(text){
+  return esc(text)
+    .replace(/\[\[bar:([\d.]+)\|(\d+)\]\]/g, (m, r, w) => barHtml(parseFloat(r), parseInt(w, 10)))
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noreferrer">$1</a>');
+}
+function renderRich(el, text){
+  // 第一次渲染前把初始占位文案记下来，空的时候还用它
+  if (!el.dataset.empty) el.dataset.empty = (el.textContent || '').trim() || '还没有内容。';
+  const lines = String(text == null ? '' : text).split('\n');
+  const out = [];
+  let list = null;
+  const closeList = () => { if (list){ out.push(list === 'ul' ? '</ul>' : '</ol>'); list = null; } };
+  for (const raw of lines){
+    const t = raw.replace(/\s+$/, '').trim();
+    if (!t){ closeList(); continue; }
+    if (/^-{3,}$/.test(t)){ closeList(); out.push('<hr>'); continue; }
+    if (t.startsWith('## ')){ closeList(); out.push(`<h3>${inline(t.slice(3))}</h3>`); continue; }
+    if (t.startsWith('> ')){ closeList(); out.push(`<p class="callout">${inline(t.slice(2))}</p>`); continue; }
+    if (t.startsWith('　')){ closeList(); out.push(`<p class="sub">${inline(t.replace(/^　+/, ''))}</p>`); continue; }
+    if (/^([·•‣]|-)\s+/.test(t)){
+      if (list !== 'ul'){ closeList(); out.push('<ul>'); list = 'ul'; }
+      out.push(`<li>${inline(t.replace(/^([·•‣]|-)\s+/, ''))}</li>`);
+      continue;
+    }
+    if (/^\d+[.、]\s+/.test(t)){
+      if (list !== 'ol'){ closeList(); out.push('<ol>'); list = 'ol'; }
+      out.push(`<li>${inline(t.replace(/^\d+[.、]\s+/, ''))}</li>`);
+      continue;
+    }
+    closeList();
+    out.push(`<p>${inline(t)}</p>`);
+  }
+  closeList();
+  const html = out.join('');
+  el.classList.toggle('empty', !html);
+  el.innerHTML = html || el.dataset.empty;
+}
+function show(el, data){
+  if (typeof data === 'string'){ renderRich(el, data); return; }
+  if (data && typeof data.text === 'string' && data.text){ renderRich(el, data.text); return; }
+  renderRich(el, '');
+  const pre = document.createElement('pre');
+  pre.className = 'raw';
+  pre.textContent = JSON.stringify(data, null, 2);
+  el.classList.remove('empty');
+  el.appendChild(pre);
+}
+const statusOf = (el, ok, msg) => {
+  el.textContent = msg || (ok ? '完成' : '失败');
+  el.style.color = ok ? 'var(--ok)' : 'var(--bad)';
+  // 动作成功后拉一次真实进度：经验变多就飘字，升级就弹横幅（一处接入，全流程生效）
+  if (ok) refreshProgress(true);
+};
+const setPlug = (ok, text) => {
+  $('plug-dot').classList.toggle('on', !!ok);
+  $('plug-dot').classList.toggle('off', !ok);
+  $('plug-text').textContent = text;
+};
+function setPersona(persona){
+  const on = !!(persona && persona.teaching_mode);
+  $('btn-teach').classList.toggle('on', on);
+  $('teach-label').textContent = on ? '教学模式：已开' : '教学模式';
+  $('persona-note').textContent = '人设：' + ((persona && persona.label) || '猫娘人格');
+}
+setPersona(null);
+
+$('btn-teach').onclick = async () => {
+  const next = !$('btn-teach').classList.contains('on');
+  busy($('persona-note'), '切换中...');
+  try {
+    const res = await api('/api/persona', {enabled: next});
+    setPersona(res && res.persona);
+  } catch (err) {
+    $('persona-note').textContent = '切换失败：' + err;
+  }
+};
+
+// ══ 共享音频总线：钢琴和游戏共用一套 AudioContext ═════════════════
+const AudioBus = (() => {
+  let ctx = null;
+  let out = null;
+  let noise = null;
+
+  function get(){
+    if (!ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+      out = ctx.createGain();
+      out.gain.value = 0.85;
+      out.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return {ctx, out};
+  }
+
+  function noiseBuffer(){
+    const bus = get();
+    if (!bus) return null;
+    if (!noise){
+      const len = Math.max(1, Math.floor(bus.ctx.sampleRate * 0.35));
+      noise = bus.ctx.createBuffer(1, len, bus.ctx.sampleRate);
+      const data = noise.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    }
+    return noise;
+  }
+
+  function tone(freq, dur, type, level, delay){
+    const bus = get();
+    if (!bus) return;
+    const now = bus.ctx.currentTime + (delay || 0);
+    const osc = bus.ctx.createOscillator();
+    const gain = bus.ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(level == null ? 0.3 : level, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    osc.connect(gain);
+    gain.connect(bus.out);
+    osc.start(now);
+    osc.stop(now + dur + 0.05);
+  }
+
+  // 切水果：一段带通扫频的噪声，听起来像"唰"
+  function slice(pitch){
+    const bus = get();
+    const buf = noiseBuffer();
+    if (!bus || !buf) return;
+    const now = bus.ctx.currentTime;
+    const src = bus.ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = bus.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 1.1;
+    filter.frequency.setValueAtTime(900 + (pitch || 0) * 90, now);
+    filter.frequency.exponentialRampToValueAtTime(3600 + (pitch || 0) * 160, now + 0.16);
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(0.32, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(bus.out);
+    src.start(now);
+    src.stop(now + 0.25);
+  }
+
+  function comboSound(combo){
+    const base = 660;
+    for (let i = 0; i < Math.min(4, Math.max(1, combo - 2)); i++){
+      tone(base * Math.pow(1.26, i), 0.24, 'triangle', 0.22, i * 0.055);
+    }
+  }
+
+  function boom(){
+    const bus = get();
+    const buf = noiseBuffer();
+    if (!bus || !buf) return;
+    const now = bus.ctx.currentTime;
+    const src = bus.ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = 0.5;
+    const filter = bus.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(520, now);
+    filter.frequency.exponentialRampToValueAtTime(90, now + 0.5);
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(bus.out);
+    src.start(now);
+    src.stop(now + 0.65);
+    tone(70, 0.5, 'sawtooth', 0.22, 0);
+  }
+
+  function gameOver(){
+    [523, 392, 311, 233].forEach((f, i) => tone(f, 0.34, 'triangle', 0.24, i * 0.13));
+  }
+
+  // 元音共振峰：用带通滤波器组近似"啊咿呜诶哦"，不用人声采样也能有唱的感觉
+  const FORMANTS = {
+    a: [[800, 1.0], [1150, 0.63], [2900, 0.10]],
+    i: [[300, 1.0], [2300, 0.50], [3000, 0.12]],
+    u: [[350, 1.0], [800, 0.35], [2400, 0.05]],
+    e: [[500, 1.0], [1800, 0.50], [2500, 0.10]],
+    o: [[500, 1.0], [1000, 0.50], [2400, 0.06]],
+  };
+
+  function vowel(name, freq, when, dur){
+    const bus = get();
+    if (!bus) return;
+    const ctx2 = bus.ctx;
+    const t = when || ctx2.currentTime;
+    const hold = dur || 0.32;
+    const osc = ctx2.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, t);
+    // 一点颤音，听着才像人唱的
+    const lfo = ctx2.createOscillator();
+    const lfoGain = ctx2.createGain();
+    lfo.frequency.value = 5.4;
+    lfoGain.gain.value = freq * 0.009;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    const env = ctx2.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.26, t + 0.02);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + hold);
+    (FORMANTS[name] || FORMANTS.a).forEach((pair) => {
+      const band = ctx2.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = pair[0];
+      band.Q.value = 5;
+      const level = ctx2.createGain();
+      level.gain.value = pair[1];
+      osc.connect(band);
+      band.connect(level);
+      level.connect(env);
+    });
+    env.connect(bus.out);
+    osc.start(t);
+    lfo.start(t);
+    osc.stop(t + hold + 0.05);
+    lfo.stop(t + hold + 0.05);
+  }
+
+  function kick(when){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    const osc = bus.ctx.createOscillator();
+    const gain = bus.ctx.createGain();
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(46, t + 0.12);
+    gain.gain.setValueAtTime(0.5, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    osc.connect(gain);
+    gain.connect(bus.out);
+    osc.start(t);
+    osc.stop(t + 0.32);
+  }
+
+  function snare(when){
+    const bus = get();
+    const buf = noiseBuffer();
+    if (!bus || !buf) return;
+    const t = when || bus.ctx.currentTime;
+    const src = bus.ctx.createBufferSource();
+    src.buffer = buf;
+    const hp = bus.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 1400;
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(0.26, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    src.connect(hp);
+    hp.connect(gain);
+    gain.connect(bus.out);
+    src.start(t);
+    src.stop(t + 0.2);
+  }
+
+  function hat(when, level){
+    const bus = get();
+    const buf = noiseBuffer();
+    if (!bus || !buf) return;
+    const t = when || bus.ctx.currentTime;
+    const src = bus.ctx.createBufferSource();
+    src.buffer = buf;
+    const hp = bus.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 7200;
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(level == null ? 0.1 : level, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    src.connect(hp);
+    hp.connect(gain);
+    gain.connect(bus.out);
+    src.start(t);
+    src.stop(t + 0.07);
+  }
+
+  function bass(freq, when, dur){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    const osc = bus.ctx.createOscillator();
+    const gain = bus.ctx.createGain();
+    const lp = bus.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 420;
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.3, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.3));
+    osc.connect(lp);
+    lp.connect(gain);
+    gain.connect(bus.out);
+    osc.start(t);
+    osc.stop(t + (dur || 0.3) + 0.05);
+  }
+
+  function pad(freqs, when, dur){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    const hold = dur || 1.6;
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.055, t + 0.25);
+    gain.gain.linearRampToValueAtTime(0.0001, t + hold);
+    gain.connect(bus.out);
+    freqs.forEach((f, i) => {
+      const osc = bus.ctx.createOscillator();
+      osc.type = i % 2 ? 'triangle' : 'sine';
+      osc.frequency.value = f;
+      osc.detune.value = (i - 1) * 6;
+      osc.connect(gain);
+      osc.start(t);
+      osc.stop(t + hold + 0.05);
+    });
+  }
+
+  function clap(when){
+    // 拍手＝三次极短的噪声，叠在一起才有"啪"的厚度
+    [0, 0.012, 0.026].forEach((offset, i) => {
+      const bus = get();
+      const buf = noiseBuffer();
+      if (!bus || !buf) return;
+      const t = (when || bus.ctx.currentTime) + offset;
+      const src = bus.ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = bus.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1500 - i * 200;
+      bp.Q.value = 0.9;
+      const gain = bus.ctx.createGain();
+      gain.gain.setValueAtTime(0.22 - i * 0.04, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+      src.connect(bp);
+      bp.connect(gain);
+      gain.connect(bus.out);
+      src.start(t);
+      src.stop(t + 0.13);
+    });
+  }
+
+  function tom(when){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    const osc = bus.ctx.createOscillator();
+    const gain = bus.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(230, t);
+    osc.frequency.exponentialRampToValueAtTime(120, t + 0.2);
+    gain.gain.setValueAtTime(0.34, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+    osc.connect(gain);
+    gain.connect(bus.out);
+    osc.start(t);
+    osc.stop(t + 0.28);
+  }
+
+  function cowbell(when){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    [540, 800].forEach((f) => {
+      const osc = bus.ctx.createOscillator();
+      const gain = bus.ctx.createGain();
+      const bp = bus.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 2400;
+      bp.Q.value = 1.4;
+      osc.type = 'square';
+      osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.12, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      osc.connect(bp);
+      bp.connect(gain);
+      gain.connect(bus.out);
+      osc.start(t);
+      osc.stop(t + 0.24);
+    });
+  }
+
+  function riser(when){
+    const bus = get();
+    const buf = noiseBuffer();
+    if (!bus || !buf) return;
+    const t = when || bus.ctx.currentTime;
+    const src = bus.ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const bp = bus.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 2.2;
+    bp.frequency.setValueAtTime(420, t);
+    bp.frequency.exponentialRampToValueAtTime(4200, t + 0.42);
+    const gain = bus.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.linearRampToValueAtTime(0.2, t + 0.4);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    src.connect(bp);
+    bp.connect(gain);
+    gain.connect(bus.out);
+    src.start(t);
+    src.stop(t + 0.52);
+  }
+
+  function chime(freq, when){
+    const bus = get();
+    if (!bus) return;
+    const t = when || bus.ctx.currentTime;
+    [[1, 0.24], [2.76, 0.1], [5.4, 0.04]].forEach((pair, i) => {
+      const osc = bus.ctx.createOscillator();
+      const gain = bus.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = (freq || 880) * pair[0];
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(pair[1], t + 0.006 + i * 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+      osc.connect(gain);
+      gain.connect(bus.out);
+      osc.start(t);
+      osc.stop(t + 1.25);
+    });
+  }
+
+  return {get, noiseBuffer, tone, slice, comboSound, boom, gameOver,
+          vowel, kick, snare, hat, bass, pad,
+          clap, tom, cowbell, riser, chime};
+})();
+
+// 浏览器策略：音频上下文常常是"挂起"的，必须由一次真实手势唤醒。
+// 页面加载时 SampleBank 会创建上下文取音源，所以这里挂一个全局的手势唤醒，
+// 避免出现"点了没声音却什么都不说"的情况。
+['pointerdown', 'keydown', 'touchstart'].forEach((type) => {
+  document.addEventListener(type, function wake(){
+    try {
+      const bus = AudioBus.get();
+      if (bus && bus.ctx.state === 'suspended') bus.ctx.resume();
+    } catch (err) { /* 唤醒失败不影响主流程，start() 里会再报一次 */ }
+  }, {passive: true, once: false});
+});
+
+// ══ 默认音源库：FluidR3_GM 采样（CC BY 3.0，见 static/audio/pad/CREDITS.md）══
+// SoundFont 的通行做法：只留几个基准音，其余音高用 playbackRate 换算，
+// 十几个文件就能覆盖很宽的音域，体积也可控。
+const SampleBank = (() => {
+  const state = {};
+  let manifest = null;
+
+  // prepare：只拉清单（纯 fetch，页面加载时就能做，不碰音频上下文）
+  async function prepare(){
+    await ensureAssetBase();
+    const base = ASSET_BASE || '';
+    if (!manifest){
+      const res = await fetch(`${base}/audio/pad/index.json`);
+      if (!res.ok) throw new Error('默认音源清单读取失败');
+      manifest = await res.json();
+    }
+    return Object.keys(manifest.instruments || {}).length;
+  }
+  // load：解码（要在用户手势之后调，见 start() 里的 hydrate()）
+  async function load(){
+    await prepare();
+    const bus = AudioBus.get();
+    if (!bus) throw new Error('音频上下文不可用');
+    for (const [name, spec] of Object.entries(manifest.instruments || {})){
+      if (state[name]) continue;
+      const rows = [];
+      for (const note of spec.notes || []){
+        try {
+          const res = await fetch(`${base}/audio/pad/${note.file}`);
+          if (!res.ok) continue;
+          const buf = await res.arrayBuffer();
+          rows.push({midi: note.midi, buffer: await bus.ctx.decodeAudioData(buf)});
+        } catch (err) { /* 单个文件坏了不影响其它 */ }
+      }
+      if (rows.length){
+        rows.sort((a, b) => a.midi - b.midi);
+        state[name] = rows;
+      }
+    }
+    return Object.keys(state).length;
+  }
+
+  function ready(){ return Object.keys(state).length > 0; }
+
+  function play(name, midi, when, level){
+    const rows = state[name];
+    if (!rows || !rows.length) return false;
+    const bus = AudioBus.get();
+    if (!bus) return false;
+    // 找最近的基准音，剩下的音高交给 playbackRate
+    let best = rows[0];
+    for (const row of rows){
+      if (Math.abs(row.midi - midi) < Math.abs(best.midi - midi)) best = row;
+    }
+    const src = bus.ctx.createBufferSource();
+    const gain = bus.ctx.createGain();
+    src.buffer = best.buffer;
+    src.playbackRate.value = Math.pow(2, (midi - best.midi) / 12);
+    gain.gain.value = level == null ? 0.9 : level;
+    src.connect(gain);
+    gain.connect(bus.out);
+    src.start(when);
+    return true;
+  }
+
+  return {prepare, load, ready, play, instruments: () => Object.keys(state)};
+})();
+
+// ══ 电子板（Mikutap 风）：点哪都出声，声音对齐到节拍，画面踩着拍子变 ══
+// 三个关键点，缺一个就不像 Mikutap：
+//   1. 触发点在整块画布上，位置自由；      2. 声音排队到下一个八分音符，所以怎么点都不难听；
+//   3. 动画不是"跟着鼠标"，而是**跟着音频时钟**踩拍，场景每 8 小节换一次。
+// ══ 电子板（Mikutap 风）════════════════════════════════════════
+// 和 Mikutap 一致的三个关键点：
+//   1. 屏幕切成 4×3 个小方块，**同一块永远是同一个声音**（固定映射，不轮转）；
+//   2. 方块边界只在按下的瞬间闪现（约 0.45s 淡出），平时完全看不见；
+//   3. **平时完全安静**：画布只在有特效的那几百毫秒里跑 rAF，空闲时连帧循环都停。
+// 背景音乐循环照旧（鼓/贝斯/和声垫），点击对齐到十六分音符。
+const mikutap = (() => {
+  const BPM = 128;
+  const BEAT = 60 / BPM;          // 一拍
+  const STEP = BEAT / 2;          // BGM 的八分音符
+  const TAP_STEP = BEAT / 4;      // 点击量化到十六分音符，更跟手
+  const STEPS_PER_BAR = 8;
+  const LOOKAHEAD = 0.12;         // 提前 120ms 排声音
+  const TICK = 25;                // 调度器心跳（ms）
+  const COLS = 8;
+  const ROWS = 4;   // 8×4 = 32 块，对齐 Mikutap 的 32 个声音
+  const MINOR_PENTA = [0, 3, 5, 7, 10];      // A 小调五声音阶
+  const ROOT = 57;                            // A3
+  const VOWELS = ['a', 'i', 'u', 'e', 'o'];
+  const CHORDS = [[0, 3, 7], [-4, 0, 5], [-9, -5, 0], [-2, 2, 5]];
+  const KICK = [1, 0, 0, 0, 1, 0, 0, 0];
+  const SNARE = [0, 0, 1, 0, 0, 0, 1, 0];
+  const HAT = [1, 0, 1, 0, 1, 0, 1, 1];
+  const ZONE_KEYS = ('1234567890' + 'qwertyuiop' + 'asdfghjkl' + 'zxcvbnm,./')
+    .split('').slice(0, COLS * ROWS);
+  // 12 块 = 固定 12 种声音：5 个人声（低音区）+ 4 个打击 + 和弦 / 铃铛 / 高音点
+  const ZONES = Array.from({length: COLS * ROWS}, (_, i) => ({
+    // 合成兜底用的分档：人声/打击/效果交替；音高沿五声音阶爬升，两个八度内折叠
+    kind: [0, 1, 2, 3, 4, 10, 11, 13, 12, 17, 18, 19][i % 12],
+    pitch: 60 + MINOR_PENTA[i % 5] + 12 * (Math.floor(i / 5) % 3),
+  }));
+  const ZONE_COLORS = Array.from({length: COLS * ROWS}, (_, i) =>
+    `hsl(${172 + (i * 137) % 170}, 68%, 60%)`);
+  const hz = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
+
+  function report(text, bad){
+    const el = $('st-pad');
+    if (el){ el.textContent = text || ''; el.style.color = bad ? 'var(--bad)' : 'var(--ink2)'; }
+  }
+
+  function playSample(bus, index, when){
+    const buf = samples[index % samples.length];
+    if (!buf) return false;
+    const src = bus.ctx.createBufferSource();
+    const gain = bus.ctx.createGain();
+    src.buffer = buf;
+    gain.gain.value = 1;
+    src.connect(gain);
+    gain.connect(bus.out);
+    src.start(when);
+    return true;
+  }
+
+  // 20 种合成音：10 个元音（两个音区）+ 10 个打击/效果；有采样时通常不会走到这里
+  function playSynth(kind, pitch, when, bus){
+    if (kind < 5){
+      if (SampleBank.play('choir_aahs', pitch, when)) return;
+      AudioBus.vowel(VOWELS[kind], hz(pitch), when, 0.34);
+    } else if (kind < 10){
+      if (SampleBank.play('music_box', pitch + 12, when)) return;
+      AudioBus.vowel(VOWELS[kind - 5], hz(pitch + 12), when, 0.3);
+    } else if (kind === 10){
+      AudioBus.kick(when);
+    } else if (kind === 11){
+      AudioBus.snare(when);
+    } else if (kind === 12){
+      AudioBus.hat(when, 0.16);
+    } else if (kind === 13){
+      AudioBus.clap(when);
+    } else if (kind === 14){
+      if (SampleBank.play('marimba', pitch - 12, when, 0.8)) return;
+      AudioBus.tom(when);
+    } else if (kind === 15){
+      AudioBus.cowbell(when);
+    } else if (kind === 16){
+      AudioBus.riser(when);
+    } else if (kind === 17){
+      AudioBus.pad([pitch, pitch + 7, pitch + 12].map(hz), when, 0.7);
+    } else if (kind === 18){
+      AudioBus.chime(hz(pitch + 12), when);
+    } else {
+      AudioBus.tone(hz(pitch + 24), 0.2, 'triangle', 0.2, when - bus.ctx.currentTime);
+    }
+  }
+
+  let canvas = null;
+  let stage = null;
+  let ctx = null;
+  let dpr = 1;
+  let W = 640;
+  let H = 360;
+  let ready = false;
+  let running = false;
+  let timer = 0;
+  let raf = 0;
+  let startTime = 0;
+  let nextStep = 0;
+  let stepIndex = 0;
+  let taps = 0;
+  let events = [];              // 点击事件（按音频时间排队，到点才冒特效）
+  let flashes = [];             // 方块边界闪现
+  let shapes = [];              // 按下位置弹出的图形
+  let samples = [];             // 本地音源（用户自备，非商业自用）
+  let dragX = -999;
+  let dragY = -999;
+  let hue = 190;
+  let lastNames = null;
+  let bankBroken = false;
+  let pendingNames = null;      // 待解码的本地音源名单（start 时统一装载）
+  let hydrated = false;         // 是否已经在用户手势里解码过
+  let hydrating = false;        // 防止 start() 里 hydrate/refresh 并发重复解码
+
+  // 音源状态行：只说真话——用了哪套、哪套没装上
+  function refreshNote(){
+    const el = $('mk-audio-note');
+    if (!el) return;
+    if (samples.length){
+      el.textContent = `正在使用你导入的音源（${samples.length} 个，按方块分配）`;
+    } else if (SampleBank.ready()){
+      el.textContent = `默认音源：${SampleBank.instruments().join(' / ')}（CC BY 3.0）`;
+    } else if (pendingNames && pendingNames.length){
+      el.textContent = `音源待命：发现 ${pendingNames.length} 个 Miku 切片，点「开始」自动装载`;
+    } else if (bankBroken){
+      el.textContent = '默认音源没装上，改用内置合成音（20 种）';
+    } else {
+      el.textContent = '音源加载中…';
+    }
+  }
+
+  function resize(){
+    if (!canvas) return;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const rect = stage.getBoundingClientRect();
+    W = Math.max(300, rect.width);
+    H = Math.max(170, rect.height);
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function zoneAt(x, y){
+    const col = Math.max(0, Math.min(COLS - 1, Math.floor(x / (W / COLS))));
+    const row = Math.max(0, Math.min(ROWS - 1, Math.floor(y / (H / ROWS))));
+    return {col, row, index: row * COLS + col};
+  }
+
+  // 把点击排到下一个十六分音符：这是"怎么点都好听"的秘密
+  function quantize(){
+    const bus = AudioBus.get();
+    if (!bus) return null;
+    const elapsed = bus.ctx.currentTime - startTime;
+    const slot = Math.max(0, Math.ceil(elapsed / TAP_STEP));
+    return {when: startTime + slot * TAP_STEP, bus};
+  }
+
+  function playZone(zoneIndex, when){
+    const zone = ZONES[zoneIndex % ZONES.length];
+    const bus = AudioBus.get();
+    if (samples.length && bus){
+      // 32 块对 32 个 Miku 切片：一一对应；采样更少时才取模循环
+      const index = zoneIndex < samples.length ? zoneIndex : zoneIndex % samples.length;
+      if (playSample(bus, index, when)) return;
+    }
+    if (!bus) return;
+    playSynth(zone.kind, zone.pitch || 60, when, bus);
+  }
+
+  function fireTap(x, y){
+    if (!running) return;
+    try {
+      const zone = zoneAt(x, y);
+      const hit = quantize();
+      if (!hit) return;
+      playZone(zone.index, hit.when);
+      taps += 1;
+      $('mk-taps').textContent = String(taps);
+      // 特效全部排到音频时钟上，到点才冒出来
+      events.push({time: hit.when, kind: 'tap', x, y, zone: zone.index});
+      if (!raf) raf = requestAnimationFrame(draw);
+    } catch (err) {
+      report('触发失败：' + (err && err.message ? err.message : err), true);
+      if (window.console) console.warn('[study_copilot] 电子板触发失败', err);
+    }
+  }
+
+  // ── BGM 调度（鼓 / 贝斯 / 和声垫，照旧）──────────────────────
+  function schedule(){
+    const bus = AudioBus.get();
+    if (!bus || !running) return;
+    // 掉队检测：浏览器节流/系统睡眠后音频时钟跑远了，追赶会往音频图里塞
+    // 几百个过期音符把通道堵死（表现就是"点哪都没反应"）。直接拉回现在。
+    if (bus.ctx.currentTime - (startTime + nextStep * STEP) > 1.5){
+      startTime = bus.ctx.currentTime + 0.05 - nextStep * STEP;
+    }
+    const horizon = bus.ctx.currentTime + LOOKAHEAD;
+    let guard = 0;
+    while (startTime + nextStep * STEP < horizon && guard++ < 64){
+      const when = startTime + nextStep * STEP;
+      const inBar = stepIndex % STEPS_PER_BAR;
+      const barIndex = Math.floor(stepIndex / STEPS_PER_BAR);
+      const chord = CHORDS[barIndex % CHORDS.length];
+      if (KICK[inBar]) AudioBus.kick(when);
+      if (SNARE[inBar]) AudioBus.snare(when);
+      if (HAT[inBar]) AudioBus.hat(when, inBar % 2 ? 0.06 : 0.1);
+      if (inBar === 0 || inBar === 4){
+        AudioBus.bass(hz(ROOT + chord[0] - 12), when, STEP * 3);
+      }
+      if (inBar === 0){
+        AudioBus.pad(chord.map((semi) => hz(ROOT + semi + 12)), when, BEAT * 4);
+        const shown = barIndex + 1;
+        $('mk-bar').textContent = String(shown + 1);
+        // Mikutap 式的背景分段变色：每 4 小节换一个色调，CSS 过渡去平滑
+        if (barIndex % 4 === 3){
+          hue = (hue + 24) % 360;
+          stage.style.setProperty('--mk-hue', String(hue));
+        }
+      }
+      nextStep += 1;
+      stepIndex += 1;
+    }
+  }
+
+  function draw(now){
+    if (!running){ raf = 0; return; }
+    const bus = AudioBus.get();
+    const t = bus ? bus.ctx.currentTime : 0;
+    // 消费到期的点击事件：到点才冒方块闪现与图形
+    while (events.length && events[0].time <= t + 0.005){
+      const ev = events.shift();
+      if (ev.kind !== 'tap') continue;
+      const color = ZONE_COLORS[ev.zone % ZONE_COLORS.length];
+      flashes.push({col: ev.zone % COLS, row: Math.floor(ev.zone / COLS), color, age: 0, life: 0.45});
+      shapes.push({
+        x: ev.x, y: ev.y, kind: ev.zone % 5,
+        rot: Math.random() * Math.PI, spin: (Math.random() * 2 - 1) * 1.6,
+        size: 26 + Math.random() * 58, color,
+        age: 0, life: 0.9, grow: 0,
+      });
+      if (shapes.length > 60) shapes.shift();
+      if (flashes.length > 24) flashes.shift();
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    // ① 方块边界闪现：只在按下的瞬间出现
+    for (const flash of flashes){
+      flash.age += 1 / 60;
+      const power = Math.max(0, 1 - flash.age / flash.life);
+      const cw = W / COLS;
+      const ch = H / ROWS;
+      const x = flash.col * cw;
+      const y = flash.row * ch;
+      ctx.globalAlpha = 0.4 * power;
+      ctx.fillStyle = flash.color;
+      ctx.fillRect(x + 1, y + 1, cw - 2, ch - 2);
+      ctx.globalAlpha = power;
+      ctx.strokeStyle = flash.color;
+      ctx.lineWidth = 2 + 3.5 * power;
+      ctx.strokeRect(x + 1, y + 1, cw - 2, ch - 2);
+    }
+    ctx.globalAlpha = 1;
+    flashes = flashes.filter((flash) => flash.age < flash.life);
+
+    // ② 按下位置弹出的图形（Mikutap 的主要观感）
+    for (const shape of shapes){
+      shape.age += 1 / 60;
+      shape.rot += shape.spin / 60;
+      shape.grow = Math.min(1, shape.grow + 1 / 60 / 0.1);
+      const fade = Math.max(0, 1 - shape.age / shape.life);
+      const size = shape.size * (0.35 + shape.grow * 0.85);
+      ctx.save();
+      ctx.translate(shape.x, shape.y);
+      ctx.rotate(shape.rot);
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = shape.color;
+      ctx.strokeStyle = shape.color;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      if (shape.kind === 0){
+        ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (shape.kind === 1){
+        for (let i = 0; i < 3; i++){
+          const angle = (i / 3) * Math.PI * 2 - Math.PI / 2;
+          const px = Math.cos(angle) * size * 0.58;
+          const py = Math.sin(angle) * size * 0.58;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      } else if (shape.kind === 2){
+        ctx.rect(-size * 0.36, -size * 0.36, size * 0.72, size * 0.72);
+        ctx.fill();
+      } else if (shape.kind === 3){
+        for (let i = 0; i < 10; i++){
+          const radius = i % 2 ? size * 0.24 : size * 0.58;
+          const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
+          const px = Math.cos(angle) * radius;
+          const py = Math.sin(angle) * radius;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    shapes = shapes.filter((shape) => shape.age < shape.life);
+
+    // ③ 没有特效就彻底停帧：平时完全安静，也不烧 CPU
+    if (!flashes.length && !shapes.length && !events.length){
+      raf = 0;
+      return;
+    }
+    raf = requestAnimationFrame(draw);
+  }
+
+  function tapAt(x, y){
+    fireTap(Math.max(6, Math.min(W - 6, x)), Math.max(6, Math.min(H - 6, y)));
+  }
+
+  function start(){
+    try {
+      const bus = AudioBus.get();
+      if (!bus){
+        report('这个环境不支持 Web Audio，放不了声音（换个浏览器或用宿主自带内核）', true);
+        return;
+      }
+      resize();
+      running = true;
+      taps = 0;
+      events = [];
+      flashes = [];
+      shapes = [];
+      stepIndex = 0;
+      startTime = bus.ctx.currentTime + 0.12;
+      nextStep = 0;
+      $('mk-overlay').classList.add('hidden');
+      if (bus.ctx.state !== 'running'){
+        report('浏览器拦住了播放，再点一下屏幕任意位置即可出声', true);
+        try { bus.ctx.resume(); } catch (err) { /* 下一次点击会再试 */ }
+      } else {
+        report('');
+      }
+      if (!timer) timer = setInterval(schedule, TICK);
+      if (!raf) raf = requestAnimationFrame(draw);
+      hydrate();                             // 手势里解码音源（一次性）
+      refresh();                             // 万一音源刚被换过
+    } catch (err) {
+      running = false;
+      report('电子板启动失败：' + (err && err.message ? err.message : err), true);
+      if (window.console) console.warn('[study_copilot] 电子板启动失败', err);
+    }
+  }
+
+  function stop(){
+    running = false;
+    if (timer){ clearInterval(timer); timer = 0; }
+    if (raf){ cancelAnimationFrame(raf); raf = 0; }
+    if (ctx) ctx.clearRect(0, 0, W, H);
+    $('mk-overlay').classList.remove('hidden');
+    $('mk-start').textContent = '再来一次';
+  }
+
+  async function loadSamples(names){
+    const bus = AudioBus.get();
+    if (!bus || !names || !names.length) return 0;
+    if (!hydrated){ pendingNames = names; refreshNote(); return 0; }   // 无手势时只记名单
+    await ensureAssetBase();
+    const base = ASSET_BASE || '';
+    const out = [];
+    for (const name of names.slice(0, 80)){
+      try {
+        const res = await fetch(`${base}/pad-audio/${encodeURIComponent(name)}`);
+        if (!res.ok) continue;
+        const blob = await res.arrayBuffer();
+        out.push(await bus.ctx.decodeAudioData(blob));
+      } catch (err) { /* 单个坏文件不影响其它 */ }
+    }
+    samples = out;
+    lastNames = names;
+    refreshNote();
+    return out.length;
+  }
+
+  async function importFiles(fileList){
+    const files = Array.from(fileList || []).filter((file) => /\.(mp3|ogg|wav|m4a|aac|flac)$/i.test(file.name));
+    if (!files.length){
+      statusOf($('st-pad'), false, '选中的文件夹里没有音频文件');
+      return;
+    }
+    statusOf($('st-pad'), true, `正在导入 ${files.length} 个文件…`);
+    const payload = [];
+    for (const file of files.slice(0, 120)){
+      const data = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+      });
+      if (data) payload.push({name: file.name, data});
+    }
+    try {
+      const res = await api('/api/game', {action: 'import-audio', files: payload});
+      if (!res.ok){ statusOf($('st-pad'), false, res.error || '导入失败'); return; }
+      statusOf($('st-pad'), true, `已导入 ${res.saved} 个音源`);
+      await loadSamples(res.files || []);
+    } catch (err) {
+      statusOf($('st-pad'), false, String(err));
+    }
+  }
+
+  // 音源目录是本机文件，随时可能变：切到电子板/开局时重扫一遍，不用重启
+  async function refresh(){
+    try {
+      const res = await api('/api/game', {action: 'pad-audio'});
+      const files = (res && res.files) || [];
+      if (JSON.stringify(files) !== JSON.stringify(lastNames)){
+        pendingNames = files;
+        if (hydrated && !hydrating) await loadSamples(files);   // 装载中就别重复解码
+      }
+      refreshNote();
+    } catch (err) { refreshNote(); /* 扫描失败不影响已有音源 */ }
+  }
+
+  // 在用户手势里解码全部音源（默认包 + Miku 切片），只做一次
+  async function hydrate(){
+    if (hydrated || hydrating) return;
+    hydrating = true;
+    hydrated = true;
+    try {
+      await SampleBank.load();
+      if (pendingNames && pendingNames.length) await loadSamples(pendingNames);
+      refreshNote();
+    } catch (err) {
+      refreshNote();
+      if (window.console) console.warn('[study_copilot] 音源装载失败', err);
+    } finally {
+      hydrating = false;
+    }
+  }
+
+  function toggleFull(){
+    if (!stage) return;
+    const doc = document;
+    if (doc.fullscreenElement || doc.webkitFullscreenElement){
+      (doc.exitFullscreen || doc.webkitExitFullscreen || (() => {})).call(doc);
+      return;
+    }
+    const request = stage.requestFullscreen || stage.webkitRequestFullscreen;
+    if (!request){ report('这个环境不支持满屏（宿主窗口可能已限制）', true); return; }
+    Promise.resolve(request.call(stage)).catch((err) => {
+      report('进不了满屏：' + (err && err.message ? err.message : err), true);
+    });
+  }
+
+  function ensureInit(){
+    if (ready) return;
+    try {
+    canvas = $('mk-canvas');
+    stage = $('mk-stage');
+    ctx = canvas && canvas.getContext('2d');
+    if (!canvas || !stage || !ctx){
+      report('电子板初始化失败：找不到画布或上下文', true);
+      return;
+    }
+    stage.addEventListener('pointerdown', (ev) => {
+      const rect = stage.getBoundingClientRect();
+      dragX = ev.clientX - rect.left;
+      dragY = ev.clientY - rect.top;
+      ev.preventDefault();
+      try { stage.setPointerCapture(ev.pointerId); } catch (err) { /* 老内核没有就算了 */ }
+      if (!running){ start(); tapAt(dragX, dragY); return; }   // 第一击就开始并出声（Mikutap 的手感）
+      tapAt(dragX, dragY);                     // ⚠ 这行上次被误删过：普通点击全靠它
+    });
+    // 拖动＝一串音，按距离节流
+    stage.addEventListener('pointermove', (ev) => {
+      if (ev.buttons !== 1) return;
+      const rect = stage.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      if (Math.hypot(x - dragX, y - dragY) < 34) return;
+      dragX = x;
+      dragY = y;
+      tapAt(x, y);
+    });
+    $('mk-start').onclick = start;
+    $('mk-stop').onclick = stop;
+    document.addEventListener('keydown', (ev) => {
+      if (!running || $('tab-play').classList.contains('hidden') || $('card-pad').classList.contains('hidden')) return;
+      if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+      const tag = (ev.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      const zi = ZONE_KEYS.indexOf(String(ev.key || '').toLowerCase());
+      if (zi >= 0){
+        ev.preventDefault();
+        const cx = (zi % COLS + 0.5) * (W / COLS);
+        const cy = (Math.floor(zi / COLS) + 0.5) * (H / ROWS);
+        tapAt(cx, cy);
+      }
+    });
+    $('mk-full').onclick = toggleFull;
+    $('mk-import').onclick = () => $('mk-files').click();
+    $('mk-files').onchange = () => {
+      importFiles($('mk-files').files).finally(() => { $('mk-files').value = ''; });
+    };
+    document.addEventListener('fullscreenchange', () => { if (running) resize(); });
+    if (window.ResizeObserver){
+      new ResizeObserver(() => { if (running) resize(); }).observe(stage);
+    }
+    // 两条加载**互不拖累**：默认音源失败绝不能挡住本地音源扫描（吃过亏）
+    // 页面加载阶段**只取元数据**（清单 + 文件名），解码推迟到 start() 的用户手势里——
+    // 无手势时音频上下文是挂起的，这个内核里 decodeAudioData 会卡死
+    SampleBank.prepare()
+      .then(() => refreshNote())
+      .catch((err) => { bankBroken = true; refreshNote(); if (window.console) console.warn('[study_copilot] 默认音源清单读取失败', err); });
+    api('/api/game', {action: 'pad-audio'})
+      .then((res) => { pendingNames = (res && res.files) || []; refreshNote(); })
+      .catch((err) => { refreshNote(); if (window.console) console.warn('[study_copilot] 本地音源扫描失败', err); });
+    resize();                                  // 绑完事件再算尺寸，出错也已经可用
+    ready = true;
+    } catch (err) {
+      report('电子板初始化失败：' + (err && err.message ? err.message : err), true);
+      if (window.console) console.warn('[study_copilot] 电子板初始化失败', err);
+    }
+  }
+
+  return {
+    ensureInit, start, stop, loadSamples, toggleFull, refresh,
+    pause: stop,
+    isRunning: () => running,
+    zones: () => ({cols: COLS, rows: ROWS, count: COLS * ROWS}),
+    soundCount: () => (samples.length ? samples.length : ZONES.length),
+  };
+})();
+
+// ══ 切水果 ═════════════════════════════════════════════════════
+// 规则（水果分值、等级曲线、难度）全部从后端 /api/game 取，避免 JS 里再抄一份跑偏。
+const fruitGame = (() => {
+  const FALLBACK = {
+    level_step: 120, level_max: 20, lives: 3,
+    fruits: [
+      {key: 'watermelon', name: '西瓜', emoji: '🍉', color: '#e8546b', score: 25, radius: 0.078, weight: 1.0},
+      {key: 'orange', name: '橘子', emoji: '🍊', color: '#f0962e', score: 15, radius: 0.062, weight: 1.1},
+      {key: 'apple', name: '苹果', emoji: '🍎', color: '#d8433c', score: 15, radius: 0.062, weight: 1.1},
+      {key: 'banana', name: '香蕉', emoji: '🍌', color: '#e8c33c', score: 20, radius: 0.066, weight: 0.9},
+    ],
+    bomb: {key: 'bomb', name: '炸弹', emoji: '💣', color: '#3b3b46', radius: 0.058},
+    spawn_interval_start: 1.15, spawn_interval_min: 0.45,
+    fall_speed_start: 0.62, fall_speed_gain: 0.045,
+    bomb_chance_start: 0, bomb_chance_max: 0.16,
+  };
+  let rules = FALLBACK;
+  let canvas = null;
+  let ctx = null;
+  let stage = null;
+  let dpr = 1;
+  let W = 600;
+  let H = 340;
+  let raf = 0;
+  let last = 0;
+  let down = false;
+  let lastPt = null;
+  let slashes = [];
+  let st = null;              // 运行状态
+  let ready = false;
+
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+  function newState(){
+    return {
+      running: false, over: false, submitted: false,
+      score: 0, level: 1, lives: rules.lives,
+      combo: 0, comboTimer: 0, maxCombo: 0,
+      sliced: 0, missed: 0, elapsed: 0,
+      spawnTimer: 0.5, fruits: [], halves: [], parts: [], shake: 0,
+    };
+  }
+
+  function levelOf(score){
+    return Math.max(1, Math.min(rules.level_max, 1 + Math.floor(score / rules.level_step)));
+  }
+
+  function difficulty(level){
+    const step = Math.max(0, level - 1);
+    return {
+      interval: Math.max(rules.spawn_interval_min, rules.spawn_interval_start - step * 0.045),
+      speed: rules.fall_speed_start + step * rules.fall_speed_gain,
+      bomb: Math.min(rules.bomb_chance_max, rules.bomb_chance_start + step * 0.012),
+    };
+  }
+
+  function pickFruit(){
+    const total = rules.fruits.reduce((sum, f) => sum + (f.weight || 1), 0);
+    let roll = Math.random() * total;
+    for (const fruit of rules.fruits){
+      roll -= (fruit.weight || 1);
+      if (roll <= 0) return fruit;
+    }
+    return rules.fruits[0];
+  }
+
+  function spawn(){
+    const diff = difficulty(st.level);
+    const isBomb = Math.random() < diff.bomb;
+    const spec = isBomb ? rules.bomb : pickFruit();
+    const r = Math.max(14, spec.radius * H);
+    const x = W * (0.14 + Math.random() * 0.72);
+    const apex = 0.42 + Math.random() * 0.2;
+    const g = 1.35 * H;
+    const vy = -Math.sqrt(2 * g * apex * H);
+    const vx = (Math.random() * 2 - 1) * 0.16 * H;
+    st.fruits.push({
+      spec, r, x, y: H + r, vx, vy, g,
+      angle: Math.random() * Math.PI, spin: (Math.random() * 2 - 1) * 2.2,
+      bomb: isBomb, dead: false,
+    });
+  }
+
+  function segmentHitsCircle(x1, y1, x2, y2, cx, cy, r){
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    let t = 0;
+    if (len2 > 0.0001) t = Math.max(0, Math.min(1, ((cx - x1) * dx + (cy - y1) * dy) / len2));
+    const px = x1 + t * dx;
+    const py = y1 + t * dy;
+    const dist = Math.hypot(cx - px, cy - py);
+    return dist <= r;
+  }
+
+  function burst(x, y, color, count){
+    for (let i = 0; i < (count || 12); i++){
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 60 + Math.random() * 220;
+      st.parts.push({
+        x, y, color,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 60,
+        r: 2 + Math.random() * 4, life: 0.6 + Math.random() * 0.4, age: 0,
+      });
+    }
+  }
+
+  function sliceFruit(fruit, angle){
+    if (fruit.dead) return;
+    fruit.dead = true;
+    if (fruit.bomb){
+      st.lives -= 1;
+      st.combo = 0;
+      st.shake = 1;
+      AudioBus.boom();
+      burst(fruit.x, fruit.y, '#ff6b6b', 24);
+      updateHud();
+      if (st.lives <= 0) finish();
+      return;
+    }
+    st.sliced += 1;
+    st.combo += 1;
+    st.comboTimer = 0.7;
+    st.maxCombo = Math.max(st.maxCombo, st.combo);
+    const bonus = st.combo >= 3 ? Math.min(60, (st.combo - 2) * 6) : 0;
+    st.score += fruit.spec.score + bonus;
+    AudioBus.slice(st.combo);
+    if (st.combo >= 3) AudioBus.comboSound(st.combo);
+    burst(fruit.x, fruit.y, fruit.spec.color, 14);
+    // 两瓣切开飞出去
+    for (const side of [-1, 1]){
+      st.halves.push({
+        spec: fruit.spec, r: fruit.r, x: fruit.x, y: fruit.y,
+        vx: fruit.vx + Math.cos(angle + side * Math.PI / 2) * 120 * side,
+        vy: fruit.vy * 0.5 - 40,
+        g: fruit.g, angle, spin: side * 3.4,
+        rot: 0, life: 1.3, age: 0,
+      });
+    }
+    const lv = levelOf(st.score);
+    if (lv > st.level){ st.level = lv; }
+    updateHud();
+  }
+
+  function updateHud(){
+    if (!st) return;
+    $('fr-score').textContent = String(st.score);
+    $('fr-level').textContent = `Lv.${st.level}`;
+    $('fr-combo').textContent = st.combo > 1 ? `${st.combo} 连` : '0';
+    const hearts = '♥'.repeat(Math.max(0, st.lives)) + '♡'.repeat(Math.max(0, rules.lives - st.lives));
+    $('fr-lives').textContent = hearts || '💔';
+    $('fr-lives').classList.toggle('lost', st.lives <= 0);
+    $('fr-time').textContent = `${st.elapsed.toFixed(1)} 秒`;
+  }
+
+  function resize(){
+    if (!canvas) return;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const rect = stage.getBoundingClientRect();
+    W = Math.max(280, rect.width);
+    H = Math.max(160, rect.height);
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function drawFruit(item){
+    const r = item.r;
+    const grd = ctx.createRadialGradient(item.x - r * 0.3, item.y - r * 0.35, r * 0.15, item.x, item.y, r);
+    grd.addColorStop(0, 'rgba(255,255,255,.85)');
+    grd.addColorStop(1, item.spec.color);
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(item.x, item.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(item.x, item.y);
+    ctx.rotate(item.angle);
+    ctx.font = `${Math.round(r * 1.05)}px "Segoe UI Emoji","Apple Color Emoji",serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.spec.emoji, 0, r * 0.06);
+    ctx.restore();
+  }
+
+  function drawHalf(half){
+    ctx.save();
+    ctx.translate(half.x, half.y);
+    ctx.rotate(half.angle + half.rot);
+    ctx.fillStyle = half.spec.color;
+    ctx.beginPath();
+    ctx.arc(0, 0, half.r, 0, Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.beginPath();
+    ctx.arc(0, 0, half.r * 0.72, 0, Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function frame(now){
+    if (!st || !st.running){ raf = 0; return; }
+    const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
+    last = now;
+    st.elapsed += dt;
+    if (st.comboTimer > 0){
+      st.comboTimer -= dt;
+      if (st.comboTimer <= 0) st.combo = 0;
+    }
+    st.spawnTimer -= dt;
+    if (st.spawnTimer <= 0){
+      spawn();
+      const diff = difficulty(st.level);
+      st.spawnTimer = diff.interval * (0.85 + Math.random() * 0.3);
+      if (st.level >= 4 && Math.random() < 0.22) spawn();   // 高等级偶尔一次来两个
+    }
+
+    // 水果运动 + 漏掉的判定
+    for (const item of st.fruits){
+      if (item.dead) continue;
+      item.vy += item.g * dt;
+      item.x += item.vx * dt;
+      item.y += item.vy * dt;
+      item.angle += item.spin * dt;
+      if (item.y - item.r > H && item.vy > 0){
+        item.dead = true;
+        if (!item.bomb){
+          st.missed += 1;
+          st.lives -= 1;
+          st.combo = 0;
+          updateHud();
+          if (st.lives <= 0){ finish(); }
+        }
+      }
+    }
+    st.fruits = st.fruits.filter((item) => !item.dead || item.y < H + 240);
+
+    for (const half of st.halves){
+      half.vy += half.g * 0.6 * dt;
+      half.x += half.vx * dt;
+      half.y += half.vy * dt;
+      half.rot += half.spin * dt;
+      half.age += dt;
+    }
+    st.halves = st.halves.filter((half) => half.age < half.life);
+    for (const part of st.parts){
+      part.vy += 900 * dt;
+      part.x += part.vx * dt;
+      part.y += part.vy * dt;
+      part.age += dt;
+    }
+    st.parts = st.parts.filter((part) => part.age < part.life);
+    for (const slash of slashes) slash.age += dt;
+    slashes = slashes.filter((slash) => slash.age < 0.32);
+
+    // 画
+    ctx.clearRect(0, 0, W, H);
+    if (st.shake > 0){
+      const s = st.shake * 6;
+      ctx.save();
+      ctx.translate((Math.random() * 2 - 1) * s, (Math.random() * 2 - 1) * s);
+      st.shake = Math.max(0, st.shake - dt * 3);
+    } else {
+      ctx.save();
+    }
+    for (const half of st.halves) drawHalf(half);
+    for (const item of st.fruits){ if (!item.dead) drawFruit(item); }
+    for (const part of st.parts){
+      ctx.globalAlpha = Math.max(0, 1 - part.age / part.life);
+      ctx.fillStyle = part.color;
+      ctx.beginPath();
+      ctx.arc(part.x, part.y, part.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    for (const slash of slashes){
+      const power = 1 - slash.age / 0.32;
+      ctx.strokeStyle = `rgba(255,255,255,${0.85 * power})`;
+      ctx.lineWidth = 2 + 6 * power;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(slash.x1, slash.y1);
+      ctx.lineTo(slash.x2, slash.y2);
+      ctx.stroke();
+    }
+    ctx.restore();
+    updateHud();
+    raf = requestAnimationFrame(frame);
+  }
+
+  function start(){
+    if (!ready) return;
+    resize();
+    st = newState();
+    slashes = [];
+    st.running = true;
+    st.startedAt = performance.now();
+    last = performance.now();
+    $('fr-overlay').classList.add('hidden');
+    $('fr-result').innerHTML = '';
+    $('fr-gained').innerHTML = '';
+    $('fr-start').textContent = '开始';
+    updateHud();
+    if (!raf) raf = requestAnimationFrame(frame);
+  }
+
+  function finish(){
+    if (!st || !st.running) return;
+    st.running = false;
+    st.over = true;
+    AudioBus.gameOver();
+    if (raf){ cancelAnimationFrame(raf); raf = 0; }
+    updateHud();
+    const run = {
+      score: st.score,
+      level: st.level,
+      max_combo: st.maxCombo,
+      duration: Math.floor(st.elapsed * 10) / 10,
+      sliced: st.sliced,
+      missed: st.missed,
+    };
+    $('fr-title').textContent = '这一局结束';
+    $('fr-sub').textContent = `${run.sliced} 个水果，漏了 ${run.missed} 个，最长连击 ${run.maxCombo}`;
+    $('fr-result').innerHTML = `
+      <div class="fr-line">得分 <b>${run.score}</b>　等级 <b>Lv.${run.level}</b></div>
+      <div class="fr-line">用时 <b>${run.duration.toFixed(1)}</b> 秒</div>`;
+    $('fr-gained').innerHTML = '';
+    $('fr-start').textContent = '再来一局';
+    $('fr-overlay').classList.remove('hidden');
+    submit(run);
+  }
+
+  async function submit(run){
+    $('st-fruit').textContent = '正在保存成绩…';
+    try {
+      const res = await api('/api/game', {action: 'submit', game: 'fruit', run});
+      if (!res.ok){
+        statusOf($('st-fruit'), false, res.error || '保存失败');
+        if (res.state) renderRecords(res.state);
+        return;
+      }
+      renderRecords(res.state);
+      const bits = [];
+      if (res.is_best) bits.push('🏆 新纪录！');
+      if ((res.gained_titles || []).length) bits.push('新成就：' + res.gained_titles.join('、'));
+      $('fr-gained').innerHTML = bits.length ? `<b>${esc(bits.join('　'))}</b>` : '';
+      statusOf($('st-fruit'), true, res.is_best ? '新纪录' : '已记录');
+      if (res.is_best) sparkBurst({x: window.innerWidth / 2, y: 140}, 14);
+    } catch (err) {
+      statusOf($('st-fruit'), false, String(err));
+    }
+  }
+
+  function renderRecords(state){
+    if (!state) return;
+    const best = state.best || {};
+    const totals = state.totals || {};
+    $('fr-best').textContent = `最高分：${best.score || 0}（${best.level ? 'Lv.' + best.level : '还没打过'}）`;
+    $('fr-stats').innerHTML = `
+      <div class="stat"><b>${best.score || 0}</b><span>最高分</span></div>
+      <div class="stat"><b>${best.max_combo || 0}</b><span>最长连击</span></div>
+      <div class="stat"><b>${totals.runs || 0}</b><span>玩过局数</span></div>
+      <div class="stat"><b>${totals.sliced || 0}</b><span>累计切中</span></div>
+      <div class="stat"><b>${(best.duration || 0).toFixed ? best.duration.toFixed(0) : 0}</b><span>单局最长(秒)</span></div>`;
+    const badges = state.badges || [];
+    const owned = badges.filter((item) => item.owned).length;
+    $('fr-badge-count').textContent = `${owned}/${badges.length}`;
+    $('fr-badges').innerHTML = badges.map((item) => `
+      <div class="badge ${item.owned ? '' : 'locked'}">
+        <span class="ico">${item.owned ? '🏅' : '🔒'}</span>
+        <div><b>${esc(item.title)}</b><span>${esc(item.note)}</span></div>
+      </div>`).join('');
+    const recent = state.recent || [];
+    $('fr-recent').innerHTML = recent.length
+      ? recent.map((row) => `<div class="link"><b>${row.score} 分</b>
+          <span>Lv.${row.level}　连击 ${row.max_combo}　${row.sliced} 个　${(row.duration || 0).toFixed(1)} 秒</span></div>`).join('')
+      : '<div class="muted">还没有战绩，先打一局。</div>';
+  }
+
+  function pause(){
+    if (!st || !st.running) return;
+    st.running = false;
+    if (raf){ cancelAnimationFrame(raf); raf = 0; }
+    $('fr-title').textContent = '已暂停';
+    $('fr-sub').textContent = '点下面继续这一局';
+    $('fr-start').textContent = '继续';
+    $('fr-overlay').classList.remove('hidden');
+  }
+
+  async function ensureInit(){
+    if (ready){
+      if (st && st.over) renderRecords((await fetchState()) || null);
+      return;
+    }
+    canvas = $('fr-canvas');
+    stage = $('fr-stage');
+    ctx = canvas.getContext('2d');
+    ready = true;
+    resize();
+    stage.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();                     // 长按别让浏览器起文字选择/拖拽
+      try { stage.setPointerCapture(ev.pointerId); } catch (err) { /* 老内核没有就算了 */ }
+      down = true;
+      const rect = stage.getBoundingClientRect();
+      lastPt = {x: ev.clientX - rect.left, y: ev.clientY - rect.top};
+    });
+    stage.addEventListener('pointermove', (ev) => {
+      if (!down || !st || !st.running) return;
+      const rect = stage.getBoundingClientRect();
+      const pt = {x: ev.clientX - rect.left, y: ev.clientY - rect.top};
+      if (lastPt){
+        slashes.push({x1: lastPt.x, y1: lastPt.y, x2: pt.x, y2: pt.y, age: 0});
+        const angle = Math.atan2(pt.y - lastPt.y, pt.x - lastPt.x);
+        for (const item of st.fruits){
+          if (item.dead) continue;
+          if (segmentHitsCircle(lastPt.x, lastPt.y, pt.x, pt.y, item.x, item.y, item.r * 1.12)){
+            sliceFruit(item, angle);
+          }
+        }
+      }
+      lastPt = pt;
+    });
+    const release = () => { down = false; lastPt = null; };
+    stage.addEventListener('pointerup', release);
+    stage.addEventListener('pointercancel', release);
+    stage.addEventListener('pointerleave', (ev) => {
+      // 指针被本舞台捕获时，划出边缘不算离开（长按扫全屏也不会被掐断）
+      if (stage.hasPointerCapture && stage.hasPointerCapture(ev.pointerId)) return;
+      release();
+    });
+    $('fr-start').onclick = () => {
+      if (st && st.running === false && !st.over && st.elapsed > 0){   // 继续
+        st.running = true;
+        last = performance.now();
+        $('fr-overlay').classList.add('hidden');
+        if (!raf) raf = requestAnimationFrame(frame);
+        return;
+      }
+      start();
+    };
+    $('fr-restart').onclick = start;
+    window.addEventListener('resize', () => { if (!$('card-fruit').classList.contains('hidden')) resize(); });
+    let snap = null;
+    try {
+      const res = await api('/api/game', {action: 'config', game: 'fruit'});
+      if (res && res.config) rules = res.config;
+      if (res && res.state){ snap = res.state; renderRecords(snap); }
+    } catch (err) {
+      $('st-fruit').textContent = '规则读取失败，用内置兜底值也能玩';
+    }
+    renderRecords(snap);
+    st = newState();
+    updateHud();
+  }
+
+  async function fetchState(){
+    try {
+      const res = await api('/api/game', {action: 'state', game: 'fruit'});
+      return res && res.state ? res.state : null;
+    } catch (err) { return null; }
+  }
+
+  return {ensureInit, pause, start, rules: () => rules};
+})();
+
+// ══ 鼠标轨迹 ═══════════════════════════════════════════════════
+// canvas 铺满视口画一条会散开的线；不动鼠标时**停掉 rAF**，别空转烧 CPU。
+const trail = (() => {
+  const canvas = $('trail-canvas');
+  const ctx = canvas.getContext('2d');
+  let points = [];
+  let raf = 0;
+  let dpr = 1;
+
+  function resize(){
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function push(x, y){
+    points.push({x, y, t: performance.now()});
+    if (points.length > 42) points = points.slice(-42);
+    if (!raf) raf = requestAnimationFrame(draw);
+  }
+
+  function draw(){
+    const now = performance.now();
+    const life = 460;                       // 每个点的存活时间
+    points = points.filter(p => now - p.t < life);
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    if (points.length < 2){
+      points = [];
+      raf = 0;
+      return;                               // 轨迹散完就停，不常驻跑帧
+    }
+    // 从尾到头画：越新的越亮越粗，颜色从青到紫（初音的配色）
+    for (let i = 1; i < points.length; i++){
+      const a = points[i - 1];
+      const b = points[i];
+      const age = (now - b.t) / life;
+      const power = 1 - age;
+      const ratio = i / points.length;
+      ctx.strokeStyle = `hsla(${172 + ratio * 88}, ${72 - age * 20}%, ${58 + ratio * 6}%, ${0.5 * power})`;
+      ctx.lineWidth = 1.2 + 7.5 * power * ratio;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+    // 头部加一点光晕，像笔尖
+    const head = points[points.length - 1];
+    const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 16);
+    glow.addColorStop(0, 'rgba(57,197,187,.42)');
+    glow.addColorStop(1, 'rgba(57,197,187,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, 16, 0, Math.PI * 2);
+    ctx.fill();
+    raf = requestAnimationFrame(draw);
+  }
+
+  function enable(on){
+    canvas.classList.toggle('off', !on);
+    if (!on){
+      points = [];
+      if (raf){ cancelAnimationFrame(raf); raf = 0; }
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    }
+  }
+
+  window.addEventListener('resize', resize);
+  document.addEventListener('pointermove', (ev) => {
+    if (canvas.classList.contains('off')) return;
+    push(ev.clientX, ev.clientY);
+  }, {passive: true});
+  // 触摸设备也来一条
+  document.addEventListener('touchmove', (ev) => {
+    if (canvas.classList.contains('off') || !ev.touches[0]) return;
+    push(ev.touches[0].clientX, ev.touches[0].clientY);
+  }, {passive: true});
+
+  resize();
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return {enable, disable: () => enable(false), reduced: reduce};
+})();
+
+// ══ 解压钢琴：Web Audio 实时合成，不加载任何音频文件 ═══════════════
+const piano = (() => {
+  const SCALES = {
+    penta: [0, 2, 4, 7, 9],
+    major: [0, 2, 4, 5, 7, 9, 11],
+    blues: [0, 3, 5, 6, 7, 10],
+    chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  };
+  const BASE = 48;             // C3 起，最高到 B6，听感舒服
+  const OCTAVES = 4;           // 最多铺四个八度
+  const ROWS = 4;
+  // 键盘映射：每排对应网格的一行
+  const KEYMAP = ['1234567890', 'qwertyuiop', 'asdfghjkl;', 'zxcvbnm,./'];
+  const SOLFEGE = ['ド', 'レ', 'ミ', 'ファ', 'ソ', 'ラ', 'シ'];
+  const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+  let ctx = null;
+  let master = null;
+
+  function noteName(midi){
+    return `${NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
+  }
+
+  function plan(cols, scaleKey){
+    // 返回 {notes, useCols, rows}：每个音高互不相同
+    const scale = SCALES[scaleKey] || SCALES.chromatic;
+    const distinct = scale.length * OCTAVES;         // 这个音阶能提供的不同音高数
+    const wanted = Math.max(1, cols) * ROWS;
+    const tiles = Math.min(wanted, distinct);
+    const useCols = Math.max(1, Math.min(cols, tiles));
+    const rows = Math.ceil(tiles / useCols);
+    const notes = [];
+    for (let i = 0; i < tiles; i++){
+      notes.push(BASE + 12 * Math.floor(i / scale.length) + scale[i % scale.length]);
+    }
+    return {notes, useCols, rows};
+  }
+
+  function ensure(){
+    if (!ctx){
+      const bus = AudioBus.get();
+      if (!bus) return null;
+      ctx = bus.ctx;
+      master = ctx.createGain();
+      master.gain.value = 0.22;
+      // 一点延迟做出"空气感"，不然电子音太干
+      const delay = ctx.createDelay(0.6);
+      delay.delayTime.value = 0.17;
+      const feedback = ctx.createGain();
+      feedback.gain.value = 0.22;
+      const wet = ctx.createGain();
+      wet.gain.value = 0.3;
+      delay.connect(feedback);
+      feedback.connect(delay);
+      delay.connect(wet);
+      wet.connect(bus.out);
+      master.connect(bus.out);
+      master.connect(delay);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function playNote(midi, timbre){
+    const ac = ensure();
+    if (!ac) return;
+    const freq = 440 * Math.pow(2, (midi - 69) / 12);
+    const now = ac.currentTime;
+    const out = ac.createGain();
+    const filter = ac.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = timbre === 'bell' ? 7000 : 4600;
+    out.connect(filter);
+    filter.connect(master);
+
+    const voices = [];
+    if (timbre === 'bell'){
+      voices.push(['sine', freq, 0.9], ['sine', freq * 2.01, 0.45], ['sine', freq * 3.98, 0.16]);
+    } else if (timbre === 'marimba'){
+      voices.push(['sine', freq, 1], ['triangle', freq * 2, 0.3], ['sine', freq * 4.01, 0.1]);
+    } else {
+      voices.push(['triangle', freq, 0.85], ['square', freq * 1.005, 0.16], ['sine', freq * 2, 0.3]);
+    }
+    const decay = timbre === 'bell' ? 1.5 : (timbre === 'marimba' ? 0.6 : 0.85);
+    voices.forEach(([type, f, level], i) => {
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.type = type;
+      osc.frequency.value = f;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(level, now + 0.008 + i * 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+      osc.connect(gain);
+      gain.connect(out);
+      osc.start(now);
+      osc.stop(now + decay + 0.05);
+    });
+  }
+
+  function buildGrid(){
+    const grid = $('piano-grid');
+    const cols = Number($('piano-cols').value) || 7;
+    const scaleKey = $('piano-scale').value || 'chromatic';
+    const {notes, useCols, rows} = plan(cols, scaleKey);
+    grid.style.setProperty('--cols', useCols);
+    grid.innerHTML = notes.map((midi, i) => {
+      const hue = 172 + (i / Math.max(1, notes.length - 1)) * 88;   // 青 → 紫
+      const row = Math.floor(i / useCols);
+      const key = (KEYMAP[row] || '')[i % useCols] || '';
+      const solfege = scaleKey === 'chromatic' ? '' : SOLFEGE[i % SOLFEGE.length];
+      const label = `${noteName(midi)}${solfege ? ' ' + solfege : ''}${key ? ' · ' + key : ''}`;
+      return `<div class="key" data-midi="${midi}" data-key="${key}" style="--key-hue:hsl(${hue} 68% 62%)">
+          <span class="dot"></span><span class="lbl">${label}</span>
+        </div>`;
+    }).join('');
+    const hint = $('piano-note');
+    if (hint && !hint.dataset.ready){
+      hint.textContent = `${notes.length} 个键，${notes.length} 个不同音高（${noteName(notes[0])} → ${noteName(notes[notes.length - 1])}）。点一下开始。`;
+      hint.dataset.ready = '1';
+    }
+  }
+
+  function hit(node){
+    if (!node) return;
+    const midi = Number(node.dataset.midi);
+    const timbre = $('piano-timbre').value || 'electric';
+    playNote(midi, timbre);
+    node.classList.add('hit');
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    node.appendChild(ripple);
+    setTimeout(() => { ripple.remove(); node.classList.remove('hit'); }, 320);
+    const at = node.getBoundingClientRect();
+    sparkBurst({x: at.left + at.width / 2, y: at.top + at.height / 2}, 5);
+    $('piano-note').textContent = '继续按，或者换音阶/音色试试。';
+  }
+
+  function byKey(key){
+    if (!key) return null;
+    return document.querySelector(`#piano-grid .key[data-key="${key.toLowerCase()}"]`);
+  }
+
+  $('piano-grid').addEventListener('pointerdown', (ev) => {
+    hit(ev.target.closest('.key'));
+  });
+  ['piano-scale', 'piano-cols'].forEach((id) => { $(id).onchange = buildGrid; });
+  document.addEventListener('keydown', (ev) => {
+    if ($('tab-play').classList.contains('hidden')) return;
+    if ($('card-piano').classList.contains('hidden')) return;   // 别和电子板串台
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    const tag = (ev.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    const node = byKey(ev.key);
+    if (node){
+      ev.preventDefault();
+      hit(node);
+    }
+  });
+
+  buildGrid();
+  return {build: buildGrid};
+})();
+
+// ── 进行中反馈：状态文字前面加个小 spinner，别只给一句"生成中" ──────
+const busy = (el, text) => {
+  el.innerHTML = `<span class="spin"></span>${esc(text || '处理中...')}`;
+  el.style.color = 'var(--ink2)';
+};
+
+// ── 外观抽屉：顶栏只留行为开关，字体/字号/背景都收进来 ──────────────
+$('btn-look').onclick = () => {
+  const open = $('look-drawer').classList.toggle('open');
+  $('btn-look').setAttribute('aria-expanded', open ? 'true' : 'false');
+};
+
+// ══ 修行等级：进度、飘字、升级特效 ══════════════════════════════
+// 关键点：**经验值一律从后端拉真实数据**，前端只在"总经验变多了"时飘字，
+// 不做本地假加，免得又变成编造（和经验规则一致）。
+let PROGRESS = null;
+const lastClick = {x: 0, y: 0};
+
+document.addEventListener('pointerdown', (ev) => {
+  lastClick.x = ev.clientX;
+  lastClick.y = ev.clientY;
+}, true);
+
+function floatExp(amount, at){
+  const x = (at && at.x) || window.innerWidth - 120;
+  const y = (at && at.y) || 90;
+  const node = document.createElement('div');
+  node.className = 'expfloat';
+  node.textContent = `+${amount} EXP`;
+  node.style.left = `${x}px`;
+  node.style.top = `${y}px`;
+  node.style.fontSize = 'calc(var(--fs) * 1.15)';
+  document.body.appendChild(node);
+  setTimeout(() => node.remove(), 1300);
+}
+
+function sparkBurst(at, count){
+  const palette = ['#9b8cf7', '#6f5ee8', '#e0b155', '#7ed0a8'];
+  for (let i = 0; i < (count || 10); i++){
+    const s = document.createElement('div');
+    s.className = 'spark';
+    const angle = (Math.PI * 2 * i) / (count || 10) - Math.PI / 2;
+    const dist = 46 + Math.random() * 34;
+    s.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+    s.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
+    s.style.background = palette[i % palette.length];
+    s.style.left = `${at.x}px`;
+    s.style.top = `${at.y}px`;
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 1000);
+  }
+}
+
+function levelUpBanner(progress){
+  const node = document.createElement('div');
+  node.className = 'levelup';
+  node.innerHTML = `<div class="box">
+      <div class="t1">修 行 突 破</div>
+      <div class="t2">Lv.${progress.level}</div>
+      <div class="t3">${esc(progress.title || '')}</div>
+      <div class="stars">★★★</div>
+    </div>`;
+  document.body.appendChild(node);
+  sparkBurst({x: window.innerWidth / 2, y: window.innerHeight / 2}, 16);
+  setTimeout(() => node.remove(), 2700);
+}
+
+function renderProgress(data){
+  const p = (data && data.progress) || {};
+  if (p.total_exp === 0){
+    $('lv-hint').textContent = '还没有经验。最快的路子：去「诊断与练习」贴一道题，或者出题后把答案发给我批改。';
+  } else if (!/预览/.test($('lv-hint').textContent)) {
+    $('lv-hint').textContent = '特效在拿到经验的那一刻播放；右上角的等级胶囊也会闪一下。';
+  }
+  const level = p.level || 1;
+  const percent = Math.round((p.percent || 0) * 100);
+  $('lv-num').textContent = `Lv.${level}`;
+  $('lv-title').textContent = p.title || '';
+  $('lv-fill').style.width = `${percent}%`;
+  $('lv-big').textContent = `Lv.${level}`;
+  $('lv-name').textContent = p.title || '';
+  $('lv-note').textContent = p.title_note || '经验只来自真实学习行为。';
+  $('lv-exp').textContent = p.level_need ? `${p.level_exp} / ${p.level_need}` : `${p.total_exp}（满级）`;
+  $('lv-fill2').style.width = `${percent}%`;
+  $('lv-stats').innerHTML = `
+    <div class="stat"><b>${p.total_exp || 0}</b><span>累计经验</span></div>
+    <div class="stat"><b>${p.streak || 0}</b><span>连续天数</span></div>
+    <div class="stat"><b>${p.today_exp || 0}</b><span>今日经验</span></div>
+    <div class="stat"><b>${(p.badges || []).length}</b><span>已获徽章</span></div>`;
+  const wall = (data && data.wall && data.wall.all) || [];
+  const owned = wall.filter(b => b.owned).length;
+  $('badge-count').textContent = `${owned}/${wall.length || 0}`;
+  $('badge-wall').innerHTML = wall.map(b => `
+    <div class="badge ${b.owned ? '' : 'locked'}">
+      <span class="ico">${b.owned ? '🏅' : '🔒'}</span>
+      <div><b>${esc(b.title)}</b><span>${esc(b.note)}</span></div>
+    </div>`).join('') || '<div class="muted">还没有徽章定义。</div>';
+  const recent = p.recent || [];
+  $('lv-recent').innerHTML = recent.length
+    ? recent.map(r => `<div class="link"><b>+${r.amount}</b><span>${esc(r.note || r.kind || '')}</span></div>`).join('')
+    : '<div class="muted">还没有记录，先答一道题。</div>';
+  if (data && data.rules) $('lv-rules').textContent = data.rules;
+}
+
+async function refreshProgress(showDelta){
+  try {
+    const data = await api('/api/progress', {});
+    const prev = PROGRESS;
+    PROGRESS = data.progress;
+    renderProgress(data);
+    if (showDelta && prev){
+      const gained = (PROGRESS.total_exp || 0) - (prev.total_exp || 0);
+      const at = {x: lastClick.x || window.innerWidth - 140, y: lastClick.y || 96};
+      if (gained > 0){
+        floatExp(gained, at);
+        sparkBurst(at, 7);
+        $('lv-pill').classList.remove('flash');
+        void $('lv-pill').offsetWidth;   // 重启动画
+        $('lv-pill').classList.add('flash');
+      }
+      if ((PROGRESS.level || 1) > (prev.level || 1)) levelUpBanner(PROGRESS);
+    }
+  } catch (err) {
+    // 别静默失败：等级这块有问题时要让用户看见（多半是老进程没重启）
+    $('lv-num').textContent = 'Lv.—';
+    $('lv-title').textContent = '等级不可用';
+    $('lv-hint').textContent = `读取经验失败：${err}。如果刚更新过插件，请彻底重启 N.E.K.O 再打开面板。`;
+  }
+}
+
+// 预览特效：纯 UI 演示，**不给任何经验**（经验只能来自真实学习行为）
+$('btn-fx-preview').onclick = () => {
+  const box = $('btn-fx-preview').getBoundingClientRect();
+  const at = {x: box.left + box.width / 2, y: box.top};
+  floatExp(10, at);
+  sparkBurst(at, 10);
+  const demo = {level: (PROGRESS && PROGRESS.level) || 1, title: (PROGRESS && PROGRESS.title) || '懵懂猫崽'};
+  levelUpBanner(demo);
+  $('lv-hint').textContent = '这就是拿到经验/升级时的效果（预览不给经验）。';
+};
+
+// 点等级胶囊 → 跳到档案页的修行卡片
+const gotoLevelCard = () => {
+  document.querySelector('.tab[data-tab="profile"]')?.click();
+  $('lv-card')?.scrollIntoView({behavior:'smooth', block:'start'});
+};
+$('lv-pill').onclick = gotoLevelCard;
+$('lv-pill').onkeydown = (ev) => {
+  if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); gotoLevelCard(); }
+};
+
+// ── 状态胶囊：点一下重新探测连接并刷新（连接不稳时不用重开面板）──────
+const refreshStatus = () => {
+  API_BASE = null;          // 重新走一遍候选地址探测
+  ASSET_BASE = null;
+  $('plug-text').textContent = '重新连接中…';
+  loadStatus();
+};
+$('plug-pill').onclick = refreshStatus;
+$('plug-pill').onkeydown = (ev) => {
+  if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); refreshStatus(); }
+};
+
+// ── 页头：切页时告诉用户"这是哪一页、能干什么" ─────────────────
+const TAB_INFO = {
+  profile:   ['学习档案', '考试、地区、目标分与每天可用时间——后面所有推算都基于这里'],
+  plan:      ['学习计划', '按剩余天数、科目权重与掌握度排出阶段划分和每日安排'],
+  platform:  ['平台连接', '只读同步本人账号下的课程进度与作业，凭据存在本机'],
+  resources: ['免费资源', '先抓正文再按你的需求判断哪份有用，也可以只拿平台直链'],
+  diagnose:  ['诊断与练习', '贴题目、成绩或发截图做诊断，也可以就某个知识点出题与讲解'],
+  comfort:   ['心理疏导', '先接住情绪，再给今天就能做的具体动作'],
+  play:      ['钢琴键 · 解压', '平铺的每个键音高不同，声音是实时合成的；这里不给经验，纯粹放松'],
+};
+function setPageHead(name){
+  const info = TAB_INFO[name] || TAB_INFO.profile;
+  $('page-title').textContent = info[0];
+  $('page-sub').textContent = info[1];
+}
+
+// ── 复制：每个结果区右上角一键复制（诊断/计划/题目最常要贴到聊天里）──
+document.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-copy]');
+  if (!btn) return;
+  const target = $(btn.dataset.copy);
+  if (!target) return;
+  const content = (target.innerText || '').trim();
+  if (!content){ btn.textContent = '空的'; setTimeout(() => { btn.textContent = '复制'; }, 1000); return; }
+  const restore = () => setTimeout(() => { btn.textContent = '复制'; }, 1200);
+  try {
+    await navigator.clipboard.writeText(content);
+    btn.textContent = '已复制';
+  } catch (err) {
+    // 剪贴板被禁时退一步：帮用户选中，他自己按 Ctrl+C
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      btn.textContent = '已选中';
+    } catch (err2) { btn.textContent = '复制失败'; }
+  }
+  restore();
+});
+
+// ── 解压页：钢琴 / 切水果 两个模式 ─────────────────────────
+document.querySelectorAll('#play-modes .segbtn').forEach((btn) => {
+  btn.onclick = () => {
+    const mode = btn.dataset.mode;
+    document.querySelectorAll('#play-modes .segbtn').forEach((b) => b.classList.toggle('on', b === btn));
+    $('card-pad').classList.toggle('hidden', mode !== 'pad');
+    $('card-piano').classList.toggle('hidden', mode !== 'piano');
+    $('card-fruit').classList.toggle('hidden', mode !== 'fruit');
+    if (mode === 'pad'){ mikutap.ensureInit(); mikutap.refresh(); }
+    else mikutap.stop();                  // 切走就停声音，别在后台一直响
+    if (mode === 'fruit') fruitGame.ensureInit();
+    else fruitGame.pause();               // 切走就暂停，别在后台空转
+  };
+});
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+    tab.classList.add('on');
+    ['profile','plan','platform','resources','diagnose','comfort','play'].forEach(name => {
+      $('tab-' + name).classList.toggle('hidden', name !== tab.dataset.tab);
+    });
+    setPageHead(tab.dataset.tab);
+    document.querySelector('.app').classList.toggle('wide', tab.dataset.tab === 'play');
+    if (tab.dataset.tab !== 'play'){ fruitGame.pause(); mikutap.stop(); }   // 离开解压页就停下
+  };
+});
+
+let STATE = {};
+
+// 与 _profiles.py 的 PROFILES 保持一致的兜底名单：服务没起来时下拉也不空
+const FALLBACK_EXAMS = [
+  {key:'gaokao', name:'普通高等学校招生全国统一考试（高考）'},
+  {key:'zhongkao', name:'初中学业水平考试（中考）'},
+  {key:'cet4', name:'大学英语四级'},
+  {key:'cet6', name:'大学英语六级'},
+  {key:'kaoyan', name:'全国硕士研究生招生考试（考研初试）'},
+  {key:'final', name:'校内考试 / 期末测评（通用）'},
+  {key:'university', name:'大学期末 / 学分课（GPA 制）'},
+  {key:'cert_teacher', name:'中小学教师资格考试（笔试）'},
+  {key:'cert_soft', name:'计算机技术与软件专业技术资格考试（软考）'},
+  {key:'cert_cpa', name:'注册会计师全国统一考试（专业阶段）'},
+  {key:'cert_law', name:'国家统一法律职业资格考试（法考）'},
+  {key:'ielts', name:'雅思 IELTS（学术类为主）'},
+  {key:'toefl', name:'托福 TOEFL iBT'},
+  {key:'ncse', name:'全国计算机等级考试（NCRE，二 / 三级）'},
+];
+function examList(){
+  const live = (STATE && STATE.exam_types) || [];
+  return live.length ? live : FALLBACK_EXAMS;
+}
+function fillExamSelect(exams){
+  const sel = $('f-exam');
+  const list = (exams && exams.length) ? exams : FALLBACK_EXAMS;
+  const current = sel.value;
+  sel.innerHTML = list.map(e => `<option value="${e.key}">${e.name}</option>`).join('');
+  if (current) sel.value = current;
+}
+fillExamSelect(null);
+
+$('f-exam').onchange = () => {
+  const hit = examList().find(e => e.key === $('f-exam').value);
+  if (hit && hit.subjects && hit.subjects.length){
+    $('f-subjects').placeholder = hit.subjects.join(',');
+    $('subject-hint').textContent = hit.subjects.join(' · ') + '（该考试的默认科目组）';
+  }
+};
+
+async function loadStatus() {
+  try {
+    STATE = await api('/api/status');
+    const p = STATE.profile || {};
+    fillExamSelect(STATE.exam_types || []);
+    const sel = $('f-exam');
+    sel.value = p.exam_type || 'gaokao';
+    $('f-region').value = p.region || '';
+    $('f-school').value = p.school || '';
+    $('f-grade').value = p.grade || '';
+    $('f-subjects').value = p.subjects || '';
+    $('f-target').value = p.target_score || '';
+    $('f-date').value = p.exam_date || '';
+    $('f-minutes').value = p.daily_minutes || 180;
+    $('f-credits').value = p.credits || '';
+
+    if (STATE.prefs){ PREFS = Object.assign({}, PREFS, STATE.prefs); applyPrefs(); }
+    if (STATE.background){
+      BACKGROUND = Object.assign({}, BACKGROUND, STATE.background);
+      applyBackground();
+      if (BACKGROUND.mode === 'custom') ensureAssetBase();   // 补上取图地址后会自动重画
+    }
+    setPersona(STATE.persona);
+
+    const ov = STATE.overview || {};
+    const model = STATE.model || {};
+    const examName = (STATE.exam_types || []).find(e => e.key === p.exam_type)?.name || p.exam_type;
+    const attempts = ov.attempts || {};
+    $('overview').innerHTML = `
+      <div class="stats">
+        <div class="stat"><b>${ov.tracked_points || 0}</b><span>已跟踪知识点</span></div>
+        <div class="stat"><b>${((ov.average_mastery || 0) * 100).toFixed(0)}%</b><span>平均掌握度</span></div>
+        <div class="stat"><b>${attempts.total || 0}</b><span>作答次数</span></div>
+        <div class="stat"><b>${((attempts.rate || 0) * 100).toFixed(0)}%</b><span>正确率</span></div>
+        <div class="stat"><b>${ov.due_reviews || 0}</b><span>待复习</span></div>
+      </div>
+      <div class="chips">
+        <span class="chip"><b>考试</b> ${esc(examName)}</span>
+        <span class="chip"><b>科目</b> ${esc(p.subjects || '未设置')}</span>
+        <span class="chip"><b>目标分</b> ${esc(p.target_score || '未设定')}</span>
+        <span class="chip"><b>每天</b> ${esc(p.daily_minutes)} 分钟</span>
+        <span class="chip"><b>学分</b> ${esc(p.credits || '未填写')}</span>
+        <span class="chip"><b>模型</b> ${esc(model.configured ? model.model : '未配置')}</span>
+        <span class="chip"><b>联网</b> ${STATE.network?.enabled ? '开' : '关'}</span>
+        <span class="chip"><b>平台同步</b> ${STATE.network?.platform_sync ? '开' : '关'}</span>
+        <span class="chip"><b>面板端口</b> ${esc(STATE.port)}</span>
+      </div>`;
+    setPlug(true, `已连接 · 端口 ${STATE.port}${model.configured ? '' : ' · 模型未配置'}`);
+    if (!$('memory-stats').innerHTML) loadMemory();  // 记忆只在首次或手动刷新时拉，避免每次保存都重查
+
+    const plist = STATE.platforms || [];
+    $('p-id').innerHTML = plist.map(x => `<option value="${x.id}">${x.name}</option>`).join('');
+    $('platform-list').innerHTML = plist.length
+      ? plist.map(x => `<div class="row" style="margin:2px 0">
+          <span class="pill ${x.connected ? 'on' : 'off'}">${x.connected ? '已连接' : '未连接'}</span>
+          <b>${esc(x.name)}</b>
+          <span class="muted">${x.needs_login ? (x.username ? '账号 ' + esc(x.username) : '需要登录') : '免登录'}${x.needs_captcha ? ' · 可能要验证码' : ''}</span>
+          <div class="muted" style="width:100%">${esc(x.notes || '')}</div>
+        </div>`).join('')
+      : '没有可用平台';
+  } catch (err) {
+    const tip = err && err.noService ? String(err.message) : '读取状态失败：' + err;
+    $('overview').innerHTML = `<div class="notice" style="margin:0">${esc(tip)}</div>`;
+    setPlug(false, err && err.noService ? '未连上插件服务' : '插件有响应，但状态读取失败');
+  }
+}
+
+// ── 记忆：查看 / 清理 ─────────────────────────────────────
+const ROLE_NAME = {user:'他', assistant:'你', material:'材料'};
+
+function renderMemory(memory){
+  if (!memory) return;
+  const s = memory.stats || {};
+  $('memory-stats').innerHTML = `
+    <div class="stat"><b>${s.turns || 0}</b><span>短期记忆</span></div>
+    <div class="stat"><b>${s.expired || 0}</b><span>待清理</span></div>
+    <div class="stat"><b>${s.facts || 0}</b><span>长期记忆</span></div>
+    <div class="stat"><b>${memory.short_days || 7}</b><span>短期保留天数</span></div>`;
+  const turns = (memory.turns || []).slice(-6).reverse();
+  const facts = (memory.facts || []).slice(0, 6);
+  $('memory-list').innerHTML = `
+    <div class="muted" style="margin:2px 0 6px">最近的短期记忆</div>
+    ${turns.length ? turns.map(t => `<div class="link"><span>${esc(t.ago)}</span>
+        <b>${esc(ROLE_NAME[t.role] || t.role || '')}</b>
+        <span>${esc((t.text || '').slice(0, 90))}</span></div>`).join('')
+      : '<div class="muted">还没有短期记忆。</div>'}
+    <div class="muted" style="margin:12px 0 6px">长期记忆（不自动删）</div>
+    ${facts.length ? facts.map(f => `<div class="link"><span>[${esc(f.kind || '')}]</span>
+        <span>${esc((f.text || '').slice(0, 110))}</span>
+        <button class="ghost" data-forget="${f.id}" style="padding:2px 10px;font-size:var(--fs-2xs)">忘记</button></div>`).join('')
+      : '<div class="muted">还没有长期记忆。</div>'}`;
+  $('memory-list').querySelectorAll('[data-forget]').forEach(btn => {
+    btn.onclick = async () => {
+      await api('/api/memory', {action:'forget', scope:'fact', fact_id: Number(btn.dataset.forget)});
+      await loadMemory();
+    };
+  });
+}
+
+async function loadMemory(){
+  try {
+    const res = await api('/api/memory', {action:'show'});
+    renderMemory(res.memory);
+  } catch (err) { statusOf($('st-memory'), false, String(err)); }
+}
+
+const memAction = async (body, label) => {
+  busy($('st-memory'), '处理中...');
+  try {
+    const res = await api('/api/memory', body);
+    renderMemory(res.memory);
+    statusOf($('st-memory'), res.ok, res.ok ? (label || '完成') : res.error);
+  } catch (err) { statusOf($('st-memory'), false, String(err)); }
+};
+$('btn-mem-refresh').onclick = () => loadMemory();
+$('btn-mem-purge').onclick = () => memAction({action:'purge'}, '已清理过期短期记忆');
+$('btn-mem-forget-short').onclick = () => memAction({action:'forget', scope:'short'}, '已清空短期记忆');
+$('btn-mem-forget-all').onclick = () => memAction({action:'forget', scope:'all'}, '已清空全部记忆');
+
+$('btn-save').onclick = async () => {
+  try {
+    const res = await api('/api/profile', {
+      exam_type: $('f-exam').value,
+      region: $('f-region').value,
+      school: $('f-school').value,
+      grade: $('f-grade').value,
+      subjects: $('f-subjects').value,
+      target_score: Number($('f-target').value || 0),
+      exam_date: $('f-date').value,
+      daily_minutes: Number($('f-minutes').value || 180),
+      credits: $('f-credits').value,
+    });
+    statusOf($('st-profile'), res.ok);
+    await setPageHead('profile');
+loadStatus();
+refreshProgress(false);
+mikutap.ensureInit();
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden){ fruitGame.pause(); mikutap.stop(); }
+});
+  } catch (err) { statusOf($('st-profile'), false, String(err)); }
+};
+
+const runPlan = async (horizon) => {
+  busy($('st-plan'), '生成中...');
+  try {
+    const res = await api('/api/plan', {horizon});
+    show($('plan-out'), res);
+    statusOf($('st-plan'), res.ok, res.ok ? '' : res.error);
+  } catch (err) { statusOf($('st-plan'), false, String(err)); }
+};
+$('btn-plan-long').onclick = () => runPlan('long');
+$('btn-plan-short').onclick = () => runPlan('short');
+
+$('btn-connect').onclick = async () => {
+  busy($('st-platform'), '连接中...');
+  try {
+    const res = await api('/api/connect', {
+      platform: $('p-id').value,
+      username: $('p-user').value,
+      password: $('p-pass').value,
+      captcha: $('p-captcha').value,
+      base_url: $('p-base').value,
+    });
+    statusOf($('st-platform'), res.ok, res.message || res.error);
+    if (res.captcha_url) {
+      $('captcha-box').classList.remove('hidden');
+      $('captcha-img').src = res.captcha_url;
+    }
+    show($('platform-out'), res.message || res.error || res);
+    await loadStatus();
+  } catch (err) { statusOf($('st-platform'), false, String(err)); }
+};
+
+$('btn-sync').onclick = async () => {
+  busy($('st-platform'), '同步中...');
+  try {
+    const res = await api('/api/sync', {platform: $('p-id').value, base_url: $('p-base').value});
+    show($('platform-out'), res);
+    statusOf($('st-platform'), res.ok, res.ok ? '已同步' : res.error);
+  } catch (err) { statusOf($('st-platform'), false, String(err)); }
+};
+
+$('btn-disconnect').onclick = async () => {
+  try {
+    const res = await api('/api/disconnect', {platform: $('p-id').value});
+    statusOf($('st-platform'), res.ok, res.message || res.error);
+    await loadStatus();
+  } catch (err) { statusOf($('st-platform'), false, String(err)); }
+};
+
+// 检索并分析：抓正文 + 按需求逐条判断
+$('btn-search').onclick = async () => {
+  busy($('st-search'), '抓取并分析中（可能要十几秒）...');
+  try {
+    const res = await api('/api/search', {query: $('r-query').value});
+    show($('search-out'), res);
+    statusOf($('st-search'), res.ok, res.ok ? '' : res.error);
+    renderLinks(res.links);
+  } catch (err) { statusOf($('st-search'), false, String(err)); }
+};
+
+// 只要直链：不抓取，秒回
+$('btn-links').onclick = async () => {
+  const keyword = $('r-query').value;
+  if (!keyword){ statusOf($('st-search'), false, '先填关键词'); return; }
+  busy($('st-search'), '取直链...');
+  try {
+    const res = await api('/api/resources', {keyword});
+    renderLinks(res.links);
+    show($('search-out'), res.text);
+    statusOf($('st-search'), res.ok, res.ok ? '' : (res.error || ''));
+  } catch (err) { statusOf($('st-search'), false, String(err)); }
+};
+
+function renderLinks(links){
+  const box = $('link-list');
+  if (!links || !links.length){ box.innerHTML = ''; return; }
+  box.innerHTML = links.map(x =>
+    `<div class="link"><b>${esc(x.name)}</b><a href="${esc(x.url)}" target="_blank" rel="noreferrer">${esc(x.url)}</a>
+     <span>${esc(x.note || '')}</span></div>`
+  ).join('');
+}
+
+$('btn-diagnose').onclick = async () => {
+  busy($('st-diagnose'), '分析中...');
+  try {
+    const res = await api('/api/diagnose', {text: $('d-text').value, subject: $('d-subject').value});
+    show($('diagnose-out'), res);
+    statusOf($('st-diagnose'), res.ok, res.ok ? '' : res.error);
+  } catch (err) { statusOf($('st-diagnose'), false, String(err)); }
+};
+
+function readFileAsDataURL(file){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result || ''));
+    fr.onerror = () => reject(new Error('读取图片失败'));
+    fr.readAsDataURL(file);
+  });
+}
+
+$('btn-vision').onclick = async () => {
+  const file = $('d-image').files && $('d-image').files[0];
+  if (!file) { statusOf($('st-diagnose'), false, '先选一张截图'); return; }
+  busy($('st-diagnose'), '识图中...');
+  try {
+    const dataUrl = await readFileAsDataURL(file);
+    const res = await api('/api/vision', {
+      image_base64: dataUrl,
+      question: $('d-question').value || $('d-text').value,
+      subject: $('d-subject').value,
+    });
+    show($('diagnose-out'), res);
+    statusOf($('st-diagnose'), res.ok, res.ok ? '' : res.error);
+  } catch (err) { statusOf($('st-diagnose'), false, String(err)); }
+};
+
+$('btn-forecast').onclick = async () => {
+  busy($('st-diagnose'), '估算中...');
+  try {
+    const res = await api('/api/forecast', {});
+    show($('diagnose-out'), res);
+    statusOf($('st-diagnose'), res.ok, res.ok ? '' : res.error);
+  } catch (err) { statusOf($('st-diagnose'), false, String(err)); }
+};
+
+$('btn-quiz').onclick = async () => {
+  busy($('st-quiz'), '出题中...');
+  try {
+    const res = await api('/api/quiz', {
+      topic: $('q-topic').value, stage: $('q-stage').value, count: 3,
+    });
+    show($('quiz-out'), res);
+    statusOf($('st-quiz'), res.ok, res.ok ? '' : res.error);
+  } catch (err) { statusOf($('st-quiz'), false, String(err)); }
+};
+
+$('btn-teach-run').onclick = async () => {
+  busy($('st-quiz'), '讲解中...');
+  try {
+    const res = await api('/api/teach', {topic: $('q-topic').value, stage: $('q-stage').value});
+    show($('quiz-out'), res);
+    statusOf($('st-quiz'), res.ok, res.ok ? '' : res.error);
+  } catch (err) { statusOf($('st-quiz'), false, String(err)); }
+};
+
+$('btn-comfort').onclick = async () => {
+  busy($('st-comfort'), '想着呢...');
+  try {
+    const res = await api('/api/comfort', {text: $('c-text').value});
+    show($('comfort-out'), res);
+    statusOf($('st-comfort'), res.ok, res.ok ? '' : res.error);
+  } catch (err) { statusOf($('st-comfort'), false, String(err)); }
+};
+
+loadStatus();
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+[plugin]
+id = "juno_bridge"
+name = "和猫娘一起开火箭"
+description = "连接《朱诺新起源 Juno: New Origins》（原名 SimpleRockets 2，Jundroo 出品），让猫娘读取飞行遥测：飞船状态、高度速度姿态、轨道根数与入轨判断、燃料电量 Delta-V、大气层内马赫数与气动力、锁定目标与星系天体。纯只读，不会碰你的火箭，也不接管任何操作。需先安装配套模组 N.E.K.O-Juno-bridge（BepInEx 插件，默认监听 127.0.0.1:21577），下载：https://github.com/LShangPiao/N.E.K.O-Juno-bridge/releases"
+short_description = "让猫娘陪你玩朱诺新起源：读懂轨道、燃料、飞船和目标，全程只读不动手"
+keywords = [
+    "朱诺", "朱诺新起源", "Juno", "New Origins", "SimpleRockets", "Simple Rockets",
+    "航天", "火箭", "轨道", "遥测", "飞船", "对接", "行星", "游戏", "模拟器",
+    "orbit", "telemetry", "vessel", "rocket", "apoapsis", "periapsis", "delta-v",
+    "space", "aerospace", "atmosphere", "mach"
+]
+version = "0.2.1"
+type = "plugin"
+entry = "plugin.plugins.juno_bridge:JunoBridgePlugin"
+
+[plugin.author]
+name = "星河拓航Studio"
+email = "contact@xhth.top"
+url = "https://xhth.top/"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[juno_bridge]
+# N.E.K.O-Juno-bridge 模组在游戏内监听的地址。
+# 注意：改端口要改两处 —— 模组侧的配置文件（BepInEx/config/ 下的 neko-juno-bridge 配置）
+# 和这里的 bridge_url，只改一处两边就连不上了。模组侧改完需要重启游戏。
+bridge_url = "http://127.0.0.1:21577"
+
+# 单次请求超时（秒），范围 3-60。
+# 游戏在加载存档、切换场景、进入/退出编辑器，或开高倍时间加速时可能会卡一下，
+# 读遥测会慢一拍；如果你的机器较慢可以调大。
+timeout_seconds = 12
+
+# 自动播报：游戏在跑的时候，插件会自己在后台读遥测，把最新的飞船状况
+# 塞进角色的上下文里（不会打断对话），这样角色不用等你开口才去调工具。
+# 关掉它就退回旧的「问答式」行为：只有你问了才读。
+auto_brief_enabled = true
+
+# 自动播报的轮询间隔（秒），范围 5-300。
+# 同一时刻队列里只保留最新一条（coalesce），所以调小不会把上下文撑爆。
+# 默认 20 秒：爬升和再入阶段参数变化快，间隔太大容易报旧数。
+auto_brief_interval_seconds = 20

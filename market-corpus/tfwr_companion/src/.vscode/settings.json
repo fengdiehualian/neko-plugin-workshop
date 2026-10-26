@@ -1,0 +1,6 @@
+{
+  "nekoPlugin.repoRoot": "D:/NEKO-full",
+  "python.analysis.extraPaths": [
+    "D:/NEKO-full"
+  ]
+}

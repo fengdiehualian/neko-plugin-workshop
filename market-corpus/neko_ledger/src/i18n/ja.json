@@ -1,0 +1,16 @@
+{
+  "plugin.name": "家計簿ニャン",
+  "plugin.description": "支出の度合いに応じて口調が変わる家計簿です。ふつうの支出はかわいく、法外な値段はツッコミ、猫や AI 関連の支出にはハーッと威嚇します。現在の猫娘のペルソナを読み取り、「絶対に怒らない／やさしい」設定なら威嚇をやわらかい小言に自動で切り替えます",
+  "entry.add_expense.name": "支出を記録",
+  "entry.add_expense.description": "手動で支出を記録します",
+  "entry.preview_expense.name": "口調をプレビュー",
+  "entry.preview_expense.description": "記録せずに、どんな口調と台詞になるか確認します",
+  "entry.expense_summary.name": "支出の集計",
+  "entry.expense_summary.description": "期間ごとの支出を集計します",
+  "entry.recent_expenses.name": "最近の記録",
+  "entry.recent_expenses.description": "直近の記録を一覧します",
+  "entry.ledger_status.name": "家計簿の状態",
+  "entry.ledger_status.description": "保存先・件数・現在の口調設定を表示します",
+  "entry.check_persona.name": "威嚇の可否を確認",
+  "entry.check_persona.description": "現在のペルソナを読み、威嚇してよいか根拠つきで判定します"
+}

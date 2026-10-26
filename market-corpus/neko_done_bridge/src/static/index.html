@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D-one 任务管家</title>
+<style>
+  :root{
+    --bg:#14120f; --panel:#1d1a15; --card:#24201a; --line:#372f24;
+    --text:#efe6d8; --muted:#9c8f7c;
+    --p0:#e5534b; --p1:#d9a441; --p2:#57b884; --accent:#d9a441;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:18px;max-width:720px;margin:0 auto}
+  h1{font-size:19px;margin-bottom:4px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+  .card h2{font-size:14px;margin-bottom:10px;color:var(--accent)}
+  .status-row{display:flex;gap:16px;flex-wrap:wrap}
+  .status-item{flex:1;min-width:120px}
+  .status-item .k{font-size:11px;color:var(--muted)}
+  .status-item .v{font-size:16px;margin-top:2px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--p2)}
+  .dot.off{background:var(--p0)}
+  .group{margin-bottom:10px}
+  .group-label{font-size:12px;font-weight:600;margin-bottom:6px}
+  .task{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:8px;background:var(--panel);margin-bottom:5px;font-size:13px}
+  .task .meta{color:var(--muted);font-size:11px}
+  .empty{color:var(--muted);font-size:12px;font-style:italic;padding:6px 10px}
+  .event{font-size:12px;padding:5px 10px;border-left:2px solid var(--line);margin-bottom:4px;color:var(--muted)}
+  .event b{color:var(--text);font-weight:500}
+  .event .act{display:inline-block;width:52px;color:var(--accent)}
+  .row{display:flex;gap:8px;margin-top:10px}
+  input,select{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;flex:1;outline:none}
+  input:focus{border-color:var(--accent)}
+  button{background:var(--accent);color:#14120f;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  button:hover{filter:brightness(1.1)}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .howto{font-size:12px;line-height:1.7;color:var(--muted)}
+  .howto code{background:var(--panel);padding:1px 6px;border-radius:4px;color:var(--accent);font-size:11px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--accent);color:var(--text);padding:10px 18px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<h1><span class="dot" id="healthDot"></span>D-one 任务管家</h1>
+<div class="sub">D-one 优先级便签 × N.E.K.O 猫娘 — 只看一件事，剩下的交给猫娘盯</div>
+
+<div class="card">
+  <h2>桥接状态</h2>
+  <div class="status-row">
+    <div class="status-item"><div class="k">接入端口</div><div class="v" id="stPort">—</div></div>
+    <div class="status-item"><div class="k">语气风格</div><div class="v" id="stStyle">—</div></div>
+    <div class="status-item"><div class="k">任务总数</div><div class="v" id="stCount">—</div></div>
+    <div class="status-item"><div class="k">最后同步</div><div class="v" id="stSync">—</div></div>
+  </div>
+  <div class="row">
+    <select id="styleSel">
+      <option value="neko_default">傲娇猫娘（默认）</option>
+      <option value="calm">平静助理</option>
+      <option value="idol">元气应援</option>
+    </select>
+    <button class="ghost" id="refreshBtn">刷新</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>当前任务</h2>
+  <div class="group"><div class="group-label" style="color:var(--p0)">🔴 p0 · 现在就做</div><div id="g0"></div></div>
+  <div class="group"><div class="group-label" style="color:var(--p1)">🟡 p1 · 今天要做</div><div id="g1"></div></div>
+  <div class="group"><div class="group-label" style="color:var(--p2)">🟢 p2 · 有空再做</div><div id="g2"></div></div>
+</div>
+
+<div class="card">
+  <h2>模拟注入（无需 D-one 即可演示）</h2>
+  <div class="row">
+    <input id="simText" placeholder="任务内容，例如：剪完 D-one 演示视频">
+    <select id="simPri" style="flex:0 0 90px">
+      <option value="0">p0</option><option value="1">p1</option><option value="2">p2</option>
+    </select>
+    <button id="simAddBtn">新增</button>
+    <button class="ghost" id="simDoneBtn">随机完成一条</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>事件日志</h2>
+  <div id="events"><div class="empty">暂无事件</div></div>
+</div>
+
+<div class="card">
+  <h2>接入 D-one</h2>
+  <div class="howto">
+    ① 在 D-one 源码的 <code>index.html</code> 尾部加入：<br>
+    <code>&lt;script src="done-bridge.js"&gt;&lt;/script&gt;</code><br>
+    ② 或临时演示：D-one 窗口内打开 DevTools Console，粘贴插件目录 <code>assets/done-bridge.js</code> 的内容执行。<br>
+    之后每次在 D-one 里改动任务，猫娘都会收到快照并按优先级提醒你。
+  </div>
+  <div class="row"><button class="ghost" id="copyBridgeBtn">复制桥接脚本</button></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PORT = 48917;
+const API = `http://127.0.0.1:${PORT}`;
+const $ = (id) => document.getElementById(id);
+let lastSync = null;
+
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+async function refresh(){
+  try{
+    const r = await fetch(`${API}/snapshot`);
+    const d = await r.json();
+    $('healthDot').classList.remove('off');
+    $('stPort').textContent = d.port;
+    $('stStyle').textContent = {neko_default:'傲娇猫娘', calm:'平静助理', idol:'元气应援'}[d.style] || d.style;
+    $('styleSel').value = d.style;
+    let total = 0;
+    for(const p of ['p0','p1','p2']){
+      const box = p === 'p0' ? $('g0') : p === 'p1' ? $('g1') : $('g2');
+      box.innerHTML = '';
+      const tasks = (d.groups[p] || []);
+      total += tasks.length;
+      if(!tasks.length){ box.innerHTML = '<div class="empty">无</div>'; continue; }
+      for(const t of tasks){
+        const el = document.createElement('div');
+        el.className = 'task';
+        el.innerHTML = `<span>${t.done ? '✓ ' : ''}${escapeHtml(t.text)}</span><span class="meta">${t.hidden ? '已隐藏' : ''}</span>`;
+        box.appendChild(el);
+      }
+    }
+    $('stCount').textContent = total;
+    const ev = d.events || [];
+    $('events').innerHTML = ev.length
+      ? ev.map(e => `<div class="event"><span class="act">${e.at || ''}</span><b>${e.action}</b> · ${escapeHtml(e.text)}</div>`).join('')
+      : '<div class="empty">暂无事件</div>';
+    if(lastSync) $('stSync').textContent = lastSync;
+  }catch(e){
+    $('healthDot').classList.add('off');
+    toast('桥接未响应：' + e.message);
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function post(path, body){
+  lastSync = new Date().toLocaleTimeString('zh-CN', {hour12:false});
+  const r = await fetch(`${API}${path}`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+$('refreshBtn').onclick = refresh;
+$('styleSel').onchange = async (e) => {
+  await post(`/hook/set-style`, {style: e.target.value}).catch(()=>null);
+  toast('风格已切换，猫娘更新了说话方式');
+  refresh();
+};
+$('simAddBtn').onclick = async () => {
+  const text = $('simText').value.trim() || '模拟任务';
+  await post('/hook/task-event', {action:'add', task:{id:'sim-'+Date.now(), text, priority:+$('simPri').value, done:false}});
+  $('simText').value = '';
+  toast('已注入：猫娘应该会说话了');
+  refresh();
+};
+$('simDoneBtn').onclick = async () => {
+  const r = await fetch(`${API}/snapshot`).then(x => x.json());
+  const all = [...r.groups.p0, ...r.groups.p1, ...r.groups.p2].filter(t => !t.done);
+  if(!all.length){ toast('没有可完成的任务'); return; }
+  const t = all[Math.floor(Math.random()*all.length)];
+  await post('/hook/task-event', {action:'complete', task:t});
+  toast(`完成：${t.text}`);
+  refresh();
+};
+$('copyBridgeBtn').onclick = async () => {
+  const code = await fetch('/plugin/neko_done_bridge/assets/done-bridge.js').then(x => x.text()).catch(() => null);
+  if(code){ await navigator.clipboard.writeText(code); toast('桥接脚本已复制'); }
+  else toast('复制失败，请直接复制插件 assets 目录下的 done-bridge.js');
+};
+
+refresh();
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>

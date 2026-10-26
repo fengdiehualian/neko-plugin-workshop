@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check miao_miao_bump",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check miao_miao_bump",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync miao_miao_bump",
+      "type": "shell",
+      "command": "uv run --with pip python -m plugin.neko_plugin_cli.cli sync miao_miao_bump --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r miao_miao_bump",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check -r miao_miao_bump",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build miao_miao_bump",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli build miao_miao_bump",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+[plugin]
+name = "性能守护"
+description = "在指定软件（默认三角洲行动）运行时，自动停止 N.E.K.O 的界面渲染、关闭可重建的后台进程并回收内存，明显降低内存与 GPU 占用；目标软件退出、关闭插件或被冻结时自动完整恢复。"
+short_description = "Suspend N.E.K.O UI rendering, close rebuildable helper processes and trim memory while a chosen app is running, then fully restore on exit."
+keywords = ["性能", "优化", "占用", "内存", "显存", "GPU", "卡顿", "省电", "专注", "游戏", "挂起", "冻结", "performance", "optimize", "memory", "gpu", "suspend", "freeze", "focus", "gaming", "efficiency"]
+version = "1.1.0"
+id = "neko_perf_saver"
+entry = "plugin.plugins.neko_perf_saver:NekoPerfSaverPlugin"
+
+[plugin.author]
+name = "2712qin"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+# ──────────────────────────────────────────────────────────────
+# 插件管理器面板（hosted UI）
+# 面板是静态页面 static/index.html（纯原生 HTML/CSS/JS，无外链资源），
+# 状态与三个操作都通过宿主插件服务的 /runs 接口调用本插件的入口：
+#   status / apply_now / restore_now / toggle_saver
+#   + 使用前免责声明：get_disclaimer（只读） / acknowledge_disclaimer
+# ──────────────────────────────────────────────────────────────
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "性能守护"
+# 相对插件目录的路径；.html 后缀 = static 渲染模式（在宿主面板里以 iframe 呈现）
+entry = "static/index.html"
+context = "perf_saver"
+permissions = ["state:read", "action:call"]
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+# ──────────────────────────────────────────────────────────────
+# 插件业务配置：可在插件管理器「配置」页或 set_option 入口里改
+# ──────────────────────────────────────────────────────────────
+[perf_saver]
+
+# 总开关：false 时插件只待命，不自动降负载（仍可手动「立即优化」）
+saver_enabled = true
+
+# 触发软件：进程名列表，大小写不敏感，支持 * 通配符
+target_processes = ["DeltaForceClient-Win64-Shipping.exe", "DeltaForceClient.exe"]
+
+# 目标进程必须拥有可见窗口才算「在运行」
+require_visible_window = false
+
+# 巡检间隔（秒）
+watch_interval_seconds = 4
+
+# 已优化状态下，多久做一次维护（扫描新增渲染进程 / 回收内存）
+maintenance_interval_seconds = 20
+
+# ── 优化动作 ──
+# 挂起渲染进程 = 停止界面渲染（核心手段，GPU/CPU 直接降到 ~0）
+freeze_renderers = true
+# 挂起 GPU 进程（收益有限，且 Chromium 对 GPU 进程有看门狗，默认关闭）
+# 默认只挂起渲染进程 = 停止渲染提交，GPU 占用随之归零；量化测量用 work/tools/gpu_probe.py
+freeze_gpu = false
+# 挂起全部 Electron 工具进程（音频/网络/采集）
+freeze_utility_services = false
+# 结束视频采集服务（Chromium 需要时会自动重建，可省 ~100MB）
+close_video_capture_service = true
+# 结束音频服务（N.E.K.O 会静音，可省 ~80MB；需要语音时请保持 false）
+close_audio_service = false
+# 结束网络服务（较激进，默认关闭）
+close_network_service = false
+# 额外要结束的进程名（恢复时插件会用原命令行尽力重启）
+# ⚠️ 安全护栏：目标软件、插件自身、系统关键进程（explorer.exe / lsass.exe / dwm.exe 等）
+#    永远不会被结束；`*`、`?` 这类过宽的通配模式会被拒绝；单次优化最多结束 5 个。
+#    想先看会命中谁：set_option(key="close_extra_processes", value="notepad.exe", dry_run="true")
+close_extra_processes = []
+
+# ── 内存 / 调度 ──
+# EmptyWorkingSet 回收 N.E.K.O 进程的工作集
+trim_working_set = true
+# 是否连 Python 后端（projectneko_server）一起回收
+trim_backend_processes = true
+# 已优化状态下重复回收工作集的间隔（秒）；维护轮按该间隔决定是否真的回收
+trim_interval_seconds = 60
+# 把 N.E.K.O 进程优先级降到 IDLE，把 CPU/IO 让给游戏
+lower_priority = true
+# 是否连 Python 后端（projectneko_server）一起降优先级（与 trim_backend_processes 无关）
+lower_priority_backend = true
+
+# ── 恢复策略 ──
+# N.E.K.O 窗口被切到前台时临时恢复，切回游戏后再次优化
+skip_while_neko_foreground = true
+# 目标软件退出后自动恢复
+restore_on_target_exit = true
+
+# ── 识别 N.E.K.O 进程（一般不用改） ──
+neko_process_names = ["N.E.K.O.exe", "n.e.k.o.exe", "projectneko_server.exe"]
+
+# ── 使用前免责声明（US-001） ──
+# 文案（逐字）：本插件不保证不会触发游戏反作弊，使用本插件引起的后果与本插件无关。
+# false（默认，与 __init__.py 的 _DEFAULTS 一致）= 每次打开面板都会提示，apply_now 的返回里也会附软警告；
+# 在面板勾选「以后都不再提醒」后由入口 acknowledge_disclaimer 写回 true（也可在此手动改）。
+# 该键只影响「是否提示」，不会拒绝或改变任何降负载行为。
+disclaimer_acknowledged = false

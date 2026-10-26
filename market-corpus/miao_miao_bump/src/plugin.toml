@@ -1,0 +1,31 @@
+[plugin]
+id = "miao_miao_bump"
+name = "喵喵碰碰大作战"
+description = "A local 3v3 catgirl swimming-ring battle with physical collisions, passive skills and free practice."
+version = "0.1.0"
+type = "plugin"
+entry = "plugin.plugins.miao_miao_bump:MiaoMiaoBumpPlugin"
+
+[plugin.author]
+name = "WhiteFrostune"
+
+[plugin.i18n]
+default_locale = "en"
+locales_dir = "i18n"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "playground"
+title = "喵喵碰碰大作战"
+entry = "static/index.html"
+permissions = []

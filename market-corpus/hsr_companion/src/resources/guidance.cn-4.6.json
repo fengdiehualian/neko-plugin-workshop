@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "revision": "cn-4.6-guidance-demo-20261019-d2-r1",
+  "server": "cn",
+  "game_version": "4.6",
+  "checked_at": "2026-10-19",
+  "sources": {
+    "official46": {"name": "星穹铁道官方 4.6 更新说明", "url": "https://hsr.hoyoverse.com/zh-cn/news/166468", "usage": "公告事实核对与原创摘要；不转载正文", "license": "reference-only"},
+    "official45": {"name": "星穹铁道官方 4.5 更新说明", "url": "https://sr.mihoyo.com/news/165896", "usage": "跨版本仍开放的期次核对与原创摘要", "license": "reference-only"},
+    "banner46": {"name": "崩坏：星穹铁道官方账号：4.6 活动跃迁其一", "url": "https://www.taptap.cn/moment/852211155802787824", "usage": "角色及跃迁起止时间事实核对", "license": "reference-only"},
+    "fribbels_pearl": {"name": "Fribbels Pearl 配装与参考队伍配置", "url": "https://github.com/fribbels/hsr-optimizer/blob/d68d14cf63bc5c2be448b40822588fe95b86066e/src/lib/conditionals/character/1500/Pearl.ts", "revision": "d68d14cf63bc5c2be448b40822588fe95b86066e", "license": "MIT", "usage": "少量配装候选元数据派生，不运行优化器；参考模拟条件不是关卡最优排名"},
+    "fribbels_evanescia": {"name": "Fribbels Evanescia 配装与参考队伍配置", "url": "https://github.com/fribbels/hsr-optimizer/blob/d68d14cf63bc5c2be448b40822588fe95b86066e/src/lib/conditionals/character/1500/Evanescia.ts", "revision": "d68d14cf63bc5c2be448b40822588fe95b86066e", "license": "MIT", "usage": "少量配装候选元数据派生，不运行优化器；参考模拟条件不是关卡最优排名"},
+    "fribbels_acheron": {"name": "Fribbels Acheron 配装候选与模拟条件", "url": "https://github.com/fribbels/hsr-optimizer/blob/d68d14cf63bc5c2be448b40822588fe95b86066e/src/lib/conditionals/character/1300/Acheron.ts", "revision": "d68d14cf63bc5c2be448b40822588fe95b86066e", "license": "MIT", "usage": "少量主词条、套装与优先属性派生；选择常规输出分支，不把模拟配置或评分权重冒充毕业阈值"},
+    "starrailres": {"name": "Mar-7th/StarRailRes 外置中文资料", "url": "https://github.com/Mar-7th/StarRailRes/tree/dbe8cdfcfb0bf657b9fe1cf92d5537f118ccb487/index_min/cn", "revision": "dbe8cdfcfb0bf657b9fe1cf92d5537f118ccb487", "license": "AGPL-3.0-only", "usage": "按已有外置组件查询实体名、命途与效果；此文件不复制完整资料"},
+    "fribbels_scoring": {"name": "Fribbels 主词条、套装与基准模拟条件", "url": "https://github.com/fribbels/hsr-optimizer/blob/d68d14cf63bc5c2be448b40822588fe95b86066e/src/lib/relics/scoring/scoringMetadata.ts", "revision": "d68d14cf63bc5c2be448b40822588fe95b86066e", "license": "MIT", "usage": "少量评分候选与模拟配置元数据派生，不能当作攻略排序"},
+    "community_pf": {"name": "冻梨游研社：立界开篇攻略", "url": "https://www.taptap.cn/moment/848634700330176018", "license": "reference-only-not-open-license", "usage": "少量节点事实、参考队伍及原创简短摘要；不转载文章、图片或完整攻略"},
+    "community_aa": {"name": "冻梨游研社：4.6落叶归根攻略", "url": "https://www.taptap.cn/moment/853782721422426516", "license": "reference-only-not-open-license", "usage": "少量节点事实、参考队伍及原创简短摘要；不转载文章、图片或完整攻略"},
+    "moc46_playthrough": {"name": "東野満月：4.6混沌实战记录", "url": "https://touno-mitsuki.hatenablog.com/entry/2026/10/05/093000", "license": "reference-only-not-open-license", "usage": "只交叉核对前两节点首领和机制方向；该记录含星启第三节点，不能代替普通模式的节点数量和数值"},
+    "zandar_mechanics": {"name": "BWIKI：第一位天才，隐德来希，赞达尔", "url": "https://wiki.biligame.com/sr/第一位天才，隐德来希，赞达尔", "license": "reference-only-not-open-license", "usage": "只核对少量通用敌人机制并原创摘要；不分发页面、图片或全文，不沿用其他玩法的数值/增益"}
+  },
+  "characters": [
+    {
+      "id": "build.pearl.4.6", "name": "真珠", "identity_id": "character.pearl", "form_id": "character_form.1503", "path": "Elation", "release": "new",
+      "starts_at": "2026-09-28T11:00:00+08:00", "ends_at": "2026-11-10T15:00:00+08:00",
+      "source_refs": ["banner46", "fribbels_pearl", "fribbels_scoring", "starrailres"],
+      "main_stats": {"躯干": ["防御力百分比", "治疗量加成"], "脚部": ["速度", "防御力百分比"], "位面球": ["防御力百分比"], "连结绳": ["能量恢复效率", "防御力百分比"]},
+      "substats": ["速度", "防御力百分比", "防御力", "效果抵抗"],
+      "stat_rules": {
+        "防御力": {"rule": "pearl_defense_to_elation_v1", "trace_id": "character_trace.1503101", "source_ref": "starrailres", "revision": "dbe8cdfcfb0bf657b9fe1cf92d5537f118ccb487", "reviewed_params": [2400, 0.32, 100, 0.03, 3600, 0.2]}
+      },
+      "stat_notes": {
+        "防御力": {"meaning": "能提高真珠技能中按防御力计算的治疗；行迹还会把防御转为自身欢愉度。", "check": "先看位面球主词条是否为防御力百分比；已经是防御球，就再检查充能绳能否让大招接得上，别为追上限直接拆掉速度和回能。"},
+        "防御力百分比": {"meaning": "增加防御向治疗的优先词条方向。", "check": "比较同部位的防御百分比副词条；脚部和连结绳先保留能让行动、大招接得上的选择，不默认全换防御。"},
+        "速度": {"meaning": "影响真珠多久能再行动、再次治疗或积累能量。", "check": "先看需要她治疗时能否及时行动；没有来不及行动的问题，就别只为纸面速度换掉有用的防御词条。"},
+        "治疗量加成": {"meaning": "面向治疗职责的主词条候选。", "check": "与防御主词条比较时，需要实际生存压力和治疗情况，不能只按套装名称判断。"},
+        "能量恢复效率": {"meaning": "帮助真珠更快攒满能量放大招；光锥和欢愉队友的回能条件也会影响结果。", "check": "先看需要放大招时能量是否已满；经常差能量就优先保留充能绳，再核对专武和欢愉队友的大招回能条件。"},
+        "效果抵抗": {"meaning": "可作为辅助生存与抗控制的关注方向。", "check": "不替代防御和行动循环，不从单条效果抵抗宣称整套优秀。"}
+      },
+      "relic_ids": ["relic_set.133", "relic_set.101", "relic_set.130"], "ornament_ids": ["relic_set.317"],
+      "signature_id": "light_cone.23055",
+      "alternative_cones": [
+        {"id": "light_cone.24006", "reason": "终结技对队友单体使用时，可触发给目标的欢愉度增益；是辅助过渡候选，不补专武的防御、回能与额外治疗。", "condition": "需要核对获取情况、叠影和队伍实际需求", "basis": "mechanism_inference"},
+        {"id": "light_cone.22007", "reason": "终结技后的全队欢愉增益可作过渡思路；暴击伤害词条不直接提升真珠防御向治疗。", "condition": "优先解决生存与循环，再比较辅助收益；不是等价专武", "basis": "mechanism_inference"}
+      ],
+      "principles": ["先检查防御球；已有防御球就看大招是否接得上，先保住行动和回能，再比较防御鞋或防御绳。", "套装是候选而非从左到右强度排名；不要为了凑套损失关键主词条。", "四欢愉队与混搭队的终结技收益不同，不能把参考队伍的条件无条件搬到任意账号。"],
+      "team_refs": ["team.wolf_elation", "team.evanescia_elation"]
+    },
+    {
+      "id": "build.evanescia.4.6", "name": "绯英", "identity_id": "character.evanescia", "form_id": "character_form.1505", "path": "Elation", "release": "rerun",
+      "starts_at": "2026-09-28T11:00:00+08:00", "ends_at": "2026-10-21T12:00:00+08:00",
+      "source_refs": ["banner46", "fribbels_evanescia", "fribbels_scoring", "starrailres"],
+      "main_stats": {"躯干": ["暴击率", "暴击伤害"], "脚部": ["速度", "攻击力百分比"], "位面球": ["物理属性伤害提高", "攻击力百分比"], "连结绳": ["攻击力百分比", "能量恢复效率"]},
+      "substats": ["暴击率", "暴击伤害", "攻击力百分比"],
+      "stat_notes": {
+        "暴击率": {"meaning": "决定能否稳定打出暴击，是输出优先检查方向。", "check": "先把套装、光锥和队友提供的战斗内暴击算进去；仍经常不暴击再比较暴击率躯干，不只追更高暴伤。"},
+        "暴击伤害": {"meaning": "提高暴击时的收益，需要暴击率支撑。", "check": "不能只堆暴击伤害；先核对实际暴击率和战斗条件，再比较同部位替代件。"},
+        "攻击力": {"meaning": "常规输出配装需要结合攻击属性与双暴看整体。", "check": "固定攻击与攻击百分比不是同一条副词条；记录原数值，不将19改写成百分比或强化档数。"},
+        "攻击力百分比": {"meaning": "已复核的输出主词条和副词条候选方向。", "check": "与双暴、队伍循环共同核对，不凭单条攻击百分比判毕业。"},
+        "物理属性伤害提高": {"meaning": "位面球的输出主词条候选之一。", "check": "与攻击球比较需看整队增益，不预设物理球始终优于攻击球。"},
+        "速度": {"meaning": "速度鞋是特定行动循环的候选，不在本规则的副词条优先列表中。", "check": "需要队伍行动安排；不要自动把任何速度副词条说成核心毕业词条。"},
+        "能量恢复效率": {"meaning": "充能绳偏向更快放大招，但要付出攻击主词条的机会成本。", "check": "先看实际是否经常差能量放不出大招；不缺能量时先比较攻击绳，不因能量有用就直接换充能。"}
+      },
+      "relic_ids": ["relic_set.129"], "ornament_ids": ["relic_set.325", "relic_set.324"],
+      "signature_id": "light_cone.23058",
+      "alternative_cones": [
+        {"id": "light_cone.21065", "reason": "暴击率及施放欢愉技后的欢愉度适配输出需求；使用时要检查暴击率是否溢出。", "condition": "核对获取情况与叠影，不宣称与专武相同循环或固定差距", "basis": "mechanism_inference"},
+        {"id": "light_cone.21066", "reason": "欢愉度和欢愉技无视防御可作输出替代候选。", "condition": "按已有光锥比较，不承诺固定排名", "basis": "mechanism_inference"},
+        {"id": "light_cone.22007", "reason": "暴击伤害及终结技后的全队欢愉增益可作过渡选择。", "condition": "增益覆盖要结合终结技循环，不能默认全程覆盖", "basis": "mechanism_inference"}
+      ],
+      "principles": ["优先检查实战暴击率与暴击伤害，不能只看面板暴伤或按一件装备判整套强弱。", "速度鞋/攻击鞋、充能绳/攻击绳是不同队伍与循环的选择，不存在本资料已验证的统一毕业数值。", "参考模拟配置不是你当前账号的最优方案；没专武仍可先给替代候选，缺装备数值再局部补信息。"],
+      "team_refs": ["team.evanescia_elation"]
+    },
+    {
+      "id": "build.acheron.reference", "name": "黄泉", "identity_id": "character.acheron", "form_id": "character_form.1308", "path": "Warlock", "release": "reference",
+      "source_refs": ["fribbels_acheron", "starrailres"],
+      "main_stats": {"躯干": ["暴击率", "暴击伤害", "攻击力百分比"], "脚部": ["攻击力百分比", "速度"], "位面球": ["雷属性伤害提高", "攻击力百分比"], "连结绳": ["攻击力百分比"]},
+      "substats": ["暴击率", "暴击伤害", "攻击力百分比", "攻击力"],
+      "stat_notes": {
+        "暴击率": {"meaning": "决定黄泉输出能否稳定暴击。", "check": "先核对套装、星魂和队友提供的战斗内暴击；仍缺暴击再比较暴击率躯干，不只追暴伤数字。"},
+        "暴击伤害": {"meaning": "暴击时的输出收益方向。", "check": "先保证暴击率条件，再比较双暴分配；不只凭高暴伤认为养得好。"},
+        "攻击力": {"meaning": "黄泉技能的攻击倍率输出需要攻击属性支撑。", "check": "与双暴及增伤共同查看，固定攻击与攻击百分比不能混报。"},
+        "攻击力百分比": {"meaning": "常规输出配装的主副词条候选。", "check": "结合双暴与行动安排比较，不单凭一条攻击判整套优劣。"},
+        "速度": {"meaning": "速度鞋是行动取向候选，而不是本模拟配置的优先副词条方向。", "check": "先核对队友施加负面效果频率和自身行动安排，再比较攻击鞋与速度鞋。"},
+        "雷属性伤害提高": {"meaning": "位面球主词条候选之一。", "check": "与攻击球比较依赖整队增益，不宣布固定优先排名。"}
+      },
+      "relic_ids": ["relic_set.117"], "ornament_ids": ["relic_set.314"],
+      "signature_id": "light_cone.23024",
+      "alternative_cones": [
+        {"id": "light_cone.21001", "reason": "负面效果数量满足时提供伤害增益，可作为已有虚无光锥的过渡候选。", "condition": "核对叠影和敌方负面效果覆盖；不提供专武相同的额外负面效果与循环，不宣称固定差距。", "basis": "mechanism_inference"}
+      ],
+      "principles": ["先核对实际暴击率、暴击伤害和攻击；没有队伍、星魂和战斗内加成时不按面板宣布毕业。", "终结技依赖残梦及负面效果循环；不能套用普通能量角色的充能绳推荐。", "攻击鞋/速度鞋、雷伤球/攻击球需结合整队增益与行动安排；参考配置不是账号最优解。"],
+      "team_refs": []
+    }
+  ],
+  "teams": [
+    {"id": "team.evanescia_elation", "label": "绯英欢愉参考队", "slots": [["绯英"], ["爻光"], ["开拓者（欢愉）"], ["真珠"]], "tags": ["elation", "physical", "sustain"], "source_refs": ["fribbels_evanescia", "fribbels_scoring"], "conditions": ["上游参考配置为绯英搭配爻光、欢愉开拓者与真珠，开拓者使用六星魂条件；不是全队零星魂保证通关。", "需要核对当前开拓者命途、星魂、战技点与敌人条件；不自动把记忆/同谐开拓者视为欢愉。"]},
+    {"id": "team.wolf_elation", "label": "银狼LV.999欢愉参考队", "slots": [["银狼LV.999"], ["火花"], ["爻光"], ["真珠"]], "tags": ["elation", "imaginary", "sustain"], "source_refs": ["fribbels_pearl", "fribbels_scoring"], "conditions": ["来自真珠治疗参考配置的四欢愉队；不是银狼（虚无）或花火的同名替换。", "实际配装、行动顺序及关卡适配需进一步核对；不能许诺满星、固定轮数或伤害排名。"]},
+    {"id": "team.pf_wolf", "label": "立界开篇欢愉候选", "slots": [["银狼LV.999"], ["爻光"], ["火花", "开拓者（欢愉）"], ["藿藿"]], "tags": ["elation", "sustain"], "source_refs": ["community_pf"], "conditions": ["参考攻略的狂欢增益路线；星魂、叠影和配速仍需按玩家条件核对。"]},
+    {"id": "team.pf_evanescia", "label": "立界开篇绯英候选", "slots": [["绯英"], ["爻光"], ["开拓者（欢愉）"], ["藿藿"]], "tags": ["elation", "sustain"], "source_refs": ["community_pf"], "conditions": ["使用狂欢增益；保留生存，不默认能按参考成绩复现。"]},
+    {"id": "team.aa_wolf", "label": "落叶归根骑士一候选", "slots": [["银狼LV.999"], ["爻光"], ["火花", "开拓者（欢愉）"], ["真珠", "藿藿"]], "tags": ["elation", "sustain"], "source_refs": ["community_aa"], "conditions": ["保留治疗应对回合扣血；不是无生存竞速方案。"]},
+    {"id": "team.aa_memory", "label": "落叶归根骑士二候选", "slots": [["遐蝶"], ["长夜月"], ["昔涟"], ["风堇"]], "tags": ["memory", "sustain"], "source_refs": ["community_aa"], "conditions": ["需要恢复生命解除强化阶段的负面状态；练度与循环另行核对。"]},
+    {"id": "team.aa_dot", "label": "落叶归根骑士三候选", "slots": [["黑天鹅"], ["卡芙卡"], ["海瑟音"], ["藿藿"]], "tags": ["dot", "sustain"], "source_refs": ["community_aa"], "conditions": ["持续伤害路线是候选之一；不是任意敌人均通用的强度排名。"]}
+  ],
+  "challenge_teams": [
+    {"id": "moc.castorice_memory", "label": "遐蝶忆灵条件候选", "slots": [["character_form.1407"], ["character_form.1413", "character_form.8007", "character_form.8008"], ["character_form.1415", "character_form.1403", "character_form.1313"], ["character_form.1409"]], "source_refs": ["starrailres", "moc46_playthrough", "zandar_mechanics"], "basis": "mechanism_inference_not_benchmark_or_published_clear", "reason": "遐蝶与风堇的忆灵可以参与赞达尔的形态机制，保留治疗配合遐蝶生命消耗。", "conditions": ["记忆主、长夜月、昔涟等只按实际已存形态选，不把未录入当没有；候选不是同强度替换。", "需要结合实际生命面板、忆灵和技能循环，不把图鉴机制当作已模拟的满星成绩。"]},
+    {"id": "moc.wolf_elation", "label": "银狼LV.999四欢愉候选", "slots": [["character_form.1506"], ["character_form.1501"], ["character_form.1502"], ["character_form.1503"]], "source_refs": ["fribbels_pearl", "fribbels_scoring", "starrailres"], "basis": "reviewed_reference_conditions_not_clear_record", "reason": "欢愉伤害用于污染压制，火花消耗战技点与银狼机制协同；真珠保生存。", "conditions": ["首位放银狼LV.999以取得本期额外欢愉技；角色不是银狼（虚无）或花火（同谐）的替身。", "星魂/光锥/配速取实际存档，未计算伤害和满星轮数。"]},
+    {"id": "moc.herta_double_erudition", "label": "大黑塔双智识条件候选", "slots": [["character_form.1401"], ["character_form.1405", "character_form.1013", "character_form.1003", "character_form.1314"], ["character_form.1403", "character_form.1309", "character_form.1313", "character_form.1306"], ["character_form.1409", "character_form.1208"]], "source_refs": ["starrailres"], "basis": "mechanism_inference_not_benchmark_or_published_clear", "reason": "保留第二位智识配合大黑塔的行迹条件和叠层，冰属性输出对应下半推荐属性，留一位生存。", "conditions": ["这是按游戏角色机制构造的有限候选，不是社区竞速配队排名；第二智识、辅助与生存只从已存角色选。", "存档没有面板的角色不假设配速和毕业练度；花火辅助只作为双暴输出条件候选，不当成火花。"]},
+    {"id": "moc.evanescia_elation", "label": "绯英四欢愉参考候选", "slots": [["character_form.1505"], ["character_form.1502"], ["character_form.8009", "character_form.8010"], ["character_form.1503"]], "source_refs": ["fribbels_evanescia", "fribbels_scoring", "starrailres"], "basis": "reviewed_reference_conditions_not_clear_record", "reason": "物理输出对应下半推荐属性，欢愉体系围绕绯英的能量与好活当赏循环。", "eidolon_requirements": [{"form_id": "character_form.8009", "minimum": 6}, {"form_id": "character_form.8010", "minimum": 6}], "conditions": ["原参考使用六星魂欢愉开拓者；不能把其他命途开拓者或未知星魂直接替入。", "爻光/真珠不可同时占用上下半两队；本候选不是保证通关。"]}
+  ],
+  "challenge_stages": [
+    {"id": "moc.coming_life.normal12", "period_id": "moc.coming_life.20260928", "floor": 12, "difficulty": "normal", "source_refs": ["official46", "moc46_playthrough", "zandar_mechanics"], "enemy_names_verified": true, "wave_data_complete": false, "coverage": "boss_identities_and_common_mechanics_not_all_waves", "evidence": {"scope": "game_window_and_user_confirmation_cross_checked_with_public_playthrough", "checked_at": "2026-10-19", "confirmed": ["来生泅渡其十二", "普通模式两个编队", "上半推荐虚数和火", "下半推荐冰和物理", "用户核对上半火花大会@Official、下半赞达尔；公开实战交叉一致"], "missing": ["完整波次、数值、抗性及逐回合操作未核实；不移植星启/末日/仲裁天气"]}, "halves": [
+      {"side": "upper", "label": "上半", "recommended_elements": ["Imaginary", "Fire"], "enemies": [{"name": "火花大会@Official", "aliases": ["火花大会@official"], "role": "boss"}], "team_refs": ["moc.wolf_elation"], "strategy": ["上半页面显示污染等级3，优先把欢愉队分配到这里；首位额外欢愉技按本期规则使用。", "副战场及具体操作不套用其他玩法的数值，先给阵容和机制方向。"]},
+      {"side": "lower", "label": "下半", "recommended_elements": ["Ice", "Physical"], "enemies": [{"name": "第一位天才，隐德来希，赞达尔", "aliases": ["来古士", "赞达尔"], "role": "boss"}], "team_refs": ["moc.castorice_memory", "moc.herta_double_erudition", "moc.evanescia_elation"], "strategy": ["可考虑忆灵参与形态切换，或冰/物理输出候选；先分开两队的辅助和生存。", "赞达尔会切换形态，后续全体攻击与控制需要生存保障；这是通用机制摘要，不是本期完整操作轴。"]}
+    ]}
+  ],
+  "periods": [
+    {"id": "moc.coming_life.20260928", "mode": "moc", "name": "来生泅渡", "game_version": "4.6", "starts_at": "2026-09-28T11:00:00+08:00", "ends_at": "2026-11-02T04:00:00+08:00", "source_refs": ["official46"], "tags": ["elation"], "rules_summary": ["首位编队角色获得额外欢愉技；轮开始时阿哈获得固定笑点的额外回合。"], "strategy": ["先考虑首位角色的放置以及能利用欢愉机制的队伍，再核对各节点敌人的弱点和抗性。", "有限队伍先服务当前节点，不把同一角色重复分给必须同时使用的多队。"], "team_refs": ["team.evanescia_elation", "team.wolf_elation"], "missing": ["各层/普通或星启节点的完整敌人、抗性和逐回合打法尚未核实"]},
+    {"id": "as.domination.20261005", "mode": "as", "name": "支配遗忘", "game_version": "4.6", "starts_at": "2026-10-05T04:00:00+08:00", "ends_at": "2026-11-16T04:00:00+08:00", "source_refs": ["official46"], "tags": ["elation", "ultimate", "break"], "rules_summary": ["击破坚防守备目标可解除控制、推进行动并触发阿哈额外回合；天气强化终结技与欢愉伤害。"], "strategy": ["先核对两侧首领弱点与削韧条件，再安排能完成击破并利用击破后行动窗口的队伍。", "终结技释放时机要结合破韧窗口；不能仅因有终结技加成就宣称任意终结技队最优。"], "team_refs": ["team.evanescia_elation", "team.wolf_elation"], "missing": ["两侧首领、弱点/抗性和具体可选增益尚未核实"]},
+    {"id": "pf.boundaries.20260914", "mode": "pf", "name": "立界开篇", "game_version": "4.5", "starts_at": "2026-09-14T04:00:00+08:00", "ends_at": "2026-10-19T04:00:00+08:00", "source_refs": ["official45", "community_pf"], "tags": ["elation"], "rules_summary": ["获得笑点可以额外积累战意值；这期在4.6期间仍开放，不等于4.6新一期。"], "strategy": ["笑点循环配合清杂；欢愉队考虑狂欢，忆灵队考虑谜狂，其他多目标普攻/战技路线比较狂想。"], "team_refs": ["team.pf_evanescia", "team.pf_wolf"], "nodes": [
+      {"id": "pf.swarm", "name": "虫群·真蛰虫", "aliases": ["真蛰虫", "虫群"], "source_refs": ["community_pf"], "strategy": ["优先处理会控场的次蛰虫。"], "team_refs": ["team.pf_wolf", "team.pf_evanescia"]},
+      {"id": "pf.lotus", "name": "邪愿莲华主", "aliases": ["邪愿莲华", "莲华主"], "source_refs": ["community_pf"], "strategy": ["注意幸福层数带来的控制，辅助也需考虑攻击行为。"], "team_refs": ["team.pf_wolf", "team.pf_evanescia"]},
+      {"id": "pf.hoolay", "name": "呼雷（星启）", "aliases": ["呼雷"], "source_refs": ["community_pf"], "strategy": ["高频受击环境保留生存位。"], "team_refs": ["team.pf_evanescia"]}
+    ], "missing": ["完整数值、全波次敌人及玩家星魂/练度需进一步核对"]},
+    {"id": "pf.writing.20261019", "mode": "pf", "name": "取象为文", "game_version": "4.6", "starts_at": "2026-10-19T04:00:00+08:00", "ends_at": "2026-11-30T04:00:00+08:00", "source_refs": ["official46"], "tags": ["debuff"], "rules_summary": ["向敌方施加负面效果可额外积累战意值，每个敌方目标有触发次数上限。"], "strategy": ["考虑负面效果的覆盖频率与群体清杂能力，不把只会单次施加负面的队伍直接判为最优。"], "team_refs": [], "missing": ["未核实该期敌人、可选增益及适配参考队伍"]},
+    {"id": "aa.roots.4.6", "mode": "aa", "name": "落叶归根", "game_version": "4.6", "starts_at": "2026-09-28T11:00:00+08:00", "ends_at": "2026-11-11T06:00:00+08:00", "source_refs": ["official46", "community_aa"], "tags": [], "rules_summary": ["骑士与王棋分节点处理；参考配置不能保证复现成绩。"], "strategy": ["先确认节点，再按敌人机制分配互不占用的队伍；默认保留生存，不照搬竞速打法。"], "team_refs": ["team.aa_wolf", "team.aa_memory", "team.aa_dot", "team.evanescia_elation"], "nodes": [
+      {"id": "aa.knight1", "name": "骑士一·帕姆王", "aliases": ["骑士一", "骑士1", "帕姆王"], "source_refs": ["community_aa"], "strategy": ["回合扣血可致命，带治疗；靠笑点处理首领减伤。"], "team_refs": ["team.aa_wolf", "team.evanescia_elation"]},
+      {"id": "aa.knight2", "name": "骑士二·死龙残躯", "aliases": ["骑士二", "骑士2", "死龙残躯"], "source_refs": ["community_aa"], "strategy": ["强化阶段先恢复生命解除负面状态再输出。"], "team_refs": ["team.aa_memory"]},
+      {"id": "aa.knight3", "name": "骑士三·深魇蝗灾", "aliases": ["骑士三", "骑士3", "深魇蝗灾"], "source_refs": ["community_aa"], "strategy": ["留意仅指定角色能暴击的限制；持续伤害路线可作候选。"], "team_refs": ["team.aa_dot"]},
+      {"id": "aa.king", "name": "王棋·堕神之血亚婆离", "aliases": ["王棋", "亚婆离"], "source_refs": ["community_aa"], "strategy": ["首波攻击灯塔削减鼓舞；屏障阶段欢愉与非欢愉走不同处理路线。"], "team_refs": ["team.evanescia_elation"]}
+    ], "missing": ["王棋难度、完整增益、星魂练度与操作轴未全部核实；非欢愉屏障打法需另查"]},
+    {"id": "moc.selection.20261102", "mode": "moc", "name": "物竞天择", "game_version": "4.6", "starts_at": "2026-11-02T04:00:00+08:00", "ends_at": "2026-12-14T04:00:00+08:00", "source_refs": ["official46"], "tags": ["elation", "ultimate"], "rules_summary": ["施放终结技可获得笑点；轮开始时阿哈获得固定笑点的额外回合。"], "strategy": ["这期需在开放后核对实际敌人和模式，不能拿它回答尚在来生泅渡的当前关卡。"], "team_refs": ["team.evanescia_elation", "team.wolf_elation"], "missing": ["尚未核实各层敌人与针对性打法"]}
+  ]
+}

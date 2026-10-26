@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "moneta": {
+      "type": "object",
+      "title": "MONETA FX 设置",
+      "x-title-i18n": {
+        "zh-CN": "MONETA FX 设置",
+        "en": "MONETA FX settings"
+      },
+      "properties": {
+        "initial_balance": {
+          "type": "number",
+          "title": "新账户初始资金（USD）",
+          "x-title-i18n": {
+            "zh-CN": "新账户初始资金（USD）",
+            "en": "Initial balance for new accounts (USD)"
+          },
+          "description": "注册新普通账户时发放的模拟资金。",
+          "x-description-i18n": {
+            "zh-CN": "注册新普通账户时发放的模拟资金。",
+            "en": "Simulated funds granted when a new player account registers."
+          },
+          "minimum": 1000,
+          "maximum": 10000000,
+          "default": 100000
+        },
+        "tick_interval_ms": {
+          "type": "integer",
+          "title": "市场心跳间隔（毫秒）",
+          "x-title-i18n": {
+            "zh-CN": "市场心跳间隔（毫秒）",
+            "en": "Market tick interval (ms)"
+          },
+          "description": "推进共享市场时钟的间隔，越小行情越平滑，负载越高。",
+          "x-description-i18n": {
+            "zh-CN": "推进共享市场时钟的间隔，越小行情越平滑，负载越高。",
+            "en": "How often the shared market clock advances. Smaller is smoother but costs more CPU."
+          },
+          "minimum": 100,
+          "maximum": 5000,
+          "default": 500
+        },
+        "persist_interval_ms": {
+          "type": "integer",
+          "title": "自动存档间隔（毫秒）",
+          "x-title-i18n": {
+            "zh-CN": "自动存档间隔（毫秒）",
+            "en": "Autosave interval (ms)"
+          },
+          "description": "共享市场状态写入插件存储的间隔。",
+          "x-description-i18n": {
+            "zh-CN": "共享市场状态写入插件存储的间隔。",
+            "en": "How often the shared market state is written to plugin storage."
+          },
+          "minimum": 1000,
+          "maximum": 60000,
+          "default": 5000
+        },
+        "developer_key": {
+          "type": "string",
+          "title": "开发者密钥",
+          "x-title-i18n": {
+            "zh-CN": "开发者密钥",
+            "en": "Developer key"
+          },
+          "description": "登录行情控制台与账户管理所需的密钥，请自行修改。",
+          "x-description-i18n": {
+            "zh-CN": "登录行情控制台与账户管理所需的密钥，请自行修改。",
+            "en": "Key required for the market console and account administration. Change it."
+          },
+          "minLength": 6,
+          "maxLength": 128,
+          "default": "moneta-dev-key"
+        },
+        "server_url": {
+          "type": "string",
+          "title": "云端后端地址",
+          "x-title-i18n": {
+            "zh-CN": "云端后端地址",
+            "en": "Cloud server URL"
+          },
+          "description": "留空为本地离线模式；填入部署好的 MONETA FX 服务端地址并开启下方开关，账户与行情即走云端。",
+          "x-description-i18n": {
+            "zh-CN": "留空为本地离线模式；填入部署好的 MONETA FX 服务端地址并开启下方开关，账户与行情即走云端。",
+            "en": "Leave empty for local offline mode. Fill in your MONETA FX server URL and enable the toggle below to use the cloud."
+          },
+          "maxLength": 512,
+          "default": ""
+        },
+        "use_cloud": {
+          "type": "boolean",
+          "title": "使用云端后端",
+          "x-title-i18n": {
+            "zh-CN": "使用云端后端",
+            "en": "Use cloud backend"
+          },
+          "description": "开启后，N.E.K.O. 面板与浏览器端共享同一套账户、持仓与行情。",
+          "x-description-i18n": {
+            "zh-CN": "开启后，N.E.K.O. 面板与浏览器端共享同一套账户、持仓与行情。",
+            "en": "When on, the N.E.K.O. panel and the browser share the same accounts, positions and quotes."
+          },
+          "default": false
+        }
+      }
+    }
+  }
+}

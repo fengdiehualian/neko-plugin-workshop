@@ -1,0 +1,23 @@
+[plugin]
+id = "neko_morning_brief"
+name = "猫娘晨报"
+type = "plugin"
+description = "一个晨报插件，说是晨报实际可以自定义时间，猫娘会根据提前配置好的源获取信息在指定时间进行汇总汇报。"
+short_description = "Source-agnostic morning digest: weather, RSS and any JSON API, spoken by the character."
+keywords = ["晨报", "简报", "早报", "日报", "摘要", "资讯", "订阅", "rss"]
+version = "1.0.2"
+entry = "plugin.plugins.neko_morning_brief:NekoMorningBriefPlugin"
+
+[plugin.author]
+name = "Hacker_LawKing"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+priority = 0
+timeout = 30
+startup_failure = "warn"

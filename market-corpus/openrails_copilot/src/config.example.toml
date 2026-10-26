@@ -1,0 +1,35 @@
+# Open Rails Copilot 配置示例
+# 复制此文件到用户数据目录并重命名为 config.toml 以自定义配置
+
+[monitoring]
+# API 基础 URL
+api_base_url = "http://localhost:2150"
+
+# API 请求超时（秒）
+api_timeout = 3.0
+
+# API 检查间隔（秒）
+api_check_interval = 5.0
+
+# 状态报告间隔（秒）
+status_report_interval = 60.0
+
+[thresholds]
+# 速度变化告警阈值（km/h）
+speed_change_threshold = 20.0
+
+# 紧急制动阈值（0-1）
+emergency_brake_threshold = 0.8
+
+# 超速告警阈值（km/h）
+overspeed_threshold = 100.0
+
+[alerts]
+# 是否启用速度变化告警
+enable_speed_change_alert = true
+
+# 是否启用紧急制动告警
+enable_emergency_brake_alert = true
+
+# 是否启用超速告警
+enable_overspeed_alert = true

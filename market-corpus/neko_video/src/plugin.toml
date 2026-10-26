@@ -1,0 +1,51 @@
+[plugin]
+id = "neko_video"
+name = "看视频猫娘"
+type = "plugin"
+description = "让猫娘知道你正在看的 B站视频到底在讲什么，而不是只会念标题。插件读取浏览器窗口标题反查 BV 号，并读取系统媒体会话获得真实播放位置与倍速（拖动进度条、开倍速都能跟上），拉取弹幕、热评与简介，算出观众在哪些时间点集中吐槽，再把这些事实喂给猫娘——台词由她自己说，插件不写一句台词。纯标准库实现，无需登录、无需任何额外安装。"
+short_description = "Let the catgirl actually know what the Bilibili video is about, not just read its title."
+keywords = ["视频", "看视频", "陪看", "B站", "bilibili", "BV", "弹幕", "吐槽", "video", "danmaku"]
+version = "0.4.0"
+entry = "plugin.plugins.neko_video:VideoPlugin"
+
+[plugin.author]
+name = "yousei1216"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.3.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin.store]
+enabled = false
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+# 可变默认值放在 config.example.toml（首次运行会被复制成用户配置），
+# 这里只留一份基线；运行时代码对缺省值都有兜底。
+[video]
+enabled = true
+mode = "read"
+focus_mode = true
+focus_behavior = "respond"
+push_frame = false
+# 收尾时是否附带**高赞评论的配图**（默认 true）。
+# B站评论区大量是"梗图+一句话"，把图给她"看"她才能懂评论区的笑点。
+# 这**不是**屏幕截图，所以默认开着。
+push_comment_images = true
+min_gap_seconds = 18.0
+hotspot_grace_seconds = 90.0
+max_hotspots = 5
+comment_on_end = true
+max_comments = 3
+max_danmaku = 600
+only_when_foreground = false
+manual_bvid = ""
+show_facts_in_chat = false
+# 读取系统媒体会话（SMTC）拿真实播放位置/倍速；读不到自动退回墙钟估算
+use_media_session = true

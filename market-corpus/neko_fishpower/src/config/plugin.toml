@@ -1,0 +1,44 @@
+[plugin]
+id = "neko_fishpower"
+type = "plugin"
+name = "猫爪渔力陪玩"
+description = "渔力全开（How to Fish）猫娘陪玩：mod 感知钓鱼/赌场/烤鱼/Boss/图鉴，上钩播报、稀有祝贺、画面畅聊，全程有猫娘陪钓。"
+short_description = "How to Fish catgirl fishing companion."
+keywords = ["渔力全开", "how to fish", "钓鱼", "渔力", "陪玩", "猫娘", "fishing", "fish", "catgirl", "game", "游戏"]
+version = "0.1.0"
+entry = "plugins.neko_fishpower:NekoFishpowerPlugin"
+
+[plugin.author]
+name = "N.E.K.O Team"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.store]
+enabled = true
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "猫爪渔力陪玩"
+entry = "static/index.html"
+context = "dashboard"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "guide"
+title = "使用指南"
+entry = "docs/ui/guide.md"
+mode = "markdown"
+permissions = ["state:read"]

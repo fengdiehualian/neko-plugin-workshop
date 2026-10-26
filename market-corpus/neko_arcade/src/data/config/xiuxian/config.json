@@ -1,0 +1,26 @@
+{
+  "game": {
+    "initial_lingshi": 100,
+    "initial_realm_idx": 0,
+    "initial_body_idx": 0,
+    "auto_breakthrough": false,
+    "save_backup": true,
+    "note": "LLM 配置属于主插件全局(插件 UI「全部游戏」下方), 不在这里配"
+  },
+  "breakthrough": {
+    "base_rate": 0.8,
+    "rate_per_realm": -0.02,
+    "fail_penalty_ratio": 0.1,
+    "neko_assist_bonus": 0.05
+  },
+  "neko": {
+    "enabled": true,
+    "name": "喵喵",
+    "realm_bonus": 0.1,
+    "daolv_enabled": true,
+    "shitu_enabled": true,
+    "sect_enabled": true,
+    "qinmidu_per_gift": 60,
+    "gift_item": "百合花篮"
+  }
+}

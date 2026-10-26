@@ -1,0 +1,45 @@
+[project]
+name = "galgame-plugin"
+version = "1.0.3"
+requires-python = ">=3.11"
+dependencies = ["pillow>=11,<13"]
+
+[dependency-groups]
+dev = [
+    "fastapi>=0.116,<1",
+    "httpx>=0.28,<1",
+    "numpy>=2.0,<3",
+    "portalocker>=3,<4",
+    "pytest>=8.4,<9",
+    "pytest-asyncio>=1.2,<2",
+]
+
+[tool.neko.build]
+exclude_dirs = [
+    "tests",
+    "training",
+    ".pytest-standalone",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+]
+exclude_files = ["conftest.py", "galgame_store.json", "galgame_store.json.lock", "test_ocr_pipeline.py"]
+
+[tool.neko.pack]
+exclude_dirs = [
+    "tests",
+    "training",
+    ".pytest-standalone",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+]
+exclude_files = ["conftest.py", "galgame_store.json", "galgame_store.json.lock", "test_ocr_pipeline.py"]
+
+[tool.pytest.ini_options]
+addopts = ["--basetemp=.pytest-standalone"]
+markers = [
+    "plugin_integration: plugin-owned integration test against the standalone package",
+    "plugin_unit: plugin-owned unit test migrated from the N.E.K.O host repository",
+]
+testpaths = ["tests", "training/tests"]

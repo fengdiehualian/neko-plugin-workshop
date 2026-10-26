@@ -1,0 +1,20 @@
+{
+  "plugin.name": "D-one Task Butler",
+  "plugin.description": "Bridges D-one priority notes into NEKO: persona-fied reminders by priority — urge on p0, remind on p1, gentle on p2. Supports tone styles and the one-thing-at-a-time query.",
+
+  "entry.get_status.name": "Get Bridge Status",
+  "entry.get_status.description": "Get the D-one bridge plugin status: port, tone style, task count.",
+
+  "entry.get_tasks.name": "Get Tasks",
+  "entry.get_tasks.description": "Get all unfinished D-one tasks grouped by p0/p1/p2 priority. Use when the master asks 'what do I have to do' or 'today's plan'.",
+  "entry.get_tasks.error.empty": "No unfinished tasks right now",
+
+  "entry.get_top_task.name": "Get Top Priority Task",
+  "entry.get_top_task.description": "Get only the single most important task (one-thing-at-a-time). Use when the master asks 'what should I do now'.",
+  "entry.get_top_task.error.empty": "Nothing pending — time to rest",
+
+  "entry.set_style.name": "Switch Tone Style",
+  "entry.set_style.description": "Switch reminder tone: neko_default (tsundere catgirl), calm (assistant), idol (cheerful).",
+  "entry.set_style.param.style": "Style: neko_default / calm / idol",
+  "entry.set_style.error.invalid_style": "Unknown tone style; use neko_default, calm or idol"
+}

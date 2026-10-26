@@ -1,0 +1,15 @@
+# 照片语录 运行配置模板
+# 图库地址与只读凭据已内置锁定，无需也无法在配置中修改。
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[draw]
+# 隐藏款掉率（0 ~ 1）：0.05 表示平均每 20 抽出 1 次隐藏款
+hidden_rate = 0.05
+# 最近抽过的图在接下来 N 次内不重复；0 = 允许连续重复
+no_repeat_count = 20
+# 定时刷新图库列表（图库新增/删除图片后自动生效）
+auto_refresh = true
+refresh_interval_minutes = 10

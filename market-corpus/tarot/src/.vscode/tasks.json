@@ -1,0 +1,11 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "pytest: smoke tests",
+            "type": "shell",
+            "command": "python -m pytest tests/test_smoke.py -v",
+            "problemMatcher": []
+        }
+    ]
+}

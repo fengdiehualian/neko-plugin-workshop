@@ -1,0 +1,10 @@
+{
+  "plugin.name": "猫娘姐妹：幸存者",
+  "plugin.description": "自带完整游戏的弹幕生存肉鸽：WASD 走位躲避围攻，武器全自动开火，收集材料升级、合成装备，在 20 波敌潮里活下来。打开插件面板直接开玩，无需任何配置；纯静态实现，装完即玩。噩梦难度还藏着一个隐藏 Boss，等你发现。",
+  "entries.game_event.name": "游戏事件播报",
+  "entries.game_event.description": "接收游戏内事件（波次/Boss/结算）并让官方猫娘在聊天中播报。由游戏页自动调用，内置频率限制。",
+  "entries.speak.name": "让猫娘说这句话",
+  "entries.speak.description": "通过宿主官方 TTS 通道念出给定台词（与内置小游戏同一 B 层输出通道）。由游戏页自动调用（宠物/天气台词），内置 2.5 秒节流。",
+  "entries.sync_avatar.name": "同步猫娘形象",
+  "entries.sync_avatar.description": "把本地宿主的 Live2D 引擎与当前猫娘模型重新同步到插件 vendor 目录。插件启动时自动执行；如果宿主是后打开的，可手动点一次。"
+}

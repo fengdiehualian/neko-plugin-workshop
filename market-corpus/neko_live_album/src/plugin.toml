@@ -1,0 +1,33 @@
+[plugin]
+id = "neko_live_album"
+name = "猫娘实况相册"
+description = "像女友一样双向拍照的实况相册：你可以用「拍她」按钮抓拍猫娘的反应实况（害羞、摆姿势、假装嫌弃都会真实发生），她也会在合适的时机请求用前置摄像头给你拍一张。实况卡长按即可播放，相册持久保存，支持导出分享。"
+short_description = "Two-way Live Photo album: capture your catgirl's reactions and let her take Live Photos of you — long-press to relive the moment."
+keywords = [
+    "实况", "拍照", "相册", "照片", "回忆", "纪念", "猫娘",
+    "live photo", "camera", "album", "photo", "memory", "girlfriend", "selfie"
+]
+version = "1.0.0"
+type = "plugin"
+entry = "plugin.plugins.neko_live_album:NekoLiveAlbumPlugin"
+
+[plugin.author]
+name = "zhaoxiangyu"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.store]
+enabled = true
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[plugin.ui]
+enabled = true
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales = ["zh-CN", "en"]

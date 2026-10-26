@@ -1,0 +1,134 @@
+[plugin]
+id = "plugin_database"
+name = "Plugin Database"
+version = "0.1.0"
+type = "plugin"
+description = "统一数据库访问基础层：DatabaseAdapter 抽象 + SQLite（默认零配置）/ PostgreSQL / MySQL / MongoDB 四驱动，含 hot_knowledge 热数据表、Skill 调用统计表与 vec0/FTS5 能力探测，供知识库与 Skill 插件跨插件调用。"
+short_description = "Unified async database layer (SQLite default, PostgreSQL/MySQL/MongoDB) with hot_knowledge table and skill stats for other plugins."
+keywords = [
+    "database",
+    "sqlite",
+    "postgres",
+    "postgresql",
+    "mysql",
+    "mongodb",
+    "数据库",
+    "存储",
+    "hot_knowledge",
+    "知识库",
+]
+entry = "plugin.plugins.plugin_database:PluginDatabasePlugin"
+
+[plugin.author]
+name = "neko-plugin"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+# 静态声明入口（只写 id + name，其余元数据仍以 @plugin_entry 装饰器为准）。
+# 宿主重扫插件时只认 plugin.meta.json / 这里的声明来重建入口列表；不写的话
+# 一次 /plugins/refresh 就会把入口清空，面板 action 全部 404。
+# tests/test_manifest_entries.py 校验这里与装饰器保持一致。
+
+[[plugin.entries]]
+id = "db_execute"
+name = "执行 SQL"
+
+[[plugin.entries]]
+id = "db_fetch_all"
+name = "查询多行"
+
+[[plugin.entries]]
+id = "db_fetch_one"
+name = "查询单行"
+
+[[plugin.entries]]
+id = "db_transaction"
+name = "批量事务"
+
+[[plugin.entries]]
+id = "db_status"
+name = "数据库状态"
+
+[[plugin.entries]]
+id = "db_capabilities"
+name = "驱动能力"
+
+[[plugin.entries]]
+id = "db_switch_driver"
+name = "切换驱动"
+
+[[plugin.entries]]
+id = "register_hot_schema"
+name = "注册热数据表"
+
+[[plugin.entries]]
+id = "hot_promote"
+name = "写入热知识"
+
+[[plugin.entries]]
+id = "hot_demote"
+name = "冷数据降级"
+
+[[plugin.entries]]
+id = "hot_query"
+name = "查询热知识"
+
+[[plugin.entries]]
+id = "skill_stat_record"
+name = "记录 Skill 调用"
+
+[[plugin.entries]]
+id = "skill_stat_query"
+name = "查询 Skill 统计"
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+# ---------------------------------------------------------------------------
+# 业务配置：首次运行会被复制到用户数据目录 config/plugin.toml，改那份才生效。
+# 切换数据库只需改 driver；对应驱动段给出连接信息。
+# ---------------------------------------------------------------------------
+
+[database]
+# sqlite | postgres | mysql | mongo
+driver = "sqlite"
+
+[database.sqlite]
+# 留空 = <插件数据目录>/data/plugin_database.db（自动创建）
+path = ""
+# vec0 向量扩展（sqlite-vec）。默认自动 = 插件 vendor/sqlite_vec/vec0.dll 的绝对路径；
+# 加载失败不影响启动（能力探测如实上报，知识库退化为 numpy 余弦扫描）。
+# 显式设为 "" 可完全禁用扩展加载；相对路径按插件目录解析。
+vec0_path = ""
+# 设为 true 时 vec0 加载失败将阻止启动（默认 false，尽力而为）
+require_vec0 = false
+
+[database.postgres]
+# 例：postgresql://user:password@127.0.0.1:5432/neko
+dsn = ""
+min_size = 1
+max_size = 5
+
+[database.mysql]
+# 例：mysql://user:password@127.0.0.1:3306/neko
+dsn = ""
+min_size = 1
+max_size = 5
+
+[database.mongo]
+# 例：mongodb://127.0.0.1:27017
+uri = ""
+database = ""
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "Plugin Database"
+entry = "ui/panel.tsx"
+context = "plugin_database_panel"
+permissions = ["state:read", "action:call"]

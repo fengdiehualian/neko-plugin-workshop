@@ -1,0 +1,19 @@
+{
+  "level": 2,
+  "undo_limit": 3,
+  "enable_llm_lines": true,
+  "show_image": "key",
+  "persona_hint": "",
+  "modes": {
+    "gomoku": {
+      "size": 15
+    },
+    "othello": {},
+    "xiangqi": {},
+    "connect4": {},
+    "go": {
+      "size": 9
+    },
+    "chess": {}
+  }
+}

@@ -1,0 +1,10 @@
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+# skill 扫描配置（可在运行时自由修改）
+[settings]
+# skill 搜索目录列表；未配置/留空时默认本机 N.E.K.O 数据目录下的 skills（启动时自动创建）
+skill_dirs = []
+# 是否跟随符号链接识别 skill（如指向 /root/.skills 的链接）
+follow_symlinks = true

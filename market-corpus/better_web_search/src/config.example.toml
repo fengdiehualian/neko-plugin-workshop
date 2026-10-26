@@ -1,0 +1,92 @@
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[search]
+# 后端链路（全部免 API Key）：前一个失败自动换下一个。
+# 顺序：国内直连实测 anysearch 1.2–5.0s、exa 1.6–3.5s、bing 0.6s 都可用；
+# baidu 直连常撞“百度安全验证”（靠预热救），放最后；sogou 实测无结果，不启用。
+# 唯一的例外：填了 exa_api_keys 而 anysearch_api_key 还空着 → exa 升到首位。
+backend = "auto"
+backend_chain = ["anysearch", "exa", "bing", "baidu"]
+# 装包时这份配置会整份复制过去，之后宿主不再改写它，所以老用户文件里可能还留着旧的
+# ["exa", "anysearch", "bing", "baidu"]。插件认出那一行时当作"没写过"，走上面的默认顺序；
+# 想自己定顺序就改成别的排列，只想让 exa 打头就把上面的 backend 填成 "exa"。
+# 对话里没指定条数时用这个值（上限 15）
+max_results = 6
+timeout_seconds = 12
+total_timeout_seconds = 25
+
+# 代理：auto=跟随系统/环境变量，off=不用，on=全走，或直接填 http://127.0.0.1:7890
+proxy = "auto"
+proxy_url = ""
+# 单个后端可覆盖（direct / proxy / auto）
+exa_proxy = "auto"
+anysearch_proxy = "auto"
+duckduckgo_proxy = "proxy"
+bing_proxy = "direct"
+sogou_proxy = "direct"
+baidu_proxy = "direct"
+duckduckgo_method = "POST"
+
+# 可选增强，留空也能用
+# 填了限额更高，不填走匿名档；有这把钥匙时 exa 不再升到链路首位。
+# 也可以在面板「密钥管理」的折叠块里填，保存时会当场真搜一次验货。
+anysearch_api_key = ""
+anysearch_zone = ""
+searxng_base_url = ""
+# 实时抓取：只在 exa_tool = "advanced" 时才生效（advanced 会自己爬页面）；
+# 默认的 auto 快路径不带这个参数，开了也没有区别。
+exa_live_crawl = false
+
+# Exa 密钥（可选升级，不是必需）：注册地址 https://dashboard.exa.ai/api-keys
+# （国内直连可达，建议邮箱注册）；每个账号免费档每月刷新约 $10 ≈ 1400 次。
+# 一个账号不够用就把多个账号的密钥都列进来：一次搜索从上一把成功的开始，报错
+# 就顺延下一把，走到末尾再绕回开头 —— 没有计时器，循环本身就是重试节奏：
+#   exa_api_keys = ["sk-a-第一个账号", "sk-b-第二个账号"]
+# 填了它还有一个作用：anysearch_api_key 还空着时 exa 升到链路首位（只看配置，
+# 不会在一次会话中途改顺序；整池用完的让位由后端冷却负责）。
+# 更推荐在插件面板里逐把填写与测试；面板/日志都只显示 exa****尾4位。
+exa_api_keys = []
+# auto=永远用快路径（advanced 实测 3.7–11.7s 会顶穿 12s 预算，只在明确需要时选）
+exa_tool = "auto"
+# 开关：整池密钥都报错时要不要再降级成匿名档（关闭则直接改用其它搜索来源）
+exa_key_fallback_anonymous = false
+# baidu 先领 BAIDUID cookie 再搜（不领基本必撞“百度安全验证”）
+baidu_warmup = true
+# 没检测到任何代理时，duckduckgo 不进实际链路（直连只会超时报错）
+duckduckgo_needs_proxy = true
+
+# 正文抓取
+max_content_chars = 4000
+fetch_total_timeout_seconds = 24
+
+# 缓存与限流：免 Key 通道是公共资源，打太猛会被限流甚至封 IP
+cache_ttl_seconds = 300
+stale_ttl_seconds = 1800
+cache_entries = 128
+queue_wait_seconds = 2
+cooldown_seconds = 60
+# 每个后端两次请求之间的最小间隔（秒）
+exa_min_interval_seconds = 0.5
+anysearch_min_interval_seconds = 0.75
+bing_min_interval_seconds = 2
+sogou_min_interval_seconds = 3
+baidu_min_interval_seconds = 10
+duckduckgo_min_interval_seconds = 3
+searxng_min_interval_seconds = 0.5
+# 撞墙后的惩罚性冷却（秒）
+baidu_cooldown_seconds = 120
+duckduckgo_cooldown_seconds = 300
+# 网络自检用的固定查询词（只影响自检，不影响正常搜索）
+diagnose_query = "N.E.K.O 猫娘 插件"
+
+[net]
+# fetch 的 SSRF 白名单：只对“域名解析出来的结果”放行，手填 IP/localhost/
+# 云元数据地址一律照旧拒绝。这里放行 198.18.0.0/15 是为了兼容 TUN+fake-ip
+# 代理（它们把外网域名解析成假 IP）。不懂就保持默认；填 [] 表示全不放行。
+ssrf_allow_ranges = ["198.18.0.0/15"]
+
+[ui]
+# 首启引导提示只发一次（猫娘会在第一次启动时开口引导）
+first_run_notice_sent = false

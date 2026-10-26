@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check from_the_heart",
+      "type": "shell",
+      "command": "uv run neko-plugin check from_the_heart",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync from_the_heart",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync from_the_heart --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r from_the_heart",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r from_the_heart",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build from_the_heart",
+      "type": "shell",
+      "command": "uv run neko-plugin build from_the_heart",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

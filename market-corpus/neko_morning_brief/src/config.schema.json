@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "time": {
+      "type": "string",
+      "title": "时间",
+      "description": "每天几点播报，例如 08:00。",
+      "default": "08:00"
+    }
+  }
+}

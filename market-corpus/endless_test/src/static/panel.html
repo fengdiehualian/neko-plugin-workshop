@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+
+<head>
+
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>无尽测试</title>
+
+<style>
+
+  :root{
+
+    --cy:#8ef5ff; --gn:#7df5c0; --gold:#ffd479; --txt:#dff4ff;
+
+    --dim:rgba(190,225,240,.45); --line:rgba(95,220,255,.14);
+
+  }
+
+  *{box-sizing:border-box}
+
+  html,body{margin:0;height:100%;overflow:hidden}
+
+  body{
+
+    background:radial-gradient(circle at 50% 50%,#081420,#02050a 68%);
+
+    color:var(--txt); font:13px/1.5 "Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+
+    position:relative;
+
+  }
+
+  body::before{
+
+    content:""; position:absolute; inset:0; pointer-events:none;
+
+    background-image:linear-gradient(rgba(95,220,255,.05) 1px,transparent 1px),
+
+                     linear-gradient(90deg,rgba(95,220,255,.05) 1px,transparent 1px);
+
+    background-size:64px 64px;
+
+    mask-image:radial-gradient(circle at 50% 50%,#000 20%,transparent 78%);
+
+  }
+
+
+
+  .head{position:absolute; top:26px; left:30px; z-index:3; transition:opacity .4s, transform .5s}
+
+  .eyebrow{font:10px/1 ui-monospace,monospace; letter-spacing:.26em; color:rgba(142,245,255,.5)}
+
+  h1{margin:8px 0 4px; font-size:26px; letter-spacing:.08em}
+
+  .sub{font-size:11px; color:var(--dim)}
+
+
+
+  .core-wrap{
+
+    position:absolute; inset:0; display:grid; place-items:center; z-index:2;
+
+    transition:opacity .45s, transform .6s cubic-bezier(.16,.84,.24,1);
+
+  }
+
+  .core{position:relative; width:230px; height:230px; cursor:default; border:0; background:none; padding:0}
+  body.ready .core{cursor:pointer}
+
+  .core .ring{
+
+    position:absolute; inset:0; border-radius:50%;
+
+    border:1px solid rgba(95,220,255,.28); border-top-color:rgba(142,245,255,.85);
+
+    animation:spin 9s linear infinite;
+
+  }
+
+  .core .ring.r2{inset:22px; border-top-color:rgba(125,245,192,.8); animation-duration:13s; animation-direction:reverse}
+
+  .core .ring.r3{inset:46px; border-top-color:rgba(255,212,121,.7); animation-duration:17s}
+
+  .core .orb{
+
+    position:absolute; inset:62px; border-radius:50%;
+
+    background:radial-gradient(circle at 38% 34%,#ffffff,#8ef5ff 38%,#1b6f8c 72%,#06212e);
+
+    box-shadow:0 0 46px rgba(95,220,255,.5), 0 0 120px rgba(95,220,255,.22);
+
+    animation:pulse 3.4s ease-in-out infinite;
+    opacity:0; transition:opacity .95s ease;
+  }
+  body.ready .core .orb{opacity:1}
+  .core .orb-off{
+    position:absolute; inset:62px; border-radius:50%;
+    background:radial-gradient(circle at 38% 34%,#ffe9e9,#ff5a5a 38%,#8c1b1b 72%,#2a0606);
+    box-shadow:0 0 46px rgba(255,80,80,.42), 0 0 120px rgba(255,60,60,.18);
+    animation:pulse 3.4s ease-in-out infinite;
+    opacity:1; transition:opacity .95s ease;
+  }
+  body.ready .core .orb-off{opacity:0}
+
+  .core .label{
+
+    position:absolute; left:50%; bottom:-30px; transform:translateX(-50%);
+
+    font:11px/1 ui-monospace,monospace; letter-spacing:.18em; color:rgba(142,245,255,.75);
+
+    white-space:nowrap;
+
+  }
+
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+
+
+
+  /* 三个入口：围绕核心的一组卡片 */
+
+  .entries{
+
+    position:absolute; left:50%; top:calc(50% + 168px); transform:translateX(-50%);
+
+    display:flex; gap:12px; z-index:3;
+    opacity:0; pointer-events:none; transition:opacity .45s ease;
+
+  }
+  body.ready .entries{opacity:1; pointer-events:auto}
+
+  .entry{
+
+    position:relative; width:198px; padding:14px 15px 15px; cursor:pointer; text-align:left;
+
+    border-radius:12px; border:1px solid rgba(95,220,255,.18);
+
+    background:linear-gradient(160deg,rgba(12,24,36,.92),rgba(6,12,20,.92));
+
+    color:var(--txt); font:inherit; overflow:hidden;
+
+    box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+
+    opacity:0; transform:translateY(-74px) scale(.52); filter:blur(9px);
+    transition:opacity .5s ease, transform .62s cubic-bezier(.16,.84,.24,1), filter .55s ease,
+               border-color .2s, box-shadow .25s;
+    transition-delay:calc(var(--i,0) * 130ms + 280ms);
+
+  }
+  body.ready .entry{opacity:1; transform:none; filter:none}
+  body.ready .entry:hover{transition-delay:0s}
+
+  .entry::before{
+
+    content:""; position:absolute; inset:0 0 auto 0; height:2px;
+
+    background:linear-gradient(90deg,transparent,var(--ac,#8ef5ff),transparent);
+
+    opacity:.55; transition:opacity .2s;
+
+  }
+
+  .entry::after{
+
+    content:""; position:absolute; inset:-40% -60% auto auto; width:140px; height:140px;
+
+    background:radial-gradient(circle,color-mix(in srgb,var(--ac,#8ef5ff) 30%,transparent),transparent 70%);
+
+    opacity:.25; transition:opacity .25s, transform .35s;
+
+  }
+
+  .entry:hover{transform:translateY(-4px); border-color:color-mix(in srgb,var(--ac,#8ef5ff) 55%,transparent);
+
+    box-shadow:0 16px 40px rgba(0,0,0,.55), 0 0 0 1px color-mix(in srgb,var(--ac,#8ef5ff) 18%,transparent), inset 0 1px 0 rgba(255,255,255,.08)}
+
+  .entry:hover::before{opacity:1}
+
+  .entry:hover::after{opacity:.5; transform:scale(1.15)}
+
+  .entry:focus-visible{outline:2px solid var(--ac,#8ef5ff); outline-offset:3px}
+
+  .entry .ico{
+
+    display:grid; place-items:center; width:30px; height:30px; margin-bottom:9px;
+
+    border-radius:9px; border:1px solid color-mix(in srgb,var(--ac,#8ef5ff) 32%,transparent);
+
+    background:color-mix(in srgb,var(--ac,#8ef5ff) 10%,transparent);
+
+    color:var(--ac,#8ef5ff);
+
+  }
+
+  .entry .ico svg{width:16px; height:16px; display:block}
+
+  .entry b{display:block; font-size:13px; letter-spacing:.02em}
+
+  .entry small{display:block; margin-top:5px; font-size:10px; line-height:1.5; color:var(--dim)}
+
+  .entry .tag{
+
+    position:absolute; top:13px; right:13px; font:9px/1 ui-monospace,monospace;
+
+    letter-spacing:.1em; color:color-mix(in srgb,var(--ac,#8ef5ff) 70%,transparent);
+
+  }
+
+  .entry.e1{--ac:#8ef5ff; --i:0}
+
+  .entry.e2{--ac:#7df5c0; --i:1}
+
+  .entry.e3{--ac:#ffd479; --i:2}
+
+  .running-note{
+    position:absolute; left:50%; top:calc(50% + 330px); transform:translateX(-50%);
+    font-size:11px; letter-spacing:.02em; color:rgba(125,245,192,.75);
+    opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap;
+  }
+  body.busy .running-note{opacity:1}
+  body.busy .entry{opacity:.35; filter:grayscale(.5); pointer-events:none}
+  body.busy.panel-live .entry.e2{opacity:1; filter:none; pointer-events:auto}
+
+  .offline-note{
+    position:absolute; left:50%; top:calc(50% + 150px); transform:translateX(-50%);
+    width:min(340px,80vw); padding:15px 18px; z-index:4; text-align:center;
+    border-radius:12px; border:1px solid rgba(255,90,90,.34);
+    background:rgba(22,9,11,.94);
+    opacity:0; pointer-events:none; transition:opacity .35s ease;
+  }
+  body.offline .offline-note{opacity:1; pointer-events:auto}
+  .offline-note b{display:block; font-size:13px; color:#ffb3b3}
+  .offline-note p{margin:7px 0 12px; font-size:11px; line-height:1.6; color:rgba(255,190,190,.62)}
+  .offline-note button{padding:6px 18px; border-radius:8px; cursor:pointer;
+    border:1px solid rgba(255,120,120,.45); background:rgba(255,90,90,.12);
+    color:#ffd6d6; font:inherit; font-size:12px; transition:.18s}
+  .offline-note button:hover{background:rgba(255,90,90,.24); border-color:rgba(255,120,120,.8)}
+
+  @keyframes entryIn{from{opacity:0; transform:translateY(14px) scale(.97)}to{opacity:1; transform:none}}
+
+
+
+  .foot{
+
+    position:absolute; left:50%; bottom:26px; transform:translateX(-50%); z-index:2;
+
+    font-size:10px; color:rgba(190,225,240,.3);
+
+    transition:opacity .4s;
+
+  }
+
+
+
+  .stage{position:fixed; inset:0; z-index:20; display:none; background:#02050a}
+
+  .stage.on{display:grid; place-items:center}
+
+  .boot-core{
+
+    width:120px; height:120px; border-radius:50%;
+
+    background:radial-gradient(circle at 40% 36%,#fff,#8ef5ff 42%,#0d3d4f);
+
+    box-shadow:0 0 60px rgba(95,220,255,.6);
+
+    animation:bootIn 1s cubic-bezier(.16,.84,.24,1) both;
+
+  }
+
+  @keyframes bootIn{
+
+    0%{opacity:0; transform:scale(.3); filter:blur(14px)}
+
+    55%{opacity:1; filter:blur(0); transform:scale(1.12)}
+
+    100%{transform:scale(1)}
+
+  }
+
+  .stage iframe{position:absolute; inset:0; width:100%; height:100%; border:0; background:#02050a; opacity:0; transition:opacity .5s}
+
+  .stage iframe.show{opacity:1}
+
+
+
+  body.launching .head,
+
+  body.launching .core-wrap,
+
+  body.launching .entries{
+
+    opacity:0; transform:scale(.94); pointer-events:none;
+
+  }
+
+  body.launching .foot{ opacity:0; pointer-events:none; }
+
+  .toast{
+
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:30;
+
+    padding:9px 16px; border-radius:8px; border:1px solid rgba(95,220,255,.4);
+
+    background:rgba(8,16,26,.95); font-size:12px; opacity:0; transition:.2s; pointer-events:none;
+
+  }
+
+  .foot .build{color:rgba(142,245,255,.5); letter-spacing:.14em; margin-right:9px}
+
+.toast.on{opacity:1}
+
+</style>
+
+</head>
+
+<body>
+
+  <div class="head">
+
+    <div class="eyebrow">ENDLESS TEST // NEKO CONSOLE</div>
+
+    <h1>无尽测试</h1>
+
+    <div class="sub">两种启动方式 · 统一存档 · AI 伙伴陪同</div>
+
+  </div>
+
+
+
+  <div class="core-wrap">
+
+    <button class="core" id="coreBtn" title="在面板内开始">
+
+      <span class="ring"></span><span class="ring r2"></span><span class="ring r3"></span>
+
+      <span class="orb-off"></span><span class="orb"></span>
+
+      <span class="label">NANITE</span>
+
+    </button>
+
+  </div>
+
+
+
+  <div class="entries">
+
+    <button class="entry e2" data-mode="panel">
+
+      <span class="tag">PANEL</span>
+
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 9.5l5 2.5-5 2.5z"/></svg></span>
+
+      <b>面板内游玩</b>
+
+      <small>收起面板 → 开场 → 直接开打</small>
+
+    </button>
+
+    <button class="entry e3" data-mode="window">
+
+      <span class="tag">APP</span>
+
+      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H4v5M15 20h5v-5M4 4l6 6M20 20l-6-6"/></svg></span>
+
+      <b>全屏程序</b>
+
+      <small>无边框无地址栏，像独立客户端</small>
+
+    </button>
+
+  </div>
+
+
+
+  <div class="offline-note" id="offlineNote">
+    <b>插件未运行</b>
+    <p>游戏服务还没起来。<br>到 Neko 的插件管理里启动「无尽测试」，这里会自动连上。</p>
+    <button id="retryBtn">重新连接</button>
+  </div>
+
+  <div class="running-note" id="runningNote"></div>
+
+  <div class="foot"><span class="build" id="buildStamp"></span><span id="foot">通关 0 · 记录 0 局</span></div>
+
+
+
+  <div class="stage" id="stage">
+
+    <div class="boot-core" id="bootCore"></div>
+
+    <iframe id="frame" title="无尽测试"></iframe>
+
+  </div>
+
+
+
+  <div class="toast" id="toast"></div>
+
+
+
+<script>
+
+(function () {
+  var BUILD = 12;
+  var $ = function (id) { return document.getElementById(id); };
+  var PROBE = ["", "http://127.0.0.1:48931", "http://127.0.0.1:48932", "http://127.0.0.1:48933"];
+  var base = null, online = false, probing = false, retryTimer = null, watchTimer = null;
+
+  var stamp = $("buildStamp");
+  if (stamp) stamp.textContent = "BUILD " + BUILD + " · ";
+
+  // 单次 ping：1.5 秒超时，失败就返回 false，不抛异常
+  function ping(b) {
+    return new Promise(function (resolve) {
+      var ctrl = window.AbortController ? new AbortController() : null;
+      var done = false;
+      var timer = setTimeout(function () {
+        if (ctrl) { try { ctrl.abort(); } catch (e) { /* ignore */ } }
+        finish(false);
+      }, 1500);
+      function finish(ok) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(!!ok);
+      }
+      var opts = { cache: "no-store" };
+      if (ctrl) opts.signal = ctrl.signal;
+      fetch(b + "/api/ping", opts)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { finish(j && j.plugin === "endless_test"); })
+        .catch(function () { finish(false); });
+    });
+  }
+
+  // 重新探测：先试上次成功过的地址，再试固定端口；失败不写入缓存
+  function probe() {
+    if (probing) return Promise.resolve(base);
+    probing = true;
+    var list = [];
+    if (base !== null) list.push(base);
+    for (var i = 0; i < PROBE.length; i++) {
+      if (list.indexOf(PROBE[i]) < 0) list.push(PROBE[i]);
+    }
+    var idx = 0;
+    function step() {
+      if (idx >= list.length) { probing = false; base = null; return null; }
+      var cand = list[idx++];
+      return ping(cand).then(function (ok) {
+        if (ok) { base = cand; probing = false; return cand; }
+        return step();
+      });
+    }
+    return Promise.resolve(step());
+  }
+
+  function api(path) {
+    return probe().then(function (b) {
+      if (b === null) throw new Error("插件未运行");
+      return fetch(b + "/" + path, { cache: "no-store" });
+    });
+  }
+
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("on");
+    clearTimeout(t._tid);
+    t._tid = setTimeout(function () { t.classList.remove("on"); }, 2200);
+  }
+
+  function loadProfile() {
+    if (!online) return;
+    api("api/profile").then(function (r) { return r.json(); }).then(function (p) {
+      $("foot").textContent = "通关 " + (p.clears || 0) + " · 记录 " + (p.runs_recorded || 0) + " 局";
+    }).catch(function () {
+      $("foot").textContent = "插件服务未连接";
+    });
+  }
+
+  // ---- 连接状态：红核 = 未启动 / 断线，蓝核 = 已启动 ----
+  function setOnline(on) {
+    on = !!on;
+    var changed = on !== online;
+    online = on;
+    document.body.classList.toggle("ready", on);
+    document.body.classList.toggle("offline", !on);
+    if (!on) {
+      document.body.classList.remove("busy", "panel-live");
+      $("runningNote").textContent = "";
+      startRetry();
+      return;
+    }
+    clearTimeout(retryTimer);
+    retryTimer = null;
+    if (changed || !watchTimer) { startWatch(); loadProfile(); }
+    pollSession();
+  }
+
+  function startRetry() {
+    if (retryTimer) return;
+    retryTimer = setTimeout(function () { retryTimer = null; tryConnect(); }, 3000);
+  }
+
+  function tryConnect() {
+    return probe().then(function (b) { setOnline(b !== null); return b; });
+  }
+
+  // ---- 掉线监视：一次失败立刻切红核 ----
+  function startWatch() {
+    if (watchTimer) return;
+    watchTimer = setInterval(function () {
+      if (!online) return;
+      if (base === null) { offlineNow(); return; }
+      ping(base).then(function (ok) { if (!ok) offlineNow(); });
+    }, 2500);
+  }
+  function stopWatch() {
+    if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+  }
+
+  function offlineNow() {
+    var wasLaunching = document.body.classList.contains("launching");
+    stopWatch();
+    base = null;
+    var frame = $("frame");
+    if (frame) {
+      frame.classList.remove("show");
+      frame.removeAttribute("src");     // 直接掐掉游戏
+    }
+    $("stage").classList.remove("on");
+    $("bootCore").style.display = "";
+    document.body.classList.remove("launching");
+    setOnline(false);
+    toast(wasLaunching ? "插件已关闭，游戏已终止" : "插件已关闭 · 已切到离线");
+  }
+
+  // ---- 启动 ----
+  function launchInPanel() {
+    if (!online) { toast("插件未运行，先到插件管理里启动"); return; }
+    if (document.body.classList.contains("launching")) return;
+    if (document.body.classList.contains("busy") && !document.body.classList.contains("panel-live")) {
+      toast("已经有一个游戏在运行了");
+      return;
+    }
+    document.body.classList.add("launching");
+    $("stage").classList.add("on");
+    startWatch();
+    var b = base === null ? "" : base;
+    setTimeout(function () {
+      var frame = $("frame");
+      frame.src = b + "/index.html?mode=panel";
+      frame.onload = function () {
+        $("bootCore").style.display = "none";
+        frame.classList.add("show");
+      };
+    }, 900);
+    pollSession();
+  }
+
+  function resetPanel() {
+    stopWatch();
+    document.body.classList.remove("launching");
+    $("stage").classList.remove("on");
+    var frame = $("frame");
+    frame.classList.remove("show");
+    frame.removeAttribute("src");
+    $("bootCore").style.display = "";
+    tryConnect();
+  }
+
+  // ---- 单实例状态 ----
+  function pollSession() {
+    if (!online) return;
+    api("api/session").then(function (r) { return r.ok ? r.json() : null; }).then(function (st) {
+      if (!st) return;
+      var busy = !!st.active;
+      var panelLive = busy && st.mode === "panel";
+      document.body.classList.toggle("busy", busy);
+      document.body.classList.toggle("panel-live", panelLive);
+      var label = { panel: "插件面板", window: "全屏程序", web: "网页" }[st.mode] || st.mode || "";
+      $("runningNote").textContent = busy ? ("正在运行：" + label + " · 同一时间只能开一个") : "";
+    }).catch(function () { /* ignore */ });
+  }
+
+  $("coreBtn").addEventListener("click", launchInPanel);
+
+  document.querySelectorAll(".entry[data-mode]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var mode = btn.dataset.mode;
+      if (!online) { toast("插件未运行，先到插件管理里启动"); return; }
+      if (document.body.classList.contains("busy") && !(document.body.classList.contains("panel-live") && mode === "panel")) {
+        toast("已经有一个游戏在运行了");
+        return;
+      }
+      if (mode === "panel") { launchInPanel(); return; }
+      api("api/launch?mode=" + mode).then(function (r) { return r.json(); }).then(function (res) {
+        if (!res.ok) { toast("启动失败：" + (res.error || "未知")); return; }
+        toast("已启动全屏程序");
+      }).catch(function (e) { toast("启动失败：" + e.message); });
+    });
+  });
+
+  var retryBtn = $("retryBtn");
+  if (retryBtn) retryBtn.addEventListener("click", function () {
+    $("foot").textContent = "正在连接插件…";
+    tryConnect();
+  });
+
+  // 游戏里点「退出游戏」→ 回到入口界面
+  window.addEventListener("message", function (e) {
+    var data = e.data;
+    if (data && data.type === "neko:exit") resetPanel();
+  });
+
+  tryConnect();
+  setInterval(pollSession, 4000);
+  setInterval(function () {
+    if (online && !document.body.classList.contains("launching")) loadProfile();
+  }, 15000);
+
+  if (location.hash === "#autoplay") setTimeout(launchInPanel, 300);
+})();
+
+</script>
+
+</body>
+
+</html>
+

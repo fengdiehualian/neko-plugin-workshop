@@ -1,0 +1,58 @@
+name: verify
+
+# 两个 job：
+#
+#   neko-verify —— 直接 `uses:` N.E.K.O 自己的 plugin-market-verify.yml：
+#                  把本仓库挂成 plugin/plugins/neko_stellaris、ruff 检查、
+#                  `neko-plugin sync --clean`、`neko-plugin check -r`
+#                  （strict 校验 + pytest + 打包 + payload hash 校验）。
+#                  也就是说 CI 用的就是官方那套检查，不是另写一遍。
+#   offline     —— Windows 上再跑一遍 226 项离线套件（官方那个只跑 ubuntu）。
+#
+# 之所以能复用官方的，是因为本仓库做到了它要求的几件事：仓库根即插件目录、
+# `.vscode` / `.github` / `.gitignore` / `tests/test_smoke.py` / `pyproject.toml`
+# 齐全、并且 `ruff --ignore-noqa` 干净（代码里没有任何 noqa 压制）。
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  neko-verify:
+    uses: Project-N-E-K-O/N.E.K.O/.github/workflows/plugin-market-verify.yml@main
+    with:
+      plugin-id: neko_stellaris
+      neko-repository: Project-N-E-K-O/N.E.K.O
+      neko-ref: main
+
+  offline:
+    name: offline suite (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test tooling
+        run: |
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet "websockets~=15.0.1" pillow pytest ruff==0.12.4
+
+      - name: Lint
+        run: python -m ruff check .
+
+      - name: Offline regression suite
+        run: python smoke_offline.py
+
+      - name: pytest entry point
+        run: python -m pytest tests -q

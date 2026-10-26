@@ -1,0 +1,20 @@
+{
+  "plugin.name": "D-one 任务管家",
+  "plugin.description": "桥接 D-one 优先级便签与猫娘：任务变更时按优先级人格化提醒——p0 催促、p1 提醒、p2 温柔。支持语气风格切换与「只看一件事」查询。",
+
+  "entry.get_status.name": "获取桥接状态",
+  "entry.get_status.description": "获取 D-one 桥接插件的运行状态：端口、语气风格、任务总数。当主人问任务管家状态时调用。",
+
+  "entry.get_tasks.name": "获取任务列表",
+  "entry.get_tasks.description": "获取 D-one 当前全部未完成任务，按 p0/p1/p2 优先级分组。当主人问「我有哪些事要做」「今天的安排」时调用。",
+  "entry.get_tasks.error.empty": "当前没有未完成的任务",
+
+  "entry.get_top_task.name": "获取最高优先级任务",
+  "entry.get_top_task.description": "只获取当前最重要的一件事。当主人问「我现在该干嘛」「接下来做什么」时调用。",
+  "entry.get_top_task.error.empty": "没有待办任务，可以休息了",
+
+  "entry.set_style.name": "切换语气风格",
+  "entry.set_style.description": "切换猫娘提醒任务时的语气：neko_default（傲娇猫娘）、calm（平静助理）、idol（元气应援）。",
+  "entry.set_style.param.style": "风格名称：neko_default / calm / idol",
+  "entry.set_style.error.invalid_style": "未知的语气风格，请使用 neko_default、calm 或 idol"
+}

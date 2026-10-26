@@ -1,0 +1,58 @@
+{
+  "verified_at": "2026-10-08T02:41:31.928946+08:00",
+  "python_baseline": {
+    "passed": 9,
+    "failed": 0
+  },
+  "python_after_fixes": {
+    "passed": 33,
+    "failed": 0
+  },
+  "node_suites": {
+    "passed": 8,
+    "failed": 0,
+    "names": [
+      "world",
+      "cobuild",
+      "farm-plan",
+      "avatar-physics",
+      "avatar-wander",
+      "native-speech",
+      "native-inline-chat",
+      "native-chat-window"
+    ]
+  },
+  "windows_native_e2e": "not_run_on_macos",
+  "real_model_calls": 0,
+  "private_full_project_uploaded": false,
+  "original_archives": [
+    {
+      "file": "Yui的家-2.13.1-市场发布源码.zip",
+      "bytes": 12926,
+      "sha256": "5f3273d157f9adb92f4c3a76ab6b617ae346372be9892d10f6cb8f447315384e",
+      "entries": 14,
+      "crc_error": null,
+      "unsafe_paths": []
+    },
+    {
+      "file": "Yui的家-2.13.1-完整项目.zip",
+      "bytes": 277527115,
+      "sha256": "d319df7a5fe6bd26dd2902c80ec3f26ef7f52203e425dc65e040d6ed97961dc5",
+      "entries": 8146,
+      "crc_error": null,
+      "unsafe_paths": []
+    }
+  ],
+  "full_manifest": {
+    "version": "2.13.1",
+    "manifest_files": 8145,
+    "failures": [],
+    "unlisted": [
+      "PACKAGE-MANIFEST.json"
+    ]
+  },
+  "js_syntax": {
+    "checked": 48,
+    "failures": []
+  }
+}

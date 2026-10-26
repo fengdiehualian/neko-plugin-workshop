@@ -1,0 +1,13 @@
+{
+  "name": "@local/catfood-harness-bridge",
+  "version": "0.1.0",
+  "description": "猫粮：只读 Harness 余额，并打开原生充值页",
+  "private": true,
+  "type": "module",
+  "exports": {".": "./index.js", "./client": "./client.js", "./locale/*.json": "./locale/*.json", "./icon": "./icon.svg"},
+  "files": ["index.js", "bridge.js", "client.js", "cordis.patch.yml", "locale", "icon.svg", "README.md"],
+  "dsh": {
+    "bundle": {"patch": "./cordis.patch.yml"},
+    "client": {"platform": "web", "immediately": true, "inject": ["@deepseek-ai/dsh-client-ui-layout"]}
+  }
+}

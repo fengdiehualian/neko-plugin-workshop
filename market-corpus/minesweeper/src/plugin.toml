@@ -1,0 +1,10 @@
+[plugin]
+id = "minesweeper"
+name = "minesweeper"
+version = "0.1.1"
+type = "plugin"
+entry = "plugin.plugins.minesweeper:MinesweeperPlugin"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"

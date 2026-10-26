@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check screen_reader",
+      "type": "shell",
+      "command": "uv run neko-plugin check screen_reader",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync screen_reader",
+      "type": "shell",
+      "command": "uv run neko-plugin sync screen_reader --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r screen_reader",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r screen_reader",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build screen_reader",
+      "type": "shell",
+      "command": "uv run neko-plugin build screen_reader",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

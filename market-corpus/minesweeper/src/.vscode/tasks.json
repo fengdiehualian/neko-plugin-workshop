@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check minesweeper",
+      "type": "shell",
+      "command": "uv run neko-plugin check minesweeper",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync minesweeper",
+      "type": "shell",
+      "command": "uv run --with pip neko-plugin sync minesweeper --clean",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r minesweeper",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r minesweeper",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build minesweeper",
+      "type": "shell",
+      "command": "uv run neko-plugin build minesweeper",
+      "options": {
+        "cwd": "${config:nekoPlugin.repoRoot}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

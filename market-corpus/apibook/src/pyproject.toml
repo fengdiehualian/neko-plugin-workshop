@@ -1,0 +1,8 @@
+[project]
+name = "apibook"
+version = "0.1.0"
+dependencies = ["httpx>=0.27,<0.29"]
+
+[tool.neko.build]
+exclude_dirs = ["artifacts", "tests", "tools", ".github", ".vscode"]
+exclude_files = ["presets.json", "store.db", ".env"]

@@ -1,0 +1,51 @@
+[plugin]
+id = "tfwr_companion"
+name = "农夫助手"
+description = "《The Farmer Was Replaced》陪玩插件：读取游戏内置 API 文档，读写 main.py / f*.py，调用游戏窗口执行（Shift+F5 停止、F5 开始），再用 output.txt 与 save.json 做验收。只操作游戏自己的存档文件；发键前会先确认窗口属于游戏进程。每次写代码前自动备份。"
+short_description = "Companion for The Farmer Was Replaced: read builtin docs, write code files, run and verify via output/save state."
+keywords = [
+    "The Farmer Was Replaced",
+    "TFWR",
+    "农夫",
+    "编程游戏",
+    "Python",
+    "陪玩",
+    "自动化",
+    "docs",
+]
+version = "0.1.0"
+type = "plugin"
+entry = "plugin.plugins.tfwr_companion:TfwrCompanionPlugin"
+
+[plugin.author]
+name = "local"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin_runtime]
+enabled = true
+auto_start = true
+
+[tfr]
+# 游戏用户目录。留空 = %USERPROFILE%\AppData\LocalLow\TheFarmerWasReplaced\TheFarmerWasReplaced
+user_dir = ""
+
+# 当前存档目录名（Saves/<save_name>）
+save_name = "Save0"
+
+game_exe = "TheFarmerWasReplaced.exe"
+
+# 游戏安装目录。留空 = 自动探测常见 Steam 路径。
+game_dir = ""
+
+# 写代码开关
+allow_write = true
+
+# 允许把游戏窗口切到前台并发送 Shift+F5 / F5。关闭后 tfr_run 只能做只读验收。
+allow_input = true
+
+# 代码文件变化后自动执行（tfr_watch）。
+auto_run = true
+watch_seconds = 2

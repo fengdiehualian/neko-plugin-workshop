@@ -1,0 +1,35 @@
+[plugin]
+id = "apibook"
+previous_ids = ["api_presets"]
+name = "便于切换的apikey与模型id组"
+description = "保存多套 API Key 与自定义模型配置，按需一键切换。支持预设复制、重命名、备注及连通性测试。"
+short_description = "保存多套 API Key 与自定义模型配置，按需一键切换。"
+keywords = ["API", "preset", "预设"]
+passive = true
+version = "0.1.0"
+type = "plugin"
+entry = "plugin.plugins.apibook:ApiPresetsPlugin"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "en"
+locales_dir = "i18n"
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.panel]]
+id = "main"
+title = "便于切换的apikey与模型id组"
+entry = "ui/panel.tsx"
+context = "presets"
+permissions = ["state:read", "action:call"]
+
+[[plugin.ui.guide]]
+id = "guide"
+title = "使用教程"
+entry = "docs/usage.md"
+permissions = ["state:read"]

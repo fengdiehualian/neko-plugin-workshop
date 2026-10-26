@@ -1,0 +1,560 @@
+from __future__ import annotations
+
+import re
+from typing import Any
+from urllib.parse import quote
+
+from .knowledge_graph_edges import build_topic_edges
+
+STUDY_PANEL_SURFACE_ID = "study-panel"
+
+CORE_EDGE_RELATIONS = {"prerequisite", "procedure_step", "confusable"}
+USEFUL_EDGE_RELATIONS = {"application", "extends", "supports"}
+EDGE_CONTEXT_VALUES = {"diagnosis", "explanation", "practice", "review"}
+EDGE_PRIORITY_VALUES = {"core", "useful", "optional"}
+_CJK_CHARACTER_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+_LATIN_WORD_RE = re.compile(r"[A-Za-z][A-Za-z'-]*")
+
+
+def _topic_ref_id(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(value.get("id") or value.get("topic_id") or "").strip()
+    return str(value or "").strip()
+
+
+def _display_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [
+        str(item).strip()
+        for item in value
+        if item is not None and str(item).strip()
+    ]
+
+
+def _knowledge_map_mastery_state(
+    mastery: dict[str, Any] | None,
+    *,
+    listed_as_weak: bool = False,
+    has_active_wrong_question: bool = False,
+) -> tuple[bool, float | None, str, bool]:
+    """Return the UI contract for one topic without conflating no evidence with 0%."""
+    if not mastery:
+        if has_active_wrong_question:
+            # A retained wrong question is assessment evidence and must remain
+            # actionable even if its historical mastery snapshot was pruned.
+            return True, None, "weak", True
+        return False, None, "unassessed", False
+
+    try:
+        value = float(mastery.get("mastery"))
+    except (TypeError, ValueError):
+        value = 0.0
+    value = max(0.0, min(1.0, value))
+    flags = mastery.get("flags")
+    false_mastery = isinstance(flags, list) and "false_mastery" in flags
+    weak = bool(
+        listed_as_weak
+        or has_active_wrong_question
+        or value < 0.60
+        or false_mastery
+    )
+    if false_mastery or value < 0.40:
+        status = "weak"
+    elif has_active_wrong_question:
+        # Match the practice outcome contract: an unresolved retry blocks a
+        # topic from being mastered, even with a high numerical score.
+        status = "progress"
+    elif value < 0.60:
+        status = "progress"
+    elif value < 0.80:
+        status = "good"
+    else:
+        status = "mastered"
+    return True, value, status, weak
+
+
+def _knowledge_display_reason(*, raw_reason: str, relation: str) -> tuple[str, str]:
+    reason = str(raw_reason or "").strip()
+    if not reason:
+        return "", str(relation or "related").strip().lower() or "related"
+    cjk_count = len(_CJK_CHARACTER_RE.findall(reason))
+    latin_word_count = len(_LATIN_WORD_RE.findall(reason))
+    if cjk_count and cjk_count > latin_word_count * 2:
+        return reason, ""
+    if not latin_word_count:
+        return reason, ""
+    return "", str(relation or "related").strip().lower() or "related"
+
+
+def _knowledge_edge_priority(relation: str, ref: dict[str, Any]) -> str:
+    priority = str(ref.get("priority") or "").strip()
+    if priority in EDGE_PRIORITY_VALUES:
+        return priority
+    if relation in CORE_EDGE_RELATIONS:
+        return "core"
+    if relation in USEFUL_EDGE_RELATIONS:
+        return "useful"
+    return "optional"
+
+
+def _knowledge_edge_context(relation: str, ref: dict[str, Any]) -> str:
+    context = str(ref.get("context") or "").strip()
+    if context in EDGE_CONTEXT_VALUES:
+        return context
+    if relation in {"prerequisite", "confusable"}:
+        return "diagnosis"
+    if relation in {"procedure_step", "application"}:
+        return "practice"
+    if relation in {"extends", "co_occurs", "nearby", "next"}:
+        return "review"
+    return "explanation"
+
+
+def _knowledge_edge_confidence(ref: dict[str, Any], *, reason: str, use_cases: list[str]) -> float:
+    try:
+        confidence = float(ref.get("confidence"))
+    except (TypeError, ValueError):
+        confidence = -1.0
+    if 0.0 <= confidence <= 1.0:
+        return round(confidence, 3)
+    if reason and use_cases:
+        return 0.9
+    if reason or use_cases:
+        return 0.8
+    return 0.65
+
+
+def _knowledge_edge_payload(
+    *,
+    source_id: str,
+    target_id: str,
+    relation: str,
+    ref: Any,
+) -> dict[str, Any]:
+    ref_payload = ref if isinstance(ref, dict) else {}
+    edge: dict[str, Any] = {
+        "from": source_id,
+        "to": target_id,
+        "relation": relation,
+    }
+    typed_relation = str(ref_payload.get("relation") or "").strip()
+    if typed_relation:
+        edge["relation"] = typed_relation
+    relation = str(edge["relation"])
+    raw_reason = str(ref_payload.get("reason") or "").strip()
+    reason, reason_template = _knowledge_display_reason(
+        raw_reason=raw_reason,
+        relation=relation,
+    )
+    if reason:
+        edge["reason"] = reason
+    if reason_template:
+        edge["reason_template"] = reason_template
+    use_case_items: list[str] = []
+    use_cases = ref_payload.get("use_cases")
+    if isinstance(use_cases, list):
+        use_case_items = [str(item).strip() for item in use_cases if str(item).strip()]
+        edge["use_cases"] = use_case_items
+    if ref_payload.get("required_mastery") is not None:
+        edge["required_mastery"] = ref_payload.get("required_mastery")
+    edge["priority"] = _knowledge_edge_priority(relation, ref_payload)
+    edge["context"] = _knowledge_edge_context(relation, ref_payload)
+    edge["confidence"] = _knowledge_edge_confidence(
+        ref_payload,
+        reason=raw_reason,
+        use_cases=use_case_items,
+    )
+    return edge
+
+
+def build_open_ui_payload(*, plugin_id: str, available: bool) -> dict[str, Any]:
+    path = (
+        f"/plugin/{quote(plugin_id, safe='')}/ui/"
+        if available
+        else ""
+    )
+    message_key = "ui.open.available" if available else "ui.open.unavailable"
+    return {
+        "available": available,
+        "path": path,
+        "message_key": message_key,
+    }
+
+
+def build_knowledge_map_payload(
+    *,
+    topics: list[dict[str, Any]] | None = None,
+    scope_topic_ids: set[str] | list[str] | tuple[str, ...] | None = None,
+    mastery_overview: list[dict[str, Any]] | None = None,
+    weak_topics: list[dict[str, Any]] | None = None,
+    wrong_questions: list[dict[str, Any]] | None = None,
+    max_boundary_nodes: int = 200,
+) -> dict[str, Any]:
+    topic_items = list(topics or [])
+    mastery_items = list(mastery_overview or [])
+    weak_items = list(weak_topics or [])
+    wrong_items = list(wrong_questions or [])
+    mastery_by_topic = {str(item.get("topic_id") or ""): item for item in mastery_items}
+    weak_by_topic = {str(item.get("topic_id") or ""): item for item in weak_items}
+    weak_topic_ids = {str(item.get("topic_id") or "") for item in weak_items}
+    active_wrong_topic_ids = {
+        str(item.get("topic_id") or "")
+        for item in wrong_items
+        if str(item.get("status") or "").strip().lower() in {"active", "retrying"}
+    }
+    topics_by_id = {
+        str(topic.get("id") or "").strip(): topic
+        for topic in topic_items
+        if str(topic.get("id") or "").strip()
+    }
+    if scope_topic_ids is None:
+        requested_scope = set(topics_by_id)
+    else:
+        requested_scope = {
+            str(topic_id or "").strip()
+            for topic_id in scope_topic_ids
+            if str(topic_id or "").strip() in topics_by_id
+        }
+    scope_topics = [
+        topic
+        for topic in topic_items
+        if str(topic.get("id") or "").strip() in requested_scope
+    ]
+    canonical_edges = build_topic_edges(topic_items)
+    incident_edges = [
+        edge
+        for edge in canonical_edges
+        if str(edge.get("from") or "") in requested_scope
+        or str(edge.get("to") or "") in requested_scope
+    ]
+    boundary_candidates = sorted(
+        {
+            endpoint
+            for edge in incident_edges
+            for endpoint in (str(edge.get("from") or ""), str(edge.get("to") or ""))
+            if endpoint and endpoint not in requested_scope and endpoint in topics_by_id
+        }
+    )
+    boundary_limit = max(0, int(max_boundary_nodes))
+    boundary_ids = set(boundary_candidates[:boundary_limit])
+    included_ids = requested_scope | boundary_ids
+    selected_edges = [
+        edge
+        for edge in incident_edges
+        if str(edge.get("from") or "") in included_ids
+        and str(edge.get("to") or "") in included_ids
+    ]
+    nodes = []
+    edges = []
+    weak_node_count = 0
+    stage_counts: dict[str, int] = {}
+    subject_counts: dict[str, int] = {}
+    chapter_counts: dict[str, int] = {}
+    unit_counts: dict[str, int] = {}
+    selected_topics = [
+        *scope_topics,
+        *(
+            topics_by_id[topic_id]
+            for topic_id in sorted(boundary_ids)
+            if topic_id in topics_by_id
+        ),
+    ]
+    for topic in selected_topics:
+        topic_id = str(topic.get("id") or "").strip()
+        if not topic_id:
+            continue
+        stage = str(
+            topic.get("stage")
+            or topic.get("grade_level")
+            or topic.get("education_level")
+            or topic.get("course_level")
+            or ""
+        )
+        subject = str(topic.get("subject") or "")
+        course_family = str(topic.get("course_family") or "")
+        chapter = str(topic.get("chapter") or "")
+        unit = str(topic.get("unit") or chapter)
+        in_scope = topic_id in requested_scope
+        if in_scope:
+            stage_counts[stage] = stage_counts.get(stage, 0) + 1
+            subject_counts[subject] = subject_counts.get(subject, 0) + 1
+            chapter_counts[chapter] = chapter_counts.get(chapter, 0) + 1
+            unit_key = f"{subject}:{unit}" if subject else unit
+            unit_counts[unit_key] = unit_counts.get(unit_key, 0) + 1
+        # Weak-topic results are assessment evidence too.  They can be absent
+        # from a caller's bounded mastery overview, so use them as a fallback.
+        mastery = mastery_by_topic.get(topic_id) or weak_by_topic.get(topic_id)
+        assessed, mastery_value, mastery_status, weak = _knowledge_map_mastery_state(
+            mastery,
+            listed_as_weak=topic_id in weak_topic_ids,
+            has_active_wrong_question=topic_id in active_wrong_topic_ids,
+        )
+        if weak and in_scope:
+            weak_node_count += 1
+        nodes.append(
+            {
+                "id": topic_id,
+                "label": str(topic.get("name") or topic_id),
+                "subject": subject,
+                "course_family": course_family,
+                "chapter": chapter,
+                "unit": unit,
+                "stage": stage,
+                "grade_level": stage,  # backward-compat alias for older consumers
+                "skills": _display_list(topic.get("skills")),
+                "question_types": _display_list(topic.get("question_types")),
+                "examples": list(topic.get("examples") or []),
+                "typical_misconceptions": list(
+                    topic["typical_misconceptions"]
+                    if isinstance(topic.get("typical_misconceptions"), list)
+                    else topic.get("misconceptions") or []
+                ),
+                "assessed": assessed,
+                "mastery": mastery_value,
+                "mastery_status": mastery_status,
+                "level": str((mastery or {}).get("level") or ""),
+                "weak": weak,
+                "in_scope": in_scope,
+                "boundary": not in_scope,
+            }
+        )
+    for edge in selected_edges:
+        source_id = str(edge.get("from") or "").strip()
+        target_id = str(edge.get("to") or "").strip()
+        relation = str(edge.get("relation") or "").strip()
+        if source_id and target_id and relation:
+            edges.append(
+                _knowledge_edge_payload(
+                    source_id=source_id,
+                    target_id=target_id,
+                    relation=relation,
+                    ref=edge,
+                )
+            )
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "mastery_overview": mastery_items,
+        "weak_topics": weak_items,
+        "wrong_questions": wrong_items,
+        "summary": {
+            "topic_count": len(scope_topics),
+            "scope_topic_count": len(scope_topics),
+            "boundary_node_count": len(boundary_ids),
+            "closure_truncated": len(boundary_candidates) > len(boundary_ids),
+            "omitted_boundary_node_count": max(0, len(boundary_candidates) - len(boundary_ids)),
+            "edge_count": len(edges),
+            "weak_topic_count": weak_node_count,
+            "wrong_question_count": len(wrong_items),
+            "stage_counts": stage_counts,
+            "subject_counts": subject_counts,
+            "chapter_counts": chapter_counts,
+            "unit_counts": unit_counts,
+        },
+    }
+
+
+def build_knowledge_map_page_payload(
+    *,
+    page_topics: list[dict[str, Any]] | None = None,
+    boundary_topics: list[dict[str, Any]] | None = None,
+    edges: list[dict[str, Any]] | None = None,
+    mastery_overview: list[dict[str, Any]] | None = None,
+    weak_topics: list[dict[str, Any]] | None = None,
+    wrong_questions: list[dict[str, Any]] | None = None,
+    scope: dict[str, Any] | None = None,
+    scope_total_count: int = 0,
+    has_more: bool = False,
+    next_cursor: str = "",
+    boundary_truncated: bool = False,
+    catalog_revision: str = "",
+) -> dict[str, Any]:
+    """Format one already-bounded map page without reconstructing the catalog.
+
+    The V2 store query supplies a page of canonical topics, its one-hop boundary,
+    and persisted edge projection rows.  Keeping that query result bounded is
+    what prevents the historical 1,000-topic UI limit from becoming a hidden
+    catalog cap.
+    """
+    scope_items = list(page_topics or [])
+    boundary_items = list(boundary_topics or [])
+    scope_ids = {
+        str(topic.get("id") or "").strip()
+        for topic in scope_items
+        if str(topic.get("id") or "").strip()
+    }
+    boundary_ids = {
+        str(topic.get("id") or "").strip()
+        for topic in boundary_items
+        if str(topic.get("id") or "").strip() and str(topic.get("id") or "").strip() not in scope_ids
+    }
+    mastery_items = list(mastery_overview or [])
+    weak_items = list(weak_topics or [])
+    wrong_items = list(wrong_questions or [])
+    mastery_by_topic = {str(item.get("topic_id") or ""): item for item in mastery_items}
+    weak_by_topic = {str(item.get("topic_id") or ""): item for item in weak_items}
+    weak_ids = set(weak_by_topic)
+    active_wrong_ids = {
+        str(item.get("topic_id") or "")
+        for item in wrong_items
+        if str(item.get("status") or "").strip().lower() in {"active", "retrying"}
+    }
+    nodes: list[dict[str, Any]] = []
+    weak_node_count = 0
+    for topic in [*scope_items, *boundary_items]:
+        topic_id = str(topic.get("id") or "").strip()
+        if not topic_id or topic_id not in scope_ids | boundary_ids:
+            continue
+        stage = str(
+            topic.get("stage")
+            or topic.get("grade_level")
+            or topic.get("education_level")
+            or topic.get("course_level")
+            or ""
+        )
+        subject = str(topic.get("subject") or "")
+        chapter = str(topic.get("chapter") or "")
+        unit = str(topic.get("unit") or chapter)
+        mastery = mastery_by_topic.get(topic_id) or weak_by_topic.get(topic_id)
+        assessed, mastery_value, mastery_status, weak = _knowledge_map_mastery_state(
+            mastery,
+            listed_as_weak=topic_id in weak_ids,
+            has_active_wrong_question=topic_id in active_wrong_ids,
+        )
+        if weak and topic_id in scope_ids:
+            weak_node_count += 1
+        nodes.append(
+            {
+                "id": topic_id,
+                "label": str(topic.get("name") or topic_id),
+                "subject": subject,
+                "course_family": str(topic.get("course_family") or ""),
+                "chapter": chapter,
+                "unit": unit,
+                "stage": stage,
+                "grade_level": stage,
+                "skills": _display_list(topic.get("skills")),
+                "question_types": _display_list(topic.get("question_types")),
+                "examples": list(topic.get("examples") or []),
+                "typical_misconceptions": list(
+                    topic["typical_misconceptions"]
+                    if isinstance(topic.get("typical_misconceptions"), list)
+                    else topic.get("misconceptions") or []
+                ),
+                "assessed": assessed,
+                "mastery": mastery_value,
+                "mastery_status": mastery_status,
+                "level": str((mastery or {}).get("level") or ""),
+                "weak": weak,
+                "in_scope": topic_id in scope_ids,
+                "boundary": topic_id in boundary_ids,
+            }
+        )
+    public_edges = []
+    included_ids = scope_ids | boundary_ids
+    for edge in edges or []:
+        source_id = str(edge.get("from") or "").strip()
+        target_id = str(edge.get("to") or "").strip()
+        relation = str(edge.get("relation") or "").strip()
+        if (
+            source_id
+            and target_id
+            and relation
+            and source_id in included_ids
+            and target_id in included_ids
+            and (source_id in scope_ids or target_id in scope_ids)
+        ):
+            public_edges.append(
+                _knowledge_edge_payload(
+                    source_id=source_id,
+                    target_id=target_id,
+                    relation=relation,
+                    ref=edge,
+                )
+            )
+    return {
+        "schema_version": 2,
+        "catalog_revision": str(catalog_revision or ""),
+        "scope": dict(scope or {}),
+        "scope_total_count": max(0, int(scope_total_count)),
+        "scope_returned_count": len(scope_ids),
+        "has_more": bool(has_more),
+        "next_cursor": str(next_cursor or ""),
+        "nodes": nodes,
+        "edges": public_edges,
+        "boundary": {
+            "returned_count": len(boundary_ids),
+            "truncated": bool(boundary_truncated),
+        },
+        # Keep the existing map's useful learner-state payloads available to
+        # clients that share rendering code during the staged migration.
+        "mastery_overview": mastery_items,
+        "weak_topics": weak_items,
+        "wrong_questions": wrong_items,
+        "summary": {
+            "topic_count": len(scope_ids),
+            "scope_topic_count": len(scope_ids),
+            "scope_total_count": max(0, int(scope_total_count)),
+            "boundary_node_count": len(boundary_ids),
+            "closure_truncated": bool(boundary_truncated),
+            "edge_count": len(public_edges),
+            "weak_topic_count": weak_node_count,
+            "wrong_question_count": len(wrong_items),
+        },
+    }
+
+
+def build_contribution_settings_payload(
+    *, opt_in: bool, preview: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    preview_payload = dict(preview or {})
+    preview_payload["opt_in"] = bool(opt_in)
+    return {
+        "opt_in": bool(opt_in),
+        "preview": preview_payload,
+        "summary": preview_payload.get("summary") or {},
+        "queue": preview_payload.get("queue") or [],
+    }
+
+
+def build_pomodoro_status_payload(
+    status: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload = dict(status or {})
+    return {
+        "state": str(payload.get("state") or "idle"),
+        "mode": str(payload.get("mode") or "focus"),
+        "remaining_seconds": max(0, int(payload.get("remaining_seconds") or 0)),
+        "session_count": max(0, int(payload.get("session_count") or 0)),
+        "goal_id": str(payload.get("goal_id") or ""),
+        "date": str(payload.get("date") or ""),
+        "pause_count": max(0, int(payload.get("pause_count") or 0)),
+        "interrupt_count": max(0, int(payload.get("interrupt_count") or 0)),
+        "current_focus_session": dict(payload.get("current_focus_session") or {}),
+        "config": dict(payload.get("config") or {}),
+    }
+
+
+def build_habit_dashboard_payload(
+    *,
+    goals: list[dict[str, Any]] | None = None,
+    checkin: dict[str, Any] | None = None,
+    pomodoro: dict[str, Any] | None = None,
+    summary: dict[str, Any] | None = None,
+    supervision: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    goal_items = list(goals or [])
+    completed = [
+        item for item in goal_items if str(item.get("status") or "") == "completed"
+    ]
+    summary_payload = dict(summary or {})
+    summary_payload.setdefault("completed_goal_count", len(completed))
+    summary_payload.setdefault("goal_count", len(goal_items))
+    return {
+        "goals": goal_items,
+        "checkin": dict(checkin or {}),
+        "pomodoro": build_pomodoro_status_payload(pomodoro or {}),
+        "summary": summary_payload,
+        "supervision": dict(supervision or {}),
+    }

@@ -1,0 +1,67 @@
+{
+  "schema": "mc-bundled-appearances/v1",
+  "source": "plugin_bundled",
+  "assets": {
+    "skins/yui-lolita-slim.png": {
+      "bytes": 5610,
+      "sha256": "f8ed6510dec8647895fb633dde7cad0d3338fe7b39f78e2566d389e4ec33709f"
+    },
+    "ysm/neko_yui/ysm.json": {
+      "bytes": 946,
+      "sha256": "3d3a820530319531619f8f8a6ef9ef4484b9b412f1ebbd9cb283e7788f06aa68"
+    },
+    "ysm/neko_yui/models/main.json": {
+      "bytes": 64587,
+      "sha256": "1feb1121e6946a899c75ea020b32d01809672010ac043c410e2d049426e58205"
+    },
+    "ysm/neko_yui/models/arm.json": {
+      "bytes": 6297,
+      "sha256": "1ca1332dac123c6c72966660a694b770caea895ea41b95964c6866a27ab6c9e5"
+    },
+    "ysm/neko_yui/animations/main.animation.json": {
+      "bytes": 17120,
+      "sha256": "0cbd59d07acfa203438855d678e077da0af88e751d00e6fba713b1e775771ef5"
+    },
+    "ysm/neko_yui/animations/arm.animation.json": {
+      "bytes": 1958,
+      "sha256": "b1973bb324b9e4cc805937dcd6d6baa809507814ba522b7424d1da322671c0c6"
+    },
+    "ysm/neko_yui/animations/extra.animation.json": {
+      "bytes": 1560,
+      "sha256": "5c39123acf2008ec6682a298086a3096f9a3646acdbfb4e66b7252e4f16ae922"
+    },
+    "ysm/neko_yui/textures/default.png": {
+      "bytes": 5610,
+      "sha256": "f8ed6510dec8647895fb633dde7cad0d3338fe7b39f78e2566d389e4ec33709f"
+    }
+  },
+  "appearances": [
+    {
+      "id": "yui-slim",
+      "label": "YUI 普通皮肤 · slim",
+      "kind": "skin",
+      "path": "skins/yui-lolita-slim.png",
+      "model": "slim",
+      "provenance": "Original user-approved YUI assets; jcs130 character direction/commission, Codex original geometry/animation. MIT source repository mc-agent-neko; source HEAD 9cb808b2ea65e65adc02ab4415abc9b7ef220658, skin f7641acdee4794aeb4b0733168939a37e7eb3260, YSM cf004bd3fec21de4121e5dbf9fa3d1df27d61a99. Original Custom metadata preserved; no Live2D source assets. See sources/ and PROVENANCE.md."
+    },
+    {
+      "id": "yui-ysm",
+      "label": "YUI YSM · 原创模型",
+      "kind": "ysm",
+      "format": "ysm-bedrock-original",
+      "ysmVersion": "2.4.1",
+      "modelId": "neko_yui",
+      "texture": "default",
+      "provenance": "Original user-approved YUI assets; jcs130 character direction/commission, Codex original geometry/animation. MIT source repository mc-agent-neko; source HEAD 9cb808b2ea65e65adc02ab4415abc9b7ef220658, skin f7641acdee4794aeb4b0733168939a37e7eb3260, YSM cf004bd3fec21de4121e5dbf9fa3d1df27d61a99. Original Custom metadata preserved; no Live2D source assets. See sources/ and PROVENANCE.md.",
+      "files": {
+        "definition": "ysm/neko_yui/ysm.json",
+        "model": "ysm/neko_yui/models/main.json",
+        "animation": "ysm/neko_yui/animations/main.animation.json",
+        "texture": "ysm/neko_yui/textures/default.png",
+        "armModel": "ysm/neko_yui/models/arm.json",
+        "armAnimation": "ysm/neko_yui/animations/arm.animation.json",
+        "extraAnimation": "ysm/neko_yui/animations/extra.animation.json"
+      }
+    }
+  ]
+}

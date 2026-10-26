@@ -1,0 +1,37 @@
+# deepseekharness_bridge 运行配置示例。
+#
+# 复制为 config.toml 后按需修改；运行时的实际配置以 N.E.K.O. 的
+# 配置合并结果为准，这里的值是 [deepseekharness_bridge] 段的默认值。
+
+[deepseekharness_bridge]
+# DeepSeek Harness 源码检出路径。留空则从 PATH 找 `dsh`。
+# 注意：SDK 路径会把它当作隔离 home 的根，请确保该目录可写。
+repo_path = ""
+
+# 显式指定 `dsh` 可执行文件。留空表示从 PATH 查找。
+dsh_executable = ""
+
+# harness 的工作目录。留空则用插件存储目录下的 workspace/。
+workspace = ""
+
+# 传给 `dsh` 的 profile。
+# `headless` 是桌面端装法的正确选择：跑一次性任务，不起 web 服务器。
+# `desktop` 由 Electron 独占，不能从 CLI 启动，所以这里永远不要用它。
+profile = "headless"
+
+# 凭据路由。
+#   deepseek-account  — 复用 DSH 里已登录的 DeepSeek 账号，不需要 API key（默认）
+#   deepseek-official — API key 路由，需要 DEEPSEEK_API_KEY
+provider = "deepseek-account"
+
+# 每次运行使用的模型 ID。必须是 DSH 认识的：
+#   deepseek-flash  — DeepSeek-V4.1-Flash（默认，快，支持图像）
+#   deepseek-v4-pro — DeepSeek-V4-Pro（更强推理，成本更高）
+# 面板的「模型」卡片有下拉，选完会写回这里，一般不需要手改。
+model = "deepseek-flash"
+
+# 单次任务超时（秒）。harness 任务天生较长，默认给得比较宽。
+task_timeout = 600
+
+# 运行日志目录。留空则用 storage_dir/runs。
+log_dir = ""

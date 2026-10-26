@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'">
+<title>猫娘语音桥</title><link rel="stylesheet" href="style.css"></head><body>
+<aside><div class="brand">N<span>·</span>V</div><h2>猫娘语音桥</h2><p>让她加入你的语音频道</p><ol><li>在猫娘中设置语音</li><li>安装猫娘插件</li><li>登录专用账号</li><li>开始频道对话</li></ol><div class="aside-foot">WINDOWS · 桌面版<br>运行环境已内置<br>无需安装 Node / Python</div></aside>
+<main><header><div><div class="eyebrow">N.E.K.O VOICE BRIDGE</div><h1>一起聊聊吧。</h1></div><span class="pill">版本 0.7.1</span><button data-action="setup-open" class="quiet">配置向导</button></header>
+<section class="card setup-guide" id="setup-guide" hidden>
+<div class="section-title"><h3>第一次使用，按这四步来</h3><button data-action="setup-close" class="quiet">暂时收起</button></div>
+<div class="setup-steps">
+<article><strong><span id="setup-step-0">1</span> 连接猫娘</strong><p>导入同版本 .neko-plugin，复制连接链接到插件面板。</p><button data-nav="pair-section">前往连接</button></article>
+<article><strong><span id="setup-step-1">2</span> 选择输出</strong><p>可使用插件音频；使用虚拟音频线时先安装驱动并启用采集。</p><button data-nav="output-section">选择并确认</button></article>
+<article><strong><span id="setup-step-2">3</span> 加入频道</strong><p>在 KOOK 窗口登录专用账号、入房并开启内置虚拟麦克风。</p><button data-nav="channel-section">前往 KOOK 连接</button></article>
+<article><strong><span id="setup-step-3">4</span> 验证声音</strong><p>开始接收后测试频道提示音，用另一个账号确认能听到。</p><button data-nav="channel-section">前往试音</button></article>
+</div><p class="hint" id="setup-summary">按顺序连接并试音，状态会自动更新。</p><button data-action="setup-finish" class="primary" disabled>另一个账号已听到，完成设置</button></section>
+<div id="version-status" class="notice" role="status">等待插件连接后检查版本。</div>
+<div class="notice">请使用给猫娘准备的独立账号；免费语音共用猫娘本体会话，请先停止桌面麦克风；回复是否需要称呼，可在下方“仅回应称呼”开关调整。</div>
+<section class="status-grid"><article><small>猫娘连接</small><strong id="bridge-state">启动中</strong><span>与猫娘插件面板同步 · 免费语音共用本体会话</span></article><article><small>KOOK 语音</small><strong id="rtc-state">等待登录</strong><span id="rtc-detail">在账号窗口中加入频道</span></article><article><small>成员音轨</small><strong id="track-count">0</strong><span id="frames">等待有成员说话</span></article></section>
+<section class="card" id="channel-section"><div class="section-title"><h3>频道连接</h3><span>账号登录只在 KOOK 官方页面完成</span></div><div class="actions"><button data-action="account" class="primary">打开 KOOK 登录</button><button data-action="start">开始接收</button><button data-action="stop">停止接收</button><button data-action="test-tone">测试频道提示音</button><button data-action="test-output">测试猫娘语音</button><button data-action="leave" class="quiet">退出频道</button></div><p class="hint">首次打开时允许使用内置虚拟麦克风；登录后在 KOOK 语音设置中选择“猫娘语音桥（内置虚拟麦克风）”，并开启麦克风。它不采集电脑麦克风。</p><p id="microphone-state" class="hint">等待检查虚拟麦克风</p><p class="hint">频道提示音由程序直接生成，不调用猫娘；先用它检查 KOOK 发送。虚拟麦克风内置于本程序，无需安装虚拟声卡；仅在此 KOOK 窗口生效。</p><div id="members" class="members">尚未发现可关联昵称的音轨</div></section>
+<section class="card" id="output-section"><div class="section-title"><h3>猫娘输出线路</h3><span id="cable-mode">插件音频模式</span></div>
+<p>本体有声音、KOOK 没声音时，可试用 Windows 虚拟音频线。</p>
+<ol><li>安装 VB-CABLE 驱动并重启电脑（首次需要管理员权限）。</li><li>在猫娘计划中将输出设备改为 <strong>CABLE Input</strong>；保留本体窗口，停止本体麦克风。</li><li>在下方刷新设备，选择 <strong>CABLE Output</strong>，启用后再开始接收。</li></ol>
+<div class="actions"><button data-action="cable-guide">打开驱动官网</button><button data-action="cable-devices">刷新虚拟设备</button><select id="cable-device" aria-label="虚拟音频线录音端"><option value="">请先刷新虚拟设备</option></select><button data-action="cable-start">启用虚拟音频线</button><button data-action="cable-off">切回插件音频</button></div>
+<p class="hint">选择好输出模式后，点击确认继续向导。</p><button data-action="setup-output">确认使用当前输出线路</button><p id="cable-status" class="hint">未启用采集</p><progress id="cable-level" max="32768" value="0" aria-label="虚拟音频线输入音量"></progress>
+<div class="actions"><button data-action="cable-test">测试本体 → 音频线 → KOOK</button></div>
+<p class="hint">线路测试会等待你让本体说一句话，然后直接发送测试录音，不检查称呼。正常对话是否需要称呼，取决于下方开关；收集整句后发回频道，会增加延迟。仅采集所选虚拟设备，不采集物理麦克风。不要把系统、KOOK 或其他程序的输出设到这条音频线，也不要开启 Windows“侦听此设备”。</p>
+<p class="hint">首次使用请将 KOOK 设为自由发言，并关闭降噪试音。重启 EXE 后需重新启用采集。此模式需同时更新插件；当前按 2.5 秒静音结束一句，回复音频最长 30 秒，仍需 Windows 实测。</p></section>
+<section class="card"><div class="section-title"><h3>猫娘语音服务</h3><span id="speech-state">等待猫娘插件连接</span></div><p>识别、对话和语音合成都由 N.E.K.O 处理，使用猫娘中已配置的服务和当前角色音色。</p><p class="hint">请在猫娘中设置模型与音色，再启动语音频道桥插件。这里不需要填写接口或密钥。</p><p>当前猫娘称呼：<strong id="character-name">等待猫娘同步</strong></p><div class="actions"><button data-action="wake-filter" role="switch" aria-checked="true">仅回应称呼：开启</button></div><p class="hint">关闭后，已识别来源的频道发言无需称呼即可回复；静音与身份检查仍有效。切换会取消当前待处理对话，设置在重启后保留。</p><p class="hint" id="reply-rule">回复规则：等待猫娘称呼同步。</p><p class="hint">多人频道：每句携带频道昵称；回复朋友时先叫对方昵称。对本人的称呼沿用猫娘计划人类档案，不单独设置。</p><p id="speech-error" class="hint"></p></section>
+<section class="card compact" id="pair-section"><div><h3>连接你的猫娘</h3><p>在猫娘管理器打开本插件的连接面板，粘贴连接链接即可。配对后自动重连，无需调用入口。</p></div><button data-action="copy-code">复制连接链接</button></section>
+<section class="card"><div class="section-title"><h3>最近发言</h3><button data-action="demo" class="quiet">运行离线模拟</button></div><div id="events" class="events">还没有发言。双人模拟不会调用真实语音或模型服务。</div></section>
+<section class="card"><div class="section-title"><h3>错误记录（恢复后仍保留）</h3><button data-action="export-diagnostics">导出诊断</button></div><div id="errors" class="events">暂无错误</div></section>
+<div id="message" role="status" aria-live="polite"></div></main><script src="ui.js"></script></body></html>

@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "N.E.K.O: check minecraft_autonomous",
+      "type": "shell",
+      "command": "uv run neko-plugin check \"${workspaceFolder}\"",
+      "options": {
+        "cwd": "${env:NEKO_ROOT}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: sync minecraft_autonomous",
+      "type": "shell",
+      "command": "uv run neko-plugin sync \"${workspaceFolder}\" --clean",
+      "options": {
+        "cwd": "${env:NEKO_ROOT}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: check -r minecraft_autonomous",
+      "type": "shell",
+      "command": "uv run neko-plugin check -r \"${workspaceFolder}\"",
+      "options": {
+        "cwd": "${env:NEKO_ROOT}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "N.E.K.O: build minecraft_autonomous",
+      "type": "shell",
+      "command": "uv run neko-plugin build \"${workspaceFolder}\"",
+      "options": {
+        "cwd": "${env:NEKO_ROOT}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+# 自然语言命令（neko_natural_command）配置示例
+# 安装时会作为 config/plugin.toml 的默认值。
+
+[plugin_runtime]
+enabled = true
+auto_start = false
+
+[neko_natural_command]
+# 管理员密码（必填）。未设置或为空时，所有需要 admin 权限的入口直接拒绝执行。
+# 切换管理员权限使用 /su <密码>。
+admin_password = "CHANGE_ME"
+# AI 未匹配到命令时是否允许自动创建新命令（含 shell 类型）
+auto_create = true
+# 启动时是否自动清理本插件命令库里的垃圾脏数据（占位/空壳命令、重复命令、无效/损坏条目）
+auto_clean = true
+# 自动创建的新命令默认权限：user / admin
+default_permission = "user"
+# 自动创建的新命令默认类型：reply / shell
+default_type = "reply"
+# AI 匹配调用大模型超时（秒）
+llm_timeout = 20
+# shell 查询类命令最长等待时间（秒），超时判定失败；输出超过 4000 字符自动截断
+shell_timeout = 30
+# 浏览器类跨插件调用单次超时（秒），10-300；浏览器冷启动/渲染慢，单独放宽
+browser_timeout = 60
+# /调用 直调其它插件能力的权限门槛：user（默认，谁都能直调）/ admin（需先 /su 提权）
+direct_call_permission = "user"
+# 深度搜索总开关，默认关闭；需要时改成 true 才启用（代码保留，默认不向 AI 暴露）
+deep_search_enabled = false

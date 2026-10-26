@@ -1,0 +1,22 @@
+{
+  "dry_run": true,
+  "voice_styles": [
+    "default"
+  ],
+  "broadcast_frequency": "standard",
+  "broadcast_categories": {
+    "caught": true,
+    "casino": true,
+    "grill": true,
+    "boss": true,
+    "journal": true,
+    "lifecycle": true,
+    "chatter": false
+  },
+  "llm": {
+    "provider": "",
+    "model": "",
+    "api_key": "",
+    "base_url": ""
+  }
+}

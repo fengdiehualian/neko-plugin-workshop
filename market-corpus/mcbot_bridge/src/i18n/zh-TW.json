@@ -1,0 +1,4 @@
+{
+  "plugin.name": "MCBot 同伴橋接",
+  "plugin.description": "橋接本機 mcbot（Fabric 假人同伴），讓貓娘可以指揮同伴做事、替同伴向你轉達問題，並即時轉播同伴的進展。"
+}

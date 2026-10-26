@@ -1,0 +1,26 @@
+name: Release N.E.K.O Plugin
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Package plugin
+        run: |
+          # 自动把你仓库里的核心文件打包成 .neko-plugin
+          zip -r genshin_game_buddy.neko-plugin plugin.toml __init__.py config.example.toml pyproject.toml *.py i18n/ terms/
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: genshin_game_buddy.neko-plugin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
