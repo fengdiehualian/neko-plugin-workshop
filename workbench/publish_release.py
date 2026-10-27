@@ -1,4 +1,4 @@
-"""通用发布脚本:推 tag → GitHub Release+资产 → Gitee 发行版+附件。
+r"""通用发布脚本:推 tag → GitHub Release+资产 → Gitee 发行版+附件。
 
 用法: python publish_release.py --notes notes.md --exe path\to\Setup.exe
 版本号取仓库 package.json;标题/说明中自动带上大小与 SHA256。

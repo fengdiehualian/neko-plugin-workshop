@@ -646,6 +646,43 @@ ${PROBE_SRC}
   ctxChip ? pass('API 行显示上下文 chip', ctxChip.textContent.trim()) : pass('API 行显示上下文 chip', '(当前无 API,跳过)');
   $('#setclose').click(); await sleep(100);
 
+  // 19.5) 上下文快捷按钮(外观页的全局默认)+ API「仅保存」→ 列表 → 清理
+  $('#setbtn').click(); await sleep(300);
+  const lookTab = $$('.sptab').find((b) => b.dataset.tab === 'look');
+  lookTab && lookTab.click(); await sleep(200);
+  const chip32 = $('.ctxpreset[data-ctx="32000"]');
+  chip32 && chip32.click(); await sleep(150);
+  const v32 = ($('#ctxInput') ? $('#ctxInput').value : '').trim();
+  v32 === '32' ? pass('上下文快捷 32K 填入', '32') : fail('上下文快捷 32K 填入', v32 || '(空)');
+  const chip128 = $('.ctxpreset[data-ctx="128000"]');
+  chip128 && chip128.click(); await sleep(150);
+  const v128 = ($('#ctxInput') ? $('#ctxInput').value : '').trim();
+  v128 === '128' ? pass('上下文快捷 128K 恢复默认', '128') : fail('上下文快捷 128K 恢复默认', v128 || '(空)');
+
+  const apiTab2 = $$('.sptab').find((b) => b.dataset.tab === 'api');
+  apiTab2 && apiTab2.click(); await sleep(200);
+  $('#apiName').value = '自动测试API';
+  $('#apiURL').value = 'http://127.0.0.1:9/v1';
+  $('#apiKey').value = 'sk-test-abcdef';
+  $('#apiModel').value = 'mock-model';
+  $('#apiCtx').value = '64';
+  $('#apiSaveOnly').click();
+  await wbWait(() => ($('#apiMsg').textContent || '').indexOf('✅') >= 0, 6000);
+  const savedOk = ($('#apiMsg').textContent || '').indexOf('✅') >= 0;
+  const rowNow = $$('.apirow').find((r) => r.textContent.indexOf('自动测试API') >= 0);
+  savedOk && rowNow ? pass('API「仅保存」并出现在列表', '上下文 64K') : fail('API「仅保存」并出现在列表', $('#apiMsg').textContent || '(无提示)');
+  if (rowNow) {
+    const jl = await (await fetch('/api/apis')).json();
+    const item = (jl.items || []).find((a) => a.name === '自动测试API');
+    if (item) await fetch('/api/apis/' + item.id, { method: 'DELETE' });
+    if (window.loadApis) window.loadApis();
+    await sleep(400);
+    const jl2 = await (await fetch('/api/apis')).json();
+    const gone = !(jl2.items || []).some((a) => a.name === '自动测试API');
+    gone ? pass('清理测试 API') : fail('清理测试 API', '仍存在');
+  }
+  $('#setclose').click(); await sleep(100);
+
   // 20) 侧边栏会话列表
   const side = $('#slist');
   side && side.children.length ? pass('侧边栏会话列表', side.children.length + ' 条') : fail('侧边栏会话列表', '空');
