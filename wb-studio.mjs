@@ -1252,6 +1252,7 @@ const PAGE = `<!doctype html>
     <div class="sp-head">版本更新 <span class="sp-tip">检查优先走 GitHub,失败自动改用码云镜像</span></div>
     <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:13px;color:var(--ink)">当前版本 <b id="updCur">-</b></span>
+      <span style="font-size:13px;color:var(--ink)">最新版本 <b id="updLatest">未检查</b><span id="updLatestAt" style="font-size:11.5px;color:var(--muted-2);margin-left:6px"></span></span>
       <button type="button" id="updCheck" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">检查更新</button>
       <span id="updMsg" style="font-size:12px;color:var(--muted)"></span>
     </div>
@@ -1702,6 +1703,27 @@ const fsReset=document.getElementById('fontSizeReset');
 if(fsReset)fsReset.onclick=()=>applyUi(uiFont,100,true);
 // 版本更新:检查 → 弹窗(无论结果如何都有反馈) → 下载(轮询实时进度) → 自动退出安装
 const UPD={timer:null,onOk:null,busy:false};
+const UPD_CACHE_KEY='wb_upd_last';
+function updReadCache(){try{return JSON.parse(localStorage.getItem(UPD_CACHE_KEY)||'null')}catch(e){return null}}
+function updWriteCache(o){try{localStorage.setItem(UPD_CACHE_KEY,JSON.stringify(o))}catch(e){}}
+// 版本行:当前版本 + 最新版本(检查过才显示;进程重启后从缓存补,标注"上次检查")
+function updShowLatest(s){
+  const lat=document.getElementById('updLatest'),at=document.getElementById('updLatestAt');
+  if(!lat)return;
+  let ver=s&&s.latest?String(s.latest):'';
+  let ts=s&&s.checkedAt?Number(s.checkedAt):0;
+  let cached=false;
+  if(!ver){const c=updReadCache();if(c&&c.latest){ver=String(c.latest);ts=Number(c.at)||0;cached=true;}}
+  if(ver){
+    lat.textContent='v'+ver;
+    lat.style.color=s&&s.hasUpdate?'#d6336c':'';
+    if(at)at.textContent=(cached?'上次检查 ':'检查于 ')+(ts?new Date(ts).toLocaleString():'');
+  }else{
+    lat.textContent='未检查';
+    lat.style.color='';
+    if(at)at.textContent='';
+  }
+}
 function updMB(n){return ((Number(n)||0)/1048576).toFixed(1)+' MB'}
 function updShowModal(title,html,okText,onOk,cancelText){
   document.getElementById('updTitle').textContent=title;
@@ -1730,6 +1752,7 @@ function updRender(s){
   if(!s)return;
   const cur=document.getElementById('updCur');
   if(cur&&s.current)cur.textContent='v'+s.current;
+  updShowLatest(s);
   const box=document.getElementById('updBox'),bar=document.getElementById('updBar'),pct=document.getElementById('updPct'),
         ph=document.getElementById('updPhase'),det=document.getElementById('updDetail'),msg=document.getElementById('updMsg');
   const busy=['downloading','merging','verifying','extracting','applying'].includes(s.phase);
@@ -1760,6 +1783,7 @@ async function updCheck(){
   updSetBusy(true);
   try{
     const j=await updApi({action:'check'},25000);
+    if(j&&j.latest)updWriteCache({latest:j.latest,at:Date.now()});
     updRender(j);
     if(!j.ok||j.phase==='error'){
       const why=j.error||'未知错误';

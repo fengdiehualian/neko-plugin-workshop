@@ -44,6 +44,8 @@
   click('updCheck');
   await wait(visible, 5000);
   out.push({ name: '检查更新(最新版)必须弹窗', ok: visible() && title().indexOf('已是最新') >= 0, detail: title() });
+  const latTxt = (document.getElementById('updLatest').textContent || '').trim();
+  out.push({ name: '版本行显示最新版本号', ok: latTxt === 'v1.2.3', detail: latTxt });
   click('updGo');
   await sleep(150);
   out.push({ name: '弹窗可关闭', ok: !visible(), detail: visible() ? '仍显示' : '' });
