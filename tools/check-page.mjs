@@ -153,6 +153,8 @@ const send = (method, params = {}) => new Promise((res, rej) => {
   pending.set(id, { res, rej })
   ws.send(JSON.stringify({ id, method, params }))
 })
+const PROBE_SRC = readFileSync(new URL("./update-modal-probe.js", import.meta.url), "utf8")
+
 const evalJs = async (expression) => {
   const r = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })
   if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text)
@@ -511,6 +513,16 @@ result = await evalJs(`(async () => {
     shown && /^v\\d+\\.\\d+\\.\\d+/.test(curTxt) && hasBtn
       ? pass('更新页签 面板/版本号/按钮', curTxt)
       : fail('更新页签 面板/版本号/按钮', 'shown=' + shown + ' cur=' + curTxt + ' btn=' + hasBtn);
+
+    // 11.8) 点「检查更新」必须弹窗:探针脚本自带 fetch stub,返回逐项结果
+    try {
+      const probe = await (
+${PROBE_SRC}
+      )
+      for (const r of probe) (r.ok ? pass : fail)(r.name, r.detail)
+    } catch (e) {
+      fail('更新弹窗探针', String((e && e.message) || e))
+    }
     tabs[0].click(); await sleep(50);
   } else fail('更新页签', '找不到 data-tab=update');
 

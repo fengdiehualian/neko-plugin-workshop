@@ -1270,7 +1270,7 @@ const PAGE = `<!doctype html>
 </div>
 <div id="updModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
   <div style="width:min(430px,90vw);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 12px 40px var(--shadow)">
-    <div style="font-size:16px;font-weight:800;color:var(--ink)">发现新版本</div>
+    <div id="updTitle" style="font-size:16px;font-weight:800;color:var(--ink)">发现新版本</div>
     <div id="updModalBody" style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.8"></div>
     <div style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end">
       <button type="button" id="updCancel" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:9px;padding:7px 16px;font-size:12.5px;font-weight:700;cursor:pointer">以后再说</button>
@@ -1700,9 +1700,32 @@ document.querySelectorAll('.fontopt').forEach(o=>{o.onclick=()=>applyUi(o.datase
 })();
 const fsReset=document.getElementById('fontSizeReset');
 if(fsReset)fsReset.onclick=()=>applyUi(uiFont,100,true);
-// 版本更新:检查 → 弹窗确认 → 下载(轮询实时进度) → 自动退出安装
-const UPD={timer:null};
+// 版本更新:检查 → 弹窗(无论结果如何都有反馈) → 下载(轮询实时进度) → 自动退出安装
+const UPD={timer:null,onOk:null,busy:false};
 function updMB(n){return ((Number(n)||0)/1048576).toFixed(1)+' MB'}
+function updShowModal(title,html,okText,onOk,cancelText){
+  document.getElementById('updTitle').textContent=title;
+  document.getElementById('updModalBody').innerHTML=html;
+  const go=document.getElementById('updGo'),cancel=document.getElementById('updCancel');
+  go.textContent=okText||'知道了';
+  cancel.style.display=cancelText?'':'none';
+  if(cancelText)cancel.textContent=cancelText;
+  UPD.onOk=onOk||null;
+  document.getElementById('updModal').style.display='flex';
+}
+function updCloseModal(){document.getElementById('updModal').style.display='none';UPD.onOk=null;}
+// 前端也要有超时:后端最坏 18s,这里给 25s,超时就明确报错,绝不无限"检查中…"
+async function updApi(body,timeoutMs){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),timeoutMs||25000);
+  try{
+    const r=await fetch('/api/update',body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:ctrl.signal}:{signal:ctrl.signal});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return await r.json();
+  }catch(e){
+    throw e&&e.name==='AbortError'?new Error('请求超时(网络无响应)'):e;
+  }finally{clearTimeout(timer)}
+}
 function updRender(s){
   if(!s)return;
   const cur=document.getElementById('updCur');
@@ -1722,36 +1745,66 @@ function updRender(s){
   if(s.phase==='error'){msg.style.color='#c0392b';msg.textContent='更新失败:'+(s.error||'未知错误');}
   else if(s.phase==='done'){msg.style.color='';msg.textContent='已是最新版本';}
 }
-async function updLoad(){try{const j=await(await fetch('/api/update')).json();updRender(j);}catch(e){}}
+async function updLoad(){try{updRender(await updApi(null,8000))}catch(e){}}
+function updSetBusy(on){
+  UPD.busy=on;
+  const btn=document.getElementById('updCheck');
+  btn.disabled=on;
+  btn.style.opacity=on?'.55':'1';
+  btn.style.cursor=on?'default':'pointer';
+  btn.textContent=on?'检查中…':'检查更新';
+}
 async function updCheck(){
+  if(UPD.busy)return;
   const msg=document.getElementById('updMsg');msg.style.color='';msg.textContent='检查中…';
+  updSetBusy(true);
   try{
-    const j=await(await fetch('/api/update',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'check'})})).json();
+    const j=await updApi({action:'check'},25000);
     updRender(j);
-    if(!j.ok||j.phase==='error'){msg.textContent='检查失败:'+(j.error||'未知错误');return;}
+    if(!j.ok||j.phase==='error'){
+      const why=j.error||'未知错误';
+      msg.style.color='#c0392b';msg.textContent='检查失败:'+why;
+      updShowModal('检查更新失败','<span style="color:#c0392b">'+why+'</span><br><span style="color:var(--muted-2);font-size:12px">常见原因:网络不通、代理拦截、GitHub 与码云都不可达。可以稍后重试。</span>','重试',()=>setTimeout(updCheck,50),'关闭');
+      return;
+    }
+    const srcName=j.source==='github'?'GitHub':j.source==='gitee'?'码云镜像':'本地测试源';
     if(j.hasUpdate){
       msg.textContent='发现新版本 v'+j.latest;
-      document.getElementById('updModalBody').innerHTML='当前版本 v'+j.current+' → 最新版本 <b>v'+j.latest+'</b><br>来源:'+(j.source==='github'?'GitHub':j.source==='gitee'?'码云镜像':'测试源')+'<br><span style="color:var(--muted-2);font-size:12px">更新时工坊会自动退出并重启;runtime(密钥/会话/记忆)与 workspace(插件项目)都会保留。</span>';
-      document.getElementById('updModal').style.display='flex';
-    }else{msg.textContent='已是最新版本(v'+j.current+')';}
-  }catch(e){msg.textContent='检查失败:'+e.message;}
+      updShowModal('发现新版本',
+        '当前版本 v'+j.current+' → 最新版本 <b>v'+j.latest+'</b><br>来源:'+srcName+
+        '<br><span style="color:var(--muted-2);font-size:12px">更新时工坊会自动退出并重启;runtime(密钥/会话/记忆)与 workspace(插件项目)都会保留。</span>',
+        '立即更新',updStart,'以后再说');
+    }else{
+      msg.textContent='已是最新版本(v'+j.current+')';
+      updShowModal('已是最新版本',
+        '当前 v'+j.current+',已是最新。<br>来源:'+srcName+' · 检查时间 '+new Date().toLocaleTimeString()+
+        '<br><span style="color:var(--muted-2);font-size:12px">有新版本发布时,这里会提示并可以一键升级。</span>',
+        '知道了',null);
+    }
+  }catch(e){
+    const why=e.message||'检查失败';
+    msg.style.color='#c0392b';msg.textContent='检查失败:'+why;
+    updShowModal('检查更新失败','<span style="color:#c0392b">'+why+'</span><br><span style="color:var(--muted-2);font-size:12px">请检查网络后重试。</span>','重试',()=>setTimeout(updCheck,50),'关闭');
+  }finally{
+    updSetBusy(false);
+  }
 }
 function updStart(){
-  document.getElementById('updModal').style.display='none';
-  fetch('/api/update',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'start'})}).then(r=>r.json()).then(updRender).catch(()=>{});
+  updCloseModal();
+  updApi({action:'start'},15000).then(updRender).catch(()=>{});
   if(UPD.timer)clearInterval(UPD.timer);
   UPD.timer=setInterval(async()=>{
     try{
-      const j=await(await fetch('/api/update')).json();updRender(j);
+      const j=await updApi(null,5000);updRender(j);
       if(!['downloading','merging','verifying','extracting','applying'].includes(j.phase)){clearInterval(UPD.timer);UPD.timer=null;}
     }catch(e){/* 安装时进程退出,轮询自然失败 */}
   },600);
 }
 updLoad();
 document.getElementById('updCheck').onclick=updCheck;
-document.getElementById('updGo').onclick=updStart;
-document.getElementById('updCancel').onclick=()=>{document.getElementById('updModal').style.display='none';};
-document.getElementById('updModal').onclick=e=>{if(e.target.id==='updModal')e.target.style.display='none';};
+document.getElementById('updGo').onclick=()=>{const fn=UPD.onOk;updCloseModal();if(fn)fn();};
+document.getElementById('updCancel').onclick=updCloseModal;
+document.getElementById('updModal').onclick=e=>{if(e.target.id==='updModal')updCloseModal();};
 // 严格校验开关(读后端状态,切换立即生效)
 (async()=>{try{const j=await(await fetch('/api/strict')).json();document.getElementById('strictToggle').checked=!!j.strictVerify;}catch(e){}})();
 document.getElementById('strictToggle').onchange=async e=>{
@@ -2743,17 +2796,24 @@ function updSnapshot() {
   }
 }
 
-async function fetchJSON(url) {
+async function fetchJSON(url, timeoutMs = 6000) {
   const headers = { "user-agent": "neko-workshop/" + APP_VERSION, accept: "application/json" }
-  // 环境里可能有失效的 HTTP_PROXY(公司代理/加速器残留):先按默认走,失败再显式绕过代理重试一次
+  // 环境里可能有失效的 HTTP_PROXY(公司代理/加速器残留):先按默认走,失败再显式绕过代理重试一次。
+  // 每次尝试都必须有超时——否则代理挂住时 fetch 永远不返回,前端就卡在"检查中…"。
   const attempts = [{ headers, redirect: "follow" }, { headers, redirect: "follow", proxy: "" }]
   let lastErr = null
   for (const opt of attempts) {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs)
     try {
-      const r = await fetch(url, opt)
+      const r = await fetch(url, { ...opt, signal: ctrl.signal })
       if (!r.ok) throw new Error("HTTP " + r.status)
       return await r.json()
-    } catch (e) { lastErr = e }
+    } catch (e) {
+      lastErr = e?.name === "AbortError" ? new Error("请求超时") : e
+    } finally {
+      clearTimeout(timer)
+    }
   }
   throw lastErr || new Error("fetch failed")
 }
@@ -2809,7 +2869,11 @@ async function checkUpdate() {
   updateState.total = 0
   updateState.speed = 0
   try {
-    const list = await resolveReleaseSources()
+    // 总预算 18 秒:超时就把错误抛给前端,不让她一直盯着"检查中…"
+    const list = await Promise.race([
+      resolveReleaseSources(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("检查超时(网络无响应)")), 18000)),
+    ])
     updateState.checkedAt = Date.now()
     if (!list.length) throw new Error("GitHub 与码云都没取到版本信息(检查网络或加速器)")
     const best = list.reduce((a, b) => (cmpVersion(b.version, a.version) > 0 ? b : a))
