@@ -66,14 +66,15 @@ def check_sh(path):
 
 
 def check_yaml(path):
-    """没有 PyYAML 时的结构校验:禁 TAB、缩进 2 的倍数、块标量跳过、按层级查重复键。"""
+    """没有 PyYAML 时的结构校验:禁 TAB、缩进 2 的倍数、块标量跳过、按父级作用域查重复键。"""
     try:
         lines = open(path, encoding="utf-8").read().splitlines()
     except UnicodeDecodeError:
         return "非 UTF-8 编码"
-    block_indent = None          # 进入 | / > 块标量后的基准缩进
-    seq_stack = {}               # indent -> 当前列表序号(区分同一缩进下的不同列表项)
-    seen = {}
+    chain = []            # [(indent, scope_token)] 当前打开的父级
+    seq = {}              # (parent_chain, indent) -> 列表序号
+    seen = set()
+    block_indent = None
     for no, raw in enumerate(lines, 1):
         if "	" in raw:
             return f"第 {no} 行含 TAB(YAML 不允许)"
@@ -81,43 +82,55 @@ def check_yaml(path):
         if not line.strip() or line.strip() in ("---", "..."):
             continue
         indent = len(line) - len(line.lstrip(" "))
-
         if block_indent is not None:
             if indent > block_indent:
-                continue          # 块标量正文,原样跳过
+                continue
             block_indent = None
-
         if indent % 2:
             return f"第 {no} 行缩进 {indent} 不是 2 的倍数"
+        while chain and chain[-1][0] >= indent:
+            chain.pop()
         body = line.strip()
         if body.startswith("-"):
-            # 新列表项:更深的缩进序号重置
-            for k in [k for k in seq_stack if k > indent]:
-                del seq_stack[k]
-            seq_stack[indent] = seq_stack.get(indent, 0) + 1
+            key = (tuple(t for _, t in chain), indent)
+            seq[key] = seq.get(key, 0) + 1
+            chain.append((indent, f"-{seq[key]}"))
             body = body[1:].strip()
             if not body:
                 continue
-        if not body:
-            continue
         if ":" not in body:
-            # 纯标量列表项(如 - "v*")合法;只有空行或奇怪结构才报
-            if body[0] in "\"'[{" or body.replace(".", "").isalnum() or " " not in body:
+            if body[:1] in "\"'[{" or " " not in body:
                 continue
             return f"第 {no} 行缺少冒号: {body[:40]}"
-        key = body.split(":", 1)[0].strip()
-        val = body.split(":", 1)[1].strip()
-        if val in ("|", ">", "|-", ">-", "|+", ">+"):
+        k, v = body.split(":", 1)
+        k, v = k.strip(), v.strip()
+        scope = tuple(t for _, t in chain)
+        kid = (scope, indent, k)
+        if kid in seen:
+            return f"第 {no} 行重复的键 {k!r}(同一父级下)"
+        seen.add(kid)
+        if v in ("|", ">", "|-", ">-", "|+", ">+", ""):
+            chain.append((indent, k))
+        if v in ("|", ">", "|-", ">-", "|+", ">+"):
             block_indent = indent
-        path_id = tuple(sorted(seq_stack.items()))
-        k = (path_id, indent, key)
-        if k in seen:
-            return f"第 {no} 行与第 {seen[k]} 行重复的键 {key!r}(同层)"
-        seen[k] = no
         for a, b in (("[", "]"), ("{", "}")):
             if body.count(a) != body.count(b):
                 return f"第 {no} 行括号不配对: {body[:40]}"
     return None
+
+
+def check_tsx_batch(files):
+    """把 .ts/.tsx/.jsx 一次性交给 bun 的转译器做语法校验(无需 typescript 依赖)"""
+    if not files:
+        return {}
+    bun = os.environ.get("BUN_BIN", "bun")
+    try:
+        r = subprocess.run([bun, os.path.join(ROOT, "tools", "tsx_check.mjs")] + files,
+                           capture_output=True, text=True, timeout=300)
+        data = json.loads(r.stdout.strip().splitlines()[-1])
+        return {b["file"]: b["error"] for b in data.get("bad", [])}
+    except Exception as e:
+        return {f: f"TSX 校验器不可用:{str(e)[:80]}" for f in files}
 
 
 CHECKS = {".py": check_py, ".toml": check_toml, ".json": check_json, ".mjs": check_node,
@@ -132,7 +145,10 @@ def main():
 
     own, corpus = [], []
     counts = {}
+    tsx_files = []
     for path, ext in iter_files():
+        if ext in (".ts", ".tsx", ".jsx"):
+            tsx_files.append(path)
         fn = CHECKS.get(ext)
         if not fn:
             continue
@@ -144,6 +160,15 @@ def main():
         if err:
             counts[ext][1] += 1
             bucket.append((rel, err))
+
+    tsx_bad = check_tsx_batch(tsx_files)
+    if tsx_files:
+        counts.setdefault(".tsx", [0, 0])
+        counts[".tsx"][0] = len(tsx_files)
+        counts[".tsx"][1] = len(tsx_bad)
+        for path, err in tsx_bad.items():
+            rel = os.path.relpath(path, ROOT)
+            (corpus if path.startswith(CORPUS) else own).append((rel, err))
 
     if a.json:
         print(json.dumps({"counts": counts, "own": own, "corpus": corpus[:80]}, ensure_ascii=False, indent=1))
