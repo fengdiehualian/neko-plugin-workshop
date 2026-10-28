@@ -90,9 +90,9 @@ try {
 const profile = mkdtempSync(join(tmpdir(), "wb-check-"))
 const dbgPort = 9400 + Math.floor(Math.random() * 400)
 let chrome = null
-function launchChrome(port) {
+function launchChrome(port, headless = "new") {
   chrome = spawn(CHROME, [
-    "--headless=new",
+    `--headless=${headless}`,
     `--remote-debugging-port=${port}`,
     `--user-data-dir=${profile}`,
     "--no-first-run", "--no-default-browser-check", "--disable-gpu",
@@ -109,9 +109,11 @@ function cleanup(code) {
 }
 
 let wsUrl = ""
-for (let attempt = 0; attempt < 2 && !wsUrl; attempt++) {
+// 新版 headless 在部分环境会「network service crashed」,失败就退回旧的无头模式
+const MODES = ["new", "old"]
+for (let attempt = 0; attempt < MODES.length && !wsUrl; attempt++) {
   if (attempt) { try { chrome.kill() } catch {} await sleep(800) }
-  launchChrome(dbgPort + attempt)
+  launchChrome(dbgPort + attempt, MODES[attempt])
   const port = dbgPort + attempt
   for (let i = 0; i < 200 && !wsUrl; i++) {
     await sleep(150)

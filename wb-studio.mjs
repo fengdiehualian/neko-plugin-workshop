@@ -2173,6 +2173,18 @@ function originAllowed(origin) {
   }
 }
 
+const MAX_BODY_BYTES = 8 * 1024 * 1024
+/** 读请求体,超过上限就断开并返回已读部分(后续 JSON.parse 失败 → 统一走 400) */
+async function readBody(req, max = MAX_BODY_BYTES) {
+  let body = "", size = 0
+  for await (const ch of req) {
+    size += ch.length
+    if (size > max) { try { req.destroy() } catch {} break }
+    body += ch
+  }
+  return body
+}
+
 const srv = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${config.port}`)
   // Host 与 Origin 校验:拒绝 DNS rebinding 与一切跨站来源
@@ -2184,6 +2196,12 @@ const srv = createServer(async (req, res) => {
   if (!originAllowed(req.headers.origin)) {
     res.writeHead(403, { "content-type": "application/json; charset=utf-8" })
     res.end(JSON.stringify({ ok: false, error: "跨站请求被拒绝" }))
+    return
+  }
+  // 请求体上限:本机进程误发超大 body 时直接 413,别把主进程读爆(真正的流式上限在 readBody 里)
+  if (Number(req.headers["content-length"] || 0) > MAX_BODY_BYTES) {
+    res.writeHead(413, { "content-type": "application/json; charset=utf-8" })
+    res.end(JSON.stringify({ ok: false, error: "请求体过大(上限 8MB)" }))
     return
   }
   // 写接口(POST/DELETE/PUT/PATCH):必须 JSON content-type + 启动时随机 token
@@ -2212,8 +2230,7 @@ const srv = createServer(async (req, res) => {
       return
     }
     if (req.method === "POST" && url.pathname === "/api/setup") {
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const baseURL = String(b.baseURL || "").trim().replace(/\/+$/, "")
@@ -2277,8 +2294,7 @@ const srv = createServer(async (req, res) => {
     }
     // ---------- 主动测试连接(只测不存):给页面上的「测一下」按钮用 ----------
     if (req.method === "POST" && url.pathname === "/api/test") {
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const baseURL = String(b.baseURL || "").trim().replace(/\/+$/, "")
@@ -2367,8 +2383,7 @@ const srv = createServer(async (req, res) => {
     // ---------- 会话归档/取消归档 ----------
     let arm = url.pathname.match(/^\/api\/sessions\/([^/]+)\/archive$/)
     if (req.method === "POST" && arm) {
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const s = getSession(arm[1])
@@ -2388,8 +2403,7 @@ const srv = createServer(async (req, res) => {
     // ---------- 会话重命名(自定义命名) ----------
     let rm = url.pathname.match(/^\/api\/sessions\/([^/]+)\/rename$/)
     if (req.method === "POST" && rm) {
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const title = String(b.title || "").trim().slice(0, 50)
@@ -2441,8 +2455,7 @@ const srv = createServer(async (req, res) => {
       return
     }
     if (req.method === "POST" && url.pathname === "/api/apis") {
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const baseURL = String(b.baseURL || "").trim().replace(/\/+$/, "")
@@ -2533,8 +2546,7 @@ const srv = createServer(async (req, res) => {
     if (req.method === "POST" && cm) {
       const a = apis.items.find((x) => x.id === cm[1])
       if (!a) { res.writeHead(404, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ ok: false, error: "配置不存在" })); return }
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const raw = b.contextLimit
@@ -2569,8 +2581,7 @@ const srv = createServer(async (req, res) => {
     }
     if (req.method === "POST" && url.pathname === "/api/neko/install") {
       // {artifact: 绝对路径或工作区文件名} 安装/更新插件并启动
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const art = String(b.artifact || "")
@@ -2644,8 +2655,7 @@ const srv = createServer(async (req, res) => {
       // {pluginId, tool, args} -> 触发入口,返回插件真实输出
       // entry 型入口走 /runs 异步协议(与 N.E.K.O 主服 task_executor 同款),
       // register_llm_tool 型工具走 /api/llm-tools/callback
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const pluginId = String(b.pluginId || "")
@@ -3098,8 +3108,7 @@ async function runUpdate() {
       }
       if (req.method === "GET") return json(updSnapshot())
       if (req.method === "POST") {
-        let body = ""
-        for await (const ch of req) body += ch
+        const body = await readBody(req)
         let b = {}
         try { b = JSON.parse(body || "{}") } catch {}
         const action = String(b.action || "")
@@ -3123,8 +3132,7 @@ async function runUpdate() {
       }
       if (req.method === "GET") return out()
       if (req.method === "POST") {
-        let body = ""
-        for await (const ch of req) body += ch
+        const body = await readBody(req)
         let b = {}
         try { b = JSON.parse(body) } catch {}
         const bad = (msg) => {
@@ -3153,8 +3161,7 @@ async function runUpdate() {
         return
       }
       if (req.method === "POST") {
-        let body = ""
-        for await (const ch of req) body += ch
+        const body = await readBody(req)
         let b = {}
         try { b = JSON.parse(body) } catch {}
         config.strictVerify = !!b.strictVerify
@@ -3181,8 +3188,7 @@ async function runUpdate() {
         return
       }
       if (req.method === "POST") {
-        let body = ""
-        for await (const ch of req) body += ch
+        const body = await readBody(req)
         let b = {}
         try { b = JSON.parse(body) } catch {}
         const bad = (msg) => {
@@ -3307,8 +3313,7 @@ async function runUpdate() {
         return
       }
       if (req.method === "POST") {
-        let body = ""
-        for await (const ch of req) body += ch
+        const body = await readBody(req)
         let b = {}
         try { b = JSON.parse(body) } catch {}
         const v = Math.floor(Number(b.contextLimit))
@@ -3333,8 +3338,7 @@ async function runUpdate() {
     }
     // ---------- Markdown 导入/导出 ----------
     if (req.method === "POST" && url.pathname === "/api/import") {
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const name = String(b.name || "").replace(/\.md$/i, "").trim() || "导入的文档"
@@ -3410,8 +3414,7 @@ async function runUpdate() {
         return
       }
       if (busy) { res.writeHead(429); res.end(JSON.stringify({ ok: false, error: "上一个任务还没完成,稍等一下" })); return }
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let text = "", sid = null, mode = "build"
       try { const j = JSON.parse(body); text = String(j.text || "").trim(); sid = j.sessionId || null; mode = j.mode === "plan" ? "plan" : "build" } catch {}
       if (!text) { res.writeHead(400); res.end(JSON.stringify({ ok: false, error: "需求内容是空的" })); return }
@@ -3595,8 +3598,7 @@ async function runUpdate() {
     }
     // ---------- 在资源管理器里定位文件(改动列表点击) ----------
     if (req.method === "POST" && url.pathname === "/api/reveal") {
-      let body = ""
-      for await (const ch of req) body += ch
+      const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const raw = String(b.path || "").trim()
