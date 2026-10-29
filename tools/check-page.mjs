@@ -570,14 +570,19 @@ ${PROBE_SRC}
     })();
     const zoomed = Math.abs(parseFloat(document.body.style.zoom || '1') - 1.3) < 0.001;
     const labelOk = ($('#fontSizeVal').textContent || '').includes('130');
-    // 放大后:高度放开 + 允许滚动,且不能出现横向裁切
+    // 放大后:视觉尺寸仍等于视口(不横向裁切、不整页溢出),输入框仍在可视区内
     const docEl = document.scrollingElement || document.documentElement;
     const hOverflow = docEl.scrollWidth - window.innerWidth;
-    const overflowY = getComputedStyle(document.body).overflowY;
-    const canScroll = (docEl.scrollHeight - window.innerHeight) >= 0 && (overflowY === 'auto' || overflowY === 'scroll');
-    hOverflow <= 2 && canScroll
-      ? pass('字号放大后可滚动且不裁切', 'hOverflow=' + hOverflow + ' overflowY=' + overflowY)
-      : fail('字号放大后可滚动且不裁切', 'hOverflow=' + hOverflow + ' overflowY=' + overflowY + ' height=' + getComputedStyle(document.body).height);
+    const vOverflow = docEl.scrollHeight - window.innerHeight;
+    const composerIn = (() => {
+      const t = document.querySelector('textarea');
+      if (!t) return null;
+      const r = t.getBoundingClientRect();
+      return r.width > 0 && r.bottom <= window.innerHeight + 2;
+    })();
+    hOverflow <= 2 && vOverflow <= 8 && composerIn === true
+      ? pass('字号放大后不裁切(输入框仍在视口内)', 'h=' + hOverflow + ' v=' + vOverflow)
+      : fail('字号放大后不裁切(输入框仍在视口内)', 'h=' + hOverflow + ' v=' + vOverflow + ' composer=' + composerIn);
     // 还原
     fontChips.find((x) => x.dataset.f === 'default').click();
     $('#fontSizeReset').click();

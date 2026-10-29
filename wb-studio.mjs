@@ -978,16 +978,15 @@ const PAGE = `<!doctype html>
   body.theme-white{--bg:#f6f6f8;--card:#ffffff;--pink:#3a3d44;--pink-d:#24262b;--ink:#24262b;--border:#e4e5e9;--border-soft:#d7d9de;--tint:#eef0f3;--muted:#686d75;--muted-2:#888e97;--head-a:#ffffff;--head-b:#eef0f3;--head-ink:#2c2e33;--head-chip:rgba(0,0,0,.06);--head-chip-hover:rgba(0,0,0,.12);--head-on:#3a3d44;--head-on-ink:#fff;--shadow:rgba(0,0,0,.10)}
   body.theme-black{--bg:#131418;--card:#1d1f24;--pink:#e7e9ee;--pink-d:#cfd2da;--on-primary:#17181c;--ink:#e7e9ee;--border:#2b2e35;--border-soft:#353941;--tint:#262931;--muted:#8d929c;--muted-2:#787e89;--head-a:#1d1f24;--head-b:#131418;--head-ink:#e7e9ee;--head-chip:rgba(255,255,255,.08);--head-chip-hover:rgba(255,255,255,.16);--head-on:#e7e9ee;--head-on-ink:#17181c;--err-bg:#3a2226;--err-border:#6b3a3a;--err-ink:#f2b8b5;--shadow:rgba(0,0,0,.5)}
   *{box-sizing:border-box}
+  html{height:100%;overflow:hidden}
   body{margin:0;font-family:"Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column;align-items:center}
   header{position:sticky;top:0;z-index:50;width:100%;background:linear-gradient(135deg,var(--head-a),var(--head-b));color:var(--head-ink);padding:18px 24px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px var(--shadow)}
   header .logo{font-size:28px}
   header h1{margin:0;font-size:20px;font-weight:700}
   header small{opacity:.9;font-size:12px}
   #wrap{width:100%;max-width:1080px;margin:0 auto;flex:1;display:flex;gap:16px;padding:18px 16px 26px;min-height:0}
-  /* 字号放大(body zoom)时:不能再锁死 100vh + overflow:hidden,否则内容被放大后
-     超出视口又没有滚动条,底部/右侧直接看不见。放开高度,让页面可滚动。 */
-  body.zoomed{height:auto;min-height:100vh;overflow:auto}
-  body.zoomed #wrap{max-width:100%}
+  /* 字号缩放:body 用 zoom 放大后,再把 body 的 CSS 尺寸除回来,
+     这样「放大后的视觉尺寸」正好等于视口,既不变形也不裁切(见 applyUi)。 */
   #side{width:232px;flex:none;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
   #side h3{margin:0 0 2px;font-size:13px;color:var(--muted);font-weight:700}
   #newbtn{border:0;background:var(--pink);color:#fff;border-radius:10px;padding:9px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -1062,7 +1061,7 @@ const PAGE = `<!doctype html>
   #modeswitch{display:flex;background:var(--head-chip);border-radius:10px;padding:2px}
   .mbtn{background:transparent !important;color:var(--head-ink) !important;border-radius:8px !important;font-size:12px !important;padding:5px 10px !important}
   .mbtn.on{background:var(--head-on) !important;color:var(--head-on-ink) !important}
-  #setpanel{display:none;width:100%;background:var(--card);border-bottom:1px solid var(--border);padding:14px 22px 18px;box-shadow:0 4px 14px var(--shadow)}
+  #setpanel{display:none;width:100%;background:var(--card);border-bottom:1px solid var(--border);padding:14px 22px 18px;box-shadow:0 4px 14px var(--shadow);max-height:60vh;overflow-y:auto}
   #setpanel.open{display:block}
   .sp-tabs{display:flex;gap:6px;border-bottom:1px solid var(--border);padding-bottom:10px;position:relative}
   .sptab{border:0;background:var(--tint);color:var(--muted);border-radius:9px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -1683,9 +1682,18 @@ function applyUi(font,size,persist){
   const n=Number(size);
   uiFontSize=Math.min(130,Math.max(85,Number.isFinite(n)&&n>0?Math.round(n/5)*5:100));
   document.body.style.fontFamily=FONT_PRESETS[uiFont].css;
-  document.body.style.zoom=(uiFontSize/100).toFixed(2);
-  // 100% 保持原样(app 壳,内部滚动);非 100% 放开 body 高度,允许整页滚动
-  document.body.classList.toggle('zoomed',uiFontSize!==100);
+  const z=uiFontSize/100;
+  document.body.style.zoom=z.toFixed(2);
+  if(uiFontSize===100){
+    document.body.style.width='';
+    document.body.style.height='';
+  }else{
+    // zoom 会把布局放大 z 倍,把宽高先除以 z,放大后正好铺满视口 → 不裁切、不横向溢出
+    document.body.style.width='calc(100vw / '+z+')';
+    document.body.style.height='calc(100vh / '+z+')';
+  }
+  const sp=document.getElementById('setpanel');
+  if(sp) sp.style.maxHeight=uiFontSize===100?'':'calc(60vh / '+z+')';
   document.querySelectorAll('.fontopt').forEach(o=>o.classList.toggle('cur',o.dataset.f===uiFont));
   const sl=document.getElementById('fontSize');if(sl)sl.value=uiFontSize;
   const lab=document.getElementById('fontSizeVal');if(lab)lab.textContent=uiFontSize+'%';
