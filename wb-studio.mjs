@@ -984,6 +984,10 @@ const PAGE = `<!doctype html>
   header h1{margin:0;font-size:20px;font-weight:700}
   header small{opacity:.9;font-size:12px}
   #wrap{width:100%;max-width:1080px;margin:0 auto;flex:1;display:flex;gap:16px;padding:18px 16px 26px;min-height:0}
+  /* 字号放大(body zoom)时:不能再锁死 100vh + overflow:hidden,否则内容被放大后
+     超出视口又没有滚动条,底部/右侧直接看不见。放开高度,让页面可滚动。 */
+  body.zoomed{height:auto;min-height:100vh;overflow:auto}
+  body.zoomed #wrap{max-width:100%}
   #side{width:232px;flex:none;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
   #side h3{margin:0 0 2px;font-size:13px;color:var(--muted);font-weight:700}
   #newbtn{border:0;background:var(--pink);color:#fff;border-radius:10px;padding:9px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -1680,6 +1684,8 @@ function applyUi(font,size,persist){
   uiFontSize=Math.min(130,Math.max(85,Number.isFinite(n)&&n>0?Math.round(n/5)*5:100));
   document.body.style.fontFamily=FONT_PRESETS[uiFont].css;
   document.body.style.zoom=(uiFontSize/100).toFixed(2);
+  // 100% 保持原样(app 壳,内部滚动);非 100% 放开 body 高度,允许整页滚动
+  document.body.classList.toggle('zoomed',uiFontSize!==100);
   document.querySelectorAll('.fontopt').forEach(o=>o.classList.toggle('cur',o.dataset.f===uiFont));
   const sl=document.getElementById('fontSize');if(sl)sl.value=uiFontSize;
   const lab=document.getElementById('fontSizeVal');if(lab)lab.textContent=uiFontSize+'%';

@@ -570,6 +570,14 @@ ${PROBE_SRC}
     })();
     const zoomed = Math.abs(parseFloat(document.body.style.zoom || '1') - 1.3) < 0.001;
     const labelOk = ($('#fontSizeVal').textContent || '').includes('130');
+    // 放大后:高度放开 + 允许滚动,且不能出现横向裁切
+    const docEl = document.scrollingElement || document.documentElement;
+    const hOverflow = docEl.scrollWidth - window.innerWidth;
+    const overflowY = getComputedStyle(document.body).overflowY;
+    const canScroll = (docEl.scrollHeight - window.innerHeight) >= 0 && (overflowY === 'auto' || overflowY === 'scroll');
+    hOverflow <= 2 && canScroll
+      ? pass('字号放大后可滚动且不裁切', 'hOverflow=' + hOverflow + ' overflowY=' + overflowY)
+      : fail('字号放大后可滚动且不裁切', 'hOverflow=' + hOverflow + ' overflowY=' + overflowY + ' height=' + getComputedStyle(document.body).height);
     // 还原
     fontChips.find((x) => x.dataset.f === 'default').click();
     $('#fontSizeReset').click();
@@ -671,12 +679,15 @@ ${PROBE_SRC}
   $('#apiSaveOnly').click();
   await wbWait(() => ($('#apiMsg').textContent || '').indexOf('✅') >= 0, 6000);
   const savedOk = ($('#apiMsg').textContent || '').indexOf('✅') >= 0;
+  await wbWait(() => $$('.apirow').some((r) => r.textContent.indexOf('自动测试API') >= 0), 4000);
   const rowNow = $$('.apirow').find((r) => r.textContent.indexOf('自动测试API') >= 0);
   savedOk && rowNow ? pass('API「仅保存」并出现在列表', '上下文 64K') : fail('API「仅保存」并出现在列表', $('#apiMsg').textContent || '(无提示)');
   if (rowNow) {
+    // 同名条目可能不止一个(重复测试/重复保存):全部删掉再断言
     const jl = await (await fetch('/api/apis')).json();
-    const item = (jl.items || []).find((a) => a.name === '自动测试API');
-    if (item) await fetch('/api/apis/' + item.id, { method: 'DELETE' });
+    for (const item of (jl.items || []).filter((a) => a.name === '自动测试API')) {
+      await fetch('/api/apis/' + item.id, { method: 'DELETE' });
+    }
     if (window.loadApis) window.loadApis();
     await sleep(400);
     const jl2 = await (await fetch('/api/apis')).json();
