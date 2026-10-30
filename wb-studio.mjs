@@ -1007,7 +1007,13 @@ const PAGE = `<!doctype html>
   #compactbtn:hover{background:var(--tint);color:var(--pink-d)}
   #compactbtn:disabled{opacity:.6;cursor:wait}
   main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:0}
-  @media(max-width:760px){#wrap{flex-direction:column}#side{width:100%;max-height:150px}}
+  @media(max-width:760px){
+    /* 窄窗口:侧栏和顶栏都收一点,给聊天区留出可用高度(字号放大时尤其明显) */
+    #wrap{flex-direction:column;padding:10px 10px 14px}
+    #side{width:100%;max-height:110px}
+    header{padding:10px 14px;gap:8px}
+    header small{display:none}
+  }
   #chat{flex:1;display:flex;flex-direction:column;gap:12px;overflow-y:auto;padding:8px 4px}
   .msg{max-width:86%;padding:12px 16px;border-radius:16px;line-height:1.7;white-space:pre-wrap;word-break:break-word;font-size:14.5px}
   .user{align-self:flex-end;background:var(--pink);color:var(--on-primary);border-bottom-right-radius:4px}

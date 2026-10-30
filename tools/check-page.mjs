@@ -168,6 +168,12 @@ await send("Page.enable")
 await send("Log.enable")
 
 // ---------- 3. 打开页面 ----------
+// --viewport 1024x700:模拟不同窗口尺寸(缩放相关的 bug 往往只在窄屏/矮屏出现)
+const VIEW = arg("viewport", "")
+if (VIEW && /^\d+x\d+$/.test(VIEW)) {
+  const [w, h] = VIEW.split("x").map(Number)
+  await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: false })
+}
 await send("Page.navigate", { url: BASE + "/" })
 await send("Runtime.evaluate", { expression: "1" }) // 触发一次,确保上下文就绪
 await sleep(2500)
