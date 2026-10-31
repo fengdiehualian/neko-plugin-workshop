@@ -330,6 +330,8 @@ result = await evalJs(`(async () => {
   if (sent && JSON.parse(sent.body).text === '做一个喝水提醒插件' && JSON.parse(sent.body).mode === 'build') pass('回车发送 (/api/task)', 'mode=build');
   else fail('回车发送', sent ? 'payload=' + sent.body : '没有发出请求');
   t.value === '' ? pass('发送后清空输入框') : fail('发送后清空输入框', JSON.stringify(t.value));
+  // 冷启动第一次渲染可能略慢,轮询一下再断言(wbWait 定义在后面,这里用不上)
+  for (let wi = 0; wi < 25 && !$('#chat details.think'); wi++) await sleep(100)
   $('#chat details.think') ? pass('思考过程折叠块渲染', '详情块存在') : fail('思考过程折叠块渲染', '没有 details.think');
 
   // 5) Shift+回车 只换行
@@ -576,7 +578,9 @@ ${PROBE_SRC}
     })();
     const zoomed = Math.abs(parseFloat(document.body.style.zoom || '1') - 1.3) < 0.001;
     const labelOk = ($('#fontSizeVal').textContent || '').includes('130');
-    // 放大后:视觉尺寸仍等于视口(不横向裁切、不整页溢出),输入框仍在可视区内
+    // 放大后:视觉尺寸仍等于视口(不横向裁切、不整页溢出),输入框仍在可视区内。
+    // 设置面板占的高度不算数(短窗口下打开面板必然把聊天区顶下去,关掉就回来),量的是主界面
+    $('#setclose').click(); await sleep(300);
     const docEl = document.scrollingElement || document.documentElement;
     const hOverflow = docEl.scrollWidth - window.innerWidth;
     const vOverflow = docEl.scrollHeight - window.innerHeight;
@@ -589,6 +593,9 @@ ${PROBE_SRC}
     hOverflow <= 2 && vOverflow <= 8 && composerIn === true
       ? pass('字号放大后不裁切(输入框仍在视口内)', 'h=' + hOverflow + ' v=' + vOverflow)
       : fail('字号放大后不裁切(输入框仍在视口内)', 'h=' + hOverflow + ' v=' + vOverflow + ' composer=' + composerIn);
+    // 重新打开外观页签,让后面的还原流程继续
+    $('#setbtn').click(); await sleep(250);
+    if (tabs.length > 1) { tabs[1].click(); await sleep(150); }
     // 还原
     fontChips.find((x) => x.dataset.f === 'default').click();
     $('#fontSizeReset').click();
