@@ -651,6 +651,18 @@ ${PROBE_SRC}
   cb && cb.textContent.trim() && ring && circles.length === 2 && hasArc
     ? pass('上下文容量环渲染', '底环+进度环,' + cb.textContent.trim())
     : fail('上下文容量环渲染', 'ring=' + !!ring + ' circles=' + circles.length + ' arc=' + hasArc);
+  // 错误展示:识别 404 这类状态码并保留原文
+  const errDom = document.createElement('div');
+  errDom.innerHTML = errHtml('模型服务拒绝访问', 'HTTP 404 model_not_found');
+  const errHintEl = errDom.querySelector('.errhint');
+  const errRawEl = errDom.querySelector('details.errraw .tbody');
+  errHintEl && /404|模型|不存在/.test(errHintEl.textContent)
+    ? pass('错误气泡:给出可能原因', (errHintEl.textContent || '').slice(0, 24))
+    : fail('错误气泡:给出可能原因', errHintEl ? errHintEl.textContent : '没有 .errhint');
+  errRawEl && /404/.test(errRawEl.textContent)
+    ? pass('错误气泡:保留原始报错', (errRawEl.textContent || '').slice(0, 24))
+    : fail('错误气泡:保留原始报错', errRawEl ? errRawEl.textContent : '没有 details.errraw');
+
   cb && cb.querySelector('.ctxring') && cb.querySelector('.ctxring').getAttribute('title')
     ? pass('容量环 tooltip', cb.querySelector('.ctxring').getAttribute('title'))
     : fail('容量环 tooltip', '没有 title');

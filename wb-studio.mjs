@@ -1019,6 +1019,10 @@ const PAGE = `<!doctype html>
   .bot.err{border-color:var(--err-border);background:var(--err-bg);color:var(--err-ink)}
   .typing{align-self:flex-start;color:var(--muted);font-size:14px;padding:6px 12px}
   /* 上下文压缩提示:居中细条,不抢戏但能回看 */
+  .errhint{margin-top:8px;font-size:12.5px;line-height:1.7;background:var(--tint);border-left:3px solid var(--pink);border-radius:8px;padding:7px 10px;color:var(--ink)}
+  .errraw{margin-top:6px;font-size:12px;color:var(--muted)}
+  .errraw summary{cursor:pointer;user-select:none}
+  .errraw .tbody{margin-top:6px;white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto;background:var(--tint);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:Consolas,Menlo,monospace;font-size:11.5px;color:var(--muted)}
   .msg.notice{align-self:center;max-width:92%;background:transparent;border:1px dashed var(--border);color:var(--muted);font-size:12.5px;padding:6px 14px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .typing span{animation:blink 1.2s infinite}
   @keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
@@ -1346,6 +1350,32 @@ async function loadCtxLimit(){
     }
   }catch(e){}
 }
+// ---------- 错误解释:识别状态码/关键字,给出最可能的原因,原文折叠保留 ----------
+const ERR_HINTS=[
+  [/\b404\b|not found|model_not_found|model .* not found/i,'接口或模型不存在:检查模型名拼写、地址是否要带 /v1、服务商是否已下架该模型'],
+  [/\b409\b|conflict/i,'资源冲突:通常是重复创建或并发写入(同一会话被另一个窗口同时改),刷新后重试'],
+  [/\b400\b|bad request|invalid_request_error|invalid_request/i,'请求参数不合法:模型名、上下文长度或消息格式不符合服务商要求'],
+  [/\b401\b|unauthorized|invalid.*api.?key|incorrect api key/i,'密钥无效或过期:到设置里重新粘贴 Key'],
+  [/\b403\b|forbidden|permission|not available in the current token plan/i,'没权限或套餐不含该模型:换套餐内的模型,或去服务商申请权限'],
+  [/\b413\b|payload too large|请求体过大/i,'请求体太大:单次输入过长,拆成几段再发'],
+  [/\b429\b|rate.?limit|quota|tpm|rpm/i,'限流或额度不足:等几分钟再试,或换一个 API/模型'],
+  [/\b50[024]\b|internal server error|bad gateway|service unavailable|gateway timeout/i,'服务端异常:对方服务的问题,稍后重试或换 API'],
+  [/ECONNREFUSED|Unable to connect|fetch failed/i,'连不上服务:本地引擎没起来或端口没监听,重启一下工坊'],
+  [/ETIMEDOUT|timed? ?out|超时/i,'超时:网络慢或模型长时间没响应,重试或换个模型'],
+  [/ENOENT|no such file/i,'找不到文件或命令:检查路径是否正确、程序是否装上'],
+  [/ENOTFOUND|getaddrinfo/i,'域名解析失败:检查网络/DNS,或服务地址是否写错'],
+  [/ENOSPC|no space left/i,'磁盘空间不足:清点空间后重试'],
+  [/EACCES|EPERM|access denied/i,'权限不足:文件被占用或目录只读'],
+];
+function errHint(text){const s=String(text||'');for(const r of ERR_HINTS){if(r[0].test(s))return r[1]}return ''}
+function errHtml(msg,raw){
+  const hint=errHint(String(raw||'')+' '+String(msg||''));
+  let h='😢 咪呀,没成功:<br>'+esc(msg||'未知错误');
+  if(hint)h+='<div class="errhint">💡 可能原因:'+esc(hint)+'</div>';
+  const rawTxt=String(raw==null?'':raw).trim();
+  if(rawTxt&&rawTxt!==String(msg||'').trim())h+='<details class="errraw"><summary>原始报错</summary><div class="tbody">'+esc(rawTxt.slice(0,3000))+'</div></details>';
+  return h;
+}
 function add(cls,html){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function fmtTok(n){n=n||0;if(n>=10000)return (n/10000).toFixed(1)+'万';if(n>=1000)return (n/1000).toFixed(1)+'k';return ''+n}
@@ -1477,7 +1507,7 @@ function renderMessages(s){
     }
     if(m.role==='user')add('user',esc(m.content));
     else{
-      if(m.error&&!m.content)add('err','😢 '+esc(m.error));
+      if(m.error&&!m.content)add('err',errHtml(m.error,m.rawError));
       else{let html='';if(m.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(m.thinking)+'</div></details>';const _x=parseExtras(m.content);html+=esc(_x.text);html+=modFilesHtml(m.modifiedFiles);if(m.artifacts&&m.artifacts.length){html+='<br>';for(const a of m.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}}html+=extrasHtml(_x);html+=usageLine(m.usage);add(m.error?'bot err':'bot ok',html);}
     }
   }
@@ -1542,7 +1572,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
     if(j.compactAfter){const c=j.compactAfter;add('notice','🗜 本轮结束后上下文已自动压缩('+fmtCtx(c.before)+' → ~'+fmtCtx(c.after)+' tokens) · 摘要已保留');}
     if(j.retries&&j.retries.length){add('notice',retryText(j.retries)+(j.ok?'并恢复':'仍未成功'));}
     if(j.stopped){add('err','⏹ 已停止');}
-    else if(!j.ok){add('err','😢 咪呀,没成功:<br>'+esc(j.error||'未知错误'));if(j.reply)add('bot err',esc(j.reply));}
+    else if(!j.ok){add('err',errHtml(j.error,j.rawError||j.detail));if(j.reply)add('bot err',esc(j.reply));}
     else{
       let html='';
       if(j.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(j.thinking)+'</div></details>';
@@ -1556,7 +1586,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
       add('ok',html);
     }
     if(j&&j.usage){ctxUsed=(j.usage.input||0)+(j.usage.output||0);updateCtxBar();}
-  }catch(err){clearInterval(pollTimer);ty.remove();if(liveThink)liveThink.remove();add('err','😢 连接出错:'+esc(String(err)))}
+  }catch(err){clearInterval(pollTimer);ty.remove();if(liveThink)liveThink.remove();add('err',errHtml('连接出错:'+String(err),String(err)))}
   b.disabled=false;stopbtn.style.display='none';t.focus();
 };
 // 回车发送(Shift+回车换行;中文输入法选词的回车不发送)
@@ -3490,6 +3520,7 @@ async function runUpdate() {
         }
         s.engineSessionId = result.sessionId || s.engineSessionId
         s.updatedAt = Date.now()
+        const rawErrorText = String(result.error || "")
         // CLI 底座没有引擎那套错误翻译:零输出且重试过时补一句人话,别把空错误甩给页面
         if (!result.ok && !String(result.error || "").trim() && result.retries && result.retries.length) {
           result.error = noResponseError(result.retries)
@@ -3504,11 +3535,12 @@ async function runUpdate() {
             content: result.reply,
             at: Date.now(),
             error: result.ok ? undefined : String(result.error || ""),
+            rawError: result.ok ? undefined : (rawErrorText || undefined),
             artifacts: result.artifacts || [],
             modifiedFiles: result.modifiedFiles || [],
           })
         } else {
-          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || "") })
+          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || ""), rawError: rawErrorText || undefined })
         }
         if (s.title === "新对话" && text) {
           s.title = text.replace(/\s+/g, " ").slice(0, 18) + (text.length > 18 ? "…" : "")
@@ -3521,6 +3553,7 @@ async function runUpdate() {
           saveSessions()
         }
         result.sessionId = s.id
+        if (!result.ok && rawErrorText) result.rawError = rawErrorText
         if (compactInfo) result.compact = compactInfo
         if (compactAfterCli) result.compactAfter = compactAfterCli
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
@@ -3542,6 +3575,7 @@ async function runUpdate() {
         // 回写会话记忆(引擎会话 id + 双方消息 + 产物),实时落盘
         s.engineSessionId = result.sessionId || s.engineSessionId
         s.updatedAt = Date.now()
+        const rawErrorText = String(result.error || "")
         s.messages.push({ role: "user", content: text, at: Date.now(), mode })
         if (result.retries && result.retries.length) {
           s.messages.push({ role: "assistant", content: "", notice: "retry", at: Date.now(), retries: result.retries })
@@ -3558,11 +3592,12 @@ async function runUpdate() {
             thinking: result.thinking || undefined,
             usage: turnTotal > 0 ? u : undefined,
             error: result.ok ? undefined : String(result.error || ""),
+            rawError: result.ok ? undefined : (rawErrorText || undefined),
             artifacts: result.artifacts || [],
             modifiedFiles: result.modifiedFiles || [],
           })
         } else if (result.error) {
-          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error), usage: turnTotal > 0 ? u : undefined })
+          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error), rawError: rawErrorText || undefined, usage: turnTotal > 0 ? u : undefined })
         }
         // 首条用户消息截断为标题
         if (s.title === "新对话" && text) {
@@ -3577,7 +3612,8 @@ async function runUpdate() {
           saveSessions()
         }
         if (!result.ok) {
-          const raw = String(result.error || "")
+          const raw = rawErrorText
+          if (raw) result.rawError = raw
           if (result.stopped) {
             result.error = "任务已停止"
           } else if (/401|403|api key|apikey|unauthorized|invalid/i.test(raw)) {
