@@ -655,17 +655,12 @@ ${PROBE_SRC}
     ? pass('容量环 tooltip', cb.querySelector('.ctxring').getAttribute('title'))
     : fail('容量环 tooltip', '没有 title');
 
-  // 上下文压缩按钮:点一下要真的发出 /compact,并给出提示条
-  const cbtn = $('#compactbtn');
-  if (cbtn) {
-    const n0 = calls().filter((c) => c.url.includes('/compact')).length;
-    cbtn.click();
-    await sleep(1500);
-    const sent = calls().filter((c) => c.url.includes('/compact')).length > n0;
-    const notice = $('#chat .msg.notice');
-    sent ? pass('「压缩上下文」按钮 → /compact', notice ? '已出现提示条' : '请求已发出')
-      : fail('「压缩上下文」按钮', '没发出请求');
-  } else fail('「压缩上下文」按钮', '找不到 #compactbtn');
+  // 上下文压缩:界面只保留自动压缩(手动按钮已移除),阈值由服务端下发
+  !$('#compactbtn') ? pass('手动压缩按钮已移除') : fail('手动压缩按钮已移除', '仍然存在 #compactbtn');
+  const ctxInfo = await (await fetch('/api/context')).json();
+  typeof ctxInfo.compactRatio === 'number' && ctxInfo.compactRatio > 0 && ctxInfo.compactRatio < 1
+    ? pass('自动压缩阈值可读', 'ratio=' + ctxInfo.compactRatio)
+    : fail('自动压缩阈值可读', JSON.stringify(ctxInfo).slice(0, 80));
 
   // 19) 单 API 上下文:行内有 🧠 chip,表单里有 #apiCtx
   $('#apiCtx') ? pass('API 表单含「上下文窗口」字段') : fail('API 表单含「上下文窗口」字段', '找不到 #apiCtx');

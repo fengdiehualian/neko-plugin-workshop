@@ -1003,9 +1003,6 @@ const PAGE = `<!doctype html>
   #archbtn{margin-top:auto;border:0;background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer;padding:8px 10px;border-radius:9px;font-family:inherit;text-align:left}
   #archbtn:hover{background:var(--tint)}
   #archbtn.on{background:var(--tint);color:var(--pink-d);font-weight:700}
-  #compactbtn{margin-top:4px;border:0;background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer;padding:8px 10px;border-radius:9px;font-family:inherit;text-align:left}
-  #compactbtn:hover{background:var(--tint);color:var(--pink-d)}
-  #compactbtn:disabled{opacity:.6;cursor:wait}
   main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:0}
   @media(max-width:760px){
     /* 窄窗口:侧栏和顶栏都收一点,给聊天区留出可用高度(字号放大时尤其明显) */
@@ -1294,7 +1291,6 @@ const PAGE = `<!doctype html>
     <button id="newbtn">+ 新对话</button>
     <div id="slist"></div>
     <button id="archbtn" title="在会话列表和已归档对话之间切换">🗂 查看已归档</button>
-    <button id="compactbtn" title="把较早的对话压成摘要,腾出上下文空间(自动压缩之外的兜底)">🗜 压缩上下文</button>
   </aside>
   <main>
   <div id="chat">
@@ -1399,20 +1395,6 @@ const archbtn=document.getElementById('archbtn');
 function renderArchBtn(){archbtn.textContent=showArchived?'← 返回对话列表':'🗂 查看已归档';archbtn.classList.toggle('on',showArchived);archbtn.title=showArchived?'返回未归档的对话列表':'查看已归档的对话';}
 archbtn.onclick=()=>{showArchived=!showArchived;try{localStorage.setItem('wb_showarch',showArchived?'1':'0')}catch(e){};renderArchBtn();refreshList();};
 renderArchBtn();
-// 手动压缩上下文:阈值之外的兜底入口(会话很长但还没触发自动压缩时,用户可主动腾空间)
-document.getElementById('compactbtn').onclick=async()=>{
-  const btn=document.getElementById('compactbtn');
-  if(!curSession||btn.disabled)return;
-  btn.disabled=true;const old=btn.textContent;btn.textContent='🗜 压缩中…';
-  try{
-    const r=await fetch('/api/sessions/'+curSession+'/compact',{method:'POST'});
-    const j=await r.json();
-    if(j.ok&&j.compact){await loadCurrent();}
-    else if(j.ok){add('notice','🗜 这个会话还不够长,暂时不用压缩');}
-    else{alert(j.error||'压缩失败');}
-  }catch(e){alert('压缩失败:'+e);}
-  btn.disabled=false;btn.textContent=old;
-};
 async function refreshList(){
   const j=await(await fetch('/api/sessions')).json();
   // 底部状态栏:当前会话的 token 累计(随会话切换/任务完成更新)
@@ -1557,6 +1539,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
     // 若已切走,结果服务端早已存进归属会话,切回时自然可见——绝不能拽回 curSession 或串台渲染(实战踩过:侧边栏与聊天区错位,像"切换失灵")
     if(curSession!==sentTo)return;
     if(j.compact){const c=j.compact;add('notice','🗜 上下文接近上限,已自动压缩('+fmtCtx(c.before)+' → ~'+fmtCtx(c.after)+' tokens) · 摘要已保留');}
+    if(j.compactAfter){const c=j.compactAfter;add('notice','🗜 本轮结束后上下文已自动压缩('+fmtCtx(c.before)+' → ~'+fmtCtx(c.after)+' tokens) · 摘要已保留');}
     if(j.retries&&j.retries.length){add('notice',retryText(j.retries)+(j.ok?'并恢复':'仍未成功'));}
     if(j.stopped){add('err','⏹ 已停止');}
     else if(!j.ok){add('err','😢 咪呀,没成功:<br>'+esc(j.error||'未知错误'));if(j.reply)add('bot err',esc(j.reply));}
@@ -3531,8 +3514,15 @@ async function runUpdate() {
           s.title = text.replace(/\s+/g, " ").slice(0, 18) + (text.length > 18 ? "…" : "")
         }
         saveSessions()
+        let compactAfterCli = null
+        try { compactAfterCli = await compactSession(s, { reason: "auto-after" }) } catch (e) { console.warn("[wb-studio] 任务后压缩失败(CLI):", e?.message) }
+        if (compactAfterCli) {
+          s.messages.push({ role: "assistant", content: "", notice: "compact", at: Date.now(), compact: compactAfterCli })
+          saveSessions()
+        }
         result.sessionId = s.id
         if (compactInfo) result.compact = compactInfo
+        if (compactAfterCli) result.compactAfter = compactAfterCli
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify(result))
         return
@@ -3579,6 +3569,13 @@ async function runUpdate() {
           s.title = text.replace(/\s+/g, " ").slice(0, 18) + (text.length > 18 ? "…" : "")
         }
         saveSessions()
+        // 任务结束就检查一次:这一轮可能把上下文撑到阈值以上,当场压掉,下一轮直接轻装
+        let compactAfter = null
+        try { compactAfter = await compactSession(s, { reason: "auto-after" }) } catch (e) { console.warn("[wb-studio] 任务后压缩失败:", e?.message) }
+        if (compactAfter) {
+          s.messages.push({ role: "assistant", content: "", notice: "compact", at: Date.now(), compact: compactAfter })
+          saveSessions()
+        }
         if (!result.ok) {
           const raw = String(result.error || "")
           if (result.stopped) {
@@ -3608,6 +3605,7 @@ async function runUpdate() {
         }
         result.sessionId = s.id // 网页层拿到的统一是工坊会话 id
         if (compactInfo) result.compact = compactInfo
+        if (compactAfter) result.compactAfter = compactAfter
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify(result))
       } finally {
