@@ -1,5 +1,8 @@
 # 插件开发入门文档
 
+> ⚠️ **本文里的 `uv run neko-plugin …` 写法已过时**：便携/离线环境一律改用 `python plugin\neko_plugin_cli\cli.py <子命令> …`（N.E.K.O 仓库根执行），**禁止 `uv run`**（会触发全量依赖重建，数 GB 下载+超时）。子命令与参数含义不变。
+
+
 如果你想让 N.E.K.O 多做一件事，插件通常是最简单的起点。插件可以看作一个小型 Python 项目：它用 plugin.toml 介绍自己，再通过 NekoPluginBase 子类提供具体功能。开始制作插件之前，不需要先读懂整个 N.E.K.O 项目或理解它的内部架构。
 
 ## 先认识两个文件

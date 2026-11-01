@@ -1,5 +1,8 @@
 # 把插件发布到 N.E.K.O 插件市场
 
+> ⚠️ **本文里的 `uv run neko-plugin …` 写法已过时**：便携/离线环境一律改用 `python plugin\neko_plugin_cli\cli.py <子命令> …`（N.E.K.O 仓库根执行），**禁止 `uv run`**（会触发全量依赖重建，数 GB 下载+超时）。子命令与参数含义不变。
+
+
 这篇教程接着[快速开始](/zh-CN/plugins/quick-start)往下走：把已经能在源码版 N.E.K.O 中运行的插件上传到 GitHub，提交第一次审核，发布第一个可安装版本，然后继续发布后续版本。
 
 下面使用快速开始中创建的 `hello_world` 作为示例。它的源码一直放在：

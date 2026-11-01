@@ -15,7 +15,7 @@
  */
 
 import { createServer } from "node:http"
-import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, createReadStream, appendFileSync, mkdirSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, createReadStream, appendFileSync, mkdirSync, symlinkSync, cpSync } from "node:fs"
 import { join, dirname, basename, normalize, resolve, relative, isAbsolute } from "node:path"
 import { spawn, spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
@@ -168,9 +168,43 @@ function zcodeLaunch() {
   if (b && !zcodeCmd().some((x) => x && x !== "zcode")) return { cmd: [b.exe, b.cjs], bundled: true }
   return { cmd: zcodeCmd(), bundled: false }
 }
+/** 把工坊自带的技能(插件开发规范 + 社区插件提供的技能)挂到工作区,ZCode 只认 <cwd>/.agents/skills */
+function workspaceSkillSources() {
+  const out = []
+  const packs = join(__dirname, "packs", "neko-plugin", "skill")
+  if (existsSync(packs)) for (const n of readdirSync(packs)) out.push([n, join(packs, n)])
+  const corpus = join(__dirname, "market-corpus")
+  if (existsSync(corpus)) {
+    for (const p of readdirSync(corpus)) {
+      for (const sub of ["skills", "skill"]) {           // 社区插件两种写法都有
+        const dir = join(corpus, p, "src", sub)
+        if (!existsSync(dir)) continue
+        for (const n of readdirSync(dir)) if (existsSync(join(dir, n, "SKILL.md"))) out.push([n, join(dir, n)])
+      }
+    }
+  }
+  const seen = new Set(), uniq = []
+  for (const [n, t] of out) { if (seen.has(n)) continue; seen.add(n); uniq.push([n, t]) }
+  return uniq
+}
+/** 幂等:已存在就跳过;先建 junction(不占空间、源改即生效),不行再退回复制 */
+function ensureWorkspaceSkills() {
+  const base = join(config.workspace, ".agents", "skills")
+  const list = []
+  try { mkdirSync(base, { recursive: true }) } catch { return list }
+  for (const [name, target] of workspaceSkillSources()) {
+    const dest = join(base, name)
+    if (existsSync(dest)) { list.push(name); continue }
+    try { symlinkSync(target, dest, "junction"); list.push(name) }
+    catch { try { cpSync(target, dest, { recursive: true }); list.push(name) } catch {} }
+  }
+  return list
+}
+
 /** ZCode 运行环境:内置 provider 模板 + 用当前启用的 API 现场生成个人配置 + 独立数据目录 */
 function zcodeRuntimeEnv() {
   const env = {}
+  try { ensureWorkspaceSkills() } catch {}
   const builtin = join(ZCODE_DIR, "zcode-builtin.json")
   if (existsSync(builtin)) env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE = builtin
   const dataDir = join(__dirname, "runtime", "zcode-data")
@@ -3981,6 +4015,10 @@ const boot = async () => {
       try { appendFileSync(join(__dirname, "runtime", "studio.log"), `[${new Date().toISOString()}] studio 退出 code=${code}\n`) } catch {}
     })
   } catch {}
+  try {
+    const mounted = ensureWorkspaceSkills()
+    if (mounted.length) console.log(`[wb-studio] 技能已挂载到工作区: ${mounted.join(", ")}`)
+  } catch (e) { console.warn("[wb-studio] 技能挂载失败:", e?.message) }
   if (backendCfg.mode === "zcode") {
     // 底座是 ZCode 时不拉本地引擎:省 184MB 内存和 20-30 秒冷启;切回 OpenCode 时任务前会自己拉起
     console.log("[wb-studio] 底座 = ZCode,跳过本地引擎启动")
