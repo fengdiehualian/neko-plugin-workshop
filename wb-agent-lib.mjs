@@ -972,11 +972,12 @@ function zcodeWorthRetry(r) {
 
 export async function driveZcode(opts = {}) {
   // 会话失效 → 新开;限流/空回复 → 等几秒再来一次。最多两次,别无限重试烧钱
+  const backoff = [15000, 40000]   // 免费额度的 tpm 限制通常按分钟算,退避太短等于白试
   let res = await runZcodeOnce(opts)
-  for (let i = 0; i < 2 && zcodeWorthRetry(res); i += 1) {
+  for (let i = 0; i < backoff.length && zcodeWorthRetry(res); i += 1) {
     const why = res.error && ZCODE_RETRYABLE.test(String(res.error)) ? "限流/上游抖动" : "空回复"
-    console.warn(`[wb-agent-lib] ZCode ${why},6 秒后重试(${i + 1}/2)`)
-    await zcodeSleep(6000)
+    console.warn(`[wb-agent-lib] ZCode ${why},${Math.round(backoff[i] / 1000)} 秒后重试(${i + 1}/${backoff.length})`)
+    await zcodeSleep(backoff[i])
     res = await runZcodeOnce({ ...opts, sessionID: undefined })
   }
   return res
