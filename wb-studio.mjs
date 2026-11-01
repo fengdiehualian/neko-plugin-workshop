@@ -86,6 +86,7 @@ const defaultConfig = {
   timeoutSec: 1500,
   stallTimeoutSec: 360, // 无进展看门狗:任务连续 N 秒没有任何引擎事件就自动中止(慢中转+长思考可几分钟无事件,给足 6 分钟)
   retryMax: 2, // 模型无响应自动重试次数(0=关闭);只在「没有任何产出」时重试
+  thinkingLevel: "auto", // 思考强度:auto/none/low/medium/high/xhigh(见 THINK_LEVELS)
   retryDelaySec: 3, // 首次退避秒数,之后翻倍(3s → 6s → 12s,上限 30s)
   strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告)
   contextLimit: 128000, // 上下文容量(tokens):模型上下文窗口大小,用于底部容量显示
@@ -100,6 +101,12 @@ function resolvePath(p) {
   if (/^\.\.[\/\\]|^\.[\/\\]/.test(p)) return join(__dirname, p)
   return p
 }
+const THINK_LEVELS = ["auto", "none", "low", "medium", "high", "xhigh"]
+/** 思考强度:OpenAI 系只认 minimal/low/medium/high,映射一下;none 用 minimal(最低但不报错) */
+function openaiEffort(level) {
+  return level === "none" ? "minimal" : level === "xhigh" ? "high" : level
+}
+
 let config = defaultConfig
 try {
   config = { ...defaultConfig, ...JSON.parse(readFileSync(CONFIG_PATH, "utf8")) }
@@ -107,6 +114,7 @@ try {
   // 配置文件损坏(常见:BOM/手改语法错)时不再静默用默认值,提示出来以免"改了端口/路径却不生效"
   console.error(`[wb-studio] ⚠ 配置文件解析失败,已用默认配置: ${e.message}`)
 }
+if (!THINK_LEVELS.includes(config.thinkingLevel)) config.thinkingLevel = "auto"
 for (const k of ["workspace", "engineExe", "bunPath", "pythonPath", "opencodeRepo", "nekoRepo"]) {
   config[k] = resolvePath(config[k])
 }
@@ -250,7 +258,14 @@ function zcodeRuntimeEnv() {
             }],
           },
           modelConfigRules: { providerModelRules: [], manualProviderModelRules: [] },
-          defaultModelSelection: { providerId: "workshop", modelId: a.modelID },
+          defaultModelSelection: {
+            providerId: "workshop",
+            modelId: a.modelID,
+            // ZCode 的思考强度是 modelSelection.options.reasoningLevel(与 provider/model 一起校验)
+            ...(config.thinkingLevel && config.thinkingLevel !== "auto"
+              ? { options: { reasoningLevel: config.thinkingLevel } }
+              : {}),
+          },
         },
       }
       writeFileSync(provFile, JSON.stringify(cfg, null, 2), "utf8")
@@ -546,7 +561,8 @@ function writeProvider({ baseURL, apiKey, modelID, protocol }) {
         name: proto.label,
         protocol: protocol || "openai",
         options,
-        models: { [modelID]: { name: modelID } },
+        // 思考强度:交给 provider SDK 的 reasoningEffort(OpenAI 系支持 minimal/low/medium/high)
+        models: { [modelID]: { name: modelID, ...(config.thinkingLevel && config.thinkingLevel !== "auto" ? { options: { reasoningEffort: openaiEffort(config.thinkingLevel) } } : {}) } },
       },
     },
   }
@@ -576,6 +592,7 @@ function saveUserSettings() {
     retryDelaySec: config.retryDelaySec,
     timeoutSec: config.timeoutSec,
     stallTimeoutSec: config.stallTimeoutSec,
+    thinkingLevel: config.thinkingLevel,
     uiFont: config.uiFont,
     uiFontSize: config.uiFontSize,
   })
@@ -1354,6 +1371,21 @@ const PAGE = `<!doctype html>
     <div class="sp-head">超时与重试 <span class="sp-tip">保存后从下一个任务开始生效;任务总超时是整轮上限,无响应超时是连续多久没收到输出就判卡死</span></div>
     <div>
       <div style="font-size:13.5px;color:var(--ink)"><b>运行参数</b> <span style="color:var(--muted-2);font-size:12px">(超时与自动重试)</span></div>
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <label style="font-size:12.5px;color:var(--muted-2)">思考强度
+          <select id="thinkLevel" style="margin-left:6px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+            <option value="auto">自动(模型默认)</option>
+            <option value="none">关(最快)</option>
+            <option value="low">低</option>
+            <option value="medium">中</option>
+            <option value="high">高</option>
+            <option value="xhigh">最高(最慢)</option>
+          </select>
+        </label>
+        <button type="button" id="thinkSave" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">保存</button>
+        <span id="thinkMsg" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <div class="sp-tip" style="margin-top:6px">档位越高想得越久、也越费 token;「自动」= 不指定,由模型自己决定。ZCode 底座下一个任务即生效,OpenCode 底座会在任务前自动重启引擎后生效。</div>
       <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px">
         <label style="font-size:12.5px;color:var(--muted-2)">任务总超时(秒)
           <input id="timeoutSec" type="number" min="60" max="7200" step="10" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
@@ -2116,6 +2148,27 @@ async function saveTuning(payload,okText){
     }else msg.textContent=(j&&j.error)||'保存失败';
   }catch(e){msg.textContent='连接出错';}
 }
+// 思考强度:读后端 → 填 select;保存后两套底座都按新档位生成配置
+async function loadThink(){
+  try{
+    const j=await(await fetch('/api/think')).json();
+    const el=document.getElementById('thinkLevel');
+    if(j&&j.ok&&el)el.value=j.level||'auto';
+  }catch(e){}
+}
+loadThink();
+const thinkSaveBtn=document.getElementById('thinkSave');
+if(thinkSaveBtn)thinkSaveBtn.onclick=async()=>{
+  const el=document.getElementById('thinkLevel'),msg=document.getElementById('thinkMsg');
+  if(!el)return;
+  msg.className='';msg.textContent='保存中…';
+  try{
+    const r=await fetch('/api/think',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({level:el.value})});
+    const j=await r.json();
+    if(j&&j.ok){msg.textContent='✅ 已保存:'+el.options[el.selectedIndex].text;setTimeout(()=>{if((msg.textContent||'').startsWith('✅'))msg.textContent='';},2000);}
+    else msg.className='bad',msg.textContent=(j&&j.error)||'保存失败';
+  }catch(e){msg.className='bad';msg.textContent='连接出错';}
+};
 // 手动压缩当前会话(设置 → 运行;平时靠自动压缩,这里只是兜底)
 const compactNowBtn=document.getElementById('compactNow');
 if(compactNowBtn)compactNowBtn.onclick=async()=>{
@@ -3488,6 +3541,28 @@ async function runUpdate() {
         res.end(JSON.stringify({ ok: true, strictVerify: config.strictVerify }))
         return
       }
+    }
+    // ---------- 思考强度(auto/none/low/medium/high/xhigh;落在 settings.json) ----------
+    if (url.pathname === "/api/think") {
+      const json = (code, obj) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)) }
+      if (req.method === "GET") {
+        return json(200, { ok: true, level: config.thinkingLevel, levels: THINK_LEVELS, backend: backendCfg.mode })
+      }
+      if (req.method === "POST") {
+        const body = await readBody(req)
+        let b = {}
+        try { b = JSON.parse(body) } catch {}
+        const lv = String(b.level || "").trim()
+        if (!THINK_LEVELS.includes(lv)) return json(400, { ok: false, error: `思考强度只能是 ${THINK_LEVELS.join(" / ")}` })
+        config.thinkingLevel = lv
+        saveUserSettings()
+        // 引擎配置要重写(下次任务前会自动重启引擎让新档位生效);ZCode 每次任务现生成配置,无需额外动作
+        applyEnabledApi()
+        engineConfigStale = true
+        console.log(`[wb-studio] 思考强度已设为 ${lv}`)
+        return json(200, { ok: true, level: lv })
+      }
+      return json(405, { ok: false, error: "不支持的方法" })
     }
     // ---------- 模型无响应自动重试(用户偏好,落在 settings.json) ----------
     if (url.pathname === "/api/retry") {
