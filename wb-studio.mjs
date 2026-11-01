@@ -230,6 +230,19 @@ function ensureWorkspaceSkills() {
 }
 
 /** ZCode 运行环境:内置 provider 模板 + 用当前启用的 API 现场生成个人配置 + 独立数据目录 */
+/** 取最近几轮对话做成简短记录,给"新开的 ZCode 会话"补上下文(有 resume 时不需要) */
+function recentTranscript(s, maxMsgs = 10, maxChars = 3000) {
+  const ms = ((s && s.messages) || []).filter((m) => m && m.content && !m.notice)
+  const picked = ms.slice(-maxMsgs)
+  let out = ""
+  for (const m of picked) {
+    const who = m.role === "user" ? "用户" : "助手"
+    const t = String(m.content).replace(/\s+/g, " ").slice(0, 500)
+    out += `${who}:${t}\n`
+  }
+  return out.length > maxChars ? out.slice(-maxChars) : out
+}
+
 function zcodeRuntimeEnv() {
   const env = {}
   try { ensureWorkspaceSkills() } catch {}
@@ -276,6 +289,8 @@ function zcodeRuntimeEnv() {
     console.warn("[wb-studio] 生成 ZCode 配置失败:", e?.message)
   }
   env.ZCODE_DATA_BASE_DIR = dataDir
+  // 严格校验:和 CLI 底座一致,通过 WB_STRICT 让工作区的 wb.cmd 加 --strict
+  if (config.strictVerify) env.WB_STRICT = "1"
   return env
 }
 
@@ -2630,7 +2645,8 @@ const srv = createServer(async (req, res) => {
       }
       config.model = `custom/${modelID}`
       // 后台带新配置重启引擎,应答立即返回(任务侧有 engineConfigStale 兜底)
-      restartEngineBackground()
+      // ZCode 底座不用本地引擎,别在引导页白起一个 184MB 进程
+      if (backendCfg.mode !== "zcode") restartEngineBackground()
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify({ ok: true, warning, testModel: test.model || null }))
       return
@@ -3881,12 +3897,17 @@ async function runUpdate() {
       if (useZcode || cliEngineReady()) {
         // 外部底座(ZCode / 任意 Agent CLI):整段任务交给子进程,凭据由底座自理,无 SSE/毒化恢复路径
         let result
-        const taskBook = buildWishPrompt(text, mode, askCount, memory, userMem)
+        // ZCode 新会话(首次/会话失效)拿不到服务端历史,这里把最近往来附在任务书末尾
+        const hist = useZcode && !s.zcodeSessionId ? recentTranscript(s) : ""
+        const taskBook = buildWishPrompt(text, mode, askCount, memory, userMem) +
+          (hist ? `\n【本会话此前的往来(供衔接,不必复述)】\n${hist}` : "")
         try {
           result = await runTaskWithRetry(useZcode ? "zcode" : "cli", () =>
             useZcode
               ? driveZcode({
-                  text: taskBook, dir: config.workspace, cmd: zcodeLaunch().cmd, zcodeMode: backendCfg.zcodeMode,
+                  text: taskBook, dir: config.workspace, cmd: zcodeLaunch().cmd,
+                  // UI 的「计划模式」要真的落到 ZCode 权限模式上,否则它照样直接写文件
+                  zcodeMode: mode === "plan" ? "plan" : backendCfg.zcodeMode,
                   env: zcodeRuntimeEnv(),
                   // 总超时沿用全局设置;真正的"挂死"交给无输出看门狗(有输出就续命),大任务不再被 240s 一刀切
                   timeoutSec: config.timeoutSec, stallTimeoutSec: config.stallTimeoutSec, signal: currentAbort.signal,
