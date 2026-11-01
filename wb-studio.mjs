@@ -15,12 +15,12 @@
  */
 
 import { createServer } from "node:http"
-import { readFileSync, existsSync, readdirSync, statSync, createReadStream, appendFileSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, createReadStream, appendFileSync, mkdirSync } from "node:fs"
 import { join, dirname, basename, normalize, resolve, relative, isAbsolute } from "node:path"
-import { spawn } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
-import { driveAgent, driveAgentCli, planModelRetry, formatUserMemory, buildWishPrompt } from "./wb-agent-lib.mjs"
+import { driveAgent, driveAgentCli, driveZcode, planModelRetry, formatUserMemory, buildWishPrompt } from "./wb-agent-lib.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -109,6 +109,46 @@ try {
 }
 for (const k of ["workspace", "engineExe", "bunPath", "pythonPath", "opencodeRepo", "nekoRepo"]) {
   config[k] = resolvePath(config[k])
+}
+
+// ---------- Agent 底座:opencode(内置引擎) / zcode(外部 CLI) ----------
+// 只影响「谁来干活」;会话、上下文压缩、产物扫描、停止按钮都由上层统一处理。
+const BACKEND_PATH = join(__dirname, "runtime", "backend.json")
+const BACKEND_DEFAULT = { mode: "opencode", zcodeCmd: [], zcodeMode: "yolo" }
+let backendCfg = { ...BACKEND_DEFAULT }
+try {
+  const raw = JSON.parse(readFileSync(BACKEND_PATH, "utf8"))
+  backendCfg = { ...BACKEND_DEFAULT, ...raw }
+} catch {}
+if (!["opencode", "zcode"].includes(backendCfg.mode)) backendCfg.mode = "opencode"
+if (!Array.isArray(backendCfg.zcodeCmd)) backendCfg.zcodeCmd = []
+if (!["yolo", "plan", "build", "edit", "guarded"].includes(backendCfg.zcodeMode)) backendCfg.zcodeMode = "yolo"
+function saveBackend() {
+  try {
+    mkdirSync(dirname(BACKEND_PATH), { recursive: true })
+    writeJsonAtomic(BACKEND_PATH, backendCfg)
+  } catch (e) { console.warn("[wb-studio] 底座配置落盘失败:", e?.message) }
+}
+function zcodeCmd() {
+  return Array.isArray(backendCfg.zcodeCmd) && backendCfg.zcodeCmd.length
+    ? backendCfg.zcodeCmd.map(String)
+    : ["zcode"]
+}
+/** 找 zcode 可执行文件:绝对路径直接判断,裸命令走 where/which(Windows 上 zcode 通常是 .cmd shim) */
+function detectZcode() {
+  const cmd = zcodeCmd()
+  const first = String(cmd[0] || "")
+  let path = ""
+  if (/[\/]/.test(first)) {
+    if (existsSync(first)) path = first
+  } else {
+    try {
+      const tool = process.platform === "win32" ? "where.exe" : "which"
+      const r = spawnSync(tool, [first], { encoding: "utf8", timeout: 4000 })
+      path = String(r.stdout || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean)[0] || ""
+    } catch {}
+  }
+  return { found: Boolean(path), path, cmd }
 }
 
 // ---------- CLI 底座(engineMode:"cli")----------
@@ -294,6 +334,7 @@ async function compactSession(s, { force = false, reason = "auto" } = {}) {
   s.compactCount = (s.compactCount || 0) + 1
   // 重置引擎会话:旧会话在引擎侧已经很大,继续用它等于没压缩;摘要已通过提示词续上
   s.engineSessionId = null
+  s.zcodeSessionId = null
   s.lastCompact = { reason, before: used, after: estTokens(summary), ratio: Number(ratio.toFixed(2)), at: s.summaryAt }
   saveSessions()
   console.log(`[wb-studio] 会话已压缩(${reason}): ${used} → ~${estTokens(summary)} tokens,来源=${source}`)
@@ -1100,6 +1141,10 @@ const PAGE = `<!doctype html>
   #apiMsg.bad{color:#c0392b}
   /* 外观(主题) */
   #themelist{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
+  .baseopt{display:flex;flex-direction:column;align-items:center;gap:8px;width:150px;padding:14px 10px 12px;border:2px solid var(--border);border-radius:14px;cursor:pointer;font-size:13px;font-weight:700;color:var(--ink);background:var(--card)}
+  .baseopt:hover{border-color:var(--muted-2)}
+  .baseopt.cur{border-color:var(--pink);background:var(--tint)}
+  .baseopt.cur::after{content:'✓ 使用中';font-size:11px;color:var(--pink-d);font-weight:700}
   .themeopt{display:flex;flex-direction:column;align-items:center;gap:8px;width:120px;padding:14px 10px 12px;border:2px solid var(--border);border-radius:14px;cursor:pointer;font-size:13px;font-weight:700;color:var(--ink);background:var(--card)}
   .themeopt:hover{border-color:var(--muted-2)}
   .themeopt.cur{border-color:var(--pink);background:var(--tint)}
@@ -1141,6 +1186,7 @@ const PAGE = `<!doctype html>
   <div class="sp-tabs">
     <button type="button" class="sptab on" data-tab="api">🔌 API</button>
     <button type="button" class="sptab" data-tab="look">🎨 外观</button>
+    <button type="button" class="sptab" data-tab="base">🧩 底座</button>
     <button type="button" class="sptab" data-tab="run">🔁 重试</button>
     <button type="button" class="sptab" data-tab="mem">🧠 记忆</button>
     <button type="button" class="sptab" data-tab="update">⬆️ 更新</button>
@@ -1175,6 +1221,21 @@ const PAGE = `<!doctype html>
         <span id="apiMsg"></span>
       </div>
     </div>
+  </div>
+  <div class="sp-body" id="tab-base" style="display:none">
+    <div class="sp-head">Agent 底座 <span class="sp-tip">决定「谁来干活」;切换后从下一个任务开始生效,不用重启,也不影响已有会话</span></div>
+    <div id="baselist" style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
+      <div class="baseopt" data-m="opencode"><span style="font-size:22px">🐱</span>OpenCode(内置)</div>
+      <div class="baseopt" data-m="zcode"><span style="font-size:22px">⚡</span>ZCode(外部 CLI)</div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:12.5px;color:var(--muted-2)">zcode 命令
+        <input id="zcodeCmd" placeholder="留空 = PATH 里的 zcode;也可填绝对路径" style="width:320px;margin-left:6px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
+      </label>
+      <button type="button" id="baseSave" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">保存</button>
+      <span id="baseMsg" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div id="baseStatus" style="margin-top:8px;font-size:12px;color:var(--muted-2);line-height:1.7"></div>
   </div>
   <div class="sp-body" id="tab-run" style="display:none">
     <div class="sp-head">超时与重试 <span class="sp-tip">保存后从下一个任务开始生效;任务总超时是整轮上限,无响应超时是连续多久没收到输出就判卡死</span></div>
@@ -1629,6 +1690,43 @@ const PRESETS=${JSON.stringify(PROVIDER_PRESETS)};
 const setpanel=document.getElementById('setpanel'),apilist=document.getElementById('apilist');
 document.getElementById('setbtn').onclick=()=>{setpanel.classList.toggle('open');if(setpanel.classList.contains('open'))loadApis();};
 document.getElementById('setclose').onclick=()=>setpanel.classList.remove('open');
+// ---------- Agent 底座:OpenCode(内置引擎) / ZCode(外部 CLI) ----------
+let baseState={mode:'opencode',zcodeCmd:[],zcode:{found:false,path:''}};
+function renderBackend(){
+  document.querySelectorAll('#baselist .baseopt').forEach(el=>el.classList.toggle('cur',el.dataset.m===baseState.mode));
+  const inp=document.getElementById('zcodeCmd');
+  if(inp&&document.activeElement!==inp)inp.value=(baseState.zcodeCmd||[]).join(' ');
+  const st=document.getElementById('baseStatus');
+  if(!st)return;
+  if(baseState.mode!=='zcode'){st.innerHTML='当前使用内置 OpenCode 引擎,与之前完全一致。';return}
+  const z=baseState.zcode||{};
+  st.innerHTML=z.found
+    ? '✅ 已检测到 zcode:'+esc(z.path||'')+'<br>切到 ZCode 后,任务由它执行;模型与密钥在 ZCode 自己的配置里。'
+    : '⚠️ 没找到 zcode 命令。先安装 ZCode 命令行版(或把绝对路径填到上面),否则发任务会直接报「找不到文件或命令」。';
+}
+async function loadBackend(){
+  try{
+    const j=await(await fetch('/api/backend')).json();
+    if(j&&j.ok){baseState={mode:j.mode,zcodeCmd:j.zcodeCmd||[],zcode:j.zcode||{}};renderBackend();}
+  }catch(e){}
+}
+document.querySelectorAll('#baselist .baseopt').forEach(el=>{el.onclick=()=>{baseState.mode=el.dataset.m;renderBackend();}});
+document.getElementById('baseSave').onclick=async()=>{
+  const msg=document.getElementById('baseMsg');msg.className='';msg.textContent='保存中…';
+  const cmd=document.getElementById('zcodeCmd').value.trim();
+  try{
+    const r=await fetch('/api/backend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode:baseState.mode,zcodeCmd:cmd?cmd.split(/\s+/):[]})});
+    const j=await r.json();
+    if(j.ok){
+      baseState={mode:j.mode,zcodeCmd:j.zcodeCmd||[],zcode:j.zcode||{}};
+      renderBackend();
+      msg.textContent='✅ 已切换:'+(j.mode==='zcode'?'ZCode':'OpenCode')+(j.warning?' · '+j.warning:'')+(j.mode==='zcode'?'':'');
+      if(j.warning)msg.className='bad';
+    }else{msg.className='bad';msg.textContent=j.error||'保存失败'}
+  }catch(e){msg.className='bad';msg.textContent='保存失败:'+e}
+};
+loadBackend();
+
 // 分类标签:API / 外观
 document.querySelectorAll('.sptab').forEach(tb=>{tb.onclick=()=>{
   document.querySelectorAll('.sptab').forEach(x=>x.classList.remove('on'));
@@ -1636,6 +1734,8 @@ document.querySelectorAll('.sptab').forEach(tb=>{tb.onclick=()=>{
   document.getElementById('tab-api').style.display=tb.dataset.tab==='api'?'':'none';
   document.getElementById('tab-look').style.display=tb.dataset.tab==='look'?'':'none';
   document.getElementById('tab-run').style.display=tb.dataset.tab==='run'?'':'none';
+  document.getElementById('tab-base').style.display=tb.dataset.tab==='base'?'':'none';
+  if(tb.dataset.tab==='base')loadBackend();
   document.getElementById('tab-mem').style.display=tb.dataset.tab==='mem'?'':'none';
   if(tb.dataset.tab==='mem')loadMem();
   if(tb.dataset.tab==='run')loadTuning();
@@ -2356,11 +2456,48 @@ const srv = createServer(async (req, res) => {
       }))
       return
     }
+    // ---------- Agent 底座:读取 / 切换(opencode ↔ zcode),切换即刻生效,不需要重启 ----------
+    if (url.pathname === "/api/backend") {
+      const json = (code, obj) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)) }
+      if (req.method === "GET") {
+        const z = detectZcode()
+        return json(200, { ok: true, mode: backendCfg.mode, zcodeCmd: zcodeCmd(), zcodeMode: backendCfg.zcodeMode, zcode: z, engineMode: config.engineMode, cliReady: cliEngineReady() })
+      }
+      if (req.method === "POST") {
+        const body = await readBody(req)
+        let b = {}
+        try { b = JSON.parse(body) } catch {}
+        const mode = String(b.mode || "").trim()
+        if (!mode) return json(400, { ok: false, error: "缺少 mode(opencode 或 zcode)" })
+        if (!["opencode", "zcode"].includes(mode)) return json(400, { ok: false, error: "mode 只能是 opencode 或 zcode" })
+        let nextCmd = zcodeCmd()
+        if (b.zcodeCmd !== undefined) {
+          const arr = Array.isArray(b.zcodeCmd) ? b.zcodeCmd : String(b.zcodeCmd).trim().split(/\s+/)
+          nextCmd = arr.map((x) => String(x).trim()).filter(Boolean) // 空数组 = 用 PATH 里的 zcode
+        }
+        if (b.zcodeMode !== undefined) {
+          const zm = String(b.zcodeMode).trim()
+          if (!["yolo", "plan", "build", "edit", "guarded"].includes(zm)) return json(400, { ok: false, error: "zcode 权限模式不合法" })
+          backendCfg.zcodeMode = zm
+        }
+        backendCfg.mode = mode
+        backendCfg.zcodeCmd = nextCmd
+        saveBackend()
+        const z = detectZcode()
+        return json(200, {
+          ok: true, mode: backendCfg.mode, zcodeCmd: zcodeCmd(), zcodeMode: backendCfg.zcodeMode, zcode: z,
+          warning: backendCfg.mode === "zcode" && !z.found ? "已切到 ZCode,但本机没找到 zcode 命令;安装后(或在上方填绝对路径)再发任务" : "",
+        })
+      }
+      return json(405, { ok: false, error: "不支持的方法" })
+    }
     if (req.method === "GET" && url.pathname === "/api/health") {
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify({
         engine: await engineHealthy(),
         engineError: engineLastError,
+        backend: backendCfg.mode,
+        zcode: detectZcode().found,
         model: config.model,
         workspace: config.workspace,
         neko: config.nekoRepo || null,
@@ -3441,7 +3578,7 @@ async function runUpdate() {
       return
     }
     if (req.method === "POST" && url.pathname === "/api/task") {
-      if (!hasValidKey() && !cliEngineReady()) {
+      if (!hasValidKey() && !cliEngineReady() && backendCfg.mode !== "zcode") {
         res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify({ ok: false, error: "请先完成模型服务配置(刷新页面填写密钥)" }))
         return
@@ -3460,8 +3597,9 @@ async function runUpdate() {
       currentAbort = new AbortController()
       // 引擎毒化自愈:上次任务异常(看门狗中止/模型不可用/连接失败)后,引擎进程可能拒绝一切模型调用
       // (实测:不重启则后续任务全部静默挂起)。任务前先重启恢复;配置刚切换未生效时同样先重启
-      let unhealthy = enginePoisoned || engineConfigStale
-      if (!unhealthy && !(await engineHealthy())) {
+      // ZCode 底座不经过本地引擎,这套探活/重启整段跳过(否则会白起一个 184MB 的引擎进程)
+      let unhealthy = backendCfg.mode !== "zcode" && (enginePoisoned || engineConfigStale)
+      if (backendCfg.mode !== "zcode" && !unhealthy && !(await engineHealthy())) {
         await new Promise((r) => setTimeout(r, 1000))
         unhealthy = !(await engineHealthy()) // 探活两次再下结论,避免误杀正忙但健康的引擎
       }
@@ -3503,22 +3641,31 @@ async function runUpdate() {
         mode,
         signal: currentAbort.signal,
       }
-      if (cliEngineReady()) {
-        // CLI 底座:整段任务交给外部 Agent CLI(凭据自理),无 SSE/毒化恢复路径
+      const useZcode = backendCfg.mode === "zcode"
+      if (useZcode || cliEngineReady()) {
+        // 外部底座(ZCode / 任意 Agent CLI):整段任务交给子进程,凭据由底座自理,无 SSE/毒化恢复路径
         let result
+        const taskBook = buildWishPrompt(text, mode, askCount, memory, userMem)
         try {
-          result = await runTaskWithRetry("cli", () =>
-            driveAgentCli({
-              text: buildWishPrompt(text, mode, askCount, memory, userMem), dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
-              timeoutSec: config.timeoutSec, signal: currentAbort.signal,
-              sessionID: s.engineSessionId || undefined,
-            })
+          result = await runTaskWithRetry(useZcode ? "zcode" : "cli", () =>
+            useZcode
+              ? driveZcode({
+                  text: taskBook, dir: config.workspace, cmd: zcodeCmd(), zcodeMode: backendCfg.zcodeMode,
+                  timeoutSec: config.timeoutSec, signal: currentAbort.signal,
+                  sessionID: s.zcodeSessionId || undefined, nekoRepo: config.nekoRepo || undefined,
+                })
+              : driveAgentCli({
+                  text: taskBook, dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
+                  timeoutSec: config.timeoutSec, signal: currentAbort.signal,
+                  sessionID: s.engineSessionId || undefined,
+                })
           )
         } finally {
           busy = false
           currentAbort = null
         }
-        s.engineSessionId = result.sessionId || s.engineSessionId
+        if (useZcode) s.zcodeSessionId = result.sessionId || s.zcodeSessionId
+        else s.engineSessionId = result.sessionId || s.engineSessionId
         s.updatedAt = Date.now()
         const rawErrorText = String(result.error || "")
         // CLI 底座没有引擎那套错误翻译:零输出且重试过时补一句人话,别把空错误甩给页面

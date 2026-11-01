@@ -911,3 +911,114 @@ export async function driveAgentCli(opts) {
     }
   })
 }
+
+/**
+ * ZCode 底座(https://github.com/zai-org/ZCode)
+ *
+ * 与 opencode 引擎并列的第二种「大脑」:非交互调用 `zcode --prompt … --output-format json`,
+ * 一次任务起一个进程,进程退出即一轮结束。返回形状与 driveAgent/driveAgentCli 完全一致,
+ * 上层(会话落库、自动压缩、产物扫描、停止按钮)无需区分底座。
+ *
+ * opts: {text, dir, cmd?:string[], mode?, zcodeMode?, timeoutSec, signal, sessionID}
+ */
+export function buildZcodeArgs({ text, dir, sessionID, zcodeMode = "yolo" } = {}) {
+  const args = [
+    "--prompt", String(text ?? ""),
+    "--cwd", String(dir || process.cwd()),
+    "--mode", String(zcodeMode || "yolo"),
+    "--output-format", "json",
+    "--no-color",
+  ]
+  if (sessionID) args.push("--resume", String(sessionID))
+  return args
+}
+
+/** 解析 zcode 输出:优先整段 JSON,其次 NDJSON 里最后一条带回复的事件,最后退化为纯文本 */
+export function parseZcodeOutput(stdout) {
+  const raw = String(stdout == null ? "" : stdout)
+  const t = raw.trim()
+  if (!t) return { reply: null, sessionId: null, usage: null }
+  const pick = (j) => {
+    if (!j || typeof j !== "object") return null
+    const r = j.response ?? j.result ?? j.text ?? (j.message && j.message.content) ?? null
+    return typeof r === "string" && r.trim() ? r : null
+  }
+  try {
+    const j = JSON.parse(t)
+    const r = pick(j)
+    if (r) return { reply: r, sessionId: j.sessionId || null, usage: j.usage || null }
+  } catch {}
+  const lines = t.split(/\r?\n/).filter((l) => l.trim())
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const j = JSON.parse(lines[i])
+      const r = pick(j)
+      if (r) return { reply: r, sessionId: j.sessionId || null, usage: j.usage || null }
+    } catch {}
+  }
+  return { reply: t, sessionId: null, usage: null }
+}
+
+export async function driveZcode(opts = {}) {
+  const startedAt = Date.now()
+  const timeoutSec = opts.timeoutSec ?? 1500
+  const cmd = Array.isArray(opts.cmd) && opts.cmd.length ? opts.cmd.map(String) : ["zcode"]
+  const resolved = resolveCliBase(cmd[0])
+  const spawnPath = resolved ? resolved.exe : cmd[0]
+  const args = [...(resolved ? resolved.prefix : []), ...cmd.slice(1),
+    ...buildZcodeArgs({ text: opts.text, dir: opts.dir, sessionID: opts.sessionID, zcodeMode: opts.zcodeMode })]
+  return await new Promise((resolve) => {
+    let settled = false
+    let child
+    try {
+      child = spawn(spawnPath, args, {
+        cwd: opts.dir || process.cwd(),
+        env: { ...process.env, WB_PROJECTS_DIR: opts.dir || "", WB_NEKO_REPO: opts.nekoRepo || process.env.WB_NEKO_REPO || "" },
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+      })
+    } catch (e) {
+      resolve({ ok: false, sessionId: opts.sessionID || `zcode_${startedAt}`, idle: true, error: `无法启动 ZCode 底座:${e?.message || e}`, stats: { permissions: 0, questions: 0 }, reply: null, artifacts: [] })
+      return
+    }
+    const CAP = 400000
+    let out = "", errText = ""
+    child.stdout.on("data", (c) => { if (out.length < CAP) out += c })
+    child.stderr.on("data", (c) => { if (errText.length < CAP) errText += c })
+    const killTree = () => { try { spawn("taskkill", ["/F", "/PID", String(child.pid), "/T"], { stdio: "ignore" }) } catch {} }
+    const timer = setTimeout(() => { killTree(); finish({ kind: "timeout" }) }, timeoutSec * 1000)
+    if (opts.signal) {
+      if (opts.signal.aborted) { killTree(); finish({ kind: "stopped" }) }
+      else opts.signal.addEventListener("abort", () => { killTree(); finish({ kind: "stopped" }) }, { once: true })
+    }
+    child.on("error", (e) => finish({ kind: "spawn", message: `无法启动 ZCode 底座:${e?.message || e}` }))
+    child.on("close", (code) => finish({ kind: "close", code }))
+    function finish(fail) {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      const parsed = parseZcodeOutput(out)
+      const artifacts = scanArtifacts(opts.dir || process.cwd(), startedAt)
+      const modifiedFiles = scanModifiedFiles(opts.dir || process.cwd(), startedAt)
+      const base = {
+        sessionId: parsed.sessionId || opts.sessionID || `zcode_${startedAt}`,
+        idle: true,
+        stats: { permissions: 0, questions: 0 },
+        artifacts,
+        modifiedFiles,
+        ...(parsed.usage ? { usage: parsed.usage } : {}),
+      }
+      if (fail.kind === "spawn") { resolve({ ok: false, ...base, error: fail.message, reply: null }); return }
+      if (fail.kind === "stopped") { resolve({ ok: false, ...base, error: "任务已停止", reply: parsed.reply, stopped: true }); return }
+      if (fail.kind === "timeout") { resolve({ ok: false, ...base, error: `ZCode 底座超时(${timeoutSec}s),已连子进程一起清理`, reply: parsed.reply }); return }
+      const code = fail.code
+      const reply = parsed.reply
+      resolve({
+        ok: code === 0 && !!reply,
+        ...base,
+        error: code === 0 ? (reply ? null : "ZCode 没有返回内容") : `ZCode 退出码 ${code}:${(errText.trim() || out.trim() || "(无输出)").slice(-800)}`,
+        reply: reply || null,
+      })
+    }
+  })
+}

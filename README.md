@@ -113,5 +113,18 @@ MIT
 
 3. **技能包分发**:`wb_install_skill` 把 neko-plugin-dev 规范装进 claude/codex/opencode/omp/自定义底座。
 
+### ZCode 底座(v1.2.36 起,界面内切换)
+
+[ZCode](https://github.com/zai-org/ZCode) 可直接当工坊的大脑,和内置 opencode 引擎并列:
+
+- 安装 ZCode 命令行版(`zcode` 在 PATH 里,或安装后在设置里填绝对路径)
+- 工坊 设置 → 🧩 底座 → 选 **ZCode** → 保存,下一个任务即由 ZCode 执行,无需重启
+- 调用契约:`zcode --prompt <任务书> --cwd <工作区> --mode yolo --output-format json [--resume <会话>]`
+- 模型与密钥由 ZCode 自己的配置管理,工坊的 API 设置只对 opencode 底座生效
+- 会话续接走 `--resume`(工坊按会话存 `zcodeSessionId`,压缩上下文时一并重置)
+- 停止按钮 = 连子进程整树 taskkill;产物/改动文件沿用同一套扫描
+
+切换只影响「谁来干活」,会话列表、上下文自动压缩、产物下载、错误解释等上层能力两种底座共用。
+
 verify/scaffold 命令行支持 `--python <解释器>`(或环境变量 `WB_PYTHON`)与 `--strict`
 (warning 一律视为失败:NEKO 原生 `-s` + 残余 warning 兜底判负,不过 build)。

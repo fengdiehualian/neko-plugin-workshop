@@ -484,6 +484,38 @@ result = await evalJs(`(async () => {
     tabs[0].click(); await sleep(50);
   } else fail('长期记忆页签', '找不到 data-tab=mem');
 
+  // 11.5) 底座页:OpenCode / ZCode 可切换,保存即生效
+  {
+    const baseTab = tabs.find((x) => x.dataset && x.dataset.tab === 'base');
+    baseTab.click(); await sleep(200);
+    const shown = getComputedStyle($('#tab-base')).display !== 'none';
+    const opts = $$('#baselist .baseopt');
+    const curMode = (opts.find((o) => o.classList.contains('cur')) || {}).dataset?.m;
+    shown && opts.length === 2
+      ? pass('底座页:两个底座可选', '当前=' + curMode)
+      : fail('底座页:两个底座可选', 'shown=' + shown + ' opts=' + opts.length);
+    // 切到 ZCode 并保存
+    const zOpt = opts.find((o) => o.dataset.m === 'zcode');
+    zOpt.click(); await sleep(80);
+    const n0 = calls().filter((c) => c.url.includes('/api/backend') && c.method === 'POST').length;
+    $('#baseSave').click();
+    await sleep(900);
+    const posted = calls().filter((c) => c.url.includes('/api/backend') && c.method === 'POST').length > n0;
+    const jb = await (await fetch('/api/backend')).json();
+    posted && jb.mode === 'zcode'
+      ? pass('底座切换 → /api/backend', 'mode=' + jb.mode + ' found=' + (jb.zcode && jb.zcode.found))
+      : fail('底座切换 → /api/backend', 'posted=' + posted + ' mode=' + (jb && jb.mode));
+    // 切回 OpenCode(不留副作用)
+    const oOpt = opts.find((o) => o.dataset.m === 'opencode');
+    oOpt.click(); await sleep(80);
+    $('#baseSave').click();
+    await sleep(900);
+    const jb2 = await (await fetch('/api/backend')).json();
+    jb2.mode === 'opencode'
+      ? pass('底座切回 OpenCode')
+      : fail('底座切回 OpenCode', 'mode=' + (jb2 && jb2.mode));
+  }
+
   // 11.6) 重试页签:参数独立成页,四个输入能改、能保存、能恢复默认
   const runTab = tabs.find((x) => x.dataset && x.dataset.tab === 'run');
   if (runTab) { runTab.click(); await sleep(80); }
