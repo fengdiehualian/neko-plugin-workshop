@@ -168,6 +168,26 @@ function zcodeLaunch() {
   if (b && !zcodeCmd().some((x) => x && x !== "zcode")) return { cmd: [b.exe, b.cjs], bundled: true }
   return { cmd: zcodeCmd(), bundled: false }
 }
+const WORKSPACE_AGENTS_MARKER = "<!-- neko-workshop:auto-agents -->"
+/** ZCode 只读 <cwd>/AGENTS.md,看不到引擎那份全局规则;往工作区放一份(带标记,用户改过就不覆盖) */
+function ensureWorkspaceAgentsMd() {
+  try {
+    const p = join(config.workspace, "AGENTS.md")
+    let old = ""
+    try { old = readFileSync(p, "utf8") } catch {}
+    if (old && !old.includes(WORKSPACE_AGENTS_MARKER)) return false // 用户自己维护的,不动
+    const next = `${WORKSPACE_AGENTS_MARKER}
+${GLOBAL_AGENTS_MD}
+## 技能(按需自动触发,也可在需求里点名)
+
+- \`.agents/skills/\` 下有插件开发规范(\`neko-plugin-dev\`,含 references/ 开发文档)与社区插件技能;写插件前先看它。
+`
+    if (old === next) return true
+    writeFileSync(p, next, "utf8")
+    return true
+  } catch { return false }
+}
+
 /** 把工坊自带的技能(插件开发规范 + 社区插件提供的技能)挂到工作区,ZCode 只认 <cwd>/.agents/skills */
 function workspaceSkillSources() {
   const out = []
@@ -205,6 +225,7 @@ function ensureWorkspaceSkills() {
 function zcodeRuntimeEnv() {
   const env = {}
   try { ensureWorkspaceSkills() } catch {}
+  try { ensureWorkspaceAgentsMd() } catch {}
   const builtin = join(ZCODE_DIR, "zcode-builtin.json")
   if (existsSync(builtin)) env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE = builtin
   const dataDir = join(__dirname, "runtime", "zcode-data")
@@ -2607,9 +2628,11 @@ const srv = createServer(async (req, res) => {
         backendCfg.zcodeCmd = nextCmd
         saveBackend()
         const z = detectZcode()
+        const bl = zcodeLaunch()
         return json(200, {
           ok: true, mode: backendCfg.mode, zcodeCmd: zcodeCmd(), zcodeMode: backendCfg.zcodeMode, zcode: z,
-          warning: backendCfg.mode === "zcode" && !z.found ? "已切到 ZCode,但本机没找到 zcode 命令;安装后(或在上方填绝对路径)再发任务" : "",
+          zcodeBundled: bl.bundled,
+          warning: backendCfg.mode === "zcode" && !z.found && !bl.bundled ? "已切到 ZCode,但本机没找到 zcode 命令;安装后(或在上方填绝对路径)再发任务" : "",
         })
       }
       return json(405, { ok: false, error: "不支持的方法" })
@@ -3775,8 +3798,8 @@ async function runUpdate() {
               ? driveZcode({
                   text: taskBook, dir: config.workspace, cmd: zcodeLaunch().cmd, zcodeMode: backendCfg.zcodeMode,
                   env: zcodeRuntimeEnv(),
-                  // ZCode 偶发无输出挂死:给它更紧的上限(最多 4 分钟),别让整轮卡到 15 分钟
-                  timeoutSec: Math.min(Number(config.timeoutSec) || 1500, 240), signal: currentAbort.signal,
+                  // 总超时沿用全局设置;真正的"挂死"交给无输出看门狗(有输出就续命),大任务不再被 240s 一刀切
+                  timeoutSec: config.timeoutSec, stallTimeoutSec: config.stallTimeoutSec, signal: currentAbort.signal,
                   sessionID: s.zcodeSessionId || undefined, nekoRepo: config.nekoRepo || undefined,
                 })
               : driveAgentCli({
@@ -3793,6 +3816,18 @@ async function runUpdate() {
         else s.engineSessionId = result.sessionId || s.engineSessionId
         s.updatedAt = Date.now()
         const rawErrorText = String(result.error || "")
+        // token 用量与引擎分支同款记账:即使任务失败,已消耗的也要累计(上下文环/会话统计都靠它)
+        const zu = result.usage || {}
+        const zTurnTotal = (zu.input || 0) + (zu.output || 0) + (zu.reasoning || 0)
+        if (zTurnTotal > 0) s.totalTokens = (s.totalTokens || 0) + zTurnTotal
+        // ZCode 的报错是底层原文(ProviderBusinessError…),补一层人话翻译,别让用户看天书
+        if (useZcode && !result.ok) {
+          if (/tpm\/rpm|rate limit|429|quota|额度|upstream became unavailable|overloaded|queue_full/i.test(rawErrorText)) {
+            result.error = "模型服务限流/额度不足:等几分钟再试,或到设置里换一套 API/模型(免费额度常见,换模型通常立即可用)"
+          } else if (/401|403|unauthor|invalid[^,]{0,20}(key|token)|api[\s_-]?key/i.test(rawErrorText)) {
+            result.error = "模型服务拒绝访问:密钥可能不对或已过期,请到设置页重新配置"
+          }
+        }
         // CLI 底座没有引擎那套错误翻译:零输出且重试过时补一句人话,别把空错误甩给页面
         if (!result.ok && !String(result.error || "").trim() && result.retries && result.retries.length) {
           result.error = noResponseError(result.retries)
@@ -3808,11 +3843,12 @@ async function runUpdate() {
             at: Date.now(),
             error: result.ok ? undefined : String(result.error || ""),
             rawError: result.ok ? undefined : (rawErrorText || undefined),
+            usage: zTurnTotal > 0 ? zu : undefined,
             artifacts: result.artifacts || [],
             modifiedFiles: result.modifiedFiles || [],
           })
         } else {
-          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || ""), rawError: rawErrorText || undefined })
+          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || ""), rawError: rawErrorText || undefined, usage: zTurnTotal > 0 ? zu : undefined })
         }
         if (s.title === "新对话" && text) {
           s.title = text.replace(/\s+/g, " ").slice(0, 18) + (text.length > 18 ? "…" : "")
@@ -4018,6 +4054,7 @@ const boot = async () => {
   try {
     const mounted = ensureWorkspaceSkills()
     if (mounted.length) console.log(`[wb-studio] 技能已挂载到工作区: ${mounted.join(", ")}`)
+    if (ensureWorkspaceAgentsMd()) console.log("[wb-studio] 工作区 AGENTS.md 就绪(ZCode 全局规则)")
   } catch (e) { console.warn("[wb-studio] 技能挂载失败:", e?.message) }
   if (backendCfg.mode === "zcode") {
     // 底座是 ZCode 时不拉本地引擎:省 184MB 内存和 20-30 秒冷启;切回 OpenCode 时任务前会自己拉起

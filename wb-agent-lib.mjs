@@ -928,6 +928,8 @@ export function buildZcodeArgs({ text, dir, sessionID, zcodeMode = "yolo" } = {}
     "--mode", String(zcodeMode || "yolo"),
     "--output-format", "json",
     "--no-color",
+    // verbose 的日志走 stderr(进度事件持续输出),既是"还活着"的心跳,也不污染 stdout 的结果 JSON
+    "--verbose",
   ]
   if (sessionID && /^sess[_-]/i.test(String(sessionID))) args.push("--resume", String(sessionID))
   return args
@@ -965,6 +967,7 @@ const zcodeSleep = (ms) => new Promise((r) => setTimeout(r, ms))
 /** 值得再试一次:限流/上游抖动/空回复(不含用户取消与超时) */
 function zcodeWorthRetry(r) {
   if (!r || r.cancelled || r.timeout) return false
+  if (r.error && /没有任何输出,判定挂死/.test(String(r.error))) return false
   if (r.ok && r.reply) return false
   if (r.error && ZCODE_RETRYABLE.test(String(r.error))) return true
   return Boolean(r.ok && !r.reply)
@@ -1007,10 +1010,15 @@ async function runZcodeOnce(opts = {}) {
     }
     const CAP = 400000
     let out = "", errText = ""
-    child.stdout.on("data", (c) => { if (out.length < CAP) out += c })
-    child.stderr.on("data", (c) => { if (errText.length < CAP) errText += c })
+    child.stdout.on("data", (c) => { if (out.length < CAP) out += c; heartbeat() })
+    child.stderr.on("data", (c) => { if (errText.length < CAP) errText += c; heartbeat() })
     const killTree = () => { try { spawn("taskkill", ["/F", "/PID", String(child.pid), "/T"], { stdio: "ignore" }) } catch {} }
     const timer = setTimeout(() => { killTree(); finish({ kind: "timeout" }) }, timeoutSec * 1000)
+    // 无输出看门狗:verbose 心跳一断就说明真挂死了(而不是"任务大、干得久"),到点杀树
+    const stallSec = Math.max(60, Math.floor(Number(opts.stallTimeoutSec) || 360))
+    let stallTimer = setTimeout(stallFire, stallSec * 1000)
+    function heartbeat() { clearTimeout(stallTimer); stallTimer = setTimeout(stallFire, stallSec * 1000) }
+    function stallFire() { killTree(); finish({ kind: "timeout", stall: true, stallSec }) }
     if (opts.signal) {
       if (opts.signal.aborted) { killTree(); finish({ kind: "stopped" }) }
       else opts.signal.addEventListener("abort", () => { killTree(); finish({ kind: "stopped" }) }, { once: true })
@@ -1021,6 +1029,7 @@ async function runZcodeOnce(opts = {}) {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      clearTimeout(stallTimer)
       const parsed = parseZcodeOutput(out)
       if (parsed.usage && parsed.usage.inputTokens !== undefined && parsed.usage.input === undefined) {
         parsed.usage = {
@@ -1043,7 +1052,16 @@ async function runZcodeOnce(opts = {}) {
       }
       if (fail.kind === "spawn") { resolve({ ok: false, ...base, error: fail.message, reply: null }); return }
       if (fail.kind === "stopped") { resolve({ ok: false, ...base, error: "任务已停止", reply: parsed.reply, stopped: true }); return }
-      if (fail.kind === "timeout") { resolve({ ok: false, ...base, error: `ZCode 底座超时(${timeoutSec}s),已连子进程一起清理`, reply: parsed.reply }); return }
+      if (fail.kind === "timeout") {
+        resolve({
+          ok: false, ...base,
+          error: fail.stall
+            ? `ZCode 连续 ${fail.stallSec}s 没有任何输出,判定挂死已清理(总上限 ${timeoutSec}s;若任务本来就很慢,可在设置里调大「无响应超时」)`
+            : `ZCode 底座超时(${timeoutSec}s),已连子进程一起清理`,
+          reply: parsed.reply,
+        })
+        return
+      }
       const code = fail.code
       const reply = parsed.reply
       resolve({
