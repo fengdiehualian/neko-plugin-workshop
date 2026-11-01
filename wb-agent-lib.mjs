@@ -928,8 +928,9 @@ export function buildZcodeArgs({ text, dir, sessionID, zcodeMode = "yolo" } = {}
     "--mode", String(zcodeMode || "yolo"),
     "--output-format", "json",
     "--no-color",
+    "--verbose",
   ]
-  if (sessionID) args.push("--resume", String(sessionID))
+  if (sessionID && /^sess[_-]/i.test(String(sessionID))) args.push("--resume", String(sessionID))
   return args
 }
 
@@ -960,6 +961,16 @@ export function parseZcodeOutput(stdout) {
 }
 
 export async function driveZcode(opts = {}) {
+  // 会话可能已被用户清理/数据目录重建:resume 失败就退回新会话重跑一次,别让整轮任务白挂
+  const first = await runZcodeOnce(opts)
+  if (first && !first.ok && /Session not found|session.*not.*found/i.test(String(first.error || "")) && opts.sessionID) {
+    const retry = await runZcodeOnce({ ...opts, sessionID: undefined })
+    if (retry && retry.reply) return retry
+  }
+  return first
+}
+
+async function runZcodeOnce(opts = {}) {
   const startedAt = Date.now()
   const timeoutSec = opts.timeoutSec ?? 1500
   const cmd = Array.isArray(opts.cmd) && opts.cmd.length ? opts.cmd.map(String) : ["zcode"]
@@ -973,7 +984,7 @@ export async function driveZcode(opts = {}) {
     try {
       child = spawn(spawnPath, args, {
         cwd: opts.dir || process.cwd(),
-        env: { ...process.env, WB_PROJECTS_DIR: opts.dir || "", WB_NEKO_REPO: opts.nekoRepo || process.env.WB_NEKO_REPO || "" },
+        env: { ...process.env, ...(opts.env || {}), WB_PROJECTS_DIR: opts.dir || "", WB_NEKO_REPO: opts.nekoRepo || process.env.WB_NEKO_REPO || "" },
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
       })
@@ -998,6 +1009,15 @@ export async function driveZcode(opts = {}) {
       settled = true
       clearTimeout(timer)
       const parsed = parseZcodeOutput(out)
+      if (parsed.usage && parsed.usage.inputTokens !== undefined && parsed.usage.input === undefined) {
+        parsed.usage = {
+          input: parsed.usage.inputTokens || 0,
+          output: parsed.usage.outputTokens || 0,
+          reasoning: parsed.usage.reasoningTokens || 0,
+          total: parsed.usage.totalTokens || undefined,
+          source: parsed.usage.source || undefined,
+        }
+      }
       const artifacts = scanArtifacts(opts.dir || process.cwd(), startedAt)
       const modifiedFiles = scanModifiedFiles(opts.dir || process.cwd(), startedAt)
       const base = {
@@ -1016,7 +1036,9 @@ export async function driveZcode(opts = {}) {
       resolve({
         ok: code === 0 && !!reply,
         ...base,
-        error: code === 0 ? (reply ? null : "ZCode 没有返回内容") : `ZCode 退出码 ${code}:${(errText.trim() || out.trim() || "(无输出)").slice(-800)}`,
+        error: code === 0
+          ? (reply ? null : "ZCode 没有返回内容")
+          : `ZCode 退出码 ${code}:${(errText.trim() || out.trim() || "(无输出)").slice(0, 1200)}`,
         reply: reply || null,
       })
     }

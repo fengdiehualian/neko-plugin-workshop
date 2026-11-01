@@ -151,6 +151,60 @@ function detectZcode() {
   return { found: Boolean(path), path, cmd }
 }
 
+// ---------- 随包 ZCode(_zcode/):一键包内置 node + zcode.cjs,免安装、免配置 ----------
+const ZCODE_DIR = join(__dirname, "_zcode")
+function bundledZcode() {
+  const exe = join(ZCODE_DIR, "node.exe")
+  const cjs = join(ZCODE_DIR, "zcode.cjs")
+  return existsSync(exe) && existsSync(cjs) ? { exe, cjs } : null
+}
+/** 实际启动命令:用户没自定义命令且包内有 _zcode → 用随包;否则用用户命令/PATH */
+function zcodeLaunch() {
+  const b = bundledZcode()
+  if (b && !zcodeCmd().some((x) => x && x !== "zcode")) return { cmd: [b.exe, b.cjs], bundled: true }
+  return { cmd: zcodeCmd(), bundled: false }
+}
+/** ZCode 运行环境:内置 provider 模板 + 用当前启用的 API 现场生成个人配置 + 独立数据目录 */
+function zcodeRuntimeEnv() {
+  const env = {}
+  const builtin = join(ZCODE_DIR, "zcode-builtin.json")
+  if (existsSync(builtin)) env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE = builtin
+  const dataDir = join(__dirname, "runtime", "zcode-data")
+  const provFile = join(__dirname, "runtime", "zcode-provider.json")
+  try {
+    mkdirSync(dataDir, { recursive: true })
+    const a = enabledApi()
+    if (a && a.baseURL && a.apiKey && a.modelID) {
+      const cfg = {
+        schemaVersion: 1,
+        config: {
+          providerConfigRules: {
+            providerRules: [{
+              providerId: "workshop",
+              providerName: a.name || "工作台 API",
+              config: {
+                group: "standard-personal",
+                access: { type: "api-key", apiKey: a.apiKey },
+                api: { type: "openai-chat-completions", baseUrl: a.baseURL },
+                personalModelIds: [a.modelID],
+              },
+            }],
+          },
+          modelConfigRules: { providerModelRules: [], manualProviderModelRules: [] },
+          defaultModelSelection: { providerId: "workshop", modelId: a.modelID },
+        },
+      }
+      writeFileSync(provFile, JSON.stringify(cfg, null, 2), "utf8")
+      env.ZCODE_PERSONAL_PROVIDER_CONFIG_FILE = provFile
+    }
+    if (!existsSync(join(dataDir, "cli"))) mkdirSync(join(dataDir, "cli"), { recursive: true })
+  } catch (e) {
+    console.warn("[wb-studio] 生成 ZCode 配置失败:", e?.message)
+  }
+  env.ZCODE_DATA_BASE_DIR = dataDir
+  return env
+}
+
 // ---------- CLI 底座(engineMode:"cli")----------
 // 任意本地 Agent CLI 都能当工坊的大脑:非交互 print 模式、cwd=工作区、凭据自理。
 const CLI_ENGINE_PRESETS = {
@@ -1699,7 +1753,7 @@ const setpanel=document.getElementById('setpanel'),apilist=document.getElementBy
 document.getElementById('setbtn').onclick=()=>{setpanel.classList.toggle('open');if(setpanel.classList.contains('open'))loadApis();};
 document.getElementById('setclose').onclick=()=>setpanel.classList.remove('open');
 // ---------- Agent 底座:OpenCode(内置引擎) / ZCode(外部 CLI) ----------
-let baseState={mode:'opencode',zcodeCmd:[],zcode:{found:false,path:''}};
+let baseState={mode:'opencode',zcodeCmd:[],zcode:{found:false,path:''},zcodeBundled:false};
 function renderBackend(){
   document.querySelectorAll('#baselist .baseopt').forEach(el=>el.classList.toggle('cur',el.dataset.m===baseState.mode));
   const inp=document.getElementById('zcodeCmd');
@@ -1708,6 +1762,7 @@ function renderBackend(){
   if(!st)return;
   if(baseState.mode!=='zcode'){st.innerHTML='当前使用内置 OpenCode 引擎,与之前完全一致。';return}
   const z=baseState.zcode||{};
+  if(baseState.zcodeBundled){st.innerHTML='✅ 使用安装包内置的 ZCode(免安装),模型沿用当前启用的 API;也可在上面填自己的 zcode 命令覆盖。';return}
   st.innerHTML=z.found
     ? '✅ 已检测到 zcode:'+esc(z.path||'')+'<br>切到 ZCode 后,任务由它执行;模型与密钥在 ZCode 自己的配置里。'
     : '⚠️ 没找到 zcode 命令。先安装 ZCode 命令行版(或把绝对路径填到上面),否则发任务会直接报「找不到文件或命令」。';
@@ -1715,7 +1770,7 @@ function renderBackend(){
 async function loadBackend(){
   try{
     const j=await(await fetch('/api/backend')).json();
-    if(j&&j.ok){baseState={mode:j.mode,zcodeCmd:j.zcodeCmd||[],zcode:j.zcode||{}};renderBackend();}
+    if(j&&j.ok){baseState={mode:j.mode,zcodeCmd:j.zcodeCmd||[],zcode:j.zcode||{},zcodeBundled:!!j.zcodeBundled};renderBackend();}
   }catch(e){}
 }
 document.querySelectorAll('#baselist .baseopt').forEach(el=>{el.onclick=()=>{baseState.mode=el.dataset.m;renderBackend();}});
@@ -1726,7 +1781,7 @@ document.getElementById('baseSave').onclick=async()=>{
     const r=await fetch('/api/backend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode:baseState.mode,zcodeCmd:cmd?cmd.split(/\s+/):[]})});
     const j=await r.json();
     if(j.ok){
-      baseState={mode:j.mode,zcodeCmd:j.zcodeCmd||[],zcode:j.zcode||{}};
+      baseState={mode:j.mode,zcodeCmd:j.zcodeCmd||[],zcode:j.zcode||{},zcodeBundled:!!j.zcodeBundled};
       renderBackend();
       msg.textContent='✅ 已切换:'+(j.mode==='zcode'?'ZCode':'OpenCode')+(j.warning?' · '+j.warning:'')+(j.mode==='zcode'?'':'');
       if(j.warning)msg.className='bad';
@@ -2486,7 +2541,8 @@ const srv = createServer(async (req, res) => {
       const json = (code, obj) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)) }
       if (req.method === "GET") {
         const z = detectZcode()
-        return json(200, { ok: true, mode: backendCfg.mode, zcodeCmd: zcodeCmd(), zcodeMode: backendCfg.zcodeMode, zcode: z, engineMode: config.engineMode, cliReady: cliEngineReady() })
+        const l = zcodeLaunch()
+        return json(200, { ok: true, mode: backendCfg.mode, zcodeCmd: zcodeCmd(), zcodeMode: backendCfg.zcodeMode, zcode: z, zcodeBundled: l.bundled, zcodeRunCmd: l.cmd, engineMode: config.engineMode, cliReady: cliEngineReady() })
       }
       if (req.method === "POST") {
         const body = await readBody(req)
@@ -3675,8 +3731,10 @@ async function runUpdate() {
           result = await runTaskWithRetry(useZcode ? "zcode" : "cli", () =>
             useZcode
               ? driveZcode({
-                  text: taskBook, dir: config.workspace, cmd: zcodeCmd(), zcodeMode: backendCfg.zcodeMode,
-                  timeoutSec: config.timeoutSec, signal: currentAbort.signal,
+                  text: taskBook, dir: config.workspace, cmd: zcodeLaunch().cmd, zcodeMode: backendCfg.zcodeMode,
+                  env: zcodeRuntimeEnv(),
+                  // ZCode 偶发无输出挂死:给它更紧的上限(最多 4 分钟),别让整轮卡到 15 分钟
+                  timeoutSec: Math.min(Number(config.timeoutSec) || 1500, 240), signal: currentAbort.signal,
                   sessionID: s.zcodeSessionId || undefined, nekoRepo: config.nekoRepo || undefined,
                 })
               : driveAgentCli({
