@@ -113,12 +113,17 @@ for (const k of ["workspace", "engineExe", "bunPath", "pythonPath", "opencodeRep
 
 // ---------- Agent 底座:opencode(内置引擎) / zcode(外部 CLI) ----------
 // 只影响「谁来干活」;会话、上下文压缩、产物扫描、停止按钮都由上层统一处理。
+const ZCODE_DIR = join(__dirname, "_zcode")
+const BUNDLED_ZCODE = existsSync(join(ZCODE_DIR, "node.exe")) && existsSync(join(ZCODE_DIR, "zcode.cjs"))
 const BACKEND_PATH = join(__dirname, "runtime", "backend.json")
-const BACKEND_DEFAULT = { mode: "opencode", zcodeCmd: [], zcodeMode: "yolo" }
+// 安装包自带 ZCode(_zcode/)时默认就用它;用户主动选过就以用户的选择为准
+const BACKEND_DEFAULT = { mode: BUNDLED_ZCODE ? "zcode" : "opencode", zcodeCmd: [], zcodeMode: "yolo", userPicked: false }
 let backendCfg = { ...BACKEND_DEFAULT }
 try {
   const raw = JSON.parse(readFileSync(BACKEND_PATH, "utf8"))
   backendCfg = { ...BACKEND_DEFAULT, ...raw }
+  // 老版本留下的 backend.json 没有 userPicked:视为「没主动选过」,随包时升级到 ZCode
+  if (!raw.userPicked && BUNDLED_ZCODE) backendCfg.mode = "zcode"
 } catch {}
 if (!["opencode", "zcode"].includes(backendCfg.mode)) backendCfg.mode = "opencode"
 if (!Array.isArray(backendCfg.zcodeCmd)) backendCfg.zcodeCmd = []
@@ -152,7 +157,6 @@ function detectZcode() {
 }
 
 // ---------- 随包 ZCode(_zcode/):一键包内置 node + zcode.cjs,免安装、免配置 ----------
-const ZCODE_DIR = join(__dirname, "_zcode")
 function bundledZcode() {
   const exe = join(ZCODE_DIR, "node.exe")
   const cjs = join(ZCODE_DIR, "zcode.cjs")
@@ -1280,7 +1284,7 @@ const PAGE = `<!doctype html>
     <div class="sp-head">Agent 底座 <span class="sp-tip">决定「谁来干活」;切换后从下一个任务开始生效,不用重启,也不影响已有会话</span></div>
     <div id="baselist" style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
       <div class="baseopt" data-m="opencode"><span style="font-size:22px">🐱</span>OpenCode(内置)</div>
-      <div class="baseopt" data-m="zcode"><span style="font-size:22px">⚡</span>ZCode(外部 CLI)</div>
+      <div class="baseopt" data-m="zcode" id="baseZcode"><span style="font-size:22px">⚡</span><span id="baseZcodeLabel">ZCode(外部 CLI)</span></div>
     </div>
     <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <label style="font-size:12.5px;color:var(--muted-2)">zcode 命令
@@ -1762,6 +1766,8 @@ function renderBackend(){
   if(!st)return;
   if(baseState.mode!=='zcode'){st.innerHTML='当前使用内置 OpenCode 引擎,与之前完全一致。';return}
   const z=baseState.zcode||{};
+  const lbl=document.getElementById('baseZcodeLabel');
+  if(lbl)lbl.textContent=baseState.zcodeBundled?'ZCode(内置)':'ZCode(外部 CLI)';
   if(baseState.zcodeBundled){st.innerHTML='✅ 使用安装包内置的 ZCode(免安装),模型沿用当前启用的 API;也可在上面填自己的 zcode 命令覆盖。';return}
   st.innerHTML=z.found
     ? '✅ 已检测到 zcode:'+esc(z.path||'')+'<br>切到 ZCode 后,任务由它执行;模型与密钥在 ZCode 自己的配置里。'
@@ -2562,6 +2568,7 @@ const srv = createServer(async (req, res) => {
           backendCfg.zcodeMode = zm
         }
         backendCfg.mode = mode
+        backendCfg.userPicked = true
         backendCfg.zcodeCmd = nextCmd
         saveBackend()
         const z = detectZcode()
@@ -3659,7 +3666,7 @@ async function runUpdate() {
       return
     }
     if (req.method === "POST" && url.pathname === "/api/task") {
-      if (!hasValidKey() && !cliEngineReady() && backendCfg.mode !== "zcode") {
+      if (!hasValidKey() && !cliEngineReady()) {
         res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify({ ok: false, error: "请先完成模型服务配置(刷新页面填写密钥)" }))
         return
