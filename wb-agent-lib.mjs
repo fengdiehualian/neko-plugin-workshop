@@ -928,7 +928,6 @@ export function buildZcodeArgs({ text, dir, sessionID, zcodeMode = "yolo" } = {}
     "--mode", String(zcodeMode || "yolo"),
     "--output-format", "json",
     "--no-color",
-    "--verbose",
   ]
   if (sessionID && /^sess[_-]/i.test(String(sessionID))) args.push("--resume", String(sessionID))
   return args
@@ -960,14 +959,27 @@ export function parseZcodeOutput(stdout) {
   return { reply: t, sessionId: null, usage: null }
 }
 
+const ZCODE_RETRYABLE = /tpm\/rpm|rate limit|exceeded|upstream became unavailable|queue_full|429|overloaded/i
+const zcodeSleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/** 值得再试一次:限流/上游抖动/空回复(不含用户取消与超时) */
+function zcodeWorthRetry(r) {
+  if (!r || r.cancelled || r.timeout) return false
+  if (r.ok && r.reply) return false
+  if (r.error && ZCODE_RETRYABLE.test(String(r.error))) return true
+  return Boolean(r.ok && !r.reply)
+}
+
 export async function driveZcode(opts = {}) {
-  // 会话可能已被用户清理/数据目录重建:resume 失败就退回新会话重跑一次,别让整轮任务白挂
-  const first = await runZcodeOnce(opts)
-  if (first && !first.ok && /Session not found|session.*not.*found/i.test(String(first.error || "")) && opts.sessionID) {
-    const retry = await runZcodeOnce({ ...opts, sessionID: undefined })
-    if (retry && retry.reply) return retry
+  // 会话失效 → 新开;限流/空回复 → 等几秒再来一次。最多两次,别无限重试烧钱
+  let res = await runZcodeOnce(opts)
+  for (let i = 0; i < 2 && zcodeWorthRetry(res); i += 1) {
+    const why = res.error && ZCODE_RETRYABLE.test(String(res.error)) ? "限流/上游抖动" : "空回复"
+    console.warn(`[wb-agent-lib] ZCode ${why},6 秒后重试(${i + 1}/2)`)
+    await zcodeSleep(6000)
+    res = await runZcodeOnce({ ...opts, sessionID: undefined })
   }
-  return first
+  return res
 }
 
 async function runZcodeOnce(opts = {}) {

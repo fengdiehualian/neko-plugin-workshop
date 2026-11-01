@@ -1,3 +1,5 @@
 runtime/
 node_modules/
 __pycache__/
+# 随包 ZCode 运行时(构建时从 dev/tools/zcode-bundle 注入,不进仓库)
+_zcode/
