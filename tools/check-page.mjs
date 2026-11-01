@@ -541,6 +541,17 @@ result = await evalJs(`(async () => {
     applied && restored && runShown
       ? pass('重试页签 保存/恢复默认', '1800/420/3/4 → 1500/360/2/3')
       : fail('重试页签 保存/恢复默认', 'shown=' + runShown + ' applied=' + applied + ' reset=' + restored + ' ' + JSON.stringify(got || {}).slice(0, 120));
+    // 手动压缩按钮搬进「运行」页:存在 + 点击真的发 /compact
+    const cb2 = $('#compactNow');
+    if (cb2) {
+      const n0 = calls().filter((c) => c.url.includes('/compact')).length;
+      cb2.click();
+      await sleep(1500);
+      const sent = calls().filter((c) => c.url.includes('/compact')).length > n0;
+      const msg = ($('#compactMsg') || {}).textContent || '';
+      sent && msg ? pass('运行页:手动压缩当前会话', msg.slice(0, 26))
+        : fail('运行页:手动压缩当前会话', 'sent=' + sent + ' msg=' + msg);
+    } else fail('运行页:手动压缩当前会话', '找不到 #compactNow');
     tabs[0].click(); await sleep(50);
   } else fail('运行参数输入框', [!!tT, !!tS, !!tR, !!tD].join(','));
 
