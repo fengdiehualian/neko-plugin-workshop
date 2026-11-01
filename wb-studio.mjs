@@ -1216,6 +1216,13 @@ const PAGE = `<!doctype html>
   .memtxt{flex:1;font-size:13px;color:var(--ink);line-height:1.55;word-break:break-word}
   .memdel{border:0;background:transparent;color:var(--pink-d);font-size:12px;cursor:pointer;padding:2px 6px;flex:0 0 auto}
   .memdel:hover{text-decoration:underline}
+  #thinkrow{display:flex;align-items:center;gap:10px;margin-top:9px;padding:0 2px}
+  .thinklab{flex:0 0 auto;font-size:12.5px;color:var(--muted-2)}
+  #thinkRange{flex:1 1 auto;min-width:120px;-webkit-appearance:none;appearance:none;height:8px;border-radius:999px;background:linear-gradient(90deg,var(--tint),var(--pink));outline:none;cursor:pointer}
+  #thinkRange::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--card);border:3px solid var(--pink);box-shadow:0 1px 4px rgba(226,81,127,.35);cursor:pointer}
+  #thinkRange::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--card);border:3px solid var(--pink);cursor:pointer}
+  #thinkRange:active::-webkit-slider-thumb{transform:scale(1.08)}
+  #thinkVal{flex:0 0 46px;text-align:right;font-size:12.5px;font-weight:700;color:var(--pink-d)}
   form{display:flex;gap:10px;margin-top:14px}
   textarea{flex:1;resize:none;border:2px solid var(--border-soft);border-radius:14px;padding:12px 14px;font-size:15px;font-family:inherit;outline:none;height:74px;background:var(--card);color:var(--ink)}
   textarea:focus{border-color:var(--pink)}
@@ -1371,21 +1378,6 @@ const PAGE = `<!doctype html>
     <div class="sp-head">超时与重试 <span class="sp-tip">保存后从下一个任务开始生效;任务总超时是整轮上限,无响应超时是连续多久没收到输出就判卡死</span></div>
     <div>
       <div style="font-size:13.5px;color:var(--ink)"><b>运行参数</b> <span style="color:var(--muted-2);font-size:12px">(超时与自动重试)</span></div>
-      <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <label style="font-size:12.5px;color:var(--muted-2)">思考强度
-          <select id="thinkLevel" style="margin-left:6px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
-            <option value="auto">自动(模型默认)</option>
-            <option value="none">关(最快)</option>
-            <option value="low">低</option>
-            <option value="medium">中</option>
-            <option value="high">高</option>
-            <option value="xhigh">最高(最慢)</option>
-          </select>
-        </label>
-        <button type="button" id="thinkSave" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">保存</button>
-        <span id="thinkMsg" style="font-size:12px;color:var(--muted)"></span>
-      </div>
-      <div class="sp-tip" style="margin-top:6px">档位越高想得越久、也越费 token;「自动」= 不指定,由模型自己决定。ZCode 底座下一个任务即生效,OpenCode 底座会在任务前自动重启引擎后生效。</div>
       <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px">
         <label style="font-size:12.5px;color:var(--muted-2)">任务总超时(秒)
           <input id="timeoutSec" type="number" min="60" max="7200" step="10" style="margin-top:4px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);font-size:12.5px">
@@ -1515,6 +1507,11 @@ const PAGE = `<!doctype html>
     <div class="msg bot">你好呀!我是哈基米 🐾 把愿望告诉我,我把它做成插件。不知道说什么?点一个试试:<br><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span class="chip" style="cursor:pointer" data-wish="做一个每日提醒喝水的插件,每 45 分钟提醒一次">💧 喝水提醒</span><span class="chip" style="cursor:pointer" data-wish="做一个记事本插件,能存笔记还能搜索">📝 记事本</span><span class="chip" style="cursor:pointer" data-wish="做一个番茄钟插件,每 25 分钟提醒我休息一次">🍅 番茄钟</span><span class="chip" style="cursor:pointer" data-wish="做一个每日诗词插件,每天早上给我推一首诗">📜 每日诗词</span></div></div>
   </div>
   <form id="f"><textarea id="t" placeholder="说出你的愿望,比如:每天早上 8 点提醒我喝水…" required></textarea><button id="b">开工!</button></form>
+  <div id="thinkrow" title="思考强度:档位越高想得越久、越费 token;自动=交给模型自己决定">
+    <span class="thinklab">思考强度</span>
+    <input id="thinkRange" type="range" min="0" max="5" step="1" value="0" aria-label="思考强度">
+    <span id="thinkVal">自动</span>
+  </div>
   <div class="hint"><span id="tokbar"></span><span id="ctxbar"></span><span> · 回车发送,Shift+回车换行;完成后可下载 .neko-plugin 导入 N.E.K.O.</span></div>
   </main>
 </div>
@@ -2148,27 +2145,45 @@ async function saveTuning(payload,okText){
     }else msg.textContent=(j&&j.error)||'保存失败';
   }catch(e){msg.textContent='连接出错';}
 }
-// 思考强度:读后端 → 填 select;保存后两套底座都按新档位生成配置
+// 思考强度(输入框下方长条滑杆):拖动即存,失败回滚到上一档
+const THINK_VALUES=['auto','none','low','medium','high','xhigh'];
+const THINK_LABELS=['自动','关','低','中','高','最高'];
+const thinkRange=document.getElementById('thinkRange'),thinkVal=document.getElementById('thinkVal');
+let thinkCur=0;
+function paintThink(){
+  if(!thinkRange||!thinkVal)return;
+  thinkVal.textContent=THINK_LABELS[thinkCur]||'自动';
+  thinkVal.style.color=thinkCur===0?'var(--muted-2)':'var(--pink-d)';
+  const pct=thinkCur/5*100;
+  thinkRange.style.background='linear-gradient(90deg,var(--pink) 0%,var(--pink) '+pct+'%,var(--border-soft) '+pct+'%,var(--border-soft) 100%)';
+}
 async function loadThink(){
   try{
     const j=await(await fetch('/api/think')).json();
-    const el=document.getElementById('thinkLevel');
-    if(j&&j.ok&&el)el.value=j.level||'auto';
+    if(j&&j.ok){const i=THINK_VALUES.indexOf(j.level);thinkCur=i<0?0:i;if(thinkRange)thinkRange.value=String(thinkCur);paintThink();}
   }catch(e){}
 }
 loadThink();
-const thinkSaveBtn=document.getElementById('thinkSave');
-if(thinkSaveBtn)thinkSaveBtn.onclick=async()=>{
-  const el=document.getElementById('thinkLevel'),msg=document.getElementById('thinkMsg');
-  if(!el)return;
-  msg.className='';msg.textContent='保存中…';
-  try{
-    const r=await fetch('/api/think',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({level:el.value})});
-    const j=await r.json();
-    if(j&&j.ok){msg.textContent='✅ 已保存:'+el.options[el.selectedIndex].text;setTimeout(()=>{if((msg.textContent||'').startsWith('✅'))msg.textContent='';},2000);}
-    else msg.className='bad',msg.textContent=(j&&j.error)||'保存失败';
-  }catch(e){msg.className='bad';msg.textContent='连接出错';}
-};
+if(thinkRange){
+  thinkRange.addEventListener('input',()=>{thinkCur=Number(thinkRange.value)||0;paintThink();});
+  thinkRange.addEventListener('change',async()=>{
+    const next=THINK_VALUES[Number(thinkRange.value)||0];
+    const prev=THINK_VALUES[thinkCur]||'auto';
+    try{
+      const r=await fetch('/api/think',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({level:next})});
+      const j=await r.json();
+      if(!j||!j.ok)throw new Error((j&&j.error)||'保存失败');
+      paintThink();
+    }catch(e){
+      const back=THINK_VALUES.indexOf(prev);
+      thinkCur=back<0?0:back;
+      if(thinkRange)thinkRange.value=String(thinkCur);
+      paintThink();
+      thinkVal.textContent='保存失败';
+      setTimeout(paintThink,1500);
+    }
+  });
+}
 // 手动压缩当前会话(设置 → 运行;平时靠自动压缩,这里只是兜底)
 const compactNowBtn=document.getElementById('compactNow');
 if(compactNowBtn)compactNowBtn.onclick=async()=>{
