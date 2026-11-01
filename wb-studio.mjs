@@ -2309,7 +2309,8 @@ function noResponseError(retries) {
  * kind="cli":    外部 CLI 底座无常驻进程,直接重跑即可。
  */
 async function runTaskWithRetry(kind, run) {
-  const maxRetries = retryMaxCount()
+  // ZCode 自身已经对限流/空回复退避重试过,外层再整套重试只会把一次失败拖成十几分钟
+  const maxRetries = kind === "zcode" ? 0 : retryMaxCount()
   const retries = []
   lastRetryRestarted = false
   for (let attempt = 1; ; attempt++) {
@@ -3980,11 +3981,16 @@ const boot = async () => {
       try { appendFileSync(join(__dirname, "runtime", "studio.log"), `[${new Date().toISOString()}] studio 退出 code=${code}\n`) } catch {}
     })
   } catch {}
-  console.log(`[wb-studio] 引擎检查中 (${config.server}) ...`)
-  const engine = await ensureEngine()
-  if (engine.error) {
-    engineLastError = engine.error
-    console.error(`[wb-studio] ⚠ ${engine.error}(仍将启动网页,任务会失败)`)
+  if (backendCfg.mode === "zcode") {
+    // 底座是 ZCode 时不拉本地引擎:省 184MB 内存和 20-30 秒冷启;切回 OpenCode 时任务前会自己拉起
+    console.log("[wb-studio] 底座 = ZCode,跳过本地引擎启动")
+  } else {
+    console.log(`[wb-studio] 引擎检查中 (${config.server}) ...`)
+    const engine = await ensureEngine()
+    if (engine.error) {
+      engineLastError = engine.error
+      console.error(`[wb-studio] ⚠ ${engine.error}(仍将启动网页,任务会失败)`)
+    }
   }
   srv.listen(config.port, "127.0.0.1", () => {
     const url = `http://127.0.0.1:${config.port}`
