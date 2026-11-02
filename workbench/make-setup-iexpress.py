@@ -22,6 +22,15 @@ if /I "%~1"=="--silent" goto run
 if "%~1"=="" goto run
 set "DST=%~1"
 :run
+rem ASCII-only: this file is written with encoding="ascii" (no CJK).
+set "MODE=install"
+if exist "%DST%\wb-studio.mjs" set "MODE=update"
+if "%MODE%"=="update" (
+  echo [N.E.K.O] Updating workbench at: %DST%
+  echo Keeping runtime/ and workspace/ untouched (keys, sessions, memories, plugin projects stay).
+) else (
+  echo [N.E.K.O] Installing workbench to: %DST%
+)
 if not exist "%DST%" mkdir "%DST%" >nul 2>&1
 
 tasklist /FI "IMAGENAME eq bun.exe" 2>nul | "%SystemRoot%\System32\findstr.exe" /I "bun.exe" >nul
@@ -32,6 +41,7 @@ if not errorlevel 1 (
 
 "%SystemRoot%\System32\tar.exe" -xf "%~dp0payload.zip" -C "%DST%"
 if errorlevel 1 exit /b 1
+if not exist "%DST%\wb-studio.mjs" exit /b 2
 
 start "" "%DST%\start.cmd"
 exit /b 0
