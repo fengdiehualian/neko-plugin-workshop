@@ -27,7 +27,7 @@ set "MODE=install"
 if exist "%DST%\wb-studio.mjs" set "MODE=update"
 if "%MODE%"=="update" (
   echo [N.E.K.O] Updating workbench at: %DST%
-  echo Keeping runtime/ and workspace/ untouched (keys, sessions, memories, plugin projects stay).
+  echo Keeping runtime/ and workspace/ untouched - keys, sessions, memories and plugin projects stay.
 ) else (
   echo [N.E.K.O] Installing workbench to: %DST%
 )
