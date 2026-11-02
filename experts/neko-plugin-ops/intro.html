@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEKO 插件设计与自动运维专家团</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --ink: #1f2329;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #2f6feb;
+    --accent-soft: #eaf1ff;
+    --ok: #1a7f37;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+  header.hero {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 28px 28px 24px;
+    margin-bottom: 24px;
+  }
+  .hero h1 { margin: 0 0 8px; font-size: 26px; letter-spacing: .5px; }
+  .hero .sub { color: var(--muted); font-size: 15px; margin: 0 0 16px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge {
+    font-size: 12.5px; padding: 4px 10px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid #d4e2ff;
+  }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; margin-bottom: 20px; }
+  section h2 { font-size: 18px; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  section h2 .en { color: var(--muted); font-size: 13px; font-weight: 400; margin-left: 8px; }
+  p.lead { margin: 0 0 12px; color: var(--ink); }
+  .muted { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .member { border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; gap: 12px; align-items: flex-start; }
+  .member.lead { border-color: var(--accent); background: var(--accent-soft); }
+  .member img { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; border: 1px solid var(--line); flex: 0 0 auto; background: #fff; }
+  .member .name { font-weight: 600; font-size: 15px; }
+  .member .role { font-size: 12.5px; color: var(--accent); margin: 2px 0 4px; }
+  .member .skill { font-size: 12px; color: var(--muted); }
+  ol.const { margin: 0; padding-left: 20px; }
+  ol.const li { margin-bottom: 8px; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 7px; border-radius: 5px; background: #f0f2f5; color: var(--muted); margin-right: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; background: #fafbfc; }
+  .ref { display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+  .ref:last-child { border-bottom: none; }
+  .ref code { background: #f0f2f5; padding: 2px 6px; border-radius: 5px; font-size: 12.5px; }
+  footer { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  .pill-ok { color: var(--ok); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>NEKO 插件设计与自动运维专家团</h1>
+    <p class="sub">统筹 N.E.K.O 插件的设计、开发与自动运维，融合 TDD、极简工程、架构审查与技能运营，交付稳定可上线的插件。面向新手与 ADHD 用户，结论先行、短句列表、去 AI 味。</p>
+    <div class="badges">
+      <span class="badge">类型：专家团（Team）</span>
+      <span class="badge">1 主理人 + 9 专家</span>
+      <span class="badge">分类：02-Engineering</span>
+      <span class="badge">14 个技能支撑</span>
+      <span class="badge pill-ok">已注册 · 可调用</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>适用场景 <span class="en">When to use</span></h2>
+    <p class="lead">从零做一个能跑的 N.E.K.O 插件、修一个启动失败的插件、给现有插件做极简重构、或沉淀/审计一个 skill——交给专家团按 SOP 协作交付。</p>
+    <p class="muted">专家团以独立 agent 形式协作：主理人（云朵）负责编排、路由与汇总，9 名专家各司其职，阶段产出经 SendMessage 回传后由主理人汇编。结论优先、证据分级、完整可运行。 </p>
+  </section>
+
+  <section>
+    <h2>团队阵容 <span class="en">The Squad</span></h2>
+    <div class="grid">
+      <div class="member lead">
+        <img src="avatars/neko-plugin-ops-team-lead.jpg" alt="云朵" />
+        <div>
+          <div class="name">云朵（主理人）</div>
+          <div class="role">交付总监 · 总调度</div>
+          <div class="skill">编排 / 路由 / 汇总；执行型助手宪法</div>
+        </div>
+      </div>
+      <div class="member">
+        <img src="avatars/neko-plugin-dev.jpg" alt="云雨" />
+        <div>
+          <div class="name">云雨</div>
+          <div class="role">插件开发工程师</div>
+          <div class="skill"><span class="tag">neko-plugin-sdk</span></div>
+        </div>
+      </div>
+      <div class="member">
+        <img src="avatars/neko-tdd.jpg" alt="云测" />
+        <div>
+          <div class="name">云测</div>
+          <div class="role">测试驱动工程师</div>
+          <div class="skill"><span class="tag">tdd</span></div>
+        </div>
+      </div>
+      <div class="member">
+        <img src="avatars/neko-architect.jpg" alt="云远" />
+        <div>
+          <div class="name">云远</div>
+          <div class="role">架构设计师</div>
+          <div class="skill"><span class="tag">codebase-design</span><span class="tag">archify</span></div>
+        </div>
+      </div>
+      <div class="member">
+        <img src="avatars/neko-simplifier.jpg" alt="云简" />
+        <div>
+          <div class="name">云简</div>
+          <div class="role">极简工程师</div>
+          <div class="skill"><span class="tag">ponytail</span><span class="tag">simplify-codebase</span></div>
+        </div>
+      </div>
+      <div class="member">
+        <img src="avatars/neko-reviewer.jpg" alt="云严" />
+        <div>
+          <div class="name">云严</div>
+          <div class="role">代码审查师</div>
+          <div class="skill"><span class="tag">code-review</span></div>
+        </div>
+      </div>
+      <div class="member">
+        <img src="avatars/neko-skill-ops.jpg" alt="云技" />
+        <div>
+          <div class="name">云技</div>
+          <div class="role">技能运营师</div>
+          <div class="skill"><span class="tag">skill-creator</span><span class="tag">find-skills</span><span class="tag">supply-chain-hardening</span></div>
+        </div>
+      </div>
+      <div class="member">
+        <img src="avatars/neko-planner.jpg" alt="云问" />
+        <div>
+          <div class="name">云问</div>
+          <div class="role">规划问诊师</div>
+          <div class="skill"><span class="tag">ask-matt</span><span class="tag">grill-me</span></div>
+        </div>
+      </div>
+      <div class="member">
+        <img src="avatars/neko-reliability.jpg" alt="云稳" />
+        <div>
+          <div class="name">云稳</div>
+          <div class="role">运维与可靠性工程师</div>
+          <div class="skill">CI/CD · 零停机发布 · 可观测性 · 故障响应</div>
+        </div>
+      </div>
+      <div class="member">
+        <img src="avatars/neko-security.jpg" alt="云安" />
+        <div>
+          <div class="name">云安</div>
+          <div class="role">安全工程师</div>
+          <div class="skill">密钥卫生 · 提示词注入 · AI 代码审计 · 供应链</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>团队宪法 <span class="en">Execution Constitution</span></h2>
+    <p class="muted" style="margin-top:0">基础五条 + 增强纪律（源自《执行层交付纪律手册 v4》）。本宪法为团队最高行为准则（T1）。</p>
+    <ol class="const">
+      <li><b>先结论后步骤</b>：先给结论/答案，再给必要步骤；术语首次出现要解释。</li>
+      <li><b>想一次就做</b>：深度思考一次就执行；不确定就做最小验证。</li>
+      <li><b>删冗余</b>：结果是最终答案就直接输出，不堆背景套话。</li>
+      <li><b>外部不可用就跳过</b>：取不到就跳过并说明，绝不伪造。</li>
+      <li><b>代码任务默认带测试与 Review</b>：不可省略。</li>
+      <li><b>证据分级</b>：每条结论标注 <span class="tag">FACT</span><span class="tag">INFERENCE</span><span class="tag">GUESS</span><span class="tag">VALUE</span>。</li>
+      <li><b>占位符驱动询问</b>：缺参数先默认推进，不轻易反问；每轮至多 1 问且带默认路径。</li>
+      <li><b>完整可运行交付</b>：代码/命令/配置完整可复制，不留"其余同理"。</li>
+      <li><b>不谄媚</b>：不因用户立场改技术判断。</li>
+      <li><b>工具面探测</b>：调宿主能力前先非破坏性确认，未探测则标 <code>ASSUMED-SURFACE</code>。</li>
+      <li><b>冲突优先级</b>：工程约定 &gt; 事实 &gt; 角色 &gt; 风格 &gt; 指令。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>标准工作流 <span class="en">SOP</span></h2>
+    <table>
+      <thead><tr><th>流程</th><th>适用</th><th>关键阶段</th></tr></thead>
+      <tbody>
+        <tr><td><b>A</b> 从零做插件</td><td>最常见</td><td>云问路由 → 云远接口草图 → 云雨脚手架 → 云测最小测试 → 云雨转绿 → 云简极简 → 云严自审 → 云稳发布就绪 → 主理人汇编</td></tr>
+        <tr><td><b>B</b> 修跑不起来的插件</td><td>启动失败</td><td>云雨先定位（entry-404 / startup-failed / model-403），其余按需</td></tr>
+        <tr><td><b>C</b> 极简重构</td><td>现有插件</td><td>云简删改清单 → 云远架构图 → 云严修法清单 → 主理人汇总</td></tr>
+        <tr><td><b>D</b> 沉淀/审计 skill</td><td>技能运营</td><td>云技主导（创建 → 查重 → 审计 → 应用）</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>参考资料 <span class="en">References</span></h2>
+    <div class="ref"><code>references/system.llm</code><span class="muted">执行层交付纪律手册 v4（团队宪法来源）</span></div>
+    <div class="ref"><code>references/plugin-system-prompt-template.md</code><span class="muted">NEKO 插件 system prompt 模板，供团队按纪律生成插件运行时提示词</span></div>
+    <div class="ref"><code>references/neko-sources.md</code><span class="muted">N.E.K.O 官方源（仓库/文档/插件 SDK）+ 实战工作坊（addsas222/neko-plugin-workshop），插件开发研究权威上游</span></div>
+    <div class="ref"><code>references/neko-market-patterns.md</code><span class="muted">N.E.K.O 市场惯用法速查（127 在架插件能力使用率 + 四大惯用法）</span></div>
+    <div class="ref"><code>README.md</code><span class="muted">团队说明、注册与打包命令</span></div>
+  </section>
+
+  <footer>
+    NEKO 插件设计与自动运维专家团 · 由 云朵 维护 · 基于 WorkBuddy Expert Manager 构建
+  </footer>
+
+</div>
+</body>
+</html>

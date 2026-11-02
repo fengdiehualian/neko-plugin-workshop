@@ -35,6 +35,7 @@
 ├── wb-agent-lib.mjs      # 无人值守 Agent 驱动(v1/v2 引擎双协议)
 ├── src/index.ts          # 生成→check→build 闭环内核 + 错误解析器
 ├── packs/                # 模板 + 插件规范 skill(15 页官方文档 + 市场写法分析)
+├── experts/              # 配套专家团(WorkBuddy/CodeBuddy 专家包,可导入自己的 Agent 底座)
 ├── market-corpus/        # 46 个官方市场插件源码(Agent 的学习语料)
 ├── test/                 # 单元测试(bun test)
 ├── workbench/            # 打包工具(make-exe.ps1 一键 SFX 安装器)
@@ -50,6 +51,20 @@
    (llm_tool 50% / push_message 57% / store 37%…)与四大惯用法
 3. **全量插件卡片**:`references/market-catalog.md`——46 个插件的功能/接口/能力/源码索引
 4. **语料库**:`market-corpus/` 全部源码,按功能找同类直接读
+
+## 配套专家团(可选)
+
+`experts/` 下是可直接导入 Agent 底座的专家包,和 `packs/`(工坊自动挂载的生成规范)分工不同:
+一个决定「怎么写出合规插件」,一个决定「谁来带你写」。
+
+- **neko-plugin-ops**——NEKO 插件设计与自动运维专家团:1 名主理人 + 9 名专家
+  (插件开发 / TDD / 架构 / 极简 / 审查 / 技能运营 / 规划 / 可靠性 / 安全),
+  覆盖「从零做插件 → 修跑不起来 → 极简重构 → skill 沉淀审计」四条链路。
+  依据与 `packs/neko-plugin` 同源的插件规范,另附执行纪律手册 `references/system.llm`。
+
+安装:把 `experts/neko-plugin-ops` 打成 zip,在 WorkBuddy「专家中心 → 导入专家包」选择即可;
+细节见 `experts/README.md`。清单自洽性由 `test/experts.test.ts` 兜住
+(`bun test test/experts.test.ts`)。
 
 ## 快速开始(面向开发者)
 

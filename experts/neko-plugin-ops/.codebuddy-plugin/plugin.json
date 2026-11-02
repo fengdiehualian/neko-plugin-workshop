@@ -1,0 +1,138 @@
+{
+  "name": "neko-plugin-ops",
+  "version": "1.2.0",
+  "description": "Team of specialists for designing, building, testing, securing and auto-operating N.E.K.O plugins, combining TDD, minimalist engineering, architecture review, skill ops, reliability and security.",
+  "author": {
+    "name": "云朵",
+    "email": "1704872879@qq.com"
+  },
+  "agents": [
+    "./agents/neko-plugin-ops-team-lead.md",
+    "./agents/neko-plugin-dev.md",
+    "./agents/neko-tdd.md",
+    "./agents/neko-architect.md",
+    "./agents/neko-simplifier.md",
+    "./agents/neko-reviewer.md",
+    "./agents/neko-skill-ops.md",
+    "./agents/neko-planner.md",
+    "./agents/neko-reliability.md",
+    "./agents/neko-security.md"
+  ],
+  "expertType": "team",
+  "agentName": "neko-plugin-ops-team-lead",
+  "teamInfo": {
+    "leadAgent": "neko-plugin-ops-team-lead",
+    "memberAgents": [
+      "neko-plugin-dev",
+      "neko-tdd",
+      "neko-architect",
+      "neko-simplifier",
+      "neko-reviewer",
+      "neko-skill-ops",
+      "neko-planner",
+      "neko-reliability",
+      "neko-security"
+    ]
+  },
+  "displayName": {
+    "en": "NEKO Plugin Design & Auto-Ops Squad",
+    "zh": "NEKO 插件设计与自动运维专家团"
+  },
+  "profession": {
+    "en": "NEKO Plugin Design & Auto-Ops Squad",
+    "zh": "NEKO 插件设计与自动运维专家团"
+  },
+  "displayDescription": {
+    "en": "A squad that designs, builds, tests, secures and auto-operates N.E.K.O plugins with TDD, minimalist engineering, architecture review, skill ops, reliability and security.",
+    "zh": "统筹 N.E.K.O 插件开发与自动运维，融合 TDD、极简工程与架构审查，交付稳定可上线插件。"
+  },
+  "avatar": "avatars/team.jpg",
+  "categoryId": "02-Engineering",
+  "defaultInitPrompt": {
+    "zh": "从零设计并实现一个 N.E.K.O 插件，先跑通 TDD 最小测试再交付",
+    "en": "Design and build a NEKO plugin from scratch; get a minimal TDD test passing before delivery"
+  },
+  "plugin": "neko-plugin-ops",
+  "tags": [
+    { "en": "NEKO Plugin Dev", "zh": "N.E.K.O 插件开发" },
+    { "en": "Automated Ops", "zh": "自动化运维" },
+    { "en": "Minimalist Engineering", "zh": "极简工程" }
+  ],
+  "quickPrompts": [
+    { "en": "Design and build a NEKO plugin from scratch; get a minimal TDD test passing before delivery", "zh": "从零设计并实现一个 N.E.K.O 插件，先跑通 TDD 最小测试再交付" },
+    { "en": "Review plugin code for startup-failed / entry-404 / model-403 risks and give fixes", "zh": "审查现有插件代码，定位启动失败 / 入口 404 / 模型 403 风险并给出修法" },
+    { "en": "Minimal refactor of a plugin with an architecture diagram and a self-review checklist", "zh": "给现有插件做极简重构，并附架构图与自审清单" }
+  ],
+  "members": [
+    {
+      "id": "neko-plugin-ops-team-lead",
+      "displayName": { "en": "Yun Duǒ (Lead)", "zh": "云朵（主理人）" },
+      "profession": { "en": "Delivery Director", "zh": "交付总监" },
+      "avatar": "avatars/neko-plugin-ops-team-lead.jpg",
+      "role": "lead"
+    },
+    {
+      "id": "neko-plugin-dev",
+      "displayName": { "en": "Yun Yǔ", "zh": "云雨" },
+      "profession": { "en": "Plugin Dev Engineer", "zh": "插件开发工程师" },
+      "avatar": "avatars/neko-plugin-dev.jpg",
+      "role": "member"
+    },
+    {
+      "id": "neko-tdd",
+      "displayName": { "en": "Yun Cè", "zh": "云测" },
+      "profession": { "en": "TDD Engineer", "zh": "测试驱动工程师" },
+      "avatar": "avatars/neko-tdd.jpg",
+      "role": "member"
+    },
+    {
+      "id": "neko-architect",
+      "displayName": { "en": "Yun Yuǎn", "zh": "云远" },
+      "profession": { "en": "Architecture Designer", "zh": "架构设计师" },
+      "avatar": "avatars/neko-architect.jpg",
+      "role": "member"
+    },
+    {
+      "id": "neko-simplifier",
+      "displayName": { "en": "Yun Jiǎn", "zh": "云简" },
+      "profession": { "en": "Minimalist Engineer", "zh": "极简工程师" },
+      "avatar": "avatars/neko-simplifier.jpg",
+      "role": "member"
+    },
+    {
+      "id": "neko-reviewer",
+      "displayName": { "en": "Yun Yán", "zh": "云严" },
+      "profession": { "en": "Code Reviewer", "zh": "代码审查师" },
+      "avatar": "avatars/neko-reviewer.jpg",
+      "role": "member"
+    },
+    {
+      "id": "neko-skill-ops",
+      "displayName": { "en": "Yun Jì", "zh": "云技" },
+      "profession": { "en": "Skill Ops Engineer", "zh": "技能运营师" },
+      "avatar": "avatars/neko-skill-ops.jpg",
+      "role": "member"
+    },
+    {
+      "id": "neko-planner",
+      "displayName": { "en": "Yun Wèn", "zh": "云问" },
+      "profession": { "en": "Planning & Routing Specialist", "zh": "规划问诊师" },
+      "avatar": "avatars/neko-planner.jpg",
+      "role": "member"
+    },
+    {
+      "id": "neko-reliability",
+      "displayName": { "en": "Yun Wěn", "zh": "云稳" },
+      "profession": { "en": "Reliability & Ops Engineer", "zh": "运维与可靠性工程师" },
+      "avatar": "avatars/neko-reliability.jpg",
+      "role": "member"
+    },
+    {
+      "id": "neko-security",
+      "displayName": { "en": "Yun Ān", "zh": "云安" },
+      "profession": { "en": "Security Engineer", "zh": "安全工程师" },
+      "avatar": "avatars/neko-security.jpg",
+      "role": "member"
+    }
+  ]
+}
