@@ -1318,6 +1318,8 @@ const PAGE = `<!doctype html>
   details.think.live summary{color:var(--pink-d)}
   details.think .tbody{white-space:pre-wrap;word-break:break-word;font-size:12.5px;line-height:1.7;color:var(--muted);max-height:260px;overflow-y:auto;padding:2px 12px 10px 12px}
   .sp-close{position:absolute;right:0;top:4px;border:0;background:none;color:var(--muted-2);font-size:12px;cursor:pointer}
+  /* 更新进度条:测速/不确定阶段用流动动画(margin 滑动,width 固定 40%) */
+  @keyframes updInd{0%{margin-left:-40%}100%{margin-left:100%}}
 </style></head>
 <body>
 <script>try{var wbT=localStorage.getItem('wb_theme');if(wbT==='blue'||wbT==='white'||wbT==='black')document.body.classList.add('theme-'+wbT)}catch(e){}</script>
@@ -1480,7 +1482,7 @@ const PAGE = `<!doctype html>
       <div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">填 K 数(128 = 128K tokens),改完即生效;占用为估算值(最近一轮输入+输出)</div>
     </div>
   <div class="sp-body" id="tab-update" style="display:none">
-    <div class="sp-head">版本更新 <span class="sp-tip">检查优先走 GitHub,失败自动改用码云镜像</span></div>
+    <div class="sp-head">版本更新 <span class="sp-tip">检查与下载自动选更快的通道(GitHub / 码云镜像)</span></div>
     <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:13px;color:var(--ink)">当前版本 <b id="updCur">-</b></span>
       <span style="font-size:13px;color:var(--ink)">最新版本 <b id="updLatest">未检查</b><span id="updLatestAt" style="font-size:11.5px;color:var(--muted-2);margin-left:6px"></span></span>
@@ -1504,6 +1506,15 @@ const PAGE = `<!doctype html>
   <div style="width:min(430px,90vw);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 12px 40px var(--shadow)">
     <div id="updTitle" style="font-size:16px;font-weight:800;color:var(--ink)">发现新版本</div>
     <div id="updModalBody" style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.8"></div>
+    <div id="updProg" style="display:none;margin-top:10px">
+      <div id="updMPhase" style="font-size:13px;font-weight:700;color:var(--ink)"></div>
+      <div id="updMSpeed" style="display:none;margin-top:4px;font-size:11.5px;color:var(--muted-2)"></div>
+      <div style="margin-top:12px;height:12px;background:var(--tint);border:1px solid var(--border);border-radius:999px;overflow:hidden">
+        <div id="updMBar" style="height:100%;width:0;background:var(--pink);border-radius:999px"></div>
+      </div>
+      <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted-2)"><span id="updMDetail"></span><span id="updMPct"></span></div>
+      <div style="margin-top:10px;font-size:11.5px;color:var(--muted-2)">下载完成后会自动安装并重启;runtime(密钥/会话/记忆)与 workspace(插件项目)都会保留。</div>
+    </div>
     <div style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end">
       <button type="button" id="updCancel" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:9px;padding:7px 16px;font-size:12.5px;font-weight:700;cursor:pointer">以后再说</button>
       <button type="button" id="updGo" style="border:0;background:var(--pink);color:var(--on-primary);border-radius:9px;padding:7px 18px;font-size:12.5px;font-weight:700;cursor:pointer">立即更新</button>
@@ -2002,8 +2013,8 @@ document.querySelectorAll('.fontopt').forEach(o=>{o.onclick=()=>applyUi(o.datase
 })();
 const fsReset=document.getElementById('fontSizeReset');
 if(fsReset)fsReset.onclick=()=>applyUi(uiFont,100,true);
-// 版本更新:检查 → 弹窗(无论结果如何都有反馈) → 下载(轮询实时进度) → 自动退出安装
-const UPD={timer:null,onOk:null,busy:false};
+// 版本更新:点击 → 弹窗检查(无论结果如何都有反馈) → 问「是/否」 → 是=自动测速选通道 → 弹窗进度条下载 → 自动退出安装
+const UPD={timer:null,onOk:null,busy:false,last:null};
 const UPD_CACHE_KEY='wb_upd_last';
 function updReadCache(){try{return JSON.parse(localStorage.getItem(UPD_CACHE_KEY)||'null')}catch(e){return null}}
 function updWriteCache(o){try{localStorage.setItem(UPD_CACHE_KEY,JSON.stringify(o))}catch(e){}}
@@ -2029,6 +2040,8 @@ function updMB(n){return ((Number(n)||0)/1048576).toFixed(1)+' MB'}
 function updShowModal(title,html,okText,onOk,cancelText){
   document.getElementById('updTitle').textContent=title;
   document.getElementById('updModalBody').innerHTML=html;
+  document.getElementById('updModalBody').style.display='';
+  document.getElementById('updProg').style.display='none';
   const go=document.getElementById('updGo'),cancel=document.getElementById('updCancel');
   go.textContent=okText||'知道了';
   cancel.style.display=cancelText?'':'none';
@@ -2049,6 +2062,15 @@ async function updApi(body,timeoutMs){
     throw e&&e.name==='AbortError'?new Error('请求超时(网络无响应)'):e;
   }finally{clearTimeout(timer)}
 }
+const UPD_BUSY=['testing','downloading','merging','verifying','extracting','applying'];
+function updSrcName(s){return s==='github'?'GitHub':s==='gitee'?'码云镜像':s==='feed'?'测试源':'下载源'}
+function updSpeedTxt(s){
+  if(!s||!s.speeds)return '';
+  const g=Number(s.speeds.github)||0,e=Number(s.speeds.gitee)||0;
+  if(!g&&!e)return '';
+  return 'GitHub '+(g?updMB(g)+'/s':'不通')+' · 码云 '+(e?updMB(e)+'/s':'不通');
+}
+const UPD_PHASE_TXT={testing:'🚦 测速中:正在比较 GitHub 与码云谁更快…',downloading:'⬇️ 下载中',merging:'🧩 合并分卷…',verifying:'🔍 校验安装包…',extracting:'📦 解压安装中,工坊即将重启…',applying:'⚙️ 正在安装,工坊即将重启…'};
 function updRender(s){
   if(!s)return;
   const cur=document.getElementById('updCur');
@@ -2056,16 +2078,16 @@ function updRender(s){
   updShowLatest(s);
   const box=document.getElementById('updBox'),bar=document.getElementById('updBar'),pct=document.getElementById('updPct'),
         ph=document.getElementById('updPhase'),det=document.getElementById('updDetail'),msg=document.getElementById('updMsg');
-  const busy=['downloading','merging','verifying','extracting','applying'].includes(s.phase);
+  const busy=UPD_BUSY.indexOf(s.phase)>=0;
   box.style.display=busy?'':'none';
   if(busy){
-    bar.style.width=(s.percent||0)+'%';
-    pct.textContent=(s.percent||0)+'%';
-    const src=s.source==='github'?'GitHub':s.source==='gitee'?'码云镜像':'测试源';
-    ph.textContent={downloading:'下载中('+src+')',merging:'合并分卷…',verifying:'校验安装包…',extracting:'解压安装中,工坊即将重启…',applying:'正在安装,工坊即将退出…'}[s.phase]||'处理中…';
-    det.textContent=s.total?updMB(s.received)+' / '+updMB(s.total)+(s.speed?' · '+updMB(s.speed)+'/s':''):'';
+    if(s.phase==='testing'){bar.style.width='40%';bar.style.animation='updInd 1.1s infinite linear';pct.textContent='';}
+    else{bar.style.animation='';bar.style.width=(s.percent||0)+'%';pct.textContent=(s.percent||0)+'%';}
+    const phTxt=UPD_PHASE_TXT[s.phase]||'处理中…';
+    ph.textContent=s.phase==='downloading'?phTxt+'('+updSrcName(s.source)+')':phTxt;
+    det.textContent=s.total?updMB(s.received)+' / '+updMB(s.total)+(s.speed?' · '+updMB(s.speed)+'/s':''):updSpeedTxt(s);
     msg.textContent='';
-  }
+  }else{bar.style.animation='';}
   if(s.phase==='error'){msg.style.color='#c0392b';msg.textContent='更新失败:'+(s.error||'未知错误');}
   else if(s.phase==='done'){msg.style.color='';msg.textContent='已是最新版本';}
 }
@@ -2094,11 +2116,12 @@ async function updCheck(){
     }
     const srcName=j.source==='github'?'GitHub':j.source==='gitee'?'码云镜像':'本地测试源';
     if(j.hasUpdate){
+      UPD.last=j;
       msg.textContent='发现新版本 v'+j.latest;
       updShowModal('发现新版本',
-        '当前版本 v'+j.current+' → 最新版本 <b>v'+j.latest+'</b><br>来源:'+srcName+
-        '<br><span style="color:var(--muted-2);font-size:12px">更新时工坊会自动退出并重启;runtime(密钥/会话/记忆)与 workspace(插件项目)都会保留。</span>',
-        '立即更新',updStart,'以后再说');
+        '当前版本 v'+j.current+' → 最新版本 <b>v'+j.latest+'</b>,不是最新版哦~<br>要现在安装更新吗?<br>来源:'+srcName+
+        '<br><span style="color:var(--muted-2);font-size:12px">点「是」会自动测速选更快的通道下载;更新时工坊会自动退出并重启;runtime(密钥/会话/记忆)与 workspace(插件项目)都会保留。</span>',
+        '是,立即安装',updStart,'否');
     }else{
       msg.textContent='已是最新版本(v'+j.current+')';
       updShowModal('已是最新版本',
@@ -2114,14 +2137,54 @@ async function updCheck(){
     updSetBusy(false);
   }
 }
+// 弹窗进度:点「是」后弹窗不关,原地变成进度框(测速 → 下载进度条 → 自动安装)
+function updModalBegin(latest){
+  document.getElementById('updTitle').textContent='正在更新到 v'+(latest||'');
+  document.getElementById('updModalBody').style.display='none';
+  document.getElementById('updProg').style.display='';
+  document.getElementById('updMPhase').textContent=UPD_PHASE_TXT.testing;
+  document.getElementById('updMSpeed').style.display='none';
+  const bar=document.getElementById('updMBar');
+  bar.style.animation='updInd 1.1s infinite linear';bar.style.width='40%';
+  document.getElementById('updMDetail').textContent='';
+  document.getElementById('updMPct').textContent='';
+  document.getElementById('updGo').style.display='none';
+  document.getElementById('updCancel').style.display='none';
+  document.getElementById('updModal').style.display='flex';
+}
+function updModalProgress(s){
+  const modal=document.getElementById('updModal');
+  if(!modal||getComputedStyle(modal).display==='none')return; // 用户中途关掉弹窗就只看页签进度,别强行弹回
+  const phTxt=UPD_PHASE_TXT[s.phase]||'处理中…';
+  document.getElementById('updMPhase').textContent=s.phase==='downloading'?phTxt+'('+updSrcName(s.source)+')':phTxt;
+  const spd=document.getElementById('updMSpeed');
+  const st=updSpeedTxt(s);
+  if(st&&s.phase!=='extracting'&&s.phase!=='applying'){spd.textContent='通道测速:'+st;spd.style.display='';}
+  else spd.style.display='none';
+  const bar=document.getElementById('updMBar');
+  if(s.phase==='testing'){bar.style.animation='updInd 1.1s infinite linear';bar.style.width='40%';}
+  else{bar.style.animation='';bar.style.width=(s.percent||0)+'%';}
+  document.getElementById('updMDetail').textContent=s.total?updMB(s.received)+' / '+updMB(s.total)+(s.speed?' · '+updMB(s.speed)+'/s':''):'';
+  document.getElementById('updMPct').textContent=s.phase==='downloading'?((s.percent||0)+'%'):'';
+}
+function updRenderModal(s){
+  if(!s)return;
+  if(UPD_BUSY.indexOf(s.phase)>=0)updModalProgress(s);
+  else if(s.phase==='error'){
+    const why=s.error||'未知错误';
+    updShowModal('更新失败','<span style="color:#c0392b">'+why+'</span><br><span style="color:var(--muted-2);font-size:12px">可以重试(会重新测速选通道);还是不行请检查网络或稍后再来。</span>','重试',()=>setTimeout(updStart,50),'关闭');
+  }
+  else if(s.phase==='done'){updCloseModal();}
+}
 function updStart(){
-  updCloseModal();
-  updApi({action:'start'},15000).then(updRender).catch(()=>{});
+  // 不关弹窗:确认后弹窗立刻进入进度模式,随后由轮询驱动
+  updModalBegin(UPD.last&&UPD.last.latest);
+  updApi({action:'start'},15000).then(j=>{updRender(j);if(j&&UPD_BUSY.indexOf(j.phase)>=0)updModalProgress(j);}).catch(()=>{});
   if(UPD.timer)clearInterval(UPD.timer);
   UPD.timer=setInterval(async()=>{
     try{
-      const j=await updApi(null,5000);updRender(j);
-      if(!['downloading','merging','verifying','extracting','applying'].includes(j.phase)){clearInterval(UPD.timer);UPD.timer=null;}
+      const j=await updApi(null,5000);updRender(j);updRenderModal(j);
+      if(UPD_BUSY.indexOf(j.phase)<0){clearInterval(UPD.timer);UPD.timer=null;}
     }catch(e){/* 安装时进程退出,轮询自然失败 */}
   },600);
 }
@@ -3183,7 +3246,7 @@ const GH_REPO = "fengdiehualian/neko-plugin-workshop"
 const GITEE_REPO = "maple-butterfly-flower-love/neko-plugin-workshop"
 const UPDATE_DIR = join(__dirname, "runtime", "update")
 const updateState = {
-  phase: "idle", // idle|checking|downloading|merging|verifying|extracting|applying|done|error
+  phase: "idle", // idle|checking|testing|downloading|merging|verifying|extracting|applying|done|error
   kind: "", // exe | zip
   current: APP_VERSION,
   latest: "",
@@ -3193,6 +3256,7 @@ const updateState = {
   received: 0,
   total: 0,
   speed: 0,
+  speeds: {}, // 通道测速结果 {github: 字节/秒, gitee: 字节/秒}
   error: "",
   checkedAt: 0,
   sources: [],
@@ -3224,6 +3288,7 @@ function updSnapshot() {
     received: updateState.received,
     total: updateState.total,
     speed: updateState.speed,
+    speeds: { ...(updateState.speeds || {}) },
     error: updateState.error,
     checkedAt: updateState.checkedAt,
     hasUpdate: !!updateState.latest && cmpVersion(updateState.latest, updateState.current) > 0,
@@ -3378,6 +3443,39 @@ async function mergeParts(parts, dest) {
   }
 }
 
+// 通道测速:只拉第一份资产的头 1MB(上限 7 秒),谁快走谁。
+// 返回字节/秒;完全拉不动记 0(排序时沉底,仍可当回退源)。
+// 环境里可能有失效代理:0 字节时换绕过代理再取一次样。
+async function probeSourceSpeed(src) {
+  const a = (src.assets || [])[0]
+  if (!a || !a.url) return 0
+  const t0 = Date.now()
+  let received = 0
+  for (const opt of [{}, { proxy: "" }]) {
+    const ctrl = new AbortController()
+    const cap = setTimeout(() => ctrl.abort(), 7000)
+    try {
+      const r = await fetch(a.url, { ...opt, headers: { "user-agent": "neko-workshop/" + APP_VERSION, range: "bytes=0-1048575" }, redirect: "follow", signal: ctrl.signal })
+      if (!r.ok || !r.body) throw new Error("HTTP " + r.status)
+      const reader = r.body.getReader()
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        received += value.length
+        if (received >= 1048576) { try { ctrl.abort() } catch {} break }
+      }
+      break
+    } catch (e) {
+      if (received > 0) break // 主动掐断或中途断流,但已取样
+      // 0 字节:继续用下一个代理选项重试
+    } finally {
+      clearTimeout(cap)
+    }
+  }
+  const ms = Date.now() - t0
+  return ms > 0 ? Math.round((received * 1000) / ms) : 0
+}
+
 async function downloadFrom(src) {
   const fs = require("node:fs")
   updateState.source = src.source
@@ -3461,11 +3559,12 @@ function scheduleApply(filePath, kind) {
 async function runUpdate() {
   if (updateRunning) return updSnapshot()
   updateRunning = true
-  updateState.phase = "downloading"
+  updateState.phase = "testing"
   updateState.received = 0
   updateState.percent = 0
   updateState.speed = 0
   updateState.error = ""
+  updateState.speeds = {}
   try {
   if (!updateState.sources.length) await checkUpdate()
   console.log("[wb-studio] 开始更新:current=" + updateState.current + " latest=" + updateState.latest + " sources=" + updateState.sources.map((x) => x.source).join(","))
@@ -3475,9 +3574,21 @@ async function runUpdate() {
   }
   updateState.startedAt = Date.now()
   updateState.error = ""
-  // 顺序:测试源 > GitHub > 码云。正式环境没有 feed,等价于 GitHub 优先、码云兜底
-  const rank = { feed: 0, github: 1, gitee: 2 }
-  const ordered = [...updateState.sources].sort((a, b) => (rank[a.source] ?? 9) - (rank[b.source] ?? 9))
+  // 通道测速:GitHub 与码云都在时各拉一小段比谁快,快的先走;feed(测试源)不参与,永远最优先
+  const cands = updateState.sources.filter((s) => s.source === "github" || s.source === "gitee")
+  if (cands.length === 2) {
+    updateState.phase = "testing"
+    const pairs = await Promise.all(cands.map(async (s) => [s.source, await probeSourceSpeed(s)]))
+    for (const [name, bps] of pairs) updateState.speeds[name] = bps
+    console.log("[wb-studio] 通道测速:" + pairs.map(([n, b]) => n + "=" + (b ? Math.round(b / 1024) + "KB/s" : "不通")).join(","))
+  }
+  // 顺序:测试源最优先;GitHub/码云按测速从快到慢(没测出速度的沉底,仍作回退)
+  const ordered = [...updateState.sources].sort((a, b) => {
+    const ra = a.source === "feed" ? 0 : 1
+    const rb = b.source === "feed" ? 0 : 1
+    if (ra !== rb) return ra - rb
+    return (updateState.speeds[b.source] || 0) - (updateState.speeds[a.source] || 0)
+  })
   let lastErr = ""
   for (const src of ordered) {
     try {
@@ -3518,7 +3629,7 @@ async function runUpdate() {
             updateState.phase = "error"
             updateState.error = String(e.message || e)
           })
-          return json({ ...updSnapshot(), phase: "downloading" })
+          return json({ ...updSnapshot(), phase: "testing" })
         }
         return json({ ok: false, error: "未知动作:" + action })
       }
