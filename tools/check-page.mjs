@@ -514,6 +514,40 @@ result = await evalJs(`(async () => {
     jb2.mode === 'opencode'
       ? pass('底座切回 OpenCode')
       : fail('底座切回 OpenCode', 'mode=' + (jb2 && jb2.mode));
+
+    // 竞态回归:慢返回的 loadBackend 不能吃掉用户刚选的底座(真实 bug,v1.2.48 修复)
+    // 桩一个 700ms 才返回 opencode 的 GET /api/backend:点页签→立刻选 ZCode→慢响应落地→保存,
+    // 修复前慢响应会把 mode 覆写回 opencode,保存就发了旧值
+    const origFetch = window.fetch;
+    window.fetch = function (u, o) {
+      const m = ((o && o.method) || 'GET').toUpperCase();
+      if (String(u).indexOf('/api/backend') >= 0 && m === 'GET') {
+        return new Promise(function (res) {
+          setTimeout(function () {
+            res(new Response(JSON.stringify({ ok: true, mode: 'opencode', zcodeCmd: [], zcode: { found: false, path: '' }, zcodeBundled: false }), { status: 200, headers: { 'content-type': 'application/json' } }));
+          }, 700);
+        });
+      }
+      return origFetch.apply(this, arguments);
+    };
+    baseTab.click();
+    opts.find((o) => o.dataset.m === 'zcode').click();
+    await sleep(1000);
+    const nRace = calls().filter((c) => c.url.includes('/api/backend') && c.method === 'POST').length;
+    $('#baseSave').click();
+    await sleep(900);
+    window.fetch = origFetch;
+    const racePosts = calls().filter((c) => c.url.includes('/api/backend') && c.method === 'POST');
+    const lastPost = racePosts[racePosts.length - 1];
+    let raceOk = racePosts.length > nRace && lastPost && JSON.parse(lastPost.body).mode === 'zcode';
+    // 现场恢复:切回 opencode 并真实保存
+    opts.find((o) => o.dataset.m === 'opencode').click(); await sleep(80);
+    $('#baseSave').click(); await sleep(900);
+    const jb3 = await (await fetch('/api/backend')).json();
+    raceOk = raceOk && jb3.mode === 'opencode';
+    raceOk
+      ? pass('底座慢加载不覆盖用户选择(竞态回归)', 'posted=' + (lastPost ? JSON.parse(lastPost.body).mode : 'none') + ' final=' + jb3.mode)
+      : fail('底座慢加载不覆盖用户选择(竞态回归)', 'posted=' + (lastPost ? lastPost.body : 'none') + ' final=' + (jb3 && jb3.mode));
   }
 
   // 11.6) 重试页签:参数独立成页,四个输入能改、能保存、能恢复默认

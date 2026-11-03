@@ -147,9 +147,15 @@ function zcodeCmd() {
     ? backendCfg.zcodeCmd.map(String)
     : ["zcode"]
 }
-/** 找 zcode 可执行文件:绝对路径直接判断,裸命令走 where/which(Windows 上 zcode 通常是 .cmd shim) */
+/** 找 zcode 可执行文件:绝对路径直接判断,裸命令走 where/which(Windows 上 zcode 通常是 .cmd shim)。
+ *  结果按命令缓存 60 秒:where.exe 同步探测一次要几百毫秒,不缓存的话每次 /api/backend 都会卡,
+ *  还会拉大底座页签「异步加载晚返回」与用户操作的碰撞窗口。 */
+const _zcodeDetectCache = new Map()
 function detectZcode() {
   const cmd = zcodeCmd()
+  const key = cmd.join(" ")
+  const hit = _zcodeDetectCache.get(key)
+  if (hit && Date.now() - hit.at < 60000) return hit.value
   const first = String(cmd[0] || "")
   let path = ""
   if (/[\/]/.test(first)) {
@@ -161,7 +167,9 @@ function detectZcode() {
       path = String(r.stdout || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean)[0] || ""
     } catch {}
   }
-  return { found: Boolean(path), path, cmd }
+  const value = { found: Boolean(path), path, cmd }
+  _zcodeDetectCache.set(key, { at: Date.now(), value })
+  return value
 }
 
 // ---------- 随包 ZCode(_zcode/):一键包内置 node + zcode.cjs,免安装、免配置 ----------
@@ -1868,6 +1876,8 @@ document.getElementById('setbtn').onclick=()=>{setpanel.classList.toggle('open')
 document.getElementById('setclose').onclick=()=>setpanel.classList.remove('open');
 // ---------- Agent 底座:OpenCode(内置引擎) / ZCode(外部 CLI) ----------
 let baseState={mode:'opencode',zcodeCmd:[],zcode:{found:false,path:''},zcodeBundled:false};
+// 用户改过选择/命令还没保存时置脏:晚到的 loadBackend 响应不允许整体覆写(会吃掉用户刚点的底座)
+let baseDirty=false;
 function renderBackend(){
   document.querySelectorAll('#baselist .baseopt').forEach(el=>el.classList.toggle('cur',el.dataset.m===baseState.mode));
   const inp=document.getElementById('zcodeCmd');
@@ -1886,10 +1896,20 @@ function renderBackend(){
 async function loadBackend(){
   try{
     const j=await(await fetch('/api/backend')).json();
-    if(j&&j.ok){baseState={mode:j.mode,zcodeCmd:j.zcodeCmd||[],zcode:j.zcode||{},zcodeBundled:!!j.zcodeBundled};renderBackend();}
+    if(j&&j.ok){
+      if(baseDirty){
+        // 已有未保存的用户改动:只补探测信息,保住 mode/zcodeCmd
+        baseState.zcode=j.zcode||{};baseState.zcodeBundled=!!j.zcodeBundled;
+      }else{
+        baseState={mode:j.mode,zcodeCmd:j.zcodeCmd||[],zcode:j.zcode||{},zcodeBundled:!!j.zcodeBundled};
+      }
+      renderBackend();
+    }
   }catch(e){}
 }
-document.querySelectorAll('#baselist .baseopt').forEach(el=>{el.onclick=()=>{baseState.mode=el.dataset.m;renderBackend();}});
+document.querySelectorAll('#baselist .baseopt').forEach(el=>{el.onclick=()=>{baseState.mode=el.dataset.m;baseDirty=true;renderBackend();}});
+const baseCmdInput=document.getElementById('zcodeCmd');
+if(baseCmdInput)baseCmdInput.addEventListener('input',()=>{baseDirty=true});
 document.getElementById('baseSave').onclick=async()=>{
   const msg=document.getElementById('baseMsg');msg.className='';msg.textContent='保存中…';
   const cmd=document.getElementById('zcodeCmd').value.trim();
@@ -1898,6 +1918,7 @@ document.getElementById('baseSave').onclick=async()=>{
     const j=await r.json();
     if(j.ok){
       baseState={mode:j.mode,zcodeCmd:j.zcodeCmd||[],zcode:j.zcode||{},zcodeBundled:!!j.zcodeBundled};
+      baseDirty=false;
       renderBackend();
       msg.textContent='✅ 已切换:'+(j.mode==='zcode'?'ZCode':'OpenCode')+(j.warning?' · '+j.warning:'')+(j.mode==='zcode'?'':'');
       if(j.warning)msg.className='bad';
