@@ -595,11 +595,22 @@ result = await evalJs(`(async () => {
     updTab.click();
     await wbWait(() => (($('#updCur') || {}).textContent || '').trim().length > 1, 3000);
     const shown = !!$('#tab-update') && getComputedStyle($('#tab-update')).display !== 'none';
+    // 面板必须真的"看得见":嵌套错位(如被塞进别的 sp-body)时 display 虽为 block 但尺寸是 0
+    const upRect = $('#tab-update').getBoundingClientRect();
+    const visible = upRect.height > 40 && upRect.width > 200;
     const curTxt = ($('#updCur').textContent || '').trim();
     const hasBtn = !!$('#updCheck') && !!$('#updGo') && !!$('#updModal');
-    shown && /^v\\d+\\.\\d+\\.\\d+/.test(curTxt) && hasBtn
-      ? pass('更新页签 面板/版本号/按钮', curTxt)
-      : fail('更新页签 面板/版本号/按钮', 'shown=' + shown + ' cur=' + curTxt + ' btn=' + hasBtn);
+    shown && visible && /^v\\d+\\.\\d+\\.\\d+/.test(curTxt) && hasBtn
+      ? pass('更新页签 面板/版本号/按钮', curTxt + ' h=' + Math.round(upRect.height))
+      : fail('更新页签 面板/版本号/按钮', 'shown=' + shown + ' visible=' + visible + ' rect=' + Math.round(upRect.width) + 'x' + Math.round(upRect.height) + ' cur=' + curTxt + ' btn=' + hasBtn);
+    // 六个页签面板都必须是 #setpanel 的直接子级(防 HTML 嵌套错位重演,v1.2.49)
+    const parentBad = ['api', 'look', 'base', 'run', 'mem', 'update']
+      .map((t) => ({ t, el: document.getElementById('tab-' + t) }))
+      .filter((x) => !x.el || !x.el.parentElement || x.el.parentElement.id !== 'setpanel')
+      .map((x) => x.t + '(parent=' + ((x.el && x.el.parentElement && x.el.parentElement.id) || 'none') + ')');
+    parentBad.length === 0
+      ? pass('设置面板六个页签均为 setpanel 直接子级')
+      : fail('设置面板六个页签均为 setpanel 直接子级', parentBad.join('; '));
 
     // 11.8) 点「检查更新」必须弹窗:探针脚本自带 fetch stub,返回逐项结果
     try {

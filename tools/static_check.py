@@ -82,6 +82,34 @@ def check_html_balance(html):
     return bad, unclosed
 
 
+
+def check_panel_structure(html):
+    """设置面板的每个页签面板(.sp-body#tab-*)必须是 #setpanel 的直接子级。
+    专抓「总数配对平衡但嵌套错位」:v1.2.44 搬页签时丢了 tab-look 的闭合,
+    tab-update 被吞进 tab-look,切到更新页签时整个面板 0x0 隐形(总数查不出)。"""
+    stack = []  # 元素为 div 的 id(None=无 id)
+    bad = []
+    # 先剥离 <script> 块:JS 字符串里拼接的 HTML 会污染 div 配对(与 check_ids 的 html/js 分离同理)
+    html = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.S)
+    for m in re.finditer(r"<(/?)(div)([^>]*?)>", html):
+        close, attrs = m.group(1), m.group(3)
+        idm = re.search(r'\bid="([^"]+)"', attrs)
+        clsm = re.search(r'\bclass="([^"]+)"', attrs)
+        did = idm.group(1) if idm else None
+        if close:
+            # 闭合标签不带属性:按位置出栈即可(嵌套错位检测看的是打开时栈顶父级)
+            if stack:
+                stack.pop()
+        else:
+            cls = clsm.group(1) if clsm else ""
+            if "sp-body" in cls and did and did.startswith("tab-"):
+                parent = stack[-1] if stack else None
+                if parent != "setpanel":
+                    bad.append(f"{did} 的父级是 {parent or '未知'}(应为 setpanel)")
+            stack.append(did)
+    return bad
+
+
 def main():
     src_all = "\n".join(load(f) for f in FILES)
     rc = 0
@@ -107,6 +135,14 @@ def main():
             rc = 1
         else:
             print("[html] 标签配对 OK")
+        pbad = check_panel_structure(html)
+        if pbad:
+            print("[panel] 设置面板嵌套错位:")
+            for b in pbad:
+                print(f"  \u2717 {b}")
+            rc = 1
+        else:
+            print("[panel] 六个页签面板均为 setpanel 直接子级")
 
     js_all = "\n".join(all_js)
     unknown, n_exact, n_prefix, n_calls = check_routes(src_all, js_all)

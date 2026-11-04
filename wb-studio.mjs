@@ -1489,6 +1489,7 @@ const PAGE = `<!doctype html>
       </div>
       <div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">填 K 数(128 = 128K tokens),改完即生效;占用为估算值(最近一轮输入+输出)</div>
     </div>
+  </div>
   <div class="sp-body" id="tab-update" style="display:none">
     <div class="sp-head">版本更新 <span class="sp-tip">检查与下载自动选更快的通道(GitHub / 码云镜像)</span></div>
     <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -1508,7 +1509,6 @@ const PAGE = `<!doctype html>
     </div>
     <div style="margin-top:14px;color:var(--muted-2);font-size:11.5px">下载完成后工坊会退出,安装器接管并自动重新启动;安装完成后临时文件自动删除。更新不会动 runtime/(密钥、会话、记忆)与 workspace/(插件项目)。</div>
   </div>
-</div>
 </div>
 <div id="updModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
   <div style="width:min(430px,90vw);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 12px 40px var(--shadow)">
