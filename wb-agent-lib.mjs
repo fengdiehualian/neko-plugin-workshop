@@ -264,16 +264,18 @@ function wishProfileBlock(wish) {
  * @param {number} askCount 本会话已提问次数
  * @param {string} memory 压缩后的历史摘要
  * @param {string} userMemory 用户长期偏好块
+ * @param {string} expertBlock 专家团模式块(空串=未启用)
  */
-export function buildWishPrompt(wish, mode, askCount = 0, memory = "", userMemory = "") {
+export function buildWishPrompt(wish, mode, askCount = 0, memory = "", userMemory = "", expertBlock = "") {
   const memBlock = memory
     ? `【更早对话的记忆摘要(上下文已压缩)】\n${memory}\n\n(以上是更早内容的摘要,直接在此基础上继续;不要复述摘要本身)\n\n`
     : ""
   const userMemBlock = userMemory ? String(userMemory) : ""
+  const expert = expertBlock ? String(expertBlock).trim() + "\n\n" : ""
   const profile = wishProfileBlock(wish)
   if (mode === "plan") {
     const left = Math.max(0, 3 - askCount)
-    return memBlock + userMemBlock + [
+    return memBlock + userMemBlock + expert + [
       "【用户的愿望/当前消息】" + wish,
       "",
       "现在是「先出方案」模式:不写代码、不改文件、不执行命令,只负责把需求聊清楚并给出方案。用户是零基础小白。",
@@ -299,7 +301,7 @@ export function buildWishPrompt(wish, mode, askCount = 0, memory = "", userMemor
       profile + "(以上解析只用于减少提问,不要把术语念给用户听)",
     ].join("\n")
   }
-  return memBlock + userMemBlock + [
+  return memBlock + userMemBlock + expert + [
     "【用户的愿望】" + wish,
     "",
     profile + [
@@ -1074,4 +1076,42 @@ async function runZcodeOnce(opts = {}) {
       })
     }
   })
+}
+
+// ---------- 专家团模式(experts/:PR #4 引入的专家包) ----------
+/**
+ * 把专家包格式化成注入 buildWishPrompt 的提示块。纯函数。
+ * @param pack loadExperts() 返回的一个包 {id, dir, manifest, agentIds, problems}
+ * @param leadText 主理人 agent 文档里提取的「团队总原则」段(可为空)
+ * @param maxChars 整块预算(默认 2200,超出先截纪律段再截整块)
+ */
+export function formatExpertBlock(pack, leadText = "", maxChars = 2200) {
+  if (!pack || !pack.manifest) return ""
+  const m = pack.manifest
+  if (pack.problems && pack.problems.length) return ""
+  const name = (m.displayName && m.displayName.zh) || m.name || pack.id
+  const lead = (m.teamInfo && m.teamInfo.leadAgent) || m.agentName || ""
+  const members = (m.members || [])
+    .filter((x) => x && x.id && x.id !== lead)
+    .map((x) => {
+      const n = (x.displayName && x.displayName.zh) || x.id
+      const p = (x.profession && x.profession.zh) || ""
+      return p ? `${n}(${p})` : n
+    })
+  const out = [
+    "【专家团模式(已启用)】",
+    `本轮任务由「${name}」接管:你扮演这个团的主理人,组织下面这些专家的视角来完成用户的事;`,
+    `成员: ${members.length ? members.join("、") : "(见包内清单)"}。`,
+    "工作方式:结论先行、短句列表、大白话;遇到对应领域的判断(测试/架构/精简/审查/安全/运维)就按对应成员的视角自查一遍再交付;",
+    "注意:专家团只改变你的工作方式与严谨度,工坊原有的交付规则(验收标准、提问格式、全中文、verify 全绿)一条都不能少。",
+  ]
+  const leadSec = String(leadText || "").trim()
+  if (leadSec) out.push("", leadSec)
+  let s = out.join("\n")
+  if (s.length > maxChars) {
+    // 超预算:优先保住头部规则,从纪律段尾部往前截
+    s = s.slice(0, Math.max(0, maxChars - 40))
+    s += "\n…(专家团纪律过长已截断)"
+  }
+  return s
 }

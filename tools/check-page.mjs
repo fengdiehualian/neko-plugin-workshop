@@ -603,14 +603,14 @@ result = await evalJs(`(async () => {
     shown && visible && /^v\\d+\\.\\d+\\.\\d+/.test(curTxt) && hasBtn
       ? pass('更新页签 面板/版本号/按钮', curTxt + ' h=' + Math.round(upRect.height))
       : fail('更新页签 面板/版本号/按钮', 'shown=' + shown + ' visible=' + visible + ' rect=' + Math.round(upRect.width) + 'x' + Math.round(upRect.height) + ' cur=' + curTxt + ' btn=' + hasBtn);
-    // 六个页签面板都必须是 #setpanel 的直接子级(防 HTML 嵌套错位重演,v1.2.49)
-    const parentBad = ['api', 'look', 'base', 'run', 'mem', 'update']
+    // 七个页签面板都必须是 #setpanel 的直接子级(防 HTML 嵌套错位重演,v1.2.49)
+    const parentBad = ['api', 'look', 'base', 'run', 'mem', 'expert', 'update']
       .map((t) => ({ t, el: document.getElementById('tab-' + t) }))
       .filter((x) => !x.el || !x.el.parentElement || x.el.parentElement.id !== 'setpanel')
       .map((x) => x.t + '(parent=' + ((x.el && x.el.parentElement && x.el.parentElement.id) || 'none') + ')');
     parentBad.length === 0
-      ? pass('设置面板六个页签均为 setpanel 直接子级')
-      : fail('设置面板六个页签均为 setpanel 直接子级', parentBad.join('; '));
+      ? pass('设置面板七个页签均为 setpanel 直接子级')
+      : fail('设置面板七个页签均为 setpanel 直接子级', parentBad.join('; '));
 
     // 11.8) 点「检查更新」必须弹窗:探针脚本自带 fetch stub,返回逐项结果
     try {
@@ -623,6 +623,31 @@ ${PROBE_SRC}
     }
     tabs[0].click(); await sleep(50);
   } else fail('更新页签', '找不到 data-tab=update');
+
+  // 11.9) 专家团页签:面板可见、成员名单渲染、开关往返(隔离实例上真实 POST)
+  const exTab = tabs.find((x) => x.dataset && x.dataset.tab === 'expert');
+  if (exTab) {
+    exTab.click();
+    await wbWait(() => { const l = document.getElementById('expertList'); return !!l && l.textContent.trim().length > 4; }, 4000);
+    const exShown = getComputedStyle($('#tab-expert')).display !== 'none' && $('#tab-expert').getBoundingClientRect().height > 40;
+    const chips = $$('#expertList .chip');
+    const exBtn = !!$('#expertToggle') && ($('#expertToggle').textContent || '').length > 1;
+    exShown && chips.length >= 5 && exBtn
+      ? pass('专家团页签 面板/成员名单/开关', '成员 ' + chips.length + ' 人')
+      : fail('专家团页签 面板/成员名单/开关', 'shown=' + exShown + ' chips=' + chips.length + ' btn=' + exBtn);
+    // 开关往返:先读当前态,点一下应翻到另一态,再点回原态(别留下污染)
+    const j0 = await (await fetch('/api/experts')).json();
+    const firstWant = j0.enabled ? '未开启' : '已开启';
+    const secondWant = j0.enabled ? '已开启' : '未开启';
+    $('#expertToggle').click();
+    const onOk = await wbWait(() => ($('#expertToggle').textContent || '').indexOf(firstWant) >= 0, 5000);
+    $('#expertToggle').click();
+    const offOk = await wbWait(() => ($('#expertToggle').textContent || '').indexOf(secondWant) >= 0, 5000);
+    onOk && offOk
+      ? pass('专家团开关 开/关往返还原')
+      : fail('专家团开关 开/关往返还原', 'on=' + onOk + ' off=' + offOk + ' from=' + (j0 && j0.enabled));
+    tabs[0].click(); await sleep(50);
+  } else fail('专家团页签', '找不到 data-tab=expert');
 
   // 12) 主题切换:逐个点,校验 body 类名与 localStorage
   const themes = $$('.themeopt');
@@ -934,9 +959,21 @@ await probe("POST /api/task 空内容拦截", "/api/task", { method: "POST", bod
 await probe("POST /api/task 无令牌拦截", "/api/task", { method: "POST", body: "{}", headers: {} }, (s) => s === 403)
 await probe("POST /api/stop", "/api/stop", { method: "POST", body: "{}" }, (s, j) => s === 200 && j && j.ok !== false)
 await probe("GET /api/download 缺参拦截", "/api/download", {}, (s) => s >= 400)
+await probe("GET /api/experts 快照", "/api/experts", {}, (s, j) => s === 200 && j && j.ok && typeof j.enabled === "boolean" && Array.isArray(j.packs))
+await probe("POST /api/experts 非法值拦截", "/api/experts", { method: "POST", body: '{"enabled":"yes"}' }, (s, j) => s === 400 && j && j.error)
 
 // ---------- 5b. 单 API 上下文(加 --mutate 才跑:会临时增删测试实例里的 API) ----------
 if (argv.includes("--mutate")) {
+  // 专家团开关往返(真实 POST,结束还原为关)
+  {
+    const on = await localReq("/api/experts", { method: "POST", body: JSON.stringify({ enabled: true }), timeout: 20000, headers: H })
+    const okOn = on.status === 200 && on.json && on.json.enabled === true && on.json.active
+    const off = await localReq("/api/experts", { method: "POST", body: JSON.stringify({ enabled: false }), timeout: 20000, headers: H })
+    const okOff = off.status === 200 && off.json && off.json.enabled === false
+    ;(okOn && okOff)
+      ? apiChecks.push({ name: "POST /api/experts 开关往返(还原为关)", ok: true, detail: `active=${on.json.active}` })
+      : apiChecks.push({ name: "POST /api/experts 开关往返(还原为关)", ok: false, detail: `on=${on.status}/${okOn} off=${off.status}/${okOff}` })
+  }
   const post = (path, obj) => localReq(path, { method: "POST", body: JSON.stringify(obj), timeout: 40000, headers: H })
   const created = []
   try {

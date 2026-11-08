@@ -20,7 +20,7 @@ import { join, dirname, basename, normalize, resolve, relative, isAbsolute } fro
 import { spawn, spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
-import { driveAgent, driveAgentCli, driveZcode, planModelRetry, formatUserMemory, buildWishPrompt } from "./wb-agent-lib.mjs"
+import { driveAgent, driveAgentCli, driveZcode, planModelRetry, formatUserMemory, buildWishPrompt, formatExpertBlock } from "./wb-agent-lib.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -89,6 +89,7 @@ const defaultConfig = {
   thinkingLevel: "auto", // 思考强度:auto/none/low/medium/high/xhigh(见 THINK_LEVELS)
   retryDelaySec: 3, // 首次退避秒数,之后翻倍(3s → 6s → 12s,上限 30s)
   strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告)
+  expertMode: false, // 专家团模式:把 experts/ 专家包(主理人+成员分工+执行纪律)注入任务提示词
   contextLimit: 128000, // 上下文容量(tokens):模型上下文窗口大小,用于底部容量显示
   uiFont: "default", // 界面字体预设 id(见页面 FONT_PRESETS)
   uiFontSize: 100, // 界面字号百分比(85~130),用 CSS zoom 整体缩放
@@ -598,6 +599,7 @@ function loadUserSettings() {
   try {
     const s = JSON.parse(readFileSync(SETTINGS_FILE, "utf8"))
     if (typeof s.strictVerify === "boolean") config.strictVerify = s.strictVerify
+    if (typeof s.expertMode === "boolean") config.expertMode = s.expertMode
     if (typeof s.contextLimit === "number" && s.contextLimit > 0) config.contextLimit = Math.floor(s.contextLimit)
     if (typeof s.retryMax === "number" && s.retryMax >= 0) config.retryMax = Math.min(5, Math.floor(s.retryMax))
     if (typeof s.retryDelaySec === "number" && s.retryDelaySec > 0) config.retryDelaySec = Math.min(60, Math.floor(s.retryDelaySec))
@@ -610,6 +612,7 @@ function loadUserSettings() {
 function saveUserSettings() {
   writeJsonAtomic(SETTINGS_FILE, {
     strictVerify: !!config.strictVerify,
+    expertMode: !!config.expertMode,
     contextLimit: config.contextLimit,
     retryMax: config.retryMax,
     retryDelaySec: config.retryDelaySec,
@@ -621,6 +624,69 @@ function saveUserSettings() {
   })
 }
 loadUserSettings()
+
+// ---------- 专家团(experts/:PR #4 的专家包,设置里可开关) ----------
+// 开启后把「主理人 + 成员分工 + 执行纪律」注入任务提示词,让工坊回答带上专家团的工作方式。
+// 动态导入 src/experts.ts(bun 原生吃 TS);文件缺失/损坏时按"没有可用专家包"处理,不影响任务。
+let _expertsCache = null // { packs, at }
+async function getExperts() {
+  if (_expertsCache && Date.now() - _expertsCache.at < 60000) return _expertsCache.packs
+  let packs = []
+  try {
+    const mod = await import("./src/experts.ts")
+    packs = await mod.loadExperts()
+  } catch (e) {
+    console.warn("[wb-studio] 专家包加载失败(按无专家包继续):", e?.message)
+  }
+  _expertsCache = { packs, at: Date.now() }
+  return packs
+}
+/** 挑要启用的包:优先清单自洽(neko-plugin-ops),否则第一个无问题的包 */
+function pickExpertPack(packs) {
+  return packs.find((p) => p.id === "neko-plugin-ops" && !p.problems.length) || packs.find((p) => !p.problems.length) || null
+}
+/** 从主理人 agent 文档提取「团队总原则」小节(执行纪律) */
+function readLeadConstitution(pack) {
+  try {
+    const lead = (pack.manifest && (pack.manifest.teamInfo?.leadAgent || pack.manifest.agentName)) || ""
+    if (!lead) return ""
+    const md = readFileSync(join(pack.dir, "agents", lead + ".md"), "utf8")
+    const i = md.indexOf("## 团队总原则")
+    if (i < 0) return ""
+    const j = md.indexOf("\n## ", i + 3)
+    return md.slice(i, j > 0 ? j : md.length).trim()
+  } catch {
+    return ""
+  }
+}
+/** 专家团提示块(未启用/无可用包 → 空串) */
+async function expertPrompt() {
+  if (!config.expertMode) return ""
+  const pack = pickExpertPack(await getExperts())
+  if (!pack) return ""
+  return formatExpertBlock(pack, readLeadConstitution(pack))
+}
+/** 设置面板用的只读快照 */
+async function expertsSnapshot() {
+  const packs = await getExperts()
+  const active = config.expertMode ? pickExpertPack(packs) : null
+  return {
+    ok: true,
+    enabled: !!config.expertMode,
+    active: active ? active.id : null,
+    packs: packs.map((p) => ({
+      id: p.id,
+      name: (p.manifest && ((p.manifest.displayName && p.manifest.displayName.zh) || p.manifest.name)) || p.id,
+      desc: (p.manifest && ((p.manifest.displayDescription && p.manifest.displayDescription.zh) || p.manifest.description)) || "",
+      members: ((p.manifest && p.manifest.members) || []).map((x) => ({
+        id: x.id,
+        name: (x.displayName && x.displayName.zh) || x.id,
+        role: (x.profession && x.profession.zh) || x.role || "",
+      })),
+      problems: p.problems || [],
+    })),
+  }
+}
 
 // ---------- 用户长期记忆(runtime\user-memory.json) ----------
 // 用户自己写的个性化设计偏好(配色、命名、交互习惯…),每轮任务都注入提示词,跨会话生效。
@@ -1351,6 +1417,7 @@ const PAGE = `<!doctype html>
     <button type="button" class="sptab" data-tab="base">🧩 底座</button>
     <button type="button" class="sptab" data-tab="run">🔁 重试</button>
     <button type="button" class="sptab" data-tab="mem">🧠 记忆</button>
+    <button type="button" class="sptab" data-tab="expert">👥 专家团</button>
     <button type="button" class="sptab" data-tab="update">⬆️ 更新</button>
     <button type="button" id="setclose" class="sp-close">收起 ▴</button>
   </div>
@@ -1489,6 +1556,15 @@ const PAGE = `<!doctype html>
       </div>
       <div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">填 K 数(128 = 128K tokens),改完即生效;占用为估算值(最近一轮输入+输出)</div>
     </div>
+  </div>
+  <div class="sp-body" id="tab-expert" style="display:none">
+    <div class="sp-head">专家团 <span class="sp-tip">开启后,任务由专家团接管:主理人带着各领域专家的视角和执行纪律一起干活</span></div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button type="button" id="expertToggle" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">加载中…</button>
+      <span id="expertMsg" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div id="expertList" style="margin-top:14px"></div>
+    <div style="margin-top:14px;color:var(--muted-2);font-size:11.5px">专家包来自本机 experts/ 目录;只改变回答的工作方式与严谨度,工坊的交付规则(验收、全中文、verify 全绿)不变。开启后从下一个任务开始生效。</div>
   </div>
   <div class="sp-body" id="tab-update" style="display:none">
     <div class="sp-head">版本更新 <span class="sp-tip">检查与下载自动选更快的通道(GitHub / 码云镜像)</span></div>
@@ -1939,9 +2015,40 @@ document.querySelectorAll('.sptab').forEach(tb=>{tb.onclick=()=>{
   document.getElementById('tab-mem').style.display=tb.dataset.tab==='mem'?'':'none';
   if(tb.dataset.tab==='mem')loadMem();
   if(tb.dataset.tab==='run')loadTuning();
+  document.getElementById('tab-expert').style.display=tb.dataset.tab==='expert'?'':'none';
+  if(tb.dataset.tab==='expert')loadExpertsUi();
   document.getElementById('tab-update').style.display=tb.dataset.tab==='update'?'':'none';
   if(tb.dataset.tab==='update')updLoad();
 };});
+// 专家团:读快照 → 画开关与成员名单;开关走 POST /api/experts(开启前服务端会校验确有可用包)
+async function loadExpertsUi(){
+  const msg=document.getElementById('expertMsg'),list=document.getElementById('expertList'),btn=document.getElementById('expertToggle');
+  if(!btn)return;
+  btn.disabled=true;btn.textContent='加载中…';
+  try{
+    const j=await(await fetch('/api/experts')).json();
+    const pack=(j.packs||[])[0];
+    btn.textContent=j.enabled?'🟢 已开启,点此关闭':'⚪ 未开启,点此开启';
+    btn.disabled=false;
+    msg.style.color='';
+    msg.textContent=!pack?'没有可用的专家包(experts/ 为空)':(pack.problems&&pack.problems.length?('⚠️ 清单有问题:'+pack.problems[0]):('专家团:'+pack.name+' · '+((pack.members||[]).length)+' 名成员'+(j.enabled?' · 已接管任务':'')));
+    if(pack&&list){
+      const mem=(pack.members||[]).map(function(x){return '<span class="chip" style="cursor:default">'+esc(x.name)+(x.role?' · '+esc(x.role):'')+'</span>';}).join('');
+      list.innerHTML='<div style="font-size:12.5px;color:var(--ink);font-weight:700;margin-bottom:8px">'+esc(pack.desc||pack.name)+'</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+mem+'</div>';
+    }
+  }catch(e){btn.disabled=false;btn.textContent='加载失败,点此重试';msg.textContent=''+e;}
+}
+document.getElementById('expertToggle').onclick=async()=>{
+  const btn=document.getElementById('expertToggle'),msg=document.getElementById('expertMsg');
+  btn.disabled=true;const oldTxt=btn.textContent;btn.textContent='切换中…';
+  try{
+    const j0=await(await fetch('/api/experts')).json();
+    const r=await fetch('/api/experts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:!j0.enabled})});
+    const j=await r.json();
+    if(j.ok){await loadExpertsUi();}
+    else{btn.disabled=false;btn.textContent=oldTxt;msg.style.color='#c0392b';msg.textContent=j.error||'切换失败';}
+  }catch(e){btn.disabled=false;btn.textContent=oldTxt;msg.textContent=''+e;}
+};
 // 长期记忆:读 → 渲染 → 增 / 删 / 启用开关(存服务端 runtime/user-memory.json)
 let memState={enabled:true,items:[]};
 async function loadMem(){
@@ -3705,6 +3812,26 @@ async function runUpdate() {
         return
       }
     }
+    // ---------- 专家团(experts/ 专家包的只读快照与开关) ----------
+    if (url.pathname === "/api/experts") {
+      const json = (code, obj) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)) }
+      if (req.method === "GET") return json(200, await expertsSnapshot())
+      if (req.method === "POST") {
+        const body = await readBody(req)
+        let b = {}
+        try { b = JSON.parse(body) } catch {}
+        if (typeof b.enabled !== "boolean") return json(400, { ok: false, error: "enabled 必须是 true/false" })
+        if (b.enabled) {
+          // 开之前先确认真的有可用包,免得开了没效果还不知道原因
+          const pack = pickExpertPack(await getExperts())
+          if (!pack) return json(400, { ok: false, error: "没有可用的专家包(experts/ 为空或清单校验未通过)" })
+        }
+        config.expertMode = b.enabled
+        saveUserSettings()
+        console.log("[wb-studio] 专家团模式:" + (b.enabled ? "已开启" : "已关闭"))
+        return json(200, await expertsSnapshot())
+      }
+    }
     // ---------- 思考强度(auto/none/low/medium/high/xhigh;落在 settings.json) ----------
     if (url.pathname === "/api/think") {
       const json = (code, obj) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)) }
@@ -4016,8 +4143,9 @@ async function runUpdate() {
       }
       const memory = s.summary || ""
       const userMem = userMemoryPrompt() // 用户长期偏好:每轮都带,跨会话生效
+      const expertBlock = await expertPrompt() // 专家团模式:开启时注入主理人+分工+纪律(空串=未启用)
       const driveOpts = {
-        text: buildWishPrompt(text, mode, askCount, memory, userMem), dir: config.workspace, model: config.model,
+        text: buildWishPrompt(text, mode, askCount, memory, userMem, expertBlock), dir: config.workspace, model: config.model,
         server: config.server, timeout: config.timeoutSec,
         noProgressSec: config.stallTimeoutSec,
         auth: engineAuth || undefined,
@@ -4031,7 +4159,7 @@ async function runUpdate() {
         let result
         // ZCode 新会话(首次/会话失效)拿不到服务端历史,这里把最近往来附在任务书末尾
         const hist = useZcode && !s.zcodeSessionId ? recentTranscript(s) : ""
-        const taskBook = buildWishPrompt(text, mode, askCount, memory, userMem) +
+        const taskBook = buildWishPrompt(text, mode, askCount, memory, userMem, expertBlock) +
           (hist ? `\n【本会话此前的往来(供衔接,不必复述)】\n${hist}` : "")
         try {
           result = await runTaskWithRetry(useZcode ? "zcode" : "cli", () =>
