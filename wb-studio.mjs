@@ -90,6 +90,7 @@ const defaultConfig = {
   retryDelaySec: 3, // 首次退避秒数,之后翻倍(3s → 6s → 12s,上限 30s)
   strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告)
   expertMode: false, // 专家团模式:把 experts/ 专家包(主理人+成员分工+执行纪律)注入任务提示词
+  expertDisabled: [], // 用户单独关闭的专家成员 id 列表(设置页可逐个开关)
   contextLimit: 128000, // 上下文容量(tokens):模型上下文窗口大小,用于底部容量显示
   uiFont: "default", // 界面字体预设 id(见页面 FONT_PRESETS)
   uiFontSize: 100, // 界面字号百分比(85~130),用 CSS zoom 整体缩放
@@ -600,6 +601,7 @@ function loadUserSettings() {
     const s = JSON.parse(readFileSync(SETTINGS_FILE, "utf8"))
     if (typeof s.strictVerify === "boolean") config.strictVerify = s.strictVerify
     if (typeof s.expertMode === "boolean") config.expertMode = s.expertMode
+    if (Array.isArray(s.expertDisabled)) config.expertDisabled = s.expertDisabled.filter((x) => typeof x === "string").slice(0, 200)
     if (typeof s.contextLimit === "number" && s.contextLimit > 0) config.contextLimit = Math.floor(s.contextLimit)
     if (typeof s.retryMax === "number" && s.retryMax >= 0) config.retryMax = Math.min(5, Math.floor(s.retryMax))
     if (typeof s.retryDelaySec === "number" && s.retryDelaySec > 0) config.retryDelaySec = Math.min(60, Math.floor(s.retryDelaySec))
@@ -613,6 +615,7 @@ function saveUserSettings() {
   writeJsonAtomic(SETTINGS_FILE, {
     strictVerify: !!config.strictVerify,
     expertMode: !!config.expertMode,
+    expertDisabled: Array.isArray(config.expertDisabled) ? config.expertDisabled : [],
     contextLimit: config.contextLimit,
     retryMax: config.retryMax,
     retryDelaySec: config.retryDelaySec,
@@ -664,12 +667,13 @@ async function expertPrompt() {
   if (!config.expertMode) return ""
   const pack = pickExpertPack(await getExperts())
   if (!pack) return ""
-  return formatExpertBlock(pack, readLeadConstitution(pack))
+  return formatExpertBlock(pack, readLeadConstitution(pack), 2200, config.expertDisabled || [])
 }
 /** 设置面板用的只读快照 */
 async function expertsSnapshot() {
   const packs = await getExperts()
   const active = config.expertMode ? pickExpertPack(packs) : null
+  const off = new Set(Array.isArray(config.expertDisabled) ? config.expertDisabled : [])
   return {
     ok: true,
     enabled: !!config.expertMode,
@@ -682,6 +686,7 @@ async function expertsSnapshot() {
         id: x.id,
         name: (x.displayName && x.displayName.zh) || x.id,
         role: (x.profession && x.profession.zh) || x.role || "",
+        on: !off.has(x.id),
       })),
       problems: p.problems || [],
     })),
@@ -1558,7 +1563,7 @@ const PAGE = `<!doctype html>
     </div>
   </div>
   <div class="sp-body" id="tab-expert" style="display:none">
-    <div class="sp-head">专家团 <span class="sp-tip">开启后,任务由专家团接管:主理人带着各领域专家的视角和执行纪律一起干活</span></div>
+    <div class="sp-head">专家团 <span class="sp-tip">开启后任务由专家团接管;成员卡片可逐个开关,关闭的专家不会出现在任务提示词里</span></div>
     <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <button type="button" id="expertToggle" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">加载中…</button>
       <span id="expertMsg" style="font-size:12px;color:var(--muted)"></span>
@@ -2033,8 +2038,11 @@ async function loadExpertsUi(){
     msg.style.color='';
     msg.textContent=!pack?'没有可用的专家包(experts/ 为空)':(pack.problems&&pack.problems.length?('⚠️ 清单有问题:'+pack.problems[0]):('专家团:'+pack.name+' · '+((pack.members||[]).length)+' 名成员'+(j.enabled?' · 已接管任务':'')));
     if(pack&&list){
-      const mem=(pack.members||[]).map(function(x){return '<span class="chip" style="cursor:default">'+esc(x.name)+(x.role?' · '+esc(x.role):'')+'</span>';}).join('');
-      list.innerHTML='<div style="font-size:12.5px;color:var(--ink);font-weight:700;margin-bottom:8px">'+esc(pack.desc||pack.name)+'</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+mem+'</div>';
+      const mem=(pack.members||[]).map(function(x){
+        const on=x.on!==false;
+        return '<span class="chip memb" data-mem="'+esca(x.id)+'" data-on="'+(on?'1':'0')+'" title="点一下'+(on?'关闭':'开启')+'这位专家" style="cursor:pointer'+(on?'':';opacity:.45;text-decoration:line-through')+'">'+esc(x.name)+(x.role?' · '+esc(x.role):'')+'</span>';
+      }).join('');
+      list.innerHTML='<div style="font-size:12.5px;color:var(--ink);font-weight:700;margin-bottom:8px">'+esc(pack.desc||pack.name)+'</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+mem+'</div><div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">点成员卡片可单独开启/关闭(划掉的=已关闭,不会写进任务提示词)</div>';
     }
   }catch(e){btn.disabled=false;btn.textContent='加载失败,点此重试';msg.textContent=''+e;}
 }
@@ -2049,6 +2057,22 @@ document.getElementById('expertToggle').onclick=async()=>{
     else{btn.disabled=false;btn.textContent=oldTxt;msg.style.color='#c0392b';msg.textContent=j.error||'切换失败';}
   }catch(e){btn.disabled=false;btn.textContent=oldTxt;msg.textContent=''+e;}
 };
+// 单个专家开关:点成员卡片 → POST {member, on} → 重绘
+const exListEl=document.getElementById('expertList');
+if(exListEl){
+  exListEl.addEventListener('click',async function(ev){
+    const chip=ev.target&&ev.target.closest?ev.target.closest('.memb'):null;
+    if(!chip)return;
+    const id=chip.dataset.mem,want=chip.dataset.on!=='1';
+    chip.style.pointerEvents='none';
+    try{
+      const r=await fetch('/api/experts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({member:id,on:want})});
+      const j=await r.json();
+      if(!j.ok){const m=document.getElementById('expertMsg');m.style.color='#c0392b';m.textContent=j.error||'切换失败';}
+    }catch(e){}
+    await loadExpertsUi();
+  });
+}
 // 长期记忆:读 → 渲染 → 增 / 删 / 启用开关(存服务端 runtime/user-memory.json)
 let memState={enabled:true,items:[]};
 async function loadMem(){
@@ -3820,15 +3844,32 @@ async function runUpdate() {
         const body = await readBody(req)
         let b = {}
         try { b = JSON.parse(body) } catch {}
-        if (typeof b.enabled !== "boolean") return json(400, { ok: false, error: "enabled 必须是 true/false" })
-        if (b.enabled) {
-          // 开之前先确认真的有可用包,免得开了没效果还不知道原因
-          const pack = pickExpertPack(await getExperts())
-          if (!pack) return json(400, { ok: false, error: "没有可用的专家包(experts/ 为空或清单校验未通过)" })
+        let changed = false
+        if (typeof b.enabled === "boolean") {
+          if (b.enabled) {
+            // 开之前先确认真的有可用包,免得开了没效果还不知道原因
+            const pack = pickExpertPack(await getExperts())
+            if (!pack) return json(400, { ok: false, error: "没有可用的专家包(experts/ 为空或清单校验未通过)" })
+          }
+          config.expertMode = b.enabled
+          console.log("[wb-studio] 专家团模式:" + (b.enabled ? "已开启" : "已关闭"))
+          changed = true
         }
-        config.expertMode = b.enabled
+        if (b.member !== undefined) {
+          // 单个专家开关:member=成员 id,on=true/false
+          const pack = pickExpertPack(await getExperts())
+          if (!pack) return json(400, { ok: false, error: "没有可用的专家包" })
+          const ids = new Set(((pack.manifest && pack.manifest.members) || []).map((x) => x.id))
+          if (typeof b.member !== "string" || !ids.has(b.member)) return json(400, { ok: false, error: "未知的专家成员:" + String(b.member) })
+          if (typeof b.on !== "boolean") return json(400, { ok: false, error: "on 必须是 true/false" })
+          const set = new Set(Array.isArray(config.expertDisabled) ? config.expertDisabled : [])
+          if (b.on) set.delete(b.member); else set.add(b.member)
+          config.expertDisabled = [...set]
+          console.log("[wb-studio] 专家开关:" + b.member + " → " + (b.on ? "开" : "关"))
+          changed = true
+        }
+        if (!changed) return json(400, { ok: false, error: "没有要修改的项(enabled 或 member)" })
         saveUserSettings()
-        console.log("[wb-studio] 专家团模式:" + (b.enabled ? "已开启" : "已关闭"))
         return json(200, await expertsSnapshot())
       }
     }

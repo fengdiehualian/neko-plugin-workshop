@@ -1084,24 +1084,32 @@ async function runZcodeOnce(opts = {}) {
  * @param pack loadExperts() 返回的一个包 {id, dir, manifest, agentIds, problems}
  * @param leadText 主理人 agent 文档里提取的「团队总原则」段(可为空)
  * @param maxChars 整块预算(默认 2200,超出先截纪律段再截整块)
+ * @param disabledIds 被用户单独关闭的成员 id 列表(设置页可逐个开关)
  */
-export function formatExpertBlock(pack, leadText = "", maxChars = 2200) {
+export function formatExpertBlock(pack, leadText = "", maxChars = 2200, disabledIds = []) {
   if (!pack || !pack.manifest) return ""
   const m = pack.manifest
   if (pack.problems && pack.problems.length) return ""
   const name = (m.displayName && m.displayName.zh) || m.name || pack.id
   const lead = (m.teamInfo && m.teamInfo.leadAgent) || m.agentName || ""
-  const members = (m.members || [])
-    .filter((x) => x && x.id && x.id !== lead)
+  const off = new Set(Array.isArray(disabledIds) ? disabledIds.map(String) : [])
+  const all = (m.members || []).filter((x) => x && x.id)
+  const members = all
+    .filter((x) => x.id !== lead && !off.has(x.id))
     .map((x) => {
       const n = (x.displayName && x.displayName.zh) || x.id
       const p = (x.profession && x.profession.zh) || ""
       return p ? `${n}(${p})` : n
     })
+  const roster = members.length
+    ? members.join("、")
+    : all.length
+      ? "(专家成员均已单独关闭,仅保留主理人视角)"
+      : "(见包内清单)"
   const out = [
     "【专家团模式(已启用)】",
     `本轮任务由「${name}」接管:你扮演这个团的主理人,组织下面这些专家的视角来完成用户的事;`,
-    `成员: ${members.length ? members.join("、") : "(见包内清单)"}。`,
+    `成员: ${roster}。`,
     "工作方式:结论先行、短句列表、大白话;遇到对应领域的判断(测试/架构/精简/审查/安全/运维)就按对应成员的视角自查一遍再交付;",
     "注意:专家团只改变你的工作方式与严谨度,工坊原有的交付规则(验收标准、提问格式、全中文、verify 全绿)一条都不能少。",
   ]

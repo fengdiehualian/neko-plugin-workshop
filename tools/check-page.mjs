@@ -646,6 +646,31 @@ ${PROBE_SRC}
     onOk && offOk
       ? pass('专家团开关 开/关往返还原')
       : fail('专家团开关 开/关往返还原', 'on=' + onOk + ' off=' + offOk + ' from=' + (j0 && j0.enabled));
+    // 单个专家开关:点第一张成员卡片应翻到另一态,再点回去(隔离实例上真实 POST)
+    const chips2 = $$('#expertList .chip.memb');
+    if (chips2.length) {
+      const c0 = chips2[0];
+      const memId = c0.dataset.mem;
+      const wasOn = c0.dataset.on === '1';
+      c0.click();
+      const flipped = await wbWait(() => {
+        const c = document.querySelector('#expertList .chip.memb[data-mem="' + memId + '"]');
+        return !!c && (c.dataset.on === '1') !== wasOn;
+      }, 5000);
+      const dimmed = (() => {
+        const c = document.querySelector('#expertList .chip.memb[data-mem="' + memId + '"]');
+        return !!c && (c.dataset.on === '1') === (!wasOn);
+      })();
+      const c1 = document.querySelector('#expertList .chip.memb[data-mem="' + memId + '"]');
+      if (c1) c1.click();
+      const restored = await wbWait(() => {
+        const c = document.querySelector('#expertList .chip.memb[data-mem="' + memId + '"]');
+        return !!c && (c.dataset.on === '1') === wasOn;
+      }, 5000);
+      flipped && dimmed && restored
+        ? pass('专家团 单个成员开关往返', memId)
+        : fail('专家团 单个成员开关往返', 'flipped=' + flipped + ' restored=' + restored + ' id=' + memId);
+    } else fail('专家团 单个成员开关往返', '没有成员卡片');
     tabs[0].click(); await sleep(50);
   } else fail('专家团页签', '找不到 data-tab=expert');
 
@@ -961,6 +986,7 @@ await probe("POST /api/stop", "/api/stop", { method: "POST", body: "{}" }, (s, j
 await probe("GET /api/download 缺参拦截", "/api/download", {}, (s) => s >= 400)
 await probe("GET /api/experts 快照", "/api/experts", {}, (s, j) => s === 200 && j && j.ok && typeof j.enabled === "boolean" && Array.isArray(j.packs))
 await probe("POST /api/experts 非法值拦截", "/api/experts", { method: "POST", body: '{"enabled":"yes"}' }, (s, j) => s === 400 && j && j.error)
+await probe("POST /api/experts 未知成员拦截", "/api/experts", { method: "POST", body: '{"member":"no-such-expert","on":false}' }, (s, j) => s === 400 && j && j.error)
 
 // ---------- 5b. 单 API 上下文(加 --mutate 才跑:会临时增删测试实例里的 API) ----------
 if (argv.includes("--mutate")) {

@@ -51,6 +51,20 @@ describe("formatExpertBlock(专家团提示块)", () => {
     expect(s.length).toBeLessThanOrEqual(360)
     expect(s).toContain("已截断")
   })
+
+  test("单独关闭的成员从名单剔除", () => {
+    const s = formatExpertBlock(pack(), "", 2200, ["a"])
+    expect(s).not.toContain("云测")
+    expect(s).toContain("云安")
+    expect(s).toContain("成员:")
+  })
+
+  test("全部成员关闭时给出明确说明而不是空名单", () => {
+    const s = formatExpertBlock(pack(), "", 2200, ["a", "b"])
+    expect(s).toContain("均已单独关闭")
+    expect(s).not.toContain("云测")
+    expect(s).not.toContain("云安")
+  })
 })
 
 describe("buildWishPrompt 的专家团注入位", () => {
