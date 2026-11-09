@@ -1734,10 +1734,17 @@ function parseExtras(content){
 function extrasHtml(x){
   let h='';
   if(x.qOpts&&x.qOpts.length){
-    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">';
-    for(const o of x.qOpts)h+='<span class="chip" style="cursor:pointer" data-wbq="'+esca(o)+'">'+esc(o)+'</span>';
-    // 每个提问都必须留「其他」:模型漏写也要兜底补一个(点它不直接发送,只聚焦输入框)
-    if(!x.qOpts.some(o=>/其他|自己|自定义/.test(o)))h+='<span class="chip" data-wbother="1" style="cursor:pointer;border-style:dashed">✍️ 其他(自己说)</span>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center">';
+    for(const o of x.qOpts){
+      if(/其他|自己|自定义/.test(o))continue; // 「其他」统一渲染成后面带输入框的控件
+      h+='<span class="chip" style="cursor:pointer" data-wbq="'+esca(o)+'">'+esc(o)+'</span>';
+    }
+    // 每个提问都留「其他」:卡片 + 内联输入框 + 发送(输入后回车/点发送即作为回答发出)
+    h+='<span style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle">'
+      +'<span class="chip" data-wbqother="1" style="cursor:pointer;border-style:dashed">其他</span>'
+      +'<input data-wbotherin="1" placeholder="直接输入你的想法,回车发送" style="width:200px;padding:5px 12px;border-radius:999px;border:1px dashed var(--border-soft);background:var(--card);color:var(--ink);font-size:12.5px;font-family:inherit">'
+      +'<span class="chip" data-wbothersend="1" style="cursor:pointer;border-style:dashed">发送</span>'
+      +'</span>';
     h+='</div>';
   }
   if(x.isPlan)h+='<div style="margin-top:8px"><button type="button" class="chip" data-wbplan="'+esca(x.text)+'" style="cursor:pointer;border:0;background:var(--pink);color:#fff;font-weight:700;padding:8px 14px;font-size:13px">🛠 开工,按这个方案做</button></div>';
@@ -1938,7 +1945,9 @@ chat.addEventListener('click',async e=>{
   setTimeout(()=>row.classList.remove('opening'),600);
 });
 // 「其他(自己说)」:不直接发送,把光标送回输入框让用户自己写
-chat.addEventListener('click',e=>{const c=e.target.closest('[data-wbother]');if(!c||b.disabled)return;t.focus();t.placeholder='用你自己的话说说看…';});
+chat.addEventListener('click',e=>{const c=e.target.closest('[data-wbqother]');if(!c||b.disabled)return;const inp=c.parentElement.querySelector('[data-wbotherin]');if(inp)inp.focus();});
+chat.addEventListener('click',e=>{const c=e.target.closest('[data-wbothersend]');if(!c||b.disabled)return;const inp=c.parentElement.querySelector('[data-wbotherin]');const v=inp&&inp.value.trim();if(!v)return;t.value=v;form.requestSubmit();});
+chat.addEventListener('keydown',e=>{const inp=e.target&&e.target.closest?e.target.closest('[data-wbotherin]'):null;if(!inp)return;if(e.key!=='Enter')return;if(e.isComposing||e.keyCode===229)return;e.preventDefault();const v=inp.value.trim();if(!v||b.disabled)return;t.value=v;form.requestSubmit();});
 // Plan 追问候选答案:点一下即作为这一轮的回答发送
 chat.addEventListener('click',e=>{const c=e.target.closest('[data-wbq]');if(!c||b.disabled)return;t.value=c.getAttribute('data-wbq')||'';if(!t.value.trim())return;form.requestSubmit();});
 // 方案「开工」按钮:切到直接做模式,把方案正文作为任务提交

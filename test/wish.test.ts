@@ -88,4 +88,15 @@ describe("buildWishPrompt(许愿式编程提示词)", () => {
     const s = buildWishPrompt("每隔 30 分钟提醒我起来活动", "build", 0, "摘要".repeat(100))
     expect(s.length).toBeLessThan(4000)
   })
+
+  test("选项末项固定为「其他」(不再带括号说明,v1.2.52)", () => {
+    const b = buildWishPrompt("做个插件", "build", 0)
+    const p = buildWishPrompt("做个插件", "plan", 0)
+    expect(b).not.toContain("其他(自己说)")
+    expect(p).not.toContain("其他(自己说)")
+    expect(b).toContain("其他")
+    expect(p).toContain("其他")
+    expect(b).toContain("输入框")
+    expect(p).toContain("输入框")
+  })
 })

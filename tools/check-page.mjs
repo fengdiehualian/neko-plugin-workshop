@@ -359,23 +359,35 @@ result = await evalJs(`(async () => {
   tasks().length === n0 ? pass('空内容回车 不发送') : fail('空内容回车 不发送', '却发了请求');
   t.value = '';
 
-  // 8) 提问芯片:候选答案 + 兜底「其他(自己说)」
+  // 8) 提问芯片:候选答案 + 「其他」卡片与内联输入框
   window.__mockReply = '这个插件你更想要哪种?\\n[[WB-Q]]\\n要一个设置面板\\n纯后台就行\\n[[/WB-Q]]\\n问清楚才好动手。';
   await sendText('做个小工具');
   await sleep(200);
   const wbq = $$('[data-wbq]');
-  const other = $('[data-wbother]');
+  const otherChip = $('[data-wbqother]');
+  const otherIn = $('[data-wbotherin]');
+  const otherSend = $('[data-wbothersend]');
   wbq.length >= 2 ? pass('候选答案芯片渲染', wbq.length + ' 个') : fail('候选答案芯片渲染', '找到 ' + wbq.length + ' 个');
-  other ? pass('兜底「其他(自己说)」芯片', other.textContent.trim()) : fail('兜底「其他(自己说)」芯片', '模型没写时前端也没补');
+  otherChip && otherIn && otherSend
+    ? pass('「其他」卡片+输入框+发送 渲染', 'chip=' + otherChip.textContent.trim())
+    : fail('「其他」卡片+输入框+发送 渲染', 'chip=' + !!otherChip + ' in=' + !!otherIn + ' send=' + !!otherSend);
 
-  if (other) {
+  if (otherChip && otherIn) {
     const n1 = tasks().length;
-    other.click();
-    await sleep(200);
-    const focused = document.activeElement === t;
-    const ph = t.placeholder || '';
-    tasks().length === n1 && focused ? pass('点「其他」只聚焦输入框不发请求', 'placeholder=' + ph.slice(0, 8) + '…')
-      : fail('点「其他」只聚焦输入框不发请求', '发了请求=' + (tasks().length !== n1) + ' 聚焦=' + focused);
+    otherChip.click();
+    await sleep(150);
+    const focused = document.activeElement === otherIn;
+    tasks().length === n1 && focused
+      ? pass('点「其他」聚焦输入框不发请求')
+      : fail('点「其他」聚焦输入框不发请求', '发了请求=' + (tasks().length !== n1) + ' 聚焦=' + focused);
+    // 输入文字 + 回车 → 作为回答发送
+    otherIn.value = '我想加一个每日提醒';
+    key(otherIn, { key: 'Enter' });
+    await sleep(400);
+    const c0 = tasks()[n1];
+    c0 && JSON.parse(c0.body).text === '我想加一个每日提醒'
+      ? pass('其他输入框回车发送', 'text=' + JSON.parse(c0.body).text)
+      : fail('其他输入框回车发送', c0 ? 'text=' + String(JSON.parse(c0.body).text).slice(0, 30) : '没有发出请求');
   }
 
   if (wbq[0]) {
