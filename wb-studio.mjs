@@ -1734,7 +1734,8 @@ function parseExtras(content){
 function extrasHtml(x){
   let h='';
   if(x.qOpts&&x.qOpts.length){
-    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center">';
+    // 预选项统一竖向排列:每项独占一行,左对齐(其他+输入框也在列内成一行)
+    h+='<div class="wbqlist" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;align-items:flex-start">';
     for(const o of x.qOpts){
       if(/其他|自己|自定义/.test(o))continue; // 「其他」统一渲染成后面带输入框的控件
       h+='<span class="chip" style="cursor:pointer" data-wbq="'+esca(o)+'">'+esc(o)+'</span>';

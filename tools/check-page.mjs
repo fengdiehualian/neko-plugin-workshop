@@ -368,6 +368,17 @@ result = await evalJs(`(async () => {
   const otherIn = $('[data-wbotherin]');
   const otherSend = $('[data-wbothersend]');
   wbq.length >= 2 ? pass('候选答案芯片渲染', wbq.length + ' 个') : fail('候选答案芯片渲染', '找到 ' + wbq.length + ' 个');
+  // 预选项必须竖排:容器 flexDirection=column,前两项上下错开、左边缘对齐
+  {
+    const qlist = $('.wbqlist');
+    let stacked = false;
+    if (qlist && wbq.length >= 2) {
+      const r1 = wbq[0].getBoundingClientRect();
+      const r2 = wbq[1].getBoundingClientRect();
+      stacked = getComputedStyle(qlist).flexDirection === 'column' && r2.top > r1.bottom - 2 && Math.abs(r1.left - r2.left) < 2;
+    }
+    stacked ? pass('候选答案竖列排列', 'flexDirection=column') : fail('候选答案竖列排列', qlist ? 'flexDirection=' + getComputedStyle(qlist).flexDirection : '找不到 .wbqlist');
+  }
   otherChip && otherIn && otherSend
     ? pass('「其他」卡片+输入框+发送 渲染', 'chip=' + otherChip.textContent.trim())
     : fail('「其他」卡片+输入框+发送 渲染', 'chip=' + !!otherChip + ' in=' + !!otherIn + ' send=' + !!otherSend);
