@@ -880,6 +880,41 @@ ${PROBE_SRC}
     const gone = !(jl2.items || []).some((a) => a.name === '自动测试API');
     gone ? pass('清理测试 API') : fail('清理测试 API', '仍存在');
   }
+
+  // 19.7) 编辑已有 API:回填表单 → 改名保存 → 取消编辑
+  {
+    const created = await (await fetch('/api/apis', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: '编辑测试API', baseURL: 'http://127.0.0.1:9/v1', apiKey: 'sk-edit-123456', model: 'mock-edit', protocol: 'openai', enable: false }) })).json();
+    if (created && created.id) {
+      window.loadApis();
+      await sleep(500);
+      const rowE = $$('.apirow').find((r) => r.textContent.indexOf('编辑测试API') >= 0);
+      const editBtn = rowE && rowE.querySelector('.edit');
+      if (editBtn) {
+        editBtn.click(); await sleep(150);
+        const prefill = ($('#apiURL').value || '').indexOf('127.0.0.1:9') >= 0 && ($('#apiModel').value || '') === 'mock-edit' && ($('#apiKey').value || '') === '';
+        const modeOn = ($('#apiSave').textContent || '').trim() === '保存修改' && getComputedStyle($('#apiCancelEdit')).display !== 'none';
+        prefill && modeOn
+          ? pass('编辑 API 回填表单/进入编辑模式', '密钥占位=' + ($('#apiKey').placeholder || '').slice(0, 8))
+          : fail('编辑 API 回填表单/进入编辑模式', 'prefill=' + prefill + ' mode=' + modeOn);
+        $('#apiName').value = '编辑后API';
+        $('#apiSave').click();
+        await wbWait(() => ($('#apiMsg').textContent || '').indexOf('已保存修改') >= 0, 6000);
+        await sleep(400);
+        const renamed = $$('.apirow').some((r) => r.textContent.indexOf('编辑后API') >= 0);
+        const backMode = ($('#apiSave').textContent || '').trim() === '保存并启用';
+        renamed && backMode ? pass('编辑 API 保存修改生效', '列表已更新') : fail('编辑 API 保存修改生效', 'renamed=' + renamed + ' back=' + backMode);
+        const rowE2 = $$('.apirow').find((r) => r.textContent.indexOf('编辑后API') >= 0);
+        if (rowE2 && rowE2.querySelector('.edit')) {
+          rowE2.querySelector('.edit').click(); await sleep(150);
+          $('#apiCancelEdit').click(); await sleep(150);
+          const cancelled = ($('#apiSave').textContent || '').trim() === '保存并启用' && ($('#apiURL').value || '') === '';
+          cancelled ? pass('取消编辑恢复表单') : fail('取消编辑恢复表单', 'save=' + ($('#apiSave').textContent || '') + ' url=' + ($('#apiURL').value || ''));
+        } else fail('取消编辑恢复表单', '找不到编辑按钮');
+      } else fail('编辑 API 回填表单/进入编辑模式', '找不到编辑按钮');
+      await fetch('/api/apis/' + created.id, { method: 'DELETE' });
+      window.loadApis(); await sleep(300);
+    } else fail('编辑 API 回填表单/进入编辑模式', '创建临时 API 失败');
+  }
   $('#setclose').click(); await sleep(100);
 
   // 20) 侧边栏会话列表
@@ -1011,6 +1046,16 @@ await probe("GET /api/experts 快照", "/api/experts", {}, (s, j) => s === 200 &
 await probe("POST /api/experts 非法值拦截", "/api/experts", { method: "POST", body: '{"enabled":"yes"}' }, (s, j) => s === 400 && j && j.error)
 await probe("POST /api/experts 未知成员拦截", "/api/experts", { method: "POST", body: '{"member":"no-such-expert","on":false}' }, (s, j) => s === 400 && j && j.error)
 await probe("GET /api/expert-progress", "/api/expert-progress", {}, (s, j) => s === 200 && j && j.ok && typeof j.phase === "string" && Array.isArray(j.members))
+{
+  const apisNow = await localReq("/api/apis", { headers: H })
+  const firstApi = apisNow.json && (apisNow.json.items || [])[0]
+  if (firstApi) {
+    await probe("PUT /api/apis 非法地址拦截", "/api/apis/" + firstApi.id, { method: "PUT", body: '{"baseURL":"nope"}' }, (s, j) => s === 400 && j && j.error)
+  } else {
+    apiChecks.push({ name: "PUT /api/apis 非法地址拦截", ok: true, detail: "无 API,跳过" })
+  }
+  await probe("PUT /api/apis 未知 id 拦截", "/api/apis/api_not_exist", { method: "PUT", body: '{"baseURL":"http://x"}' }, (s) => s === 404)
+}
 
 // ---------- 5b. 单 API 上下文(加 --mutate 才跑:会临时增删测试实例里的 API) ----------
 if (argv.includes("--mutate")) {

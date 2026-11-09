@@ -1567,6 +1567,7 @@ const PAGE = `<!doctype html>
         <button type="button" id="apiSave">保存并启用</button>
         <button type="button" id="apiSaveOnly" class="ghost">仅保存</button>
         <button type="button" id="apiTest" class="ghost">🔌 测试连接</button>
+        <button type="button" id="apiCancelEdit" class="ghost" style="display:none">取消编辑</button>
         <span id="apiMsg"></span>
       </div>
     </div>
@@ -2635,6 +2636,7 @@ async function loadApis(){
     d.innerHTML='<span class="an">'+esc(a.name||a.modelID)+'</span><span class="ad">'+esc(a.protocol&&a.protocol!=='openai'?a.protocol+' · ':'')+esc(a.baseURL)+' · '+esc(a.modelID)+' · 密钥…'+esc(a.keyTail)+'</span>'
       +'<span class="ctxchip" title="点击设置这套 API 的上下文窗口">🧠 '+esc(ownCtx)+'</span>'
       +(a.id===j.enabledId?'<button disabled>使用中</button>':'<button class="use">启用</button>')
+      +'<button class="edit">编辑</button>'
       +'<button class="del">删除</button>';
     d.querySelector('.ctxchip')?.addEventListener('click',async e=>{
       e.stopPropagation();
@@ -2662,6 +2664,7 @@ async function loadApis(){
         else{msg.className='bad';msg.textContent=j.error||'切换失败';btn.disabled=false;btn.textContent='启用';}
       }catch(err){msg.className='bad';msg.textContent='连接出错:'+err;btn.disabled=false;btn.textContent='启用';}
     });
+    d.querySelector('.edit').addEventListener('click',()=>beginEditApi(a,j));
     d.querySelector('.del').addEventListener('click',async()=>{if(!confirm('删除「'+(a.name||a.modelID)+'」?'))return;await fetch('/api/apis/'+a.id,{method:'DELETE'});loadApis();loadCtxLimit();});
     apilist.appendChild(d);
   }
@@ -2669,22 +2672,62 @@ async function loadApis(){
 async function saveApi(enable){
   const msg=document.getElementById('apiMsg');msg.className='';msg.textContent='保存中…';
   try{
-    // 上下文窗口按 K 填;留空则不传(跟随全局)
+    // 上下文窗口按 K 填;留空则不传(新增时=跟随全局;编辑时=清除自己的设置)
     const ctxK=String(document.getElementById('apiCtx').value||'').trim();
-    const payload={name:document.getElementById('apiName').value.trim(),baseURL:document.getElementById('apiURL').value.trim(),apiKey:document.getElementById('apiKey').value.trim(),model:document.getElementById('apiModel').value.trim(),protocol:document.getElementById('apiProto').value,enable};
-    if(ctxK!=='')payload.contextLimit=Math.round(Number(ctxK)*1000);
-    const r=await fetch('/api/apis',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
-    const j=await r.json();
+    const fields={name:document.getElementById('apiName').value.trim(),baseURL:document.getElementById('apiURL').value.trim(),apiKey:document.getElementById('apiKey').value.trim(),model:document.getElementById('apiModel').value.trim(),protocol:document.getElementById('apiProto').value};
+    const isEdit=!!editingApiId;
+    let r,j;
+    if(isEdit){
+      // 编辑:密钥留空=不修改;上下文留空=清除(跟随全局)
+      const payload={name:fields.name,baseURL:fields.baseURL,model:fields.model,protocol:fields.protocol,contextLimit:ctxK===''?null:Math.round(Number(ctxK)*1000)};
+      if(fields.apiKey)payload.apiKey=fields.apiKey;
+      r=await fetch('/api/apis/'+editingApiId,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+      j=await r.json();
+    }else{
+      const payload={...fields,enable};
+      if(ctxK!=='')payload.contextLimit=Math.round(Number(ctxK)*1000);
+      r=await fetch('/api/apis',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+      j=await r.json();
+    }
     if(j.ok){
-      msg.textContent=(enable?('✅ '+(j.warning||'已保存并启用(引擎重启中)')):'✅ 已保存')+(payload.contextLimit?' · 上下文 '+fmtCtx(payload.contextLimit):'');
+      msg.textContent=isEdit
+        ? ('✅ 已保存修改'+(j.warning?'('+j.warning+')':''))
+        : ((enable?('✅ '+(j.warning||'已保存并启用(引擎重启中)')):'✅ 已保存')+(ctxK!==''?' · 上下文 '+fmtCtx(Math.round(Number(ctxK)*1000)):''));
+      if(isEdit)exitEditApi();
+      else document.getElementById('apiName').value=document.getElementById('apiURL').value=document.getElementById('apiKey').value=document.getElementById('apiModel').value=document.getElementById('apiCtx').value='';
       loadApis();loadCtxLimit();
-      document.getElementById('apiName').value=document.getElementById('apiURL').value=document.getElementById('apiKey').value=document.getElementById('apiModel').value=document.getElementById('apiCtx').value='';
     }
     else{msg.className='bad';msg.textContent=j.error||'保存失败'}
   }catch(e){msg.className='bad';msg.textContent='连接出错:'+e}
 }
+// 编辑已有 API:回填表单,密钥留空表示不修改
+let editingApiId=null;
+function beginEditApi(a,j){
+  editingApiId=a.id;
+  document.getElementById('apiProto').value=a.protocol||'openai';
+  document.getElementById('apiName').value=a.name||'';
+  document.getElementById('apiURL').value=a.baseURL||'';
+  document.getElementById('apiModel').value=a.modelID||'';
+  document.getElementById('apiKey').value='';
+  document.getElementById('apiKey').placeholder='留空=不修改(当前 …'+a.keyTail+')';
+  document.getElementById('apiCtx').value=a.contextLimit?Math.round(a.contextLimit/1000):'';
+  document.getElementById('apiSave').textContent='保存修改';
+  document.getElementById('apiSaveOnly').style.display='none';
+  document.getElementById('apiCancelEdit').style.display='';
+  const msg=document.getElementById('apiMsg');msg.className='';msg.textContent='正在编辑「'+(a.name||a.modelID)+'」;密钥留空表示不修改'+(a.id===(j&&j.enabledId)?'(这套正在使用中)':'');
+  document.getElementById('apiURL').scrollIntoView({block:'center'});
+}
+function exitEditApi(){
+  editingApiId=null;
+  document.getElementById('apiSave').textContent='保存并启用';
+  document.getElementById('apiSaveOnly').style.display='';
+  document.getElementById('apiCancelEdit').style.display='none';
+  document.getElementById('apiKey').placeholder='粘贴密钥';
+  document.getElementById('apiName').value=document.getElementById('apiURL').value=document.getElementById('apiKey').value=document.getElementById('apiModel').value=document.getElementById('apiCtx').value='';
+}
 document.getElementById('apiSave').onclick=()=>saveApi(true);
 document.getElementById('apiSaveOnly').onclick=()=>saveApi(false);
+document.getElementById('apiCancelEdit').onclick=()=>{exitEditApi();const m=document.getElementById('apiMsg');m.className='';m.textContent='已取消编辑';};
 // 主动测试:只测不存,填完可以先确认这一套能不能连上
 document.getElementById('apiTest').onclick=async()=>{
   const btn=document.getElementById('apiTest'),msg=document.getElementById('apiMsg');
@@ -2692,10 +2735,11 @@ document.getElementById('apiTest').onclick=async()=>{
   const apiKey=(document.getElementById('apiKey').value||'').trim();
   const model=(document.getElementById('apiModel').value||'').trim();
   const protocol=document.getElementById('apiProto').value;
-  if(!baseURL||!apiKey||!model){msg.textContent='地址/密钥/模型名称都要填,才能测';msg.className='bad';return}
+  if(!baseURL||!model){msg.textContent='地址和模型名称都要填,才能测'+(editingApiId?'(密钥留空会用已保存的)':',密钥也要填');msg.className='bad';return}
+  if(!apiKey&&!editingApiId){msg.textContent='地址/密钥/模型名称都要填,才能测';msg.className='bad';return}
   btn.disabled=true;const old=btn.textContent;btn.textContent='🔌 测试中…';msg.className='';msg.textContent='';
   try{
-    const r=await fetch('/api/test',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({baseURL,apiKey,model,protocol})});
+    const r=await fetch('/api/test',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(editingApiId?{baseURL,apiKey,model,protocol,id:editingApiId}:{baseURL,apiKey,model,protocol})});
     const j=await r.json();
     if(j.ok&&j.passed){msg.textContent='✅ 连上了'+(j.model?'('+j.model+')':'');msg.className='good';}
     else{msg.textContent='😢 没连上:'+(j.error||'未知原因');msg.className='bad';}
@@ -3033,7 +3077,9 @@ const srv = createServer(async (req, res) => {
       let b = {}
       try { b = JSON.parse(body) } catch {}
       const baseURL = String(b.baseURL || "").trim().replace(/\/+$/, "")
-      const apiKey = String(b.apiKey || "").trim()
+      // 编辑已有 API 时密钥可以留空:带 id 就沿用已保存的密钥来测
+      const stored = b.id ? apis.items.find((x) => x.id === String(b.id)) : null
+      const apiKey = String(b.apiKey || "").trim() || (stored ? String(stored.apiKey || "") : "")
       const modelID = String(b.model || "").trim()
       const protocol = String(b.protocol || "openai").trim()
       const bad = (msg) => {
@@ -3285,6 +3331,57 @@ const srv = createServer(async (req, res) => {
       return
     }
     let am = url.pathname.match(/^\/api\/apis\/([^/]+)$/)
+    // 编辑已有 API:PUT 语义(只改传了的字段);apiKey 留空/不传 = 沿用原密钥
+    if (req.method === "PUT" && am) {
+      const a = apis.items.find((x) => x.id === am[1])
+      if (!a) { res.writeHead(404, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ ok: false, error: "配置不存在" })); return }
+      const body = await readBody(req)
+      let b = {}
+      try { b = JSON.parse(body) } catch {}
+      const baseURL = b.baseURL !== undefined ? String(b.baseURL).trim().replace(/\/+$/, "") : a.baseURL
+      const apiKey = b.apiKey !== undefined && String(b.apiKey).trim() ? String(b.apiKey).trim() : a.apiKey
+      const modelID = b.model !== undefined ? String(b.model).trim() : a.modelID
+      const protocol = b.protocol !== undefined ? String(b.protocol).trim() : (a.protocol || "openai")
+      const name = b.name !== undefined ? (String(b.name).trim() || modelID) : (a.name || a.modelID)
+      const bad = (msg) => { res.writeHead(400, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ ok: false, error: msg })) }
+      if (!baseURL || !/^https?:\/\//.test(baseURL)) return bad("API 地址要以 http(s):// 开头")
+      if (!apiKey || PLACEHOLDER.test(apiKey)) return bad("请填写 API 密钥(留空表示不修改原密钥)")
+      if (!modelID) return bad("请填写模型名称")
+      const invalid = validateApiFields(baseURL, apiKey, modelID)
+      if (invalid) return bad(invalid)
+      // 上下文窗口:只在显式传了才改;null/空串=清除(跟随全局)
+      if (b.contextLimit !== undefined) {
+        if (b.contextLimit === null || String(b.contextLimit).trim() === "") delete a.contextLimit
+        else {
+          const v = normCtxLimit(b.contextLimit)
+          if (!v) return bad("上下文容量要在 1000 ~ 10000000 tokens 之间(留空则跟随全局)")
+          a.contextLimit = v
+        }
+      }
+      const isEnabled = apis.enabledId === a.id
+      let warning = ""
+      if (isEnabled) {
+        // 改的是正在用的那套:先测连通(401/403 硬拦,其余软警告照存)
+        const test = await testProvider({ baseURL, apiKey, modelID, protocol }, 12_000)
+        if (isHardTestFail(test)) return bad(`密钥被拒绝:${test.error}`)
+        warning = test.ok
+          ? (test.model && test.model !== modelID ? `连接成功(服务商实际使用模型:${test.model})` : "")
+          : softWarning(test)
+      }
+      a.name = name
+      a.baseURL = baseURL
+      a.apiKey = apiKey
+      a.modelID = modelID
+      a.protocol = protocol
+      saveApis()
+      if (isEnabled) {
+        applyEnabledApi()
+        restartEngineBackground()
+      }
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+      res.end(JSON.stringify({ ok: true, id: a.id, enabledId: apis.enabledId, warning }))
+      return
+    }
     if (req.method === "DELETE" && am) {
       const i = apis.items.findIndex((a) => a.id === am[1])
       if (i >= 0) {
