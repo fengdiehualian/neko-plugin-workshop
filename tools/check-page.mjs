@@ -1010,6 +1010,7 @@ await probe("GET /api/download 缺参拦截", "/api/download", {}, (s) => s >= 4
 await probe("GET /api/experts 快照", "/api/experts", {}, (s, j) => s === 200 && j && j.ok && typeof j.enabled === "boolean" && Array.isArray(j.packs))
 await probe("POST /api/experts 非法值拦截", "/api/experts", { method: "POST", body: '{"enabled":"yes"}' }, (s, j) => s === 400 && j && j.error)
 await probe("POST /api/experts 未知成员拦截", "/api/experts", { method: "POST", body: '{"member":"no-such-expert","on":false}' }, (s, j) => s === 400 && j && j.error)
+await probe("GET /api/expert-progress", "/api/expert-progress", {}, (s, j) => s === 200 && j && j.ok && typeof j.phase === "string" && Array.isArray(j.members))
 
 // ---------- 5b. 单 API 上下文(加 --mutate 才跑:会临时增删测试实例里的 API) ----------
 if (argv.includes("--mutate")) {

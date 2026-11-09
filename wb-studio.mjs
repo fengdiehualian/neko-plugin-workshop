@@ -662,12 +662,17 @@ function readLeadConstitution(pack) {
     return ""
   }
 }
-/** 专家团提示块(未启用/无可用包 → 空串) */
-async function expertPrompt() {
+/** 专家团提示块(未启用/无可用包 → 空串);传 panel 时追加并行会诊结果供主理人汇总 */
+async function expertPrompt(panel) {
   if (!config.expertMode) return ""
   const pack = pickExpertPack(await getExperts())
   if (!pack) return ""
-  return formatExpertBlock(pack, readLeadConstitution(pack), 2200, config.expertDisabled || [])
+  let block = formatExpertBlock(pack, readLeadConstitution(pack), 2200, config.expertDisabled || [])
+  if (block && panel && panel.summary) {
+    block += "\n\n【专家团会诊结果(各专家已并行提交)】\n" + panel.summary +
+      "\n\n(以上是专家们的意见。你是主理人:请把它们汇总成给用户的一条清晰答复,该采纳的采纳、有冲突的说明取舍,不要原文罗列。)"
+  }
+  return block
 }
 /** 设置面板用的只读快照 */
 async function expertsSnapshot() {
@@ -691,6 +696,116 @@ async function expertsSnapshot() {
       problems: p.problems || [],
     })),
   }
+}
+
+// ---------- 专家团并行会诊(真·多子Agent协作) ----------
+// 任务开始时,每位启用的专家作为独立子 Agent 并行出意见(最多 3 路并发,总预算 150s),
+// 主理人汇总后交付;前端轮询 /api/expert-progress 实时展示「谁在干活」。
+const expertProgress = { phase: "idle", startedAt: 0, finishedAt: 0, members: [] }
+const EXPERT_PANEL_CONCURRENCY = 3
+const EXPERT_PANEL_BUDGET_MS = 150000
+const EXPERT_PANEL_TIMEOUT_SEC = 90
+const EXPERT_PANEL_SUMMARY_MAX = 3000
+
+function activeExpertMembers(pack) {
+  if (!pack || !pack.manifest) return []
+  const off = new Set(Array.isArray(config.expertDisabled) ? config.expertDisabled : [])
+  const lead = (pack.manifest.teamInfo && pack.manifest.teamInfo.leadAgent) || pack.manifest.agentName
+  return (pack.manifest.members || [])
+    .filter((x) => x && x.id && x.id !== lead && !off.has(x.id))
+    .map((x) => ({
+      id: x.id,
+      name: (x.displayName && x.displayName.zh) || x.id,
+      role: (x.profession && x.profession.zh) || "",
+    }))
+}
+/** 每位成员的人设摘要:agent 文档去掉 frontmatter 后的前 260 字 */
+function memberBrief(pack, id) {
+  try {
+    let body = readFileSync(join(pack.dir, "agents", id + ".md"), "utf8").replace(/^\uFEFF/, "")
+    if (body.startsWith("---")) {
+      const end = body.indexOf("\n---", 3)
+      if (end > 0) body = body.slice(end + 4)
+    }
+    return body.replace(/\s+/g, " ").trim().slice(0, 260)
+  } catch {
+    return ""
+  }
+}
+function panelPrompt(text, m, brief) {
+  return [
+    `你是「${m.name}」${m.role ? "(" + m.role + ")" : ""}。${brief ? "你的工作要点:" + brief : ""}`,
+    `用户正在进行的工作(原话):${String(text).slice(0, 1500)}`,
+    "请只从你的专业角度,用中文大白话给出 3-5 条最关键的要点或风险提醒(每条一行,结论先行;不寒暄、不写代码、不复述愿望),总字数 200 以内。",
+  ].join("\n")
+}
+/** 跑一位专家子 Agent:按当前底座同样的三条路走,失败返回 null */
+async function runPanelAgent(prompt, signal) {
+  try {
+    if (backendCfg.mode === "zcode") {
+      const r = await driveZcode({
+        text: prompt, dir: config.workspace, cmd: zcodeLaunch().cmd,
+        zcodeMode: "plan", env: zcodeRuntimeEnv(),
+        timeoutSec: EXPERT_PANEL_TIMEOUT_SEC, stallTimeoutSec: 60, signal,
+      })
+      return r.ok ? String(r.reply || "") : null
+    }
+    if (cliEngineReady()) {
+      const r = await driveAgentCli({
+        text: prompt, dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
+        timeoutSec: EXPERT_PANEL_TIMEOUT_SEC, signal,
+      })
+      return r.ok ? String(r.reply || "") : null
+    }
+    const r = await driveAgent({
+      text: prompt, dir: config.workspace, model: config.model,
+      server: config.server, timeout: EXPERT_PANEL_TIMEOUT_SEC, noProgressSec: 60,
+      auth: engineAuth || undefined, mode: "plan", signal,
+    })
+    return r.ok ? String(r.reply || "") : null
+  } catch {
+    return null
+  }
+}
+async function runExpertPanel(text, signal) {
+  const pack = pickExpertPack(await getExperts())
+  if (!pack) return null
+  const members = activeExpertMembers(pack)
+  if (!members.length) return null
+  expertProgress.phase = "running"
+  expertProgress.startedAt = Date.now()
+  expertProgress.finishedAt = 0
+  expertProgress.members = members.map((m) => ({ ...m, status: "queued", ms: 0 }))
+  const startedAll = Date.now()
+  const outputs = new Map()
+  let cursor = 0
+  const runOne = async (m) => {
+    const slot = expertProgress.members.find((x) => x.id === m.id)
+    const t0 = Date.now()
+    slot.status = "running"
+    const out = await runPanelAgent(panelPrompt(text, m, memberBrief(pack, m.id)), signal)
+    slot.ms = Date.now() - t0
+    if (out && out.trim()) { slot.status = "done"; outputs.set(m.id, out.trim()) }
+    else slot.status = "error"
+  }
+  const worker = async () => {
+    while (cursor < members.length) {
+      if (Date.now() - startedAll > EXPERT_PANEL_BUDGET_MS || (signal && signal.aborted)) break
+      await runOne(members[cursor++])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(EXPERT_PANEL_CONCURRENCY, members.length) }, () => worker()))
+  for (const x of expertProgress.members) if (x.status === "queued" || x.status === "running") x.status = "skipped"
+  expertProgress.phase = "done"
+  expertProgress.finishedAt = Date.now()
+  const brief = expertProgress.members.map(({ id, name, role, status, ms }) => ({ id, name, role, status, ms }))
+  if (!outputs.size) return { members: brief, summary: "", ms: Date.now() - startedAll }
+  let summary = expertProgress.members
+    .filter((x) => x.status === "done")
+    .map((x) => `【${x.name}${x.role ? " · " + x.role : ""}】\n${String(outputs.get(x.id)).slice(0, 600)}`)
+    .join("\n\n")
+  if (summary.length > EXPERT_PANEL_SUMMARY_MAX) summary = summary.slice(0, EXPERT_PANEL_SUMMARY_MAX) + "\n…(会诊意见过长已截断)"
+  return { members: brief, summary, ms: Date.now() - startedAll }
 }
 
 // ---------- 用户长期记忆(runtime\user-memory.json) ----------
@@ -1563,7 +1678,7 @@ const PAGE = `<!doctype html>
     </div>
   </div>
   <div class="sp-body" id="tab-expert" style="display:none">
-    <div class="sp-head">专家团 <span class="sp-tip">开启后任务由专家团接管;成员卡片可逐个开关,关闭的专家不会出现在任务提示词里</span></div>
+    <div class="sp-head">专家团 <span class="sp-tip">开启后任务会先让每位专家并行会诊(聊天区实时显示谁在干活),主理人汇总后交付;成员卡片可逐个开关</span></div>
     <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <button type="button" id="expertToggle" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">加载中…</button>
       <span id="expertMsg" style="font-size:12px;color:var(--muted)"></span>
@@ -1706,6 +1821,13 @@ function add(cls,html){const d=document.createElement('div');d.className='msg '+
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function fmtTok(n){n=n||0;if(n>=10000)return (n/10000).toFixed(1)+'万';if(n>=1000)return (n/1000).toFixed(1)+'k';return ''+n}
 function usageLine(u){if(!u)return'';const out=(u.output||0)+(u.reasoning||0);let s='Token ↑'+fmtTok(u.input)+' ↓'+fmtTok(out);if(u.reasoning)s+=' (含思考 '+fmtTok(u.reasoning)+')';return '<div class="tusage">'+s+'</div>'}
+// 专家团会诊摘要行(历史消息/最终回复渲染用):几位专家参与、都有谁、用时
+function panelLine(p){
+  if(!p||!p.members||!p.members.length)return '';
+  const done=p.members.filter(function(m){return m.status==='done'});
+  const names=done.map(function(m){return m.name}).slice(0,4).join('、');
+  return '<div style="margin-top:6px;font-size:11.5px;color:var(--muted-2)">🧠 专家团会诊: '+done.length+' 位参与'+(done.length?('('+esc(names)+(done.length>4?'…':'')+')'):'')+' · 用时 '+Math.round((p.ms||0)/1000)+'s</div>';
+}
 // Build 模式任务收尾:本次已修改的文件(相对路径,时间序;产物另有下载 chip)
 // 改动文件 = 一块列表(不是一堆气泡);每行可点,点名字在资源管理器里定位该文件
 function fBase(p){const s=String(p||'');const i=Math.max(s.lastIndexOf('/'),s.lastIndexOf('\\\\'));return i>=0?s.slice(i+1):s}
@@ -1842,7 +1964,7 @@ function renderMessages(s){
     if(m.role==='user')add('user',esc(m.content));
     else{
       if(m.error&&!m.content)add('err',errHtml(m.error,m.rawError));
-      else{let html='';if(m.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(m.thinking)+'</div></details>';const _x=parseExtras(m.content);html+=esc(_x.text);html+=modFilesHtml(m.modifiedFiles);if(m.artifacts&&m.artifacts.length){html+='<br>';for(const a of m.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}}html+=extrasHtml(_x);html+=usageLine(m.usage);add(m.error?'bot err':'bot ok',html);}
+      else{let html='';if(m.thinking)html+='<details class="think"><summary>💭 思考过程</summary><div class="tbody">'+esc(m.thinking)+'</div></details>';const _x=parseExtras(m.content);html+=esc(_x.text);html+=modFilesHtml(m.modifiedFiles);if(m.artifacts&&m.artifacts.length){html+='<br>';for(const a of m.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}}html+=extrasHtml(_x);html+=panelLine(m.expertPanel);html+=usageLine(m.usage);add(m.error?'bot err':'bot ok',html);}
     }
   }
   // 会话切换/重开:用最近一轮的 usage 恢复上下文占用估算
@@ -1871,6 +1993,33 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
   const sentTo=curSession; // 本条任务归属的会话;期间用户可能切走
   add('user',esc(text)+(workMode==='plan'?' <span style="opacity:.75;font-size:11px">[先出方案]</span>':''));t.value='';b.disabled=true;stopbtn.style.display='';
   const ty=document.createElement('div');ty.className='typing';ty.innerHTML='哈基米正在'+(workMode==='plan'?'思考方案':'写插件')+'<span>🐱…</span>';chat.appendChild(ty);chat.scrollTop=chat.scrollHeight;
+  // 专家团模式:实时展示哪些子 Agent 在干活(轮询会诊进度)
+  let epCard=null,epTimer=null;
+  try{
+    const ex=await(await fetch('/api/experts')).json();
+    if(ex&&ex.enabled){
+      epCard=document.createElement('div');epCard.className='msg bot';epCard.style.maxWidth='100%';
+      epCard.innerHTML='<div class="ephead" style="font-weight:700">🧠 专家团会诊中…</div><div class="eplist" style="margin-top:6px;font-size:12.5px;color:var(--muted)">正在召集专家…</div>';
+      chat.appendChild(epCard);chat.scrollTop=chat.scrollHeight;
+      epTimer=setInterval(async function(){
+        try{
+          const p=await(await fetch('/api/expert-progress')).json();
+          if(!p||!p.members||!p.members.length)return;
+          const ic={queued:'⏳',running:'🔄',done:'✅',error:'⚠️',skipped:'⏭'};
+          const nm={queued:'排队',running:'进行中',done:'完成',error:'失败',skipped:'跳过'};
+          const list=epCard.querySelector('.eplist');
+          if(list)list.innerHTML=p.members.map(function(m){return '<span style="display:inline-block;margin:2px 10px 2px 0">'+ic[m.status]+' '+esc(m.name)+(m.role?'('+esc(m.role)+')':'')+' · '+nm[m.status]+(m.status==='done'&&m.ms?' '+Math.round(m.ms/1000)+'s':'')+'</span>'}).join('');
+          const head=epCard.querySelector('.ephead');
+          if(head&&p.phase==='running')head.textContent='🧠 专家团会诊中…';
+          if(p.phase==='done'){
+            if(head)head.textContent='🧠 专家团会诊完成 · '+p.members.filter(function(m){return m.status==='done'}).length+' 位专家参与 · '+Math.round(((p.finishedAt||0)-(p.startedAt||0))/1000)+'s';
+            clearInterval(epTimer);epTimer=null;
+          }
+          chat.scrollTop=chat.scrollHeight;
+        }catch(e){}
+      },700);
+    }
+  }catch(e){}
   // 实时思考过程:任务期间每 0.5s 轮询引擎(2s 会明显滞后),思考流式展开;任务结束后移除(由最终消息里的折叠版接管)
   const taskStart=Date.now();
   let liveThink=null,liveBody=null;
@@ -1897,6 +2046,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
     const r=await fetch('/api/task',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,sessionId:sentTo,mode:workMode})});
     const j=await r.json();
     clearInterval(pollTimer);ty.remove();
+    if(epTimer){clearInterval(epTimer);epTimer=null;}
     if(liveThink){liveThink.remove();liveThink=null;}
     refreshList();
     // 只有用户仍停留在发起任务的会话时才把结果渲染进当前聊天区;
@@ -1916,11 +2066,12 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
       if(j.artifacts&&j.artifacts.length){html+='<br>';for(const a of j.artifacts){const name=a.split('\\\\').pop();html+='<a class="chip" href="/api/download?f='+encodeURIComponent(name)+'">⬇ 下载 '+esc(name)+'</a>';}
         html+='<div style="margin-top:8px;font-size:12.5px;background:var(--tint);border-radius:10px;padding:8px 10px;line-height:1.8">📦 <b>装进 N.E.K.O. 三步:</b>① 点上面下载 .neko-plugin → ② 打开 N.E.K.O. 插件管理器,用「导入安装包」选中它 → ③ 启动插件,完成!</div>';}
       html+=extrasHtml(_x);
+      html+=panelLine(j.expertPanel);
       html+=usageLine(j.usage);
       add('ok',html);
     }
     if(j&&j.usage){ctxUsed=(j.usage.input||0)+(j.usage.output||0);updateCtxBar();}
-  }catch(err){clearInterval(pollTimer);ty.remove();if(liveThink)liveThink.remove();add('err',errHtml('连接出错:'+String(err),String(err)))}
+  }catch(err){clearInterval(pollTimer);if(epTimer){clearInterval(epTimer);epTimer=null;}ty.remove();if(liveThink)liveThink.remove();add('err',errHtml('连接出错:'+String(err),String(err)))}
   b.disabled=false;stopbtn.style.display='none';t.focus();
 };
 // 回车发送(Shift+回车换行;中文输入法选词的回车不发送)
@@ -3847,6 +3998,11 @@ async function runUpdate() {
       }
     }
     // ---------- 专家团(experts/ 专家包的只读快照与开关) ----------
+    if (url.pathname === "/api/expert-progress" && req.method === "GET") {
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+      res.end(JSON.stringify({ ok: true, ...expertProgress }))
+      return
+    }
     if (url.pathname === "/api/experts") {
       const json = (code, obj) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)) }
       if (req.method === "GET") return json(200, await expertsSnapshot())
@@ -4194,7 +4350,25 @@ async function runUpdate() {
       }
       const memory = s.summary || ""
       const userMem = userMemoryPrompt() // 用户长期偏好:每轮都带,跨会话生效
-      const expertBlock = await expertPrompt() // 专家团模式:开启时注入主理人+分工+纪律(空串=未启用)
+      // 专家团并行会诊:每位启用的专家作为独立子 Agent 出意见(前端实时展示谁在干活),
+      // 结果交给主理人汇总;会诊失败不影响主任务
+      let panelInfo = null
+      if (config.expertMode) {
+        try {
+          panelInfo = await runExpertPanel(text, currentAbort.signal)
+        } catch (e) {
+          console.warn("[wb-studio] 专家会诊失败(继续主任务):", e?.message)
+        }
+        if (currentAbort.signal.aborted) {
+          busy = false
+          currentAbort = null
+          res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, stopped: true, error: "任务已停止" }))
+          return
+        }
+      }
+      const expertBlock = await expertPrompt(panelInfo) // 专家团模式:开启时注入主理人+分工+纪律+会诊结果(空串=未启用)
+      const panelBrief = panelInfo ? { members: panelInfo.members, ms: panelInfo.ms } : undefined
       const driveOpts = {
         text: buildWishPrompt(text, mode, askCount, memory, userMem, expertBlock), dir: config.workspace, model: config.model,
         server: config.server, timeout: config.timeoutSec,
@@ -4268,9 +4442,10 @@ async function runUpdate() {
             usage: zTurnTotal > 0 ? zu : undefined,
             artifacts: result.artifacts || [],
             modifiedFiles: result.modifiedFiles || [],
+            expertPanel: panelBrief,
           })
         } else {
-          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || ""), rawError: rawErrorText || undefined, usage: zTurnTotal > 0 ? zu : undefined })
+          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || ""), rawError: rawErrorText || undefined, usage: zTurnTotal > 0 ? zu : undefined, expertPanel: panelBrief })
         }
         if (s.title === "新对话" && text) {
           s.title = text.replace(/\s+/g, " ").slice(0, 18) + (text.length > 18 ? "…" : "")
@@ -4286,6 +4461,7 @@ async function runUpdate() {
         if (!result.ok && rawErrorText) result.rawError = rawErrorText
         if (compactInfo) result.compact = compactInfo
         if (compactAfterCli) result.compactAfter = compactAfterCli
+        if (panelBrief) result.expertPanel = panelBrief
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify(result))
         return
@@ -4325,9 +4501,10 @@ async function runUpdate() {
             rawError: result.ok ? undefined : (rawErrorText || undefined),
             artifacts: result.artifacts || [],
             modifiedFiles: result.modifiedFiles || [],
+            expertPanel: panelBrief,
           })
         } else if (result.error) {
-          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error), rawError: rawErrorText || undefined, usage: turnTotal > 0 ? u : undefined })
+          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error), rawError: rawErrorText || undefined, usage: turnTotal > 0 ? u : undefined, expertPanel: panelBrief })
         }
         // 首条用户消息截断为标题
         if (s.title === "新对话" && text) {
@@ -4372,6 +4549,7 @@ async function runUpdate() {
         result.sessionId = s.id // 网页层拿到的统一是工坊会话 id
         if (compactInfo) result.compact = compactInfo
         if (compactAfter) result.compactAfter = compactAfter
+        if (panelBrief) result.expertPanel = panelBrief
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
         res.end(JSON.stringify(result))
       } finally {
