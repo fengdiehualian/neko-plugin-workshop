@@ -881,7 +881,7 @@ ${PROBE_SRC}
     gone ? pass('清理测试 API') : fail('清理测试 API', '仍存在');
   }
 
-  // 19.7) 编辑已有 API:回填表单 → 改名保存 → 取消编辑
+  // 19.7) 编辑已有 API:回填表单 → 多模型添加/设默认 → 改名保存 → 取消编辑
   {
     const created = await (await fetch('/api/apis', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: '编辑测试API', baseURL: 'http://127.0.0.1:9/v1', apiKey: 'sk-edit-123456', model: 'mock-edit', protocol: 'openai', enable: false }) })).json();
     if (created && created.id) {
@@ -891,11 +891,22 @@ ${PROBE_SRC}
       const editBtn = rowE && rowE.querySelector('.edit');
       if (editBtn) {
         editBtn.click(); await sleep(150);
-        const prefill = ($('#apiURL').value || '').indexOf('127.0.0.1:9') >= 0 && ($('#apiModel').value || '') === 'mock-edit' && ($('#apiKey').value || '') === '';
+        const chips0 = $$('#apiModelList .chip');
+        const prefill = ($('#apiURL').value || '').indexOf('127.0.0.1:9') >= 0 && ($('#apiKey').value || '') === '' && chips0.some((c) => c.textContent.indexOf('mock-edit') >= 0);
         const modeOn = ($('#apiSave').textContent || '').trim() === '保存修改' && getComputedStyle($('#apiCancelEdit')).display !== 'none';
         prefill && modeOn
           ? pass('编辑 API 回填表单/进入编辑模式', '密钥占位=' + ($('#apiKey').placeholder || '').slice(0, 8))
-          : fail('编辑 API 回填表单/进入编辑模式', 'prefill=' + prefill + ' mode=' + modeOn);
+          : fail('编辑 API 回填表单/进入编辑模式', 'prefill=' + prefill + ' mode=' + modeOn + ' chips=' + chips0.length);
+        // 多模型:输入第二个模型 → 点「＋ 添加」→ 点它设为默认
+        $('#apiModel').value = 'mock-edit-2';
+        $('#apiModelAdd').click(); await sleep(200);
+        const chip2 = $$('#apiModelList .chip').find((c) => c.textContent.indexOf('mock-edit-2') >= 0);
+        if (chip2) chip2.click();
+        await sleep(150);
+        const chipHtml = ($('#apiModelList .chip') || {}).style ? Array.from($$('#apiModelList .chip')).map((c) => c.textContent.trim()).join(',') : '';
+        $$('#apiModelList .chip').length === 2 && chip2
+          ? pass('多模型 添加并设为默认', chipHtml)
+          : fail('多模型 添加并设为默认', 'chips=' + $$('#apiModelList .chip').length + ' found=' + !!chip2);
         $('#apiName').value = '编辑后API';
         $('#apiSave').click();
         await wbWait(() => ($('#apiMsg').textContent || '').indexOf('已保存修改') >= 0, 6000);
@@ -903,7 +914,16 @@ ${PROBE_SRC}
         const renamed = $$('.apirow').some((r) => r.textContent.indexOf('编辑后API') >= 0);
         const backMode = ($('#apiSave').textContent || '').trim() === '保存并启用';
         renamed && backMode ? pass('编辑 API 保存修改生效', '列表已更新') : fail('编辑 API 保存修改生效', 'renamed=' + renamed + ' back=' + backMode);
+        const apiAfter = await (await fetch('/api/apis')).json();
+        const edited = (apiAfter.items || []).find((x) => x.name === '编辑后API');
+        const persisted = edited && Array.isArray(edited.models) && edited.models.length === 2 && edited.modelID === 'mock-edit-2';
+        persisted
+          ? pass('多模型 保存后列表/默认模型正确', JSON.stringify(edited.models))
+          : fail('多模型 保存后列表/默认模型正确', JSON.stringify(edited ? { models: edited.models, def: edited.modelID } : null));
         const rowE2 = $$('.apirow').find((r) => r.textContent.indexOf('编辑后API') >= 0);
+        rowE2 && rowE2.textContent.indexOf('(+1 个备用模型)') >= 0
+          ? pass('多模型 行内显示备用数量')
+          : fail('多模型 行内显示备用数量', rowE2 ? rowE2.textContent.slice(0, 60) : '找不到行');
         if (rowE2 && rowE2.querySelector('.edit')) {
           rowE2.querySelector('.edit').click(); await sleep(150);
           $('#apiCancelEdit').click(); await sleep(150);

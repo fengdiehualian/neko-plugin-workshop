@@ -1561,7 +1561,8 @@ const PAGE = `<!doctype html>
       <div class="frow"><label>备注名</label><input id="apiName" placeholder="例如:主力号 / 备用号"></div>
       <div class="frow"><label>Base URL</label><input id="apiURL" placeholder="https://…/v1"></div>
       <div class="frow"><label>API Key *</label><input id="apiKey" type="password" placeholder="粘贴密钥"></div>
-      <div class="frow"><label>模型名称 *</label><input id="apiModel" placeholder="例如 deepseek-chat"></div>
+      <div class="frow"><label>模型名称 *</label><span style="display:flex;gap:8px;flex:1"><input id="apiModel" placeholder="填模型名,点「＋ 添加」可加多个"><button type="button" id="apiModelAdd" style="border:1px solid var(--border-soft);background:var(--tint);color:var(--pink-d);border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">＋ 添加</button></span></div>
+      <div class="frow" style="align-items:flex-start"><label style="padding-top:6px">已加模型</label><div id="apiModelList" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;min-height:24px"></div></div>
       <div class="frow"><label>上下文窗口</label><input id="apiCtx" type="number" min="1" step="1" placeholder="留空 = 跟随全局;填 K 数,如 128"></div>
       <div class="frow2">
         <button type="button" id="apiSave">保存并启用</button>
@@ -1995,32 +1996,32 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
   add('user',esc(text)+(workMode==='plan'?' <span style="opacity:.75;font-size:11px">[先出方案]</span>':''));t.value='';b.disabled=true;stopbtn.style.display='';
   const ty=document.createElement('div');ty.className='typing';ty.innerHTML='哈基米正在'+(workMode==='plan'?'思考方案':'写插件')+'<span>🐱…</span>';chat.appendChild(ty);chat.scrollTop=chat.scrollHeight;
   // 专家团模式:实时展示哪些子 Agent 在干活(轮询会诊进度)
-  let epCard=null,epTimer=null;
-  try{
-    const ex=await(await fetch('/api/experts')).json();
-    if(ex&&ex.enabled){
-      epCard=document.createElement('div');epCard.className='msg bot';epCard.style.maxWidth='100%';
-      epCard.innerHTML='<div class="ephead" style="font-weight:700">🧠 专家团会诊中…</div><div class="eplist" style="margin-top:6px;font-size:12.5px;color:var(--muted)">正在召集专家…</div>';
-      chat.appendChild(epCard);chat.scrollTop=chat.scrollHeight;
-      epTimer=setInterval(async function(){
-        try{
-          const p=await(await fetch('/api/expert-progress')).json();
-          if(!p||!p.members||!p.members.length)return;
-          const ic={queued:'⏳',running:'🔄',done:'✅',error:'⚠️',skipped:'⏭'};
-          const nm={queued:'排队',running:'进行中',done:'完成',error:'失败',skipped:'跳过'};
-          const list=epCard.querySelector('.eplist');
-          if(list)list.innerHTML=p.members.map(function(m){return '<span style="display:inline-block;margin:2px 10px 2px 0">'+ic[m.status]+' '+esc(m.name)+(m.role?'('+esc(m.role)+')':'')+' · '+nm[m.status]+(m.status==='done'&&m.ms?' '+Math.round(m.ms/1000)+'s':'')+'</span>'}).join('');
-          const head=epCard.querySelector('.ephead');
-          if(head&&p.phase==='running')head.textContent='🧠 专家团会诊中…';
-          if(p.phase==='done'){
-            if(head)head.textContent='🧠 专家团会诊完成 · '+p.members.filter(function(m){return m.status==='done'}).length+' 位专家参与 · '+Math.round(((p.finishedAt||0)-(p.startedAt||0))/1000)+'s';
-            clearInterval(epTimer);epTimer=null;
-          }
-          chat.scrollTop=chat.scrollHeight;
-        }catch(e){}
-      },700);
-    }
-  }catch(e){}
+  // 注意:专家团状态检查必须与任务提交并行,不能 await 前置——否则冷启动时
+  // 读专家包会拖慢每次发送(400ms 内提交测试会误判成没发请求)
+  let epCard=null,epTimer=null,taskFinished=false;
+  fetch('/api/experts').then(function(r){return r.json()}).then(function(ex){
+    if(!ex||!ex.enabled||taskFinished)return;
+    epCard=document.createElement('div');epCard.className='msg bot';epCard.style.maxWidth='100%';
+    epCard.innerHTML='<div class="ephead" style="font-weight:700">🧠 专家团会诊中…</div><div class="eplist" style="margin-top:6px;font-size:12.5px;color:var(--muted)">正在召集专家…</div>';
+    chat.appendChild(epCard);chat.scrollTop=chat.scrollHeight;
+    epTimer=setInterval(async function(){
+      try{
+        const p=await(await fetch('/api/expert-progress')).json();
+        if(!p||!p.members||!p.members.length)return;
+        const ic={queued:'⏳',running:'🔄',done:'✅',error:'⚠️',skipped:'⏭'};
+        const nm={queued:'排队',running:'进行中',done:'完成',error:'失败',skipped:'跳过'};
+        const list=epCard.querySelector('.eplist');
+        if(list)list.innerHTML=p.members.map(function(m){return '<span style="display:inline-block;margin:2px 10px 2px 0">'+ic[m.status]+' '+esc(m.name)+(m.role?'('+esc(m.role)+')':'')+' · '+nm[m.status]+(m.status==='done'&&m.ms?' '+Math.round(m.ms/1000)+'s':'')+'</span>'}).join('');
+        const head=epCard.querySelector('.ephead');
+        if(head&&p.phase==='running')head.textContent='🧠 专家团会诊中…';
+        if(p.phase==='done'){
+          if(head)head.textContent='🧠 专家团会诊完成 · '+p.members.filter(function(m){return m.status==='done'}).length+' 位专家参与 · '+Math.round(((p.finishedAt||0)-(p.startedAt||0))/1000)+'s';
+          clearInterval(epTimer);epTimer=null;
+        }
+        chat.scrollTop=chat.scrollHeight;
+      }catch(e){}
+    },700);
+  }).catch(function(){});
   // 实时思考过程:任务期间每 0.5s 轮询引擎(2s 会明显滞后),思考流式展开;任务结束后移除(由最终消息里的折叠版接管)
   const taskStart=Date.now();
   let liveThink=null,liveBody=null;
@@ -2046,6 +2047,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
   try{
     const r=await fetch('/api/task',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,sessionId:sentTo,mode:workMode})});
     const j=await r.json();
+    taskFinished=true;
     clearInterval(pollTimer);ty.remove();
     if(epTimer){clearInterval(epTimer);epTimer=null;}
     if(liveThink){liveThink.remove();liveThink=null;}
@@ -2072,7 +2074,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
       add('ok',html);
     }
     if(j&&j.usage){ctxUsed=(j.usage.input||0)+(j.usage.output||0);updateCtxBar();}
-  }catch(err){clearInterval(pollTimer);if(epTimer){clearInterval(epTimer);epTimer=null;}ty.remove();if(liveThink)liveThink.remove();add('err',errHtml('连接出错:'+String(err),String(err)))}
+  }catch(err){taskFinished=true;clearInterval(pollTimer);if(epTimer){clearInterval(epTimer);epTimer=null;}ty.remove();if(liveThink)liveThink.remove();add('err',errHtml('连接出错:'+String(err),String(err)))}
   b.disabled=false;stopbtn.style.display='none';t.focus();
 };
 // 回车发送(Shift+回车换行;中文输入法选词的回车不发送)
@@ -2633,7 +2635,7 @@ async function loadApis(){
   for(const a of j.items){
     const d=document.createElement('div');d.className='apirow'+(a.id===j.enabledId?' cur':'');
     const ownCtx=a.contextLimit?fmtCtx(a.contextLimit):('跟随全局 '+fmtCtx(j.globalContextLimit||128000));
-    d.innerHTML='<span class="an">'+esc(a.name||a.modelID)+'</span><span class="ad">'+esc(a.protocol&&a.protocol!=='openai'?a.protocol+' · ':'')+esc(a.baseURL)+' · '+esc(a.modelID)+' · 密钥…'+esc(a.keyTail)+'</span>'
+    d.innerHTML='<span class="an">'+esc(a.name||a.modelID)+'</span><span class="ad">'+esc(a.protocol&&a.protocol!=='openai'?a.protocol+' · ':'')+esc(a.baseURL)+' · '+esc(a.modelID)+((a.models&&a.models.length>1)?' <span title="这套 API 下的全部模型: '+esca(a.models.join(' / '))+'">(+'+(a.models.length-1)+' 个备用模型)</span>':'')+' · 密钥…'+esc(a.keyTail)+'</span>'
       +'<span class="ctxchip" title="点击设置这套 API 的上下文窗口">🧠 '+esc(ownCtx)+'</span>'
       +(a.id===j.enabledId?'<button disabled>使用中</button>':'<button class="use">启用</button>')
       +'<button class="edit">编辑</button>'
@@ -2669,17 +2671,63 @@ async function loadApis(){
     apilist.appendChild(d);
   }
 }
+// 一套 API 可挂多个模型:表单里维护列表,点芯片选默认(任务用它),✕ 移除
+let apiModels=[],apiModelSel=0;
+function renderModelChips(){
+  const box=document.getElementById('apiModelList');
+  if(!box)return;
+  box.innerHTML='';
+  if(!apiModels.length){
+    box.innerHTML='<span style="color:var(--muted-2);font-size:12px">还没有添加模型;上面填一个点「＋ 添加」,或直接填进输入框保存(只存一个)</span>';
+    return;
+  }
+  apiModels.forEach(function(m,i){
+    const c=document.createElement('span');
+    c.className='chip';
+    c.style.cssText='cursor:pointer;'+(i===apiModelSel?'background:var(--pink);color:var(--on-primary);':'');
+    c.title=i===apiModelSel?'当前默认模型(任务用它)':'点一下设为默认模型';
+    c.textContent=m;
+    const x=document.createElement('span');
+    x.textContent=' ✕';
+    x.style.cssText='margin-left:4px;opacity:.75';
+    x.title='从列表移除';
+    x.onclick=function(ev){ev.stopPropagation();apiModels.splice(i,1);if(apiModelSel>i)apiModelSel--;if(apiModelSel>=apiModels.length)apiModelSel=Math.max(0,apiModels.length-1);renderModelChips();};
+    c.appendChild(x);
+    c.onclick=function(){apiModelSel=i;renderModelChips();};
+    box.appendChild(c);
+  });
+}
+function addModelFromInput(){
+  const inp=document.getElementById('apiModel');
+  const v=String(inp.value||'').trim();
+  if(!v)return;
+  if(!apiModels.includes(v))apiModels.push(v);
+  apiModelSel=apiModels.indexOf(v);
+  inp.value='';
+  renderModelChips();
+}
+document.getElementById('apiModelAdd').onclick=addModelFromInput;
+document.getElementById('apiModel').addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();addModelFromInput();}
+});
+renderModelChips();
 async function saveApi(enable){
   const msg=document.getElementById('apiMsg');msg.className='';msg.textContent='保存中…';
   try{
+    // 模型:列表 + 输入框里还没点添加的;点选的芯片=默认模型
+    const typedModel=String(document.getElementById('apiModel').value||'').trim();
+    let models=apiModels.slice();
+    if(typedModel&&!models.includes(typedModel))models.push(typedModel);
+    const model=models[apiModelSel]||models[0]||'';
+    if(!model){msg.className='bad';msg.textContent='请至少填写一个模型名称';return}
     // 上下文窗口按 K 填;留空则不传(新增时=跟随全局;编辑时=清除自己的设置)
     const ctxK=String(document.getElementById('apiCtx').value||'').trim();
-    const fields={name:document.getElementById('apiName').value.trim(),baseURL:document.getElementById('apiURL').value.trim(),apiKey:document.getElementById('apiKey').value.trim(),model:document.getElementById('apiModel').value.trim(),protocol:document.getElementById('apiProto').value};
+    const fields={name:document.getElementById('apiName').value.trim(),baseURL:document.getElementById('apiURL').value.trim(),apiKey:document.getElementById('apiKey').value.trim(),model:model,models:models,protocol:document.getElementById('apiProto').value};
     const isEdit=!!editingApiId;
     let r,j;
     if(isEdit){
       // 编辑:密钥留空=不修改;上下文留空=清除(跟随全局)
-      const payload={name:fields.name,baseURL:fields.baseURL,model:fields.model,protocol:fields.protocol,contextLimit:ctxK===''?null:Math.round(Number(ctxK)*1000)};
+      const payload={name:fields.name,baseURL:fields.baseURL,model:fields.model,models:fields.models,protocol:fields.protocol,contextLimit:ctxK===''?null:Math.round(Number(ctxK)*1000)};
       if(fields.apiKey)payload.apiKey=fields.apiKey;
       r=await fetch('/api/apis/'+editingApiId,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
       j=await r.json();
@@ -2694,7 +2742,10 @@ async function saveApi(enable){
         ? ('✅ 已保存修改'+(j.warning?'('+j.warning+')':''))
         : ((enable?('✅ '+(j.warning||'已保存并启用(引擎重启中)')):'✅ 已保存')+(ctxK!==''?' · 上下文 '+fmtCtx(Math.round(Number(ctxK)*1000)):''));
       if(isEdit)exitEditApi();
-      else document.getElementById('apiName').value=document.getElementById('apiURL').value=document.getElementById('apiKey').value=document.getElementById('apiModel').value=document.getElementById('apiCtx').value='';
+      else {
+        apiModels=[];apiModelSel=0;renderModelChips();
+        document.getElementById('apiName').value=document.getElementById('apiURL').value=document.getElementById('apiKey').value=document.getElementById('apiModel').value=document.getElementById('apiCtx').value='';
+      }
       loadApis();loadCtxLimit();
     }
     else{msg.className='bad';msg.textContent=j.error||'保存失败'}
@@ -2711,6 +2762,10 @@ function beginEditApi(a,j){
   document.getElementById('apiKey').value='';
   document.getElementById('apiKey').placeholder='留空=不修改(当前 …'+a.keyTail+')';
   document.getElementById('apiCtx').value=a.contextLimit?Math.round(a.contextLimit/1000):'';
+  apiModels=((a.models&&a.models.length?a.models:[a.modelID])||[]).filter(Boolean);
+  apiModelSel=Math.max(0,apiModels.indexOf(a.modelID));
+  document.getElementById('apiModel').value='';
+  renderModelChips();
   document.getElementById('apiSave').textContent='保存修改';
   document.getElementById('apiSaveOnly').style.display='none';
   document.getElementById('apiCancelEdit').style.display='';
@@ -2723,6 +2778,7 @@ function exitEditApi(){
   document.getElementById('apiSaveOnly').style.display='';
   document.getElementById('apiCancelEdit').style.display='none';
   document.getElementById('apiKey').placeholder='粘贴密钥';
+  apiModels=[];apiModelSel=0;renderModelChips();
   document.getElementById('apiName').value=document.getElementById('apiURL').value=document.getElementById('apiKey').value=document.getElementById('apiModel').value=document.getElementById('apiCtx').value='';
 }
 document.getElementById('apiSave').onclick=()=>saveApi(true);
@@ -2733,7 +2789,10 @@ document.getElementById('apiTest').onclick=async()=>{
   const btn=document.getElementById('apiTest'),msg=document.getElementById('apiMsg');
   const baseURL=(document.getElementById('apiURL').value||'').trim();
   const apiKey=(document.getElementById('apiKey').value||'').trim();
-  const model=(document.getElementById('apiModel').value||'').trim();
+  const typedModel=(document.getElementById('apiModel').value||'').trim();
+  let modelsForTest=apiModels.slice();
+  if(typedModel&&!modelsForTest.includes(typedModel))modelsForTest.push(typedModel);
+  const model=modelsForTest[apiModelSel]||modelsForTest[0]||'';
   const protocol=document.getElementById('apiProto').value;
   if(!baseURL||!model){msg.textContent='地址和模型名称都要填,才能测'+(editingApiId?'(密钥留空会用已保存的)':',密钥也要填');msg.className='bad';return}
   if(!apiKey&&!editingApiId){msg.textContent='地址/密钥/模型名称都要填,才能测';msg.className='bad';return}
@@ -3269,6 +3328,7 @@ const srv = createServer(async (req, res) => {
         globalContextLimit: config.contextLimit,
         items: apis.items.map((a) => ({
           id: a.id, name: a.name, baseURL: a.baseURL, modelID: a.modelID,
+          models: Array.isArray(a.models) && a.models.length ? a.models : [a.modelID],
           protocol: a.protocol || "openai",
           keyTail: a.apiKey ? a.apiKey.slice(-4) : "",
           contextLimit: normCtxLimit(a.contextLimit) || null, // null = 跟随全局
@@ -3282,7 +3342,10 @@ const srv = createServer(async (req, res) => {
       try { b = JSON.parse(body) } catch {}
       const baseURL = String(b.baseURL || "").trim().replace(/\/+$/, "")
       const apiKey = String(b.apiKey || "").trim()
-      const modelID = String(b.model || "").trim()
+      const modelID0 = String(b.model || "").trim()
+      const modelsIn = Array.isArray(b.models) ? b.models.map((x) => String(x || "").trim()).filter(Boolean) : []
+      const modelID = modelID0 || modelsIn[0] || ""
+      const models = Array.from(new Set([...(modelID ? [modelID] : []), ...modelsIn])).slice(0, 20)
       const protocol = String(b.protocol || "openai").trim()
       const name = String(b.name || "").trim() || modelID
       const enable = b.enable !== false // 默认保存即启用
@@ -3293,8 +3356,10 @@ const srv = createServer(async (req, res) => {
       }
       if (!apiKey) { res.writeHead(400, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ ok: false, error: "请填写 API 密钥" })); return }
       if (!modelID) { res.writeHead(400, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ ok: false, error: "请填写模型名称" })); return }
-      const invalid = validateApiFields(baseURL, apiKey, modelID)
-      if (invalid) { res.writeHead(400, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ ok: false, error: invalid })); return }
+      for (const mm of models) {
+        const inv = validateApiFields(baseURL, apiKey, mm)
+        if (inv) { res.writeHead(400, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ ok: false, error: inv })); return }
+      }
       const willEnable = enable || !apis.enabledId
       // 连接测试 12s:只有密钥确定错误(401/403)才拦下;超时/限流放行并附警告
       let warning = ""
@@ -3320,7 +3385,7 @@ const srv = createServer(async (req, res) => {
           return
         }
       }
-      apis.items.push({ id, name, baseURL, apiKey, modelID, protocol, ...(ownCtx ? { contextLimit: ownCtx } : {}) })
+      apis.items.push({ id, name, baseURL, apiKey, modelID, models, protocol, ...(ownCtx ? { contextLimit: ownCtx } : {}) })
       // "仅保存"不切换当前启用项;仅当一套都没有时才默认启用,避免新用户保存后还是没配置
       if (enable || !apis.enabledId) apis.enabledId = id
       if (apis.enabledId === id) applyEnabledApi()
@@ -3340,15 +3405,29 @@ const srv = createServer(async (req, res) => {
       try { b = JSON.parse(body) } catch {}
       const baseURL = b.baseURL !== undefined ? String(b.baseURL).trim().replace(/\/+$/, "") : a.baseURL
       const apiKey = b.apiKey !== undefined && String(b.apiKey).trim() ? String(b.apiKey).trim() : a.apiKey
-      const modelID = b.model !== undefined ? String(b.model).trim() : a.modelID
       const protocol = b.protocol !== undefined ? String(b.protocol).trim() : (a.protocol || "openai")
-      const name = b.name !== undefined ? (String(b.name).trim() || modelID) : (a.name || a.modelID)
       const bad = (msg) => { res.writeHead(400, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ ok: false, error: msg })) }
+      // 模型列表/默认模型:传了才改;默认模型必须在列表里(不在就补进去)
+      let models = Array.isArray(a.models) && a.models.length ? a.models.slice() : (a.modelID ? [a.modelID] : [])
+      let modelID = a.modelID
+      if (b.models !== undefined || b.model !== undefined) {
+        if (Array.isArray(b.models)) {
+          models = Array.from(new Set(b.models.map((x) => String(x || "").trim()).filter(Boolean))).slice(0, 20)
+        }
+        const wanted = b.model !== undefined ? String(b.model).trim() : ""
+        if (wanted && !models.includes(wanted)) models.push(wanted)
+        if (!models.length) return bad("请至少填写一个模型名称")
+        modelID = wanted && models.includes(wanted) ? wanted : models[0]
+        if (models.length > 20) models = models.slice(0, 20)
+      }
+      const name = b.name !== undefined ? (String(b.name).trim() || modelID) : (a.name || modelID)
       if (!baseURL || !/^https?:\/\//.test(baseURL)) return bad("API 地址要以 http(s):// 开头")
       if (!apiKey || PLACEHOLDER.test(apiKey)) return bad("请填写 API 密钥(留空表示不修改原密钥)")
       if (!modelID) return bad("请填写模型名称")
-      const invalid = validateApiFields(baseURL, apiKey, modelID)
-      if (invalid) return bad(invalid)
+      for (const mm of models.length ? models : [modelID]) {
+        const inv = validateApiFields(baseURL, apiKey, mm)
+        if (inv) return bad(inv)
+      }
       // 上下文窗口:只在显式传了才改;null/空串=清除(跟随全局)
       if (b.contextLimit !== undefined) {
         if (b.contextLimit === null || String(b.contextLimit).trim() === "") delete a.contextLimit
@@ -3372,6 +3451,7 @@ const srv = createServer(async (req, res) => {
       a.baseURL = baseURL
       a.apiKey = apiKey
       a.modelID = modelID
+      a.models = models.length ? models : [modelID]
       a.protocol = protocol
       saveApis()
       if (isEnabled) {
