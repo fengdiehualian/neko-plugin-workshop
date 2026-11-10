@@ -598,17 +598,21 @@ result = await evalJs(`(async () => {
     applied && restored && runShown
       ? pass('重试页签 保存/恢复默认', '1800/420/3/4 → 1500/360/2/3')
       : fail('重试页签 保存/恢复默认', 'shown=' + runShown + ' applied=' + applied + ' reset=' + restored + ' ' + JSON.stringify(got || {}).slice(0, 120));
-    // 手动压缩按钮搬进「运行」页:存在 + 点击真的发 /compact
-    const cb2 = $('#compactNow');
+    // 手动压缩按钮在左下角(与「查看已归档」同位):存在 + 点击真的发 /compact + 按钮文案反馈
+    const cb2 = $('#compactSide');
     if (cb2) {
       const n0 = calls().filter((c) => c.url.includes('/compact')).length;
       cb2.click();
-      await sleep(1500);
-      const sent = calls().filter((c) => c.url.includes('/compact')).length > n0;
-      const msg = ($('#compactMsg') || {}).textContent || '';
-      sent && msg ? pass('运行页:手动压缩当前会话', msg.slice(0, 26))
-        : fail('运行页:手动压缩当前会话', 'sent=' + sent + ' msg=' + msg);
-    } else fail('运行页:手动压缩当前会话', '找不到 #compactNow');
+      const sent = await wbWait(() => calls().filter((c) => c.url.includes('/compact')).length > n0, 3000);
+      // 等按钮文案从「压缩中…」变成结果(✅/⚠️),再断言反馈
+      const fb = await wbWait(() => (cb2.textContent || '').indexOf('✅') >= 0 || (cb2.textContent || '').indexOf('⚠️') >= 0, 4000);
+      sent && fb ? pass('左下角 手动压缩当前会话', cb2.textContent.trim().slice(0, 26))
+        : fail('左下角 手动压缩当前会话', 'sent=' + sent + ' 反馈=' + cb2.textContent.trim().slice(0, 26));
+      const inSide = !!cb2.closest('#side');
+      inSide ? pass('压缩按钮位于侧栏底部') : fail('压缩按钮位于侧栏底部', '不在 #side 内');
+    } else fail('左下角 手动压缩当前会话', '找不到 #compactSide');
+    // 设置「重试」页里不应再有压缩按钮(已挪走)
+    !$('#compactNow') ? pass('设置页旧压缩按钮已移除') : fail('设置页旧压缩按钮已移除', '#compactNow 仍在');
     tabs[0].click(); await sleep(50);
   } else fail('运行参数输入框', [!!tT, !!tS, !!tR, !!tD].join(','));
 

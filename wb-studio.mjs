@@ -1383,6 +1383,9 @@ const PAGE = `<!doctype html>
   #archbtn{margin-top:auto;border:0;background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer;padding:8px 10px;border-radius:9px;font-family:inherit;text-align:left}
   #archbtn:hover{background:var(--tint)}
   #archbtn.on{background:var(--tint);color:var(--pink-d);font-weight:700}
+  #compactSide{border:0;background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer;padding:8px 10px;border-radius:9px;font-family:inherit;text-align:left}
+  #compactSide:hover{background:var(--tint)}
+  #compactSide:disabled{opacity:.55;cursor:default}
   main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:0}
   @media(max-width:760px){
     /* 窄窗口:侧栏和顶栏都收一点,给聊天区留出可用高度(字号放大时尤其明显) */
@@ -1611,14 +1614,6 @@ const PAGE = `<!doctype html>
         <button type="button" id="tuneReset" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:6px 12px;font-size:12.5px;cursor:pointer">恢复默认</button>
         <span id="tuneMsg" style="font-size:12px;color:var(--muted)"></span>
       </div>
-      <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border)">
-        <div style="font-size:13.5px;color:var(--ink)"><b>上下文压缩</b> <span style="color:var(--muted-2);font-size:12px">(平时不用点:任务开始/结束都会自动压缩)</span></div>
-        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button type="button" id="compactNow" style="border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer">🧹 立即压缩当前会话</button>
-          <span id="compactMsg" style="font-size:12px;color:var(--muted)"></span>
-        </div>
-        <div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">手动兜底:会话很长但还没到自动阈值、又想马上腾空间时用。压缩后保留摘要,不丢关键信息。</div>
-      </div>
       <div style="margin-top:8px;color:var(--muted-2);font-size:11.5px">默认 1500 / 360 / 2 次 / 3 秒。任务总超时是整轮上限;无响应超时是"连续多久没收到任何输出就判卡死",必须小于总超时。重试只在本轮还没有任何产出时发生(间隔 3s、6s、12s…翻倍,上限 30s)。</div>
     </div>
   </div>
@@ -1733,6 +1728,7 @@ const PAGE = `<!doctype html>
     <button id="newbtn">+ 新对话</button>
     <div id="slist"></div>
     <button id="archbtn" title="在会话列表和已归档对话之间切换">🗂 查看已归档</button>
+    <button id="compactSide" title="把当前会话的上下文压成摘要(平时不用点:任务开始/结束都会自动压缩;会话很长又想马上腾空间时用)">🗜 压缩上下文</button>
   </aside>
   <main>
   <div id="chat">
@@ -2578,22 +2574,22 @@ if(thinkRange){
     }
   });
 }
-// 手动压缩当前会话(设置 → 运行;平时靠自动压缩,这里只是兜底)
-const compactNowBtn=document.getElementById('compactNow');
-if(compactNowBtn)compactNowBtn.onclick=async()=>{
-  const btn=compactNowBtn,msg=document.getElementById('compactMsg');
-  if(!curSession){msg.className='bad';msg.textContent='先在左侧选一个会话';return}
-  btn.disabled=true;const oldTxt=btn.textContent;btn.textContent='压缩中…';msg.className='';msg.textContent='';
+// 手动压缩当前会话(左下角,和「查看已归档」同位;平时靠自动压缩,这里只是兜底)
+const compactSideBtn=document.getElementById('compactSide');
+if(compactSideBtn)compactSideBtn.onclick=async()=>{
+  const btn=compactSideBtn;
+  if(!curSession){btn.textContent='🗜 先在左侧选一个会话';setTimeout(()=>{btn.textContent='🗜 压缩上下文'},2500);return}
+  btn.disabled=true;btn.textContent='🗜 压缩中…';
   try{
     const r=await fetch('/api/sessions/'+curSession+'/compact',{method:'POST'});
     const j=await r.json();
     if(j.ok&&j.compact){
-      msg.textContent='✅ 已压缩:'+fmtCtx(j.compact.before)+' → ~'+fmtCtx(j.compact.after)+' tokens,摘要已保留';
+      btn.textContent='✅ 已压缩 '+fmtCtx(j.compact.before)+'→~'+fmtCtx(j.compact.after);
       await loadCurrent();refreshList();
-    }else if(j.ok){msg.textContent='这个会话还不够长,暂时不用压缩';}
-    else{msg.className='bad';msg.textContent=j.error||'压缩失败'}
-  }catch(e){msg.className='bad';msg.textContent='压缩失败:'+e}
-  btn.disabled=false;btn.textContent=oldTxt;
+    }else if(j.ok){btn.textContent='✅ 会话还不够长,不用压缩';}
+    else{btn.textContent='⚠️ '+(j.error||'压缩失败');}
+  }catch(e){btn.textContent='⚠️ 压缩失败'}
+  setTimeout(()=>{btn.textContent='🗜 压缩上下文';btn.disabled=false;},2800);
 };
 document.getElementById('tuneSave').onclick=()=>{
   const v={};for(const k of TUNE_KEYS)v[k]=Number(document.getElementById(k).value);
