@@ -3188,6 +3188,12 @@ const srv = createServer(async (req, res) => {
         backendCfg.userPicked = true
         backendCfg.zcodeCmd = nextCmd
         saveBackend()
+        // 对称处理引擎:切到 ZCode 就停掉本地引擎(别白占 180MB),切回 OpenCode 就带当前配置拉起
+        if (backendCfg.mode === "zcode") {
+          try { stopEngine() } catch {}
+        } else {
+          restartEngineBackground()
+        }
         const z = detectZcode()
         const bl = zcodeLaunch()
         return json(200, {
@@ -3204,7 +3210,8 @@ const srv = createServer(async (req, res) => {
         engine: await engineHealthy(),
         engineError: engineLastError,
         backend: backendCfg.mode,
-        zcode: detectZcode().found,
+        // zcode 可用 = PATH 里有命令 或 随包 _zcode 在(之前只报 PATH,随包模式一直显示 false 容易误读)
+        zcode: detectZcode().found || Boolean(bundledZcode()),
         model: config.model,
         workspace: config.workspace,
         neko: config.nekoRepo || null,

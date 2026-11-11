@@ -66,4 +66,27 @@ describe("ZCode 输出解析", () => {
     const r = parseZcodeOutput(JSON.stringify({ response: "ok", usage: { input: 12, output: 3 } }))
     expect(r.usage).toEqual({ input: 12, output: 3 })
   })
+
+  test("sessionId 与 response 不在同一行也能拿到(v1.2.58 修复)", () => {
+    const nd = [
+      JSON.stringify({ type: "init", sessionId: "sess_real" }),
+      JSON.stringify({ type: "result", response: "收到" }),
+    ].join("\n")
+    const r = parseZcodeOutput(nd)
+    expect(r.reply).toBe("收到")
+    expect(r.sessionId).toBe("sess_real")
+  })
+
+  test("字段变体:session_id / session.id", () => {
+    expect(parseZcodeOutput(JSON.stringify({ response: "a", session_id: "s_1" })).sessionId).toBe("s_1")
+    expect(parseZcodeOutput(JSON.stringify({ response: "a", session: { id: "s_2" } })).sessionId).toBe("s_2")
+  })
+
+  test("纯文本兜底也能捡出混排 JSON 行里的 sessionId/usage", () => {
+    const mixed = "一些杂项日志\n" + JSON.stringify({ sessionId: "s_3", usage: { input: 5, output: 1 } })
+    const r = parseZcodeOutput(mixed)
+    expect(r.sessionId).toBe("s_3")
+    expect(r.usage).toEqual({ input: 5, output: 1 })
+    expect(r.reply).toContain("杂项日志")
+  })
 })

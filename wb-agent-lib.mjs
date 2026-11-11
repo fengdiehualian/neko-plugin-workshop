@@ -947,20 +947,33 @@ export function parseZcodeOutput(stdout) {
     const r = j.response ?? j.result ?? j.text ?? (j.message && j.message.content) ?? null
     return typeof r === "string" && r.trim() ? r : null
   }
-  try {
-    const j = JSON.parse(t)
-    const r = pick(j)
-    if (r) return { reply: r, sessionId: j.sessionId || null, usage: j.usage || null }
-  } catch {}
-  const lines = t.split(/\r?\n/).filter((l) => l.trim())
-  for (let i = lines.length - 1; i >= 0; i--) {
-    try {
-      const j = JSON.parse(lines[i])
-      const r = pick(j)
-      if (r) return { reply: r, sessionId: j.sessionId || null, usage: j.usage || null }
-    } catch {}
+  // 会话 id 的字段变体:sessionId / session_id / sessionID / session.id
+  const sid = (j) => {
+    if (!j || typeof j !== "object") return null
+    const v = j.sessionId ?? j.session_id ?? j.sessionID ?? (j.session && (j.session.id ?? j.session.sessionId)) ?? null
+    return typeof v === "string" && v ? v : null
   }
-  return { reply: t, sessionId: null, usage: null }
+  const usageOf = (j) => (j && typeof j === "object" && j.usage && typeof j.usage === "object" ? j.usage : null)
+  // 逐条收集:正文取最后一条有内容的;sessionId/usage 任何一条带就算——
+  // 真实输出里它们常常和 response 不在同一行(init/result 分属两个事件),只认 response 行会把会话 id 丢掉
+  let reply = null, sessionId = null, usage = null
+  const absorb = (j) => {
+    const r = pick(j)
+    if (r) reply = r
+    if (!sessionId) { const s = sid(j); if (s) sessionId = s }
+    if (!usage) { const u = usageOf(j); if (u) usage = u }
+  }
+  try {
+    absorb(JSON.parse(t))
+  } catch {
+    for (const line of t.split(/\r?\n/)) {
+      const s = line.trim()
+      if (!s.startsWith("{")) continue
+      try { absorb(JSON.parse(s)) } catch {}
+    }
+  }
+  // 没有任何 JSON 事件带正文时整段当纯文本,但行内仍可能藏着 sessionId/usage
+  return { reply: reply ?? t, sessionId, usage }
 }
 
 const ZCODE_RETRYABLE = /tpm\/rpm|rate limit|exceeded|upstream became unavailable|queue_full|429|overloaded/i
@@ -1033,6 +1046,10 @@ async function runZcodeOnce(opts = {}) {
       clearTimeout(timer)
       clearTimeout(stallTimer)
       const parsed = parseZcodeOutput(out)
+      if (!parsed.sessionId) {
+        // 诊断:输出里没有可用的会话 id 时留一份原始样本(截断),便于定位字段形态
+        console.warn("[wb-agent-lib] zcode 输出未含 sessionId,前 240 字:" + String(out).replace(/\s+/g, " ").slice(0, 240))
+      }
       if (parsed.usage && parsed.usage.inputTokens !== undefined && parsed.usage.input === undefined) {
         parsed.usage = {
           input: parsed.usage.inputTokens || 0,
