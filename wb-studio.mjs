@@ -816,8 +816,12 @@ async function runExpertPanel(text, signal) {
   const worker = async () => {
     while (cursor < members.length) {
       if (Date.now() - startedAll > EXPERT_PANEL_BUDGET_MS || (signal && signal.aborted) || breaker.tripped) break
-      await new Promise((r) => setTimeout(r, EXPERT_PANEL_STAGGER_MS)) // 错峰,别同一秒齐敲
-      if (cursor >= members.length || breaker.tripped) break
+      // 错峰,别同一秒齐敲;可被停止中断
+      await new Promise((r) => {
+        const t = setTimeout(r, EXPERT_PANEL_STAGGER_MS)
+        if (signal) signal.addEventListener("abort", () => { clearTimeout(t); r() }, { once: true })
+      })
+      if (cursor >= members.length || breaker.tripped || (signal && signal.aborted)) break
       await runOne(members[cursor++])
     }
   }
@@ -4432,8 +4436,11 @@ async function runUpdate() {
     if (req.method === "POST" && url.pathname === "/api/stop") {
       // 停止当前任务:中断引擎会话并让 driveAgent 等待循环尽快退出
       if (currentAbort) currentAbort.abort()
+      // 逃生阀:busy 挂着但已经没有可中断的对象(旧任务异常残留/竞态),直接放行,
+      // 否则新任务会一直被 429「上一个任务还没完成」挡死
+      else if (busy) { busy = false; console.warn("[wb-studio] 停止:发现 busy 残留,已强制复位") }
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
-      res.end(JSON.stringify({ ok: true }))
+      res.end(JSON.stringify({ ok: true, stopped: true }))
       return
     }
     // ---------- Markdown 导入/导出 ----------

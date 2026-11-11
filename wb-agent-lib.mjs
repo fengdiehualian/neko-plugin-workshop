@@ -977,11 +977,16 @@ export function parseZcodeOutput(stdout) {
 }
 
 const ZCODE_RETRYABLE = /tpm\/rpm|rate limit|exceeded|upstream became unavailable|queue_full|429|overloaded/i
-const zcodeSleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const zcodeSleep = (ms, signal) => new Promise((res) => {
+  if (signal && signal.aborted) return res()
+  const t = setTimeout(() => { if (signal) signal.removeEventListener("abort", onAbort); res() }, ms)
+  function onAbort() { clearTimeout(t); res() }
+  if (signal) signal.addEventListener("abort", onAbort, { once: true })
+})
 
 /** 值得再试一次:限流/上游抖动/空回复(不含用户取消与超时) */
 function zcodeWorthRetry(r) {
-  if (!r || r.cancelled || r.timeout) return false
+  if (!r || r.cancelled || r.timeout || r.stopped) return false
   if (r.error && /没有任何输出,判定挂死/.test(String(r.error))) return false
   if (r.ok && r.reply) return false
   if (r.error && ZCODE_RETRYABLE.test(String(r.error))) return true
@@ -994,9 +999,11 @@ export async function driveZcode(opts = {}) {
   const backoff = opts.noRetry ? [] : [15000, 40000]   // 免费额度的 tpm 限制通常按分钟算,退避太短等于白试
   let res = await runZcodeOnce(opts)
   for (let i = 0; i < backoff.length && zcodeWorthRetry(res); i += 1) {
+    if (opts.signal && opts.signal.aborted) break
     const why = res.error && ZCODE_RETRYABLE.test(String(res.error)) ? "限流/上游抖动" : "空回复"
     console.warn(`[wb-agent-lib] ZCode ${why},${Math.round(backoff[i] / 1000)} 秒后重试(${i + 1}/${backoff.length})`)
-    await zcodeSleep(backoff[i])
+    await zcodeSleep(backoff[i], opts.signal)
+    if (opts.signal && opts.signal.aborted) { res = { ...res, ok: false, stopped: true, error: "任务已停止" }; break }
     res = await runZcodeOnce({ ...opts, sessionID: undefined })
   }
   return res
