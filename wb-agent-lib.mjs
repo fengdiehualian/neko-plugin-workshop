@@ -990,7 +990,8 @@ function zcodeWorthRetry(r) {
 
 export async function driveZcode(opts = {}) {
   // 会话失效 → 新开;限流/空回复 → 等几秒再来一次。最多两次,别无限重试烧钱
-  const backoff = [15000, 40000]   // 免费额度的 tpm 限制通常按分钟算,退避太短等于白试
+  // opts.noRetry:专家会诊这类"锦上添花"的子调用用——失败就快速返回原因,不叠退避(否则 9 个成员×重试会把限流网关敲死)
+  const backoff = opts.noRetry ? [] : [15000, 40000]   // 免费额度的 tpm 限制通常按分钟算,退避太短等于白试
   let res = await runZcodeOnce(opts)
   for (let i = 0; i < backoff.length && zcodeWorthRetry(res); i += 1) {
     const why = res.error && ZCODE_RETRYABLE.test(String(res.error)) ? "限流/上游抖动" : "空回复"

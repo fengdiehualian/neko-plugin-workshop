@@ -671,6 +671,8 @@ async function expertPrompt(panel) {
   if (block && panel && panel.summary) {
     block += "\n\n【专家团会诊结果(各专家已并行提交)】\n" + panel.summary +
       "\n\n(以上是专家们的意见。你是主理人:请把它们汇总成给用户的一条清晰答复,该采纳的采纳、有冲突的说明取舍,不要原文罗列。)"
+  } else if (block && panel && panel.skipped) {
+    block += "\n\n(注意:本轮专家会诊因上游限流未能完成,请直接以主理人身份给出高质量回答,不要假装引用专家意见。)"
   }
   return block
 }
@@ -702,10 +704,12 @@ async function expertsSnapshot() {
 // 任务开始时,每位启用的专家作为独立子 Agent 并行出意见(最多 3 路并发,总预算 150s),
 // 主理人汇总后交付;前端轮询 /api/expert-progress 实时展示「谁在干活」。
 const expertProgress = { phase: "idle", startedAt: 0, finishedAt: 0, members: [] }
-const EXPERT_PANEL_CONCURRENCY = 3
+const EXPERT_PANEL_CONCURRENCY = 2
+const EXPERT_PANEL_STAGGER_MS = 2000
 const EXPERT_PANEL_BUDGET_MS = 150000
-const EXPERT_PANEL_TIMEOUT_SEC = 90
+const EXPERT_PANEL_TIMEOUT_SEC = 60
 const EXPERT_PANEL_SUMMARY_MAX = 3000
+const EXPERT_RATE_BREAKER = 3 // 连续 3 位被限流 → 熔断,不再敲网关
 
 function activeExpertMembers(pack) {
   if (!pack || !pack.manifest) return []
@@ -739,32 +743,41 @@ function panelPrompt(text, m, brief) {
     "请只从你的专业角度,用中文大白话给出 3-5 条最关键的要点或风险提醒(每条一行,结论先行;不寒暄、不写代码、不复述愿望),总字数 200 以内。",
   ].join("\n")
 }
-/** 跑一位专家子 Agent:按当前底座同样的三条路走,失败返回 null */
+/** 失败原因归类(短,给用户看) */
+function panelErrText(r) {
+  const s = String((r && r.error) || "")
+  if (/tpm|rpm|rate.?limit|429|quota|overloaded|queue_full|限流/i.test(s)) return "上游限流"
+  if (/timeout|超时|挂死/i.test(s)) return "响应超时"
+  if (/ECONNREFUSED|fetch failed|连接失败|connect/i.test(s)) return "连接失败"
+  if (!s.trim()) return "没有输出"
+  return s.slice(0, 60)
+}
+/** 跑一位专家子 Agent:按当前底座同样的三条路走;noRetry+短超时=快速失败,不叠退避敲网关 */
 async function runPanelAgent(prompt, signal) {
   try {
+    let r
     if (backendCfg.mode === "zcode") {
-      const r = await driveZcode({
+      r = await driveZcode({
         text: prompt, dir: config.workspace, cmd: zcodeLaunch().cmd,
-        zcodeMode: "plan", env: zcodeRuntimeEnv(),
-        timeoutSec: EXPERT_PANEL_TIMEOUT_SEC, stallTimeoutSec: 60, signal,
+        zcodeMode: "plan", env: zcodeRuntimeEnv(), noRetry: true,
+        timeoutSec: EXPERT_PANEL_TIMEOUT_SEC, stallTimeoutSec: 45, signal,
       })
-      return r.ok ? String(r.reply || "") : null
-    }
-    if (cliEngineReady()) {
-      const r = await driveAgentCli({
+    } else if (cliEngineReady()) {
+      r = await driveAgentCli({
         text: prompt, dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
         timeoutSec: EXPERT_PANEL_TIMEOUT_SEC, signal,
       })
-      return r.ok ? String(r.reply || "") : null
+    } else {
+      r = await driveAgent({
+        text: prompt, dir: config.workspace, model: config.model,
+        server: config.server, timeout: EXPERT_PANEL_TIMEOUT_SEC, noProgressSec: 45,
+        auth: engineAuth || undefined, mode: "plan", signal,
+      })
     }
-    const r = await driveAgent({
-      text: prompt, dir: config.workspace, model: config.model,
-      server: config.server, timeout: EXPERT_PANEL_TIMEOUT_SEC, noProgressSec: 60,
-      auth: engineAuth || undefined, mode: "plan", signal,
-    })
-    return r.ok ? String(r.reply || "") : null
-  } catch {
-    return null
+    if (r && r.ok && String(r.reply || "").trim()) return { out: String(r.reply), err: "" }
+    return { out: "", err: panelErrText(r) }
+  } catch (e) {
+    return { out: "", err: panelErrText({ error: String(e && e.message || e) }) }
   }
 }
 async function runExpertPanel(text, signal) {
@@ -775,37 +788,51 @@ async function runExpertPanel(text, signal) {
   expertProgress.phase = "running"
   expertProgress.startedAt = Date.now()
   expertProgress.finishedAt = 0
-  expertProgress.members = members.map((m) => ({ ...m, status: "queued", ms: 0 }))
+  expertProgress.members = members.map((m) => ({ ...m, status: "queued", ms: 0, err: "" }))
   const startedAll = Date.now()
   const outputs = new Map()
   let cursor = 0
+  let consecutiveRate = 0
+  const breaker = { tripped: false }
   const runOne = async (m) => {
     const slot = expertProgress.members.find((x) => x.id === m.id)
     const t0 = Date.now()
     slot.status = "running"
-    const out = await runPanelAgent(panelPrompt(text, m, memberBrief(pack, m.id)), signal)
+    const { out, err } = await runPanelAgent(panelPrompt(text, m, memberBrief(pack, m.id)), signal)
     slot.ms = Date.now() - t0
-    if (out && out.trim()) { slot.status = "done"; outputs.set(m.id, out.trim()) }
-    else slot.status = "error"
+    if (out) {
+      slot.status = "done"
+      outputs.set(m.id, out)
+      consecutiveRate = 0
+    } else {
+      slot.status = "error"
+      slot.err = err
+      if (err === "上游限流" && ++consecutiveRate >= EXPERT_RATE_BREAKER) {
+        breaker.tripped = true
+        console.warn("[wb-studio] 专家会诊:连续 " + EXPERT_RATE_BREAKER + " 位被上游限流,跳过剩余会诊(主理人直接回答)")
+      }
+    }
   }
   const worker = async () => {
     while (cursor < members.length) {
-      if (Date.now() - startedAll > EXPERT_PANEL_BUDGET_MS || (signal && signal.aborted)) break
+      if (Date.now() - startedAll > EXPERT_PANEL_BUDGET_MS || (signal && signal.aborted) || breaker.tripped) break
+      await new Promise((r) => setTimeout(r, EXPERT_PANEL_STAGGER_MS)) // 错峰,别同一秒齐敲
+      if (cursor >= members.length || breaker.tripped) break
       await runOne(members[cursor++])
     }
   }
   await Promise.all(Array.from({ length: Math.min(EXPERT_PANEL_CONCURRENCY, members.length) }, () => worker()))
-  for (const x of expertProgress.members) if (x.status === "queued" || x.status === "running") x.status = "skipped"
+  for (const x of expertProgress.members) if (x.status === "queued" || x.status === "running") { x.status = "skipped"; x.err = breaker.tripped ? "上游限流,已跳过" : "时间预算用尽,已跳过" }
   expertProgress.phase = "done"
   expertProgress.finishedAt = Date.now()
-  const brief = expertProgress.members.map(({ id, name, role, status, ms }) => ({ id, name, role, status, ms }))
-  if (!outputs.size) return { members: brief, summary: "", ms: Date.now() - startedAll }
+  const brief = expertProgress.members.map(({ id, name, role, status, ms, err }) => ({ id, name, role, status, ms, err }))
+  if (!outputs.size) return { members: brief, summary: "", ms: Date.now() - startedAll, skipped: breaker.tripped }
   let summary = expertProgress.members
     .filter((x) => x.status === "done")
     .map((x) => `【${x.name}${x.role ? " · " + x.role : ""}】\n${String(outputs.get(x.id)).slice(0, 600)}`)
     .join("\n\n")
   if (summary.length > EXPERT_PANEL_SUMMARY_MAX) summary = summary.slice(0, EXPERT_PANEL_SUMMARY_MAX) + "\n…(会诊意见过长已截断)"
-  return { members: brief, summary, ms: Date.now() - startedAll }
+  return { members: brief, summary, ms: Date.now() - startedAll, skipped: breaker.tripped }
 }
 
 // ---------- 用户长期记忆(runtime\user-memory.json) ----------
@@ -1823,6 +1850,10 @@ function usageLine(u){if(!u)return'';const out=(u.output||0)+(u.reasoning||0);le
 function panelLine(p){
   if(!p||!p.members||!p.members.length)return '';
   const done=p.members.filter(function(m){return m.status==='done'});
+  if(!done.length){
+    const why=(p.members.find(function(m){return m.err})||{}).err||'上游限流';
+    return '<div style="margin-top:6px;font-size:11.5px;color:var(--muted-2)">🧠 专家团会诊未完成('+esc(why)+'),主理人直接回答 · 用时 '+Math.round((p.ms||0)/1000)+'s</div>';
+  }
   const names=done.map(function(m){return m.name}).slice(0,4).join('、');
   return '<div style="margin-top:6px;font-size:11.5px;color:var(--muted-2)">🧠 专家团会诊: '+done.length+' 位参与'+(done.length?('('+esc(names)+(done.length>4?'…':'')+')'):'')+' · 用时 '+Math.round((p.ms||0)/1000)+'s</div>';
 }
@@ -2007,11 +2038,12 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
         const ic={queued:'⏳',running:'🔄',done:'✅',error:'⚠️',skipped:'⏭'};
         const nm={queued:'排队',running:'进行中',done:'完成',error:'失败',skipped:'跳过'};
         const list=epCard.querySelector('.eplist');
-        if(list)list.innerHTML=p.members.map(function(m){return '<span style="display:inline-block;margin:2px 10px 2px 0">'+ic[m.status]+' '+esc(m.name)+(m.role?'('+esc(m.role)+')':'')+' · '+nm[m.status]+(m.status==='done'&&m.ms?' '+Math.round(m.ms/1000)+'s':'')+'</span>'}).join('');
+        if(list)list.innerHTML=p.members.map(function(m){return '<span style="display:inline-block;margin:2px 10px 2px 0">'+ic[m.status]+' '+esc(m.name)+(m.role?'('+esc(m.role)+')':'')+' · '+nm[m.status]+(m.status==='done'&&m.ms?' '+Math.round(m.ms/1000)+'s':'')+((m.status==='error'||m.status==='skipped')&&m.err?'('+esc(m.err)+')':'')+'</span>'}).join('');
         const head=epCard.querySelector('.ephead');
         if(head&&p.phase==='running')head.textContent='🧠 专家团会诊中…';
         if(p.phase==='done'){
-          if(head)head.textContent='🧠 专家团会诊完成 · '+p.members.filter(function(m){return m.status==='done'}).length+' 位专家参与 · '+Math.round(((p.finishedAt||0)-(p.startedAt||0))/1000)+'s';
+          const doneN=p.members.filter(function(m){return m.status==='done'}).length;
+          if(head)head.textContent=doneN?'🧠 专家团会诊完成 · '+doneN+' 位专家参与 · '+Math.round(((p.finishedAt||0)-(p.startedAt||0))/1000)+'s':'🧠 会诊未完成(上游限流),主理人直接回答';
           clearInterval(epTimer);epTimer=null;
         }
         chat.scrollTop=chat.scrollHeight;
@@ -4548,7 +4580,7 @@ async function runUpdate() {
         }
       }
       const expertBlock = await expertPrompt(panelInfo) // 专家团模式:开启时注入主理人+分工+纪律+会诊结果(空串=未启用)
-      const panelBrief = panelInfo ? { members: panelInfo.members, ms: panelInfo.ms } : undefined
+      const panelBrief = panelInfo ? { members: panelInfo.members, ms: panelInfo.ms, skipped: panelInfo.skipped } : undefined
       const driveOpts = {
         text: buildWishPrompt(text, mode, askCount, memory, userMem, expertBlock), dir: config.workspace, model: config.model,
         server: config.server, timeout: config.timeoutSec,
