@@ -673,6 +673,8 @@ async function expertPrompt(panel) {
       "\n\n(以上是专家们的意见。你是主理人:请把它们汇总成给用户的一条清晰答复,该采纳的采纳、有冲突的说明取舍,不要原文罗列。)"
   } else if (block && panel && panel.skipped) {
     block += "\n\n(注意:本轮专家会诊因上游限流未能完成,请直接以主理人身份给出高质量回答,不要假装引用专家意见。)"
+  } else if (block && panel && panel.routed && !panel.summary) {
+    block += "\n\n(主脑判断本轮无需召集专家会诊,请直接给出高质量回答,不要假装引用专家意见。)"
   }
   return block
 }
@@ -701,13 +703,17 @@ async function expertsSnapshot() {
 }
 
 // ---------- 专家团并行会诊(真·多子Agent协作) ----------
-// 任务开始时,每位启用的专家作为独立子 Agent 并行出意见(最多 3 路并发,总预算 150s),
-// 主理人汇总后交付;前端轮询 /api/expert-progress 实时展示「谁在干活」。
+// 任务开始时先由「主脑路由」判断本轮需要哪几位专家(最多 5 位,不相关就不召集),
+// 被召集的专家作为独立子 Agent 并行出意见(2 路并发、单人 120s、失败短重试一次),
+// 主理人汇总后交付;前端轮询 /api/expert-progress 实时展示「谁在干活 / 谁没被召集」。
 const expertProgress = { phase: "idle", startedAt: 0, finishedAt: 0, members: [] }
 const EXPERT_PANEL_CONCURRENCY = 2
 const EXPERT_PANEL_STAGGER_MS = 2000
-const EXPERT_PANEL_BUDGET_MS = 150000
-const EXPERT_PANEL_TIMEOUT_SEC = 60
+const EXPERT_PANEL_BUDGET_MS = 240000
+const EXPERT_PANEL_TIMEOUT_SEC = 120
+const EXPERT_PANEL_RETRY_MS = 8000 // 成员失败后的短重试(上游限流不重试,交给熔断)
+const EXPERT_ROUTER_TIMEOUT_SEC = 45
+const EXPERT_MAX_SELECTED = 5
 const EXPERT_PANEL_SUMMARY_MAX = 3000
 const EXPERT_RATE_BREAKER = 3 // 连续 3 位被限流 → 熔断,不再敲网关
 
@@ -752,33 +758,87 @@ function panelErrText(r) {
   if (!s.trim()) return "没有输出"
   return s.slice(0, 60)
 }
-/** 跑一位专家子 Agent:按当前底座同样的三条路走;noRetry+短超时=快速失败,不叠退避敲网关 */
-async function runPanelAgent(prompt, signal) {
-  try {
-    let r
-    if (backendCfg.mode === "zcode") {
-      r = await driveZcode({
-        text: prompt, dir: config.workspace, cmd: zcodeLaunch().cmd,
-        zcodeMode: "plan", env: zcodeRuntimeEnv(), noRetry: true,
-        timeoutSec: EXPERT_PANEL_TIMEOUT_SEC, stallTimeoutSec: 45, signal,
-      })
-    } else if (cliEngineReady()) {
-      r = await driveAgentCli({
-        text: prompt, dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
-        timeoutSec: EXPERT_PANEL_TIMEOUT_SEC, signal,
-      })
-    } else {
-      r = await driveAgent({
-        text: prompt, dir: config.workspace, model: config.model,
-        server: config.server, timeout: EXPERT_PANEL_TIMEOUT_SEC, noProgressSec: 45,
-        auth: engineAuth || undefined, mode: "plan", signal,
-      })
+/** 跑一位专家子 Agent:按当前底座同样的三条路走;失败短重试一次(限流/已停止不重试) */
+async function runPanelAgent(prompt, signal, timeoutSec = EXPERT_PANEL_TIMEOUT_SEC) {
+  const attempt = async () => {
+    try {
+      let r
+      if (backendCfg.mode === "zcode") {
+        r = await driveZcode({
+          text: prompt, dir: config.workspace, cmd: zcodeLaunch().cmd,
+          zcodeMode: "plan", env: zcodeRuntimeEnv(), noRetry: true,
+          timeoutSec, stallTimeoutSec: Math.min(60, Math.round(timeoutSec / 2)), signal,
+        })
+      } else if (cliEngineReady()) {
+        r = await driveAgentCli({
+          text: prompt, dir: config.workspace, cmd: cliEngineCmd(), nekoRepo: config.nekoRepo || undefined,
+          timeoutSec, signal,
+        })
+      } else {
+        r = await driveAgent({
+          text: prompt, dir: config.workspace, model: config.model,
+          server: config.server, timeout: timeoutSec, noProgressSec: Math.min(60, Math.round(timeoutSec / 2)),
+          auth: engineAuth || undefined, mode: "plan", signal,
+        })
+      }
+      if (r && r.ok && String(r.reply || "").trim()) return { out: String(r.reply), err: "" }
+      return { out: "", err: panelErrText(r) }
+    } catch (e) {
+      return { out: "", err: panelErrText({ error: String((e && e.message) || e) }) }
     }
-    if (r && r.ok && String(r.reply || "").trim()) return { out: String(r.reply), err: "" }
-    return { out: "", err: panelErrText(r) }
-  } catch (e) {
-    return { out: "", err: panelErrText({ error: String(e && e.message || e) }) }
   }
+  let r = await attempt()
+  // 短重试一次:限流交给熔断、已停止不再敲;等待可被停止中断
+  if (!r.out && r.err.indexOf("限流") < 0 && r.err.indexOf("停止") < 0 && !(signal && signal.aborted)) {
+    await new Promise((res) => {
+      const t = setTimeout(res, EXPERT_PANEL_RETRY_MS)
+      if (signal) signal.addEventListener("abort", () => { clearTimeout(t); res() }, { once: true })
+    })
+    if (!(signal && signal.aborted)) r = await attempt()
+  }
+  return r
+}
+/** 主脑路由:一次轻量判断,决定本轮召集哪几位专家(最多 5 位;谁都不需要就空数组) */
+function routerPrompt(text, members) {
+  const roster = members.map((m) => `${m.id}=${m.name}${m.role ? "(" + m.role + ")" : ""}`).join("、")
+  return [
+    "你是专家团的主脑调度器。根据用户要做的事判断需要召集哪几位专家会诊;不相关的不选,最多选 5 位;确实谁都不需要就选空。",
+    `可选专家:${roster}`,
+    `用户要做的事:${String(text).slice(0, 800)}`,
+    '只输出一个 JSON 数组(元素为专家 id),例如 ["neko-tdd","neko-security"] 或 [];不要输出任何其他文字。',
+  ].join("\n")
+}
+function parseRouterIds(out, members) {
+  if (!out) return null
+  const valid = new Set(members.map((m) => m.id))
+  const m = String(out).match(/\[[^\]]*\]/)
+  if (!m) return null
+  try {
+    const arr = JSON.parse(m[0])
+    if (!Array.isArray(arr)) return null
+    const ids = arr.map((x) => String(x).trim()).filter((x) => valid.has(x))
+    return Array.from(new Set(ids)).slice(0, EXPERT_MAX_SELECTED)
+  } catch {
+    return null
+  }
+}
+/** 路由调用失败时的关键词兜底(按角色关键词挑;挑不到就交给插件开发工程师) */
+function heuristicPick(text, members) {
+  const s = String(text || "").toLowerCase()
+  const KW = {
+    "neko-tdd": /测试|tdd|验证|用例|bug/,
+    "neko-security": /安全|密钥|注入|权限|隐私|token|api.?key/,
+    "neko-architect": /架构|接口|模块|依赖|重构|设计/,
+    "neko-simplifier": /简化|精简|冗余|删/,
+    "neko-reviewer": /审查|review|把关|检查/,
+    "neko-skill-ops": /技能|skill/,
+    "neko-planner": /规划|方案|计划|思路|怎么做/,
+    "neko-reliability": /部署|上线|ci|监控|告警|故障|运维|性能|超时|重试/,
+    "neko-plugin-dev": /插件|提醒|定时|记录|开发|做|实现|生成/,
+  }
+  const hits = members.filter((m) => KW[m.id] && KW[m.id].test(s)).slice(0, EXPERT_MAX_SELECTED)
+  if (hits.length) return hits.map((m) => m.id)
+  return members.some((m) => m.id === "neko-plugin-dev") ? ["neko-plugin-dev"] : []
 }
 async function runExpertPanel(text, signal) {
   const pack = pickExpertPack(await getExperts())
@@ -791,6 +851,15 @@ async function runExpertPanel(text, signal) {
   expertProgress.members = members.map((m) => ({ ...m, status: "queued", ms: 0, err: "" }))
   const startedAll = Date.now()
   const outputs = new Map()
+  // 主脑路由:先判断本轮召集哪几位(45s 超时;路由失败退关键词兜底)
+  const rr = await runPanelAgent(routerPrompt(text, members), signal, EXPERT_ROUTER_TIMEOUT_SEC)
+  let pickedIds = parseRouterIds(rr.out, members)
+  const routedOk = pickedIds !== null
+  if (!pickedIds) pickedIds = heuristicPick(text, members)
+  const selected = members.filter((m) => pickedIds.includes(m.id))
+  for (const m of expertProgress.members) {
+    if (!pickedIds.includes(m.id)) { m.status = "unselected"; m.err = routedOk ? "本次未召集" : "本次未召集(关键词兜底)" }
+  }
   let cursor = 0
   let consecutiveRate = 0
   const breaker = { tripped: false }
@@ -814,29 +883,29 @@ async function runExpertPanel(text, signal) {
     }
   }
   const worker = async () => {
-    while (cursor < members.length) {
+    while (cursor < selected.length) {
       if (Date.now() - startedAll > EXPERT_PANEL_BUDGET_MS || (signal && signal.aborted) || breaker.tripped) break
       // 错峰,别同一秒齐敲;可被停止中断
       await new Promise((r) => {
         const t = setTimeout(r, EXPERT_PANEL_STAGGER_MS)
         if (signal) signal.addEventListener("abort", () => { clearTimeout(t); r() }, { once: true })
       })
-      if (cursor >= members.length || breaker.tripped || (signal && signal.aborted)) break
-      await runOne(members[cursor++])
+      if (cursor >= selected.length || breaker.tripped || (signal && signal.aborted)) break
+      await runOne(selected[cursor++])
     }
   }
-  await Promise.all(Array.from({ length: Math.min(EXPERT_PANEL_CONCURRENCY, members.length) }, () => worker()))
+  await Promise.all(Array.from({ length: Math.min(EXPERT_PANEL_CONCURRENCY, selected.length) }, () => worker()))
   for (const x of expertProgress.members) if (x.status === "queued" || x.status === "running") { x.status = "skipped"; x.err = breaker.tripped ? "上游限流,已跳过" : "时间预算用尽,已跳过" }
   expertProgress.phase = "done"
   expertProgress.finishedAt = Date.now()
   const brief = expertProgress.members.map(({ id, name, role, status, ms, err }) => ({ id, name, role, status, ms, err }))
-  if (!outputs.size) return { members: brief, summary: "", ms: Date.now() - startedAll, skipped: breaker.tripped }
+  if (!outputs.size) return { members: brief, summary: "", ms: Date.now() - startedAll, skipped: breaker.tripped, routed: true }
   let summary = expertProgress.members
     .filter((x) => x.status === "done")
     .map((x) => `【${x.name}${x.role ? " · " + x.role : ""}】\n${String(outputs.get(x.id)).slice(0, 600)}`)
     .join("\n\n")
   if (summary.length > EXPERT_PANEL_SUMMARY_MAX) summary = summary.slice(0, EXPERT_PANEL_SUMMARY_MAX) + "\n…(会诊意见过长已截断)"
-  return { members: brief, summary, ms: Date.now() - startedAll, skipped: breaker.tripped }
+  return { members: brief, summary, ms: Date.now() - startedAll, skipped: breaker.tripped, routed: true }
 }
 
 // ---------- 用户长期记忆(runtime\user-memory.json) ----------
@@ -1855,6 +1924,7 @@ function panelLine(p){
   if(!p||!p.members||!p.members.length)return '';
   const done=p.members.filter(function(m){return m.status==='done'});
   if(!done.length){
+    if(p.routed&&!p.skipped)return '<div style="margin-top:6px;font-size:11.5px;color:var(--muted-2)">🧠 专家团:主脑判断本轮无需会诊 · 用时 '+Math.round((p.ms||0)/1000)+'s</div>';
     const why=(p.members.find(function(m){return m.err})||{}).err||'上游限流';
     return '<div style="margin-top:6px;font-size:11.5px;color:var(--muted-2)">🧠 专家团会诊未完成('+esc(why)+'),主理人直接回答 · 用时 '+Math.round((p.ms||0)/1000)+'s</div>';
   }
@@ -2039,10 +2109,10 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
       try{
         const p=await(await fetch('/api/expert-progress')).json();
         if(!p||!p.members||!p.members.length)return;
-        const ic={queued:'⏳',running:'🔄',done:'✅',error:'⚠️',skipped:'⏭'};
-        const nm={queued:'排队',running:'进行中',done:'完成',error:'失败',skipped:'跳过'};
+        const ic={queued:'⏳',running:'🔄',done:'✅',error:'⚠️',skipped:'⏭',unselected:'·'};
+        const nm={queued:'排队',running:'进行中',done:'完成',error:'失败',skipped:'跳过',unselected:'未召集'};
         const list=epCard.querySelector('.eplist');
-        if(list)list.innerHTML=p.members.map(function(m){return '<span style="display:inline-block;margin:2px 10px 2px 0">'+ic[m.status]+' '+esc(m.name)+(m.role?'('+esc(m.role)+')':'')+' · '+nm[m.status]+(m.status==='done'&&m.ms?' '+Math.round(m.ms/1000)+'s':'')+((m.status==='error'||m.status==='skipped')&&m.err?'('+esc(m.err)+')':'')+'</span>'}).join('');
+        if(list)list.innerHTML=p.members.map(function(m){return '<span style="display:inline-block;margin:2px 10px 2px 0'+(m.status==='unselected'?';opacity:.5':'')+'">'+ic[m.status]+' '+esc(m.name)+(m.role?'('+esc(m.role)+')':'')+' · '+nm[m.status]+(m.status==='done'&&m.ms?' '+Math.round(m.ms/1000)+'s':'')+((m.status==='error'||m.status==='skipped')&&m.err?'('+esc(m.err)+')':'')+'</span>'}).join('');
         const head=epCard.querySelector('.ephead');
         if(head&&p.phase==='running')head.textContent='🧠 专家团会诊中…';
         if(p.phase==='done'){
@@ -4587,7 +4657,7 @@ async function runUpdate() {
         }
       }
       const expertBlock = await expertPrompt(panelInfo) // 专家团模式:开启时注入主理人+分工+纪律+会诊结果(空串=未启用)
-      const panelBrief = panelInfo ? { members: panelInfo.members, ms: panelInfo.ms, skipped: panelInfo.skipped } : undefined
+      const panelBrief = panelInfo ? { members: panelInfo.members, ms: panelInfo.ms, skipped: panelInfo.skipped, routed: panelInfo.routed } : undefined
       const driveOpts = {
         text: buildWishPrompt(text, mode, askCount, memory, userMem, expertBlock), dir: config.workspace, model: config.model,
         server: config.server, timeout: config.timeoutSec,
