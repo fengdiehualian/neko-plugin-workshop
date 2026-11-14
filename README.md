@@ -159,7 +159,7 @@ SDK 事实一律以官方 main 分支源码与其 docs/ 为准(冲突顺序见 `
 - **issue 草稿规则**:`market-corpus/compat-v2/issue-drafts/` 只生成草稿。逐条人工核实文件/行号属实后才允许
   向插件仓库提 issue;禁止批量自动发,误报连发等于骚扰。
 - **新鲜度 SOP**:市场清单 7 天重拉;#3683 每合一个 PR 重跑扫描;market-catalog/market-patterns 的历史样本(127)数字不随在架总数改写。
-- **验证**:`python test/scan_rules.test.py`(扫描规则正反例);`bun test`(引擎与 pack);
+- **验证**(本仓库未配 CI,以下命令是本机手跑,不是流水线闸门):`python test/scan_rules.test.py`(扫描规则正反例);`bun test`(引擎与 pack);;新增 `test/rules.test.ts` 会把 py 用例带进 `bun test`,python 缺失时只跳过;
 - **e2e 用例**:`bun test test/reuse-gate.test.mjs`(静态+市场 API 部分);真 agent 行为按 `test/reuse-gate.llm-protocol.md` 手跑并存档。
   真机侧用 N.E.K.O 仓库根的 `python plugin\neko_plugin_cli\cli.py check <插件目录>` 复核 pack 范例生成物。
 - 本仓库按 MIT 许可发布(LICENSE),并入内容同样按 MIT 处理,来源已在各自文件头注明。

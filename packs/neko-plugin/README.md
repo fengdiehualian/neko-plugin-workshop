@@ -5,8 +5,8 @@
 ## 结构
 
 - `pack.json` — pack 元数据(供工作台 pack 注册器读取)
-- `rules.json` — 生成/检查规则:12 条硬规则 + check 闸门 + 发布流程
-- `templates/` — 三个起步模板,均通过 R1–R12 硬规则
+- `rules.json` — 生成/检查规则:13 条硬规则(R1–R12 + R16)+ check 闸门 + 发布流程
+- `templates/` — 三个起步模板,均通过 R1–R12 与 R16 硬规则
   - `hello_world` — 最小插件(入门)
   - `reminder` — 生命周期 + 定时任务 + 线程锁(进阶)
   - `notes` — Pydantic 校验 + data_path 持久化 + llm_result_fields(高级)
@@ -23,7 +23,7 @@
 | 「定时」「自动」「每天做某事」 | reminder |
 | 「记住」「保存数据」「笔记/记录」 | notes |
 
-## 硬规则速查(R1–R12)
+## 硬规则速查(R1–R12 + R16)
 
 见 `rules.json` 的 `x_hard_rules`。生成代码时逐条核对;`check` 闸门通过后才允许进入发布流程。
 
