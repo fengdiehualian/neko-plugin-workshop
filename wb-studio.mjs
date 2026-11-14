@@ -91,6 +91,7 @@ const defaultConfig = {
   strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告)
   expertMode: false, // 专家团模式:把 experts/ 专家包(主理人+成员分工+执行纪律)注入任务提示词
   expertDisabled: [], // 用户单独关闭的专家成员 id 列表(设置页可逐个开关)
+  expertModelMap: {}, // 每位专家单独指定的调用来源 { 成员id: { apiId, model } };缺省=跟随当前启用的 API/底座
   contextLimit: 128000, // 上下文容量(tokens):模型上下文窗口大小,用于底部容量显示
   uiFont: "default", // 界面字体预设 id(见页面 FONT_PRESETS)
   uiFontSize: 100, // 界面字号百分比(85~130),用 CSS zoom 整体缩放
@@ -602,6 +603,15 @@ function loadUserSettings() {
     if (typeof s.strictVerify === "boolean") config.strictVerify = s.strictVerify
     if (typeof s.expertMode === "boolean") config.expertMode = s.expertMode
     if (Array.isArray(s.expertDisabled)) config.expertDisabled = s.expertDisabled.filter((x) => typeof x === "string").slice(0, 200)
+    if (s.expertModelMap && typeof s.expertModelMap === "object" && !Array.isArray(s.expertModelMap)) {
+      const clean = {}
+      for (const [k, v] of Object.entries(s.expertModelMap)) {
+        if (typeof k === "string" && v && typeof v === "object" && typeof v.apiId === "string" && typeof v.model === "string") {
+          clean[k] = { apiId: v.apiId.slice(0, 60), model: v.model.slice(0, 120) }
+        }
+      }
+      config.expertModelMap = clean
+    }
     if (typeof s.contextLimit === "number" && s.contextLimit > 0) config.contextLimit = Math.floor(s.contextLimit)
     if (typeof s.retryMax === "number" && s.retryMax >= 0) config.retryMax = Math.min(5, Math.floor(s.retryMax))
     if (typeof s.retryDelaySec === "number" && s.retryDelaySec > 0) config.retryDelaySec = Math.min(60, Math.floor(s.retryDelaySec))
@@ -616,6 +626,7 @@ function saveUserSettings() {
     strictVerify: !!config.strictVerify,
     expertMode: !!config.expertMode,
     expertDisabled: Array.isArray(config.expertDisabled) ? config.expertDisabled : [],
+    expertModelMap: config.expertModelMap && typeof config.expertModelMap === "object" ? config.expertModelMap : {},
     contextLimit: config.contextLimit,
     retryMax: config.retryMax,
     retryDelaySec: config.retryDelaySec,
@@ -683,10 +694,23 @@ async function expertsSnapshot() {
   const packs = await getExperts()
   const active = config.expertMode ? pickExpertPack(packs) : null
   const off = new Set(Array.isArray(config.expertDisabled) ? config.expertDisabled : [])
+  const map = config.expertModelMap || {}
+  // API 设置里可选项(密钥脱敏,只给尾号);每位专家可从中挑「哪个 API 的哪个模型」
+  const apiOptions = (apis.items || []).map((a) => ({
+    id: a.id,
+    name: a.name || a.modelID,
+    baseURL: a.baseURL,
+    protocol: a.protocol || "openai",
+    keyTail: a.apiKey ? a.apiKey.slice(-4) : "",
+    models: (Array.isArray(a.models) && a.models.length ? a.models : [a.modelID]).filter(Boolean),
+    enabled: a.id === apis.enabledId,
+  }))
   return {
     ok: true,
     enabled: !!config.expertMode,
     active: active ? active.id : null,
+    apiOptions,
+    defaultApi: apiOptions.find((x) => x.enabled) || null,
     packs: packs.map((p) => ({
       id: p.id,
       name: (p.manifest && ((p.manifest.displayName && p.manifest.displayName.zh) || p.manifest.name)) || p.id,
@@ -696,6 +720,7 @@ async function expertsSnapshot() {
         name: (x.displayName && x.displayName.zh) || x.id,
         role: (x.profession && x.profession.zh) || x.role || "",
         on: !off.has(x.id),
+        bind: map[x.id] && apiOptions.some((o) => o.id === map[x.id].apiId) ? map[x.id] : null,
       })),
       problems: p.problems || [],
     })),
@@ -758,10 +783,26 @@ function panelErrText(r) {
   if (!s.trim()) return "没有输出"
   return s.slice(0, 60)
 }
+/** 取某位专家绑定的调用来源(直接复用 API 设置里的数据);没绑定或 API 已删则返回 null=跟随默认 */
+function resolveExpertRoute(memberId) {
+  const bind = config.expertModelMap && config.expertModelMap[memberId]
+  if (!bind || !bind.apiId || !bind.model) return null
+  const api = (apis.items || []).find((x) => x.id === bind.apiId)
+  if (!api) return null
+  const known = Array.isArray(api.models) && api.models.length ? api.models : [api.modelID]
+  if (!known.includes(bind.model)) return null // 模型已从该 API 移除,退回默认而不是报错
+  return { baseURL: api.baseURL, apiKey: api.apiKey, modelID: bind.model, protocol: api.protocol || "openai", apiName: api.name || bind.model }
+}
 /** 跑一位专家子 Agent:按当前底座同样的三条路走;失败短重试一次(限流/已停止不重试) */
-async function runPanelAgent(prompt, signal, timeoutSec = EXPERT_PANEL_TIMEOUT_SEC) {
+async function runPanelAgent(prompt, signal, timeoutSec = EXPERT_PANEL_TIMEOUT_SEC, route = null) {
   const attempt = async () => {
     try {
+      // 绑定了指定 API/模型:直连该网关取文本(不再绕底座),失败给人话原因
+      if (route) {
+        const c = await providerChat(route, prompt, timeoutSec * 1000, 700, signal)
+        if (c.ok && c.text) return { out: c.text, err: "", via: "api" }
+        return { out: "", err: panelErrText({ error: c.error }), via: "api" }
+      }
       let r
       if (backendCfg.mode === "zcode") {
         r = await driveZcode({
@@ -848,7 +889,7 @@ async function runExpertPanel(text, signal) {
   expertProgress.phase = "running"
   expertProgress.startedAt = Date.now()
   expertProgress.finishedAt = 0
-  expertProgress.members = members.map((m) => ({ ...m, status: "queued", ms: 0, err: "" }))
+  expertProgress.members = members.map((m) => ({ ...m, status: "queued", ms: 0, err: "", via: "" }))
   const startedAll = Date.now()
   const outputs = new Map()
   // 主脑路由:先判断本轮召集哪几位(45s 超时;路由失败退关键词兜底)
@@ -867,7 +908,9 @@ async function runExpertPanel(text, signal) {
     const slot = expertProgress.members.find((x) => x.id === m.id)
     const t0 = Date.now()
     slot.status = "running"
-    const { out, err } = await runPanelAgent(panelPrompt(text, m, memberBrief(pack, m.id)), signal)
+    const route = resolveExpertRoute(m.id)
+    slot.via = route ? route.apiName + " · " + route.modelID : "跟随默认"
+    const { out, err } = await runPanelAgent(panelPrompt(text, m, memberBrief(pack, m.id)), signal, EXPERT_PANEL_TIMEOUT_SEC, route)
     slot.ms = Date.now() - t0
     if (out) {
       slot.status = "done"
@@ -898,7 +941,7 @@ async function runExpertPanel(text, signal) {
   for (const x of expertProgress.members) if (x.status === "queued" || x.status === "running") { x.status = "skipped"; x.err = breaker.tripped ? "上游限流,已跳过" : "时间预算用尽,已跳过" }
   expertProgress.phase = "done"
   expertProgress.finishedAt = Date.now()
-  const brief = expertProgress.members.map(({ id, name, role, status, ms, err }) => ({ id, name, role, status, ms, err }))
+  const brief = expertProgress.members.map(({ id, name, role, status, ms, err, via }) => ({ id, name, role, status, ms, err, via }))
   if (!outputs.size) return { members: brief, summary: "", ms: Date.now() - startedAll, skipped: breaker.tripped, routed: true }
   let summary = expertProgress.members
     .filter((x) => x.status === "done")
@@ -1156,6 +1199,106 @@ async function testProvider({ baseURL, apiKey, modelID, protocol }, timeoutMs = 
     return second.status === 0 || second.status === undefined ? first : second
   }
   return first
+}
+
+/** 按协议拼一套 API 的对话请求(供专家会诊直连指定网关/模型用) */
+function buildChatRequest({ baseURL, apiKey, modelID, protocol }, promptText, maxTokens) {
+  const proto = protocolInfo(protocol)
+  if (protocol === "anthropic") {
+    const base = (baseURL || "https://api.anthropic.com").replace(/\/+$/, "").replace(/\/v1$/, "")
+    return {
+      url: `${base}/v1/messages`,
+      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: { model: modelID, max_tokens: maxTokens, messages: [{ role: "user", content: promptText }] },
+    }
+  }
+  if (protocol === "google") {
+    const base = (baseURL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")
+    return {
+      url: `${base}/v1beta/models/${encodeURIComponent(modelID)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      headers: { "content-type": "application/json" },
+      body: { contents: [{ parts: [{ text: promptText }] }], generationConfig: { maxOutputTokens: maxTokens } },
+    }
+  }
+  // OpenAI 兼容系(openai/官方/groq/mistral/xai/openrouter):{base}/chat/completions
+  const base = (baseURL || proto.defaultBaseURL || "").replace(/\/+$/, "")
+  return {
+    url: `${base}/chat/completions`,
+    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+    body: { model: modelID, messages: [{ role: "user", content: promptText }], max_tokens: maxTokens },
+  }
+}
+
+/** SSE 文本聚合:openai 兼容流式帧里取正文(含推理模型的 reasoning_content 兜底) */
+function sseTextOf(raw) {
+  let content = ""
+  for (const line of String(raw).split("\n")) {
+    const t = line.trim()
+    if (!t.startsWith("data:")) continue
+    const payload = t.slice(5).trim()
+    if (!payload || payload === "[DONE]") continue
+    let j = null
+    try { j = JSON.parse(payload) } catch { continue }
+    const delta = j?.choices?.[0]?.delta
+    if (delta?.content) content += delta.content
+    else if (delta?.reasoning_content && !content) content += delta.reasoning_content
+  }
+  return content
+}
+
+/** 直连一套 API 取一段文本回复(专家会诊用);非流式挂住则改流式,失败给人话原因 */
+async function providerChat(api, promptText, timeoutMs = 60000, maxTokens = 700, outerSignal) {
+  const { url, headers, body } = buildChatRequest(api, promptText, maxTokens)
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  if (outerSignal) {
+    if (outerSignal.aborted) { clearTimeout(timer); return { ok: false, text: "", error: "任务已停止" } }
+    outerSignal.addEventListener("abort", () => ctrl.abort(), { once: true })
+  }
+  const streamable = api.protocol !== "anthropic" && api.protocol !== "google"
+  try {
+    let res
+    try {
+      res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: ctrl.signal })
+    } catch (e) {
+      // 非流式没等到响应:只支持流式的网关改走流式
+      if (streamable && (e?.name === "AbortError" || /fetch failed|ECONN/i.test(String(e?.message)))) {
+        const r2 = await fetch(url, { method: "POST", headers, body: JSON.stringify({ ...body, stream: true }), signal: ctrl.signal })
+        const raw2 = await r2.text()
+        const text2 = r2.ok ? sseTextOf(raw2) : ""
+        if (r2.ok && text2.trim()) return { ok: true, text: text2.trim() }
+        return { ok: false, text: "", error: r2.ok ? "流式响应为空:服务商未返回内容" : friendlyApiError(r2.status, raw2.slice(0, 200)) }
+      }
+      throw e
+    }
+    const raw = await res.text()
+    if (!res.ok) {
+      let j = null
+      try { j = JSON.parse(raw) } catch {}
+      const errMsg = j?.error?.message || j?.error?.type || ""
+      return { ok: false, text: "", error: friendlyApiError(res.status, String(errMsg || raw.slice(0, 200) || "空响应")) }
+    }
+    let j = null
+    try { j = JSON.parse(raw) } catch {}
+    const text = j?.choices?.[0]?.message?.content
+      || j?.content?.[0]?.text
+      || j?.candidates?.[0]?.content?.parts?.[0]?.text
+      || ""
+    if (String(text).trim()) return { ok: true, text: String(text).trim() }
+    // 有的中转只在流式下出内容
+    if (streamable) {
+      const r2 = await fetch(url, { method: "POST", headers, body: JSON.stringify({ ...body, stream: true }), signal: ctrl.signal })
+      const raw2 = await r2.text()
+      const t2 = sseTextOf(raw2)
+      if (r2.ok && t2.trim()) return { ok: true, text: t2.trim() }
+    }
+    return { ok: false, text: "", error: "服务商返回了空内容" }
+  } catch (e) {
+    if (e?.name === "AbortError") return { ok: false, text: "", error: outerSignal && outerSignal.aborted ? "任务已停止" : "响应超时" }
+    return { ok: false, text: "", error: `连接失败:${e?.message || e}` }
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 // ---------- 引擎全局 AGENTS.md(Agent 作用范围=全局) ----------
@@ -2112,7 +2255,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
         const ic={queued:'⏳',running:'🔄',done:'✅',error:'⚠️',skipped:'⏭',unselected:'·'};
         const nm={queued:'排队',running:'进行中',done:'完成',error:'失败',skipped:'跳过',unselected:'未召集'};
         const list=epCard.querySelector('.eplist');
-        if(list)list.innerHTML=p.members.map(function(m){return '<span style="display:inline-block;margin:2px 10px 2px 0'+(m.status==='unselected'?';opacity:.5':'')+'">'+ic[m.status]+' '+esc(m.name)+(m.role?'('+esc(m.role)+')':'')+' · '+nm[m.status]+(m.status==='done'&&m.ms?' '+Math.round(m.ms/1000)+'s':'')+((m.status==='error'||m.status==='skipped')&&m.err?'('+esc(m.err)+')':'')+'</span>'}).join('');
+        if(list)list.innerHTML=p.members.map(function(m){return '<span style="display:inline-block;margin:2px 10px 2px 0'+(m.status==='unselected'?';opacity:.5':'')+'">'+ic[m.status]+' '+esc(m.name)+(m.role?'('+esc(m.role)+')':'')+' · '+nm[m.status]+(m.status==='done'&&m.ms?' '+Math.round(m.ms/1000)+'s':'')+((m.status==='error'||m.status==='skipped')&&m.err?'('+esc(m.err)+')':'')+(m.via&&m.status!=='unselected'?'<span style="opacity:.6">['+esc(m.via)+']</span>':'')+'</span>'}).join('');
         const head=epCard.querySelector('.ephead');
         if(head&&p.phase==='running')head.textContent='🧠 专家团会诊中…';
         if(p.phase==='done'){
@@ -2304,11 +2447,28 @@ async function loadExpertsUi(){
     msg.style.color='';
     msg.textContent=!pack?'没有可用的专家包(experts/ 为空)':(pack.problems&&pack.problems.length?('⚠️ 清单有问题:'+pack.problems[0]):('专家团:'+pack.name+' · '+((pack.members||[]).length)+' 名成员'+(j.enabled?' · 已接管任务':'')));
     if(pack&&list){
-      const mem=(pack.members||[]).map(function(x){
+      const opts=j.apiOptions||[];
+      // 每位专家一行:名字/职责 + 开关卡片 + 调用来源选单(数据来自 API 设置)
+      const rows=(pack.members||[]).map(function(x){
         const on=x.on!==false;
-        return '<span class="chip memb" data-mem="'+esca(x.id)+'" data-on="'+(on?'1':'0')+'" title="点一下'+(on?'关闭':'开启')+'这位专家" style="cursor:pointer'+(on?'':';opacity:.45;text-decoration:line-through')+'">'+esc(x.name)+(x.role?' · '+esc(x.role):'')+'</span>';
+        let sel='';
+        if(opts.length){
+          const cur=x.bind?(x.bind.apiId+'::'+x.bind.model):'';
+          const groups=opts.map(function(o){
+            const ms=(o.models||[]).map(function(m){
+              const v=o.id+'::'+m;
+              return '<option value="'+esca(v)+'"'+(v===cur?' selected':'')+'>'+esc(o.name)+' · '+esc(m)+(o.enabled?'(当前启用)':'')+'</option>';
+            }).join('');
+            return '<optgroup label="'+esca(o.name)+' · '+(o.protocol||'openai')+'">'+ms+'</optgroup>';
+          }).join('');
+          sel='<select class="memapi" data-mem="'+esca(x.id)+'" title="这位专家用哪个 API 的哪个模型出意见" style="max-width:260px;padding:4px 6px;border-radius:8px;border:1px solid var(--border-soft);background:var(--card);color:var(--ink);font-size:12px;font-family:inherit">'+
+            '<option value=""'+(cur?'':' selected')+'>跟随默认(当前启用的 API/底座)</option>'+groups+'</select>';
+        }
+        return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">'+
+          '<span class="chip memb" data-mem="'+esca(x.id)+'" data-on="'+(on?'1':'0')+'" title="点一下'+(on?'关闭':'开启')+'这位专家" style="cursor:pointer'+(on?'':';opacity:.45;text-decoration:line-through')+'">'+esc(x.name)+(x.role?' · '+esc(x.role):'')+'</span>'+sel+'</div>';
       }).join('');
-      list.innerHTML='<div style="font-size:12.5px;color:var(--ink);font-weight:700;margin-bottom:8px">'+esc(pack.desc||pack.name)+'</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+mem+'</div><div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">点成员卡片可单独开启/关闭(划掉的=已关闭,不会写进任务提示词)</div>';
+      list.innerHTML='<div style="font-size:12.5px;color:var(--ink);font-weight:700;margin-bottom:8px">'+esc(pack.desc||pack.name)+'</div>'+rows+
+        '<div style="margin-top:6px;color:var(--muted-2);font-size:11.5px">点成员卡片可单独开启/关闭(划掉的=已关闭);下拉可给每位专家指定用哪套 API 的哪个模型出意见(选项来自 API 设置),不选就跟随当前启用的配置</div>';
     }
   }catch(e){btn.disabled=false;btn.textContent='加载失败,点此重试';msg.textContent=''+e;}
 }
@@ -2336,6 +2496,23 @@ if(exListEl){
       const j=await r.json();
       if(!j.ok){const m=document.getElementById('expertMsg');m.style.color='#c0392b';m.textContent=j.error||'切换失败';}
     }catch(e){}
+    await loadExpertsUi();
+  });
+  // 调用来源选单:change → POST /api/experts/model(value="apiId::model",空=跟随默认)
+  exListEl.addEventListener('change',async function(ev){
+    const sel=ev.target&&ev.target.closest?ev.target.closest('.memapi'):null;
+    if(!sel)return;
+    const msg=document.getElementById('expertMsg');
+    const v=sel.value||'';
+    const i=v.indexOf('::');
+    const payload={member:sel.dataset.mem,apiId:i<0?'':v.slice(0,i),model:i<0?'':v.slice(i+2)};
+    sel.disabled=true;
+    try{
+      const r=await fetch('/api/experts/model',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+      const j=await r.json();
+      if(j.ok){msg.style.color='';msg.textContent=payload.apiId?('✅ 已为该专家指定 '+payload.model):'✅ 已恢复跟随默认';}
+      else{msg.style.color='#c0392b';msg.textContent=j.error||'设置失败';}
+    }catch(e){msg.style.color='#c0392b';msg.textContent=''+e;}
     await loadExpertsUi();
   });
 }
@@ -4324,6 +4501,37 @@ async function runUpdate() {
         saveUserSettings()
         return json(200, await expertsSnapshot())
       }
+    }
+    // ---------- 每位专家的调用来源绑定(直接选 API 设置里的地址+模型) ----------
+    if (url.pathname === "/api/experts/model") {
+      const json = (code, obj) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)) }
+      if (req.method !== "POST") return json(405, { ok: false, error: "只支持 POST" })
+      const body = await readBody(req)
+      let b = {}
+      try { b = JSON.parse(body) } catch {}
+      const pack = pickExpertPack(await getExperts())
+      if (!pack) return json(400, { ok: false, error: "没有可用的专家包" })
+      const ids = new Set(((pack.manifest && pack.manifest.members) || []).map((x) => x.id))
+      if (typeof b.member !== "string" || !ids.has(b.member)) return json(400, { ok: false, error: "未知的专家成员:" + String(b.member) })
+      const map = { ...(config.expertModelMap || {}) }
+      const apiId = String(b.apiId || "").trim()
+      const model = String(b.model || "").trim()
+      if (!apiId || !model) {
+        delete map[b.member] // 清空=跟随默认
+        config.expertModelMap = map
+        saveUserSettings()
+        console.log("[wb-studio] 专家调用来源:" + b.member + " → 跟随默认")
+        return json(200, await expertsSnapshot())
+      }
+      const api = (apis.items || []).find((x) => x.id === apiId)
+      if (!api) return json(400, { ok: false, error: "所选 API 不存在,请先到设置里添加" })
+      const known = (Array.isArray(api.models) && api.models.length ? api.models : [api.modelID]).filter(Boolean)
+      if (!known.includes(model)) return json(400, { ok: false, error: "所选模型不属于这套 API:" + model })
+      map[b.member] = { apiId, model }
+      config.expertModelMap = map
+      saveUserSettings()
+      console.log("[wb-studio] 专家调用来源:" + b.member + " → " + (api.name || apiId) + " · " + model)
+      return json(200, await expertsSnapshot())
     }
     // ---------- 思考强度(auto/none/low/medium/high/xhigh;落在 settings.json) ----------
     if (url.pathname === "/api/think") {

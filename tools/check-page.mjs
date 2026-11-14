@@ -673,6 +673,41 @@ ${PROBE_SRC}
     onOk && offOk
       ? pass('专家团开关 开/关往返还原')
       : fail('专家团开关 开/关往返还原', 'on=' + onOk + ' off=' + offOk + ' from=' + (j0 && j0.enabled));
+    // 每位专家的调用来源选单:存在、可绑定到某 API 的某模型、可恢复跟随默认
+    {
+      const sels = $$('#expertList .memapi');
+      const snap0 = await (await fetch('/api/experts')).json();
+      const hasApi = (snap0.apiOptions || []).length > 0;
+      if (sels.length && hasApi) {
+        const o = (snap0.apiOptions || [])[0];
+        const mdl = (o.models || [])[0];
+        const val = o.id + '::' + mdl;
+        const sel = sels[0];
+        const memId = sel.dataset.mem;
+        sel.value = val;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        const bound = await wbWait(async () => {
+          const s = await (await fetch('/api/experts')).json();
+          const mm = ((s.packs || [])[0] || {}).members || [];
+          const me = mm.find((x) => x.id === memId);
+          return !!(me && me.bind && me.bind.apiId === o.id && me.bind.model === mdl);
+        }, 6000);
+        bound ? pass('专家调用来源 可指定 API+模型', memId + ' → ' + o.name + '/' + mdl)
+          : fail('专家调用来源 可指定 API+模型', '未生效 ' + memId);
+        // 恢复跟随默认
+        const sel2 = document.querySelector('#expertList .memapi[data-mem="' + memId + '"]');
+        if (sel2) { sel2.value = ''; sel2.dispatchEvent(new Event('change', { bubbles: true })); }
+        const cleared = await wbWait(async () => {
+          const s = await (await fetch('/api/experts')).json();
+          const mm = ((s.packs || [])[0] || {}).members || [];
+          const me = mm.find((x) => x.id === memId);
+          return !!(me && !me.bind);
+        }, 6000);
+        cleared ? pass('专家调用来源 可恢复跟随默认') : fail('专家调用来源 可恢复跟随默认', '未清空');
+      } else {
+        fail('专家调用来源 可指定 API+模型', '选单数=' + sels.length + ' 可选API数=' + ((snap0.apiOptions || []).length));
+      }
+    }
     // 单个专家开关:点第一张成员卡片应翻到另一态,再点回去(隔离实例上真实 POST)
     const chips2 = $$('#expertList .chip.memb');
     if (chips2.length) {
