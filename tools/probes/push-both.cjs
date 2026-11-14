@@ -12,7 +12,8 @@ for (const t of targets) {
   for (let i = 1; i <= 12; i++) {
     try {
       git(["push", t, "main", "--force-with-lease"])
-      git(["push", t, "v1.2.63"])
+      // tag 用 --force:发布前常要把它挪到最新提交(补上工具改动),挪tag是预期操作
+      git(["push", "--force", t, "refs/tags/" + (process.env.WB_TAG || "v1.2.63")])
       results[t] = "OK(第 " + i + " 次)"
       break
     } catch (e) {

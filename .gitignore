@@ -3,4 +3,8 @@ node_modules/
 __pycache__/
 # 随包 ZCode 运行时(构建时从 dev/tools/zcode-bundle 注入,不进仓库)
 _zcode/
-C:\Users\Administrator\dev\_wb_test 
+# 构建产物:payload.zip / Setup.exe 只在本地与双端 Release 上,绝不进仓库。
+# (真出过事故:build/ 被跟踪后 git archive 把上一次的 74MB 载荷又打进去,包直接涨到 217MB)
+build/
+dist/
+_tmp_*
