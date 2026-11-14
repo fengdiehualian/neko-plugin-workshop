@@ -111,6 +111,12 @@ def check_panel_structure(html):
 
 
 def main():
+    # 同 syntax_check:输出含 ✗/…,Windows 控制台 GBK 下重定向会崩,强制 UTF-8
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     src_all = "\n".join(load(f) for f in FILES)
     rc = 0
     all_js = []

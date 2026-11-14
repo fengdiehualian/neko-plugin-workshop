@@ -34,9 +34,9 @@
 ├── wb-studio.mjs         # 网页服务(对话 UI/多会话/设置/归档/主题)
 ├── wb-agent-lib.mjs      # 无人值守 Agent 驱动(v1/v2 引擎双协议)
 ├── src/index.ts          # 生成→check→build 闭环内核 + 错误解析器
-├── packs/                # 模板 + 插件规范 skill(15 页官方文档 + 市场写法分析)
+├── packs/                # 模板 + 插件规范 skill(17 页官方文档 + 市场写法分析)
 ├── experts/              # 配套专家团(WorkBuddy/CodeBuddy 专家包,可导入自己的 Agent 底座)
-├── market-corpus/        # 46 个官方市场插件源码(Agent 的学习语料)
+├── market-corpus/        # 127 个官方市场插件源码(Agent 的学习语料;本机可读源码 126 份)
 ├── test/                 # 单元测试(bun test)
 ├── workbench/            # 打包工具(make-exe.ps1 一键 SFX 安装器)
 └── 使用说明.txt           # 面向小白的完整说明
@@ -46,10 +46,11 @@
 
 ## Agent 的知识体系(让它写出市场上架水准的插件)
 
-1. **官方规范写死**:`packs/.../SKILL.md` 15 条铁律 + 15 页官方文档引用,文档里没有的 API 一律不用
-2. **市场统计分析**:`references/market-patterns.md`——46 个真实上架插件的能力使用率
+1. **官方规范写死**:规则编号唯一来源是 `packs/neko-plugin/rules.json` 的 `x_hard_rules`(R1–R18);
+   `SKILL.md` 的铁律与 `AGENTS.md` 的摘要都按同一套 R 号引用,外加 17 页官方文档。文档里没有的 API 一律不用
+2. **市场统计分析**:`references/market-patterns.md`——126 份真实上架插件源码的能力使用率
    (llm_tool 50% / push_message 57% / store 37%…)与四大惯用法
-3. **全量插件卡片**:`references/market-catalog.md`——46 个插件的功能/接口/能力/源码索引
+3. **全量插件卡片**:`references/market-catalog.md`——127 个插件的功能/接口/能力/源码索引
 4. **语料库**:`market-corpus/` 全部源码,按功能找同类直接读
 
 ## 配套专家团(可选)
@@ -71,12 +72,26 @@
 前置:N.E.K.O. 源码(check/build 依赖)、Node/bun 运行时、一套 OpenAI 兼容(或其它支持协议)的模型服务。
 
 ```bash
-bun install && bun test        # 9 个单元测试(在仓库根目录执行)
+bun install && bun test        # 单元测试(121 项,在仓库根目录执行)
 bun cli.mjs scaffold neko-plugin reminder \
   --out C:/projects --neko C:/path/to/N.E.K.O \
   --PLUGIN_ID my_reminder --PLUGIN_NAME 提醒 --CLASS_NAME MyReminder
 bun wb-studio.mjs              # 启动网页工坊(127.0.0.1:5099)
 ```
+
+### 四道门禁(改坏了必须当场拦住)
+
+| 门禁 | 命令 | 抓什么 |
+|---|---|---|
+| 单元测试 | `bun test` | 提示词拼装、底座参数/输出解析、重试与熔断判定、规则编号与文档口径一致性、更新包校验判定、外发写判定 |
+| 静态交叉检查 | `python tools/static_check.py` | 页面元素 id、前端 fetch 有没有对应路由、HTML 标签/面板嵌套(更新页签隐形那类 bug) |
+| 语法门禁 | `python tools/syntax_check.py` | py/json/toml/mjs/yml 语法 + TSX 批量转译 |
+| 页面体检 | `node tools/check-page.mjs --mutate` | 真 Chrome 真点击 133 项:更新弹窗进度与 SHA256 校验标记、外发写确认卡能否点拒绝、专家团会诊卡片… |
+
+前三道在 GitHub Actions 里跑(`.github/workflows/ci.yml`,issue #9 要求给门禁一个落点);
+页面体检要起本地实例,发版前手跑。安全相关的端到端复验(引擎随机密码、确认队列、更新包校验)
+用 `node tools/verify-security.cjs`,对**隔离实例**跑,绝不碰用户真实安装实例。
+历史上的临时排查脚本(截图、CDP、市场语料抓取等)统一放在 `tools/probes/`,不进 CI、不被 `bun test` 收集。
 
 发布为绿色一键包(便携运行时 + SFX 安装器):
 

@@ -7,7 +7,9 @@ describe("packs registry", () => {
     const neko = packs.find((p) => p.meta.id === "neko-plugin")
     expect(neko).toBeDefined()
     expect(neko!.templates.sort()).toEqual(["hello_world", "notes", "reminder"])
-    expect((neko!.rules.x_hard_rules as string[]).length).toBe(12)
+    // 规则编号唯一来源:rules.json(数量与连续性由 test/docs-consistency.test.ts 校验)
+    expect((neko!.rules.x_hard_rules as string[]).length).toBe(18)
+    expect((neko!.rules.x_workflow_rules as string[]).length).toBe(3)
   })
 
   test("hello_world template renders placeholders", async () => {

@@ -1,7 +1,8 @@
 # 猫娘插件社区规范与全量索引
 
 > **数据来源**:https://market.project-neko.cn/#/plugins 官方接口 `/api/v1/plugins`(2026-10-26 抓取)
-> **覆盖**:在架 **127 个插件**,本机落盘 **126 份可读源码**(其余仅有 README/LICENSE 或仓库无 plugin.toml)
+> **覆盖**:官方在架 **127 个插件**(第 6 章索引)+ 本机补采 **1 个**(见文末「本机补采」);
+> 本机 `market-corpus\` 共 128 个目录,其中 **126 份带 `plugin.toml` 的可读源码**。口径以文末抓取说明为准,别处不许另写数字。
 > **源码位置**:`<WORKSHOP_DIR>\market-corpus\<slug>\src`(只保留代码/配置/文档,二进制资产已剔除,总体积 ~125MB)
 > **怎么用**:写插件前先读第 1–5 章的规范,再去第 6 章找同类插件抄结构;需要深度 API 细节时查同目录 `sdk-reference.md` / `decorators.md` / `hosted-ui.md`。
 >
@@ -434,10 +435,21 @@ async def do(self, target: str, **_):
 
 ---
 
+### 本机补采(官方在架清单之外,1 个)
+
+接口清单没列但本机有完整源码,同样可以照着抄结构;引用时注意它不在官方索引计数里。
+
+| 插件 | 名称 | 标签 | 入口 | 工具 | 源码 |
+|---|---|---|---|---|---|
+| `qqbot_bridge` | QQ机器人桥接 | 桥接/通讯 | 3 | 0 | ✓ |
+
+---
+
 ### 附:本次抓取说明
 
 - 接口:`GET https://market.project-neko.cn/api/v1/plugins?page=N&page_size=100`(共 127 条,2 页)
 - 下载:按 `repo_url` 取 GitHub `archive/refs/heads/{main,master}.zip`,镜像 `ghfast.top` 优先
-- 落盘:126/127 份源码;其余仓库无 `plugin.toml`(纯库/纯文档),已标注
+- 落盘:官方 127 个全部建了目录,其中 **125 份有可读源码**(`better_txt_output`、`shale_core_lib` 仓库里没有 `plugin.toml`,只有文档/库文件);另补采 `qqbot_bridge` 1 份 → 本机 `market-corpus\` 共 128 个目录、**126 份带 `plugin.toml` 的源码**
 - 瘦身:剔除图片/音频/模型/可执行文件与 >1.5MB 资产,只留代码、配置、文档;总体积约 125MB
-- 统计口径:126 份 `plugin.toml`、124 份 `__init__.py`
+- 统计口径:`market-patterns.md` 的能力使用率按「带 `plugin.toml` 的 126 份」算;上面第 6 章的索引表按「官方在架 127 个」列,补采的 1 个单列在本节
+- **数字口径统一**:各处提到「在架多少 / 源码多少」必须以本节为准(README、SKILL.md、AGENTS.md、market-patterns.md 都不许另写一套),`test/docs-consistency.test.ts` 会拿 `market-corpus\` 的真实目录数校验这些声明

@@ -156,6 +156,8 @@ const send = (method, params = {}) => new Promise((res, rej) => {
   ws.send(JSON.stringify({ id, method, params }))
 })
 const PROBE_SRC = readFileSync(new URL("./update-modal-probe.js", import.meta.url), "utf8")
+// 外发写确认卡探针(issue #9):任务期间页面必须能把「要往仓库外写」的动作交给用户点,并回发结果
+const AP_PROBE_SRC = readFileSync(new URL("./approvals-probe.js", import.meta.url), "utf8")
 
 const evalJs = async (expression) => {
   const r = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })
@@ -650,6 +652,16 @@ ${PROBE_SRC}
     }
     tabs[0].click(); await sleep(50);
   } else fail('更新页签', '找不到 data-tab=update');
+
+  // 11.8b) 外发写确认卡:任务途中 Agent 要 push/发布时,页面必须能看见、能拒绝(issue #9)
+  try {
+    const ap = await (
+${AP_PROBE_SRC}
+    )
+    for (const r of ap) (r.ok ? pass : fail)(r.name, r.detail)
+  } catch (e) {
+    fail('外发写确认卡探针', String((e && e.message) || e))
+  }
 
   // 11.9) 专家团页签:面板可见、成员名单渲染、开关往返(隔离实例上真实 POST)
   const exTab = tabs.find((x) => x.dataset && x.dataset.tab === 'expert');

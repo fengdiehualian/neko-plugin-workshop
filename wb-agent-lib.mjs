@@ -337,6 +337,32 @@ export function buildWishPrompt(wish, mode, askCount = 0, memory = "", userMemor
   ].join("\n")
 }
 
+// 等真人点头:超时/任务停止/界面没回话一律返回 null(调用方按拒绝处理),绝不无限挂住任务
+const APPROVE_TIMEOUT_MS = 300000
+async function askUser(fn, info, signal) {
+  if (typeof fn !== "function") return null
+  return await new Promise((res) => {
+    let done = false
+    const finish = (v) => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      try { if (signal) signal.removeEventListener("abort", onAbort) } catch {}
+      res(v === undefined ? null : v)
+    }
+    const onAbort = () => finish(null)
+    const timer = setTimeout(() => finish(null), APPROVE_TIMEOUT_MS)
+    try { if (signal) signal.addEventListener("abort", onAbort, { once: true }) } catch {}
+    Promise.resolve()
+      .then(() => fn(info))
+      .then((v) => finish(v))
+      .catch((e) => {
+        console.warn("[wb-agent] 请用户确认失败(按拒绝处理):", e && e.message ? e.message : e)
+        finish(null)
+      })
+  })
+}
+
 export async function driveAgent(opts) {
   const SERVER = opts.server || "http://127.0.0.1:4096"
   const client = makeClient(SERVER, opts.auth)
@@ -370,9 +396,16 @@ export async function driveAgent(opts) {
 
   const startedAt = Date.now()
   const controller = new AbortController()
-  const status = { idle: false, idleAt: 0, permissions: 0, questions: 0, autoRetries: 0, lastActivityAt: Date.now() }
+  const status = { idle: false, idleAt: 0, permissions: 0, questions: 0, autoRetries: 0, lastActivityAt: Date.now(), approvals: [] }
   const errors = []
   const finalTexts = []
+  // 等用户确认期间刷活:不然「无进展看门狗」会把「她在看弹窗」当成模型没响应而误杀任务
+  const withHeartbeat = (p) => {
+    const tick = setInterval(() => { status.lastActivityAt = Date.now() }, 15000)
+    const stop = () => clearInterval(tick)
+    p.then(stop, stop)
+    return p
+  }
 
   // 3. 事件流(断线重连):自动应答权限/提问,收集最终文本与空闲状态
   let streamDead = false
@@ -423,14 +456,28 @@ export async function driveAgent(opts) {
               // 应答必须确认成功:引擎收到应答才放行工具,应答丢了=工具永久挂起、整个任务静默停摆
               // (实测踩过:client.call 不为非 2xx 抛错,旧 .catch 兜底是死代码)。
               const pid = String(p.id || p.requestID || "")
-              // 读写工作区外目录(external_directory)是无人值守建插件的常态,always 持久放行避免反复弹权限
-              const reply = p.action === "external_directory" ? "always" : "once"
+              // 外发写(push/gh 写远端/外网 POST)不再无脑放行:有界面就等真人点,没界面就拒绝
+              const plan = classifyPermission(p, typeof opts.confirmPermission === "function")
               ;(async () => {
+                let reply = plan.reply
+                if (reply === "confirm") {
+                  // 等用户点头期间要给看门狗「有进展」信号:她在那儿想,不是模型没响应
+                  const ans = await withHeartbeat(askUser(opts.confirmPermission, {
+                    kind: "permission", id: pid, sessionID, title: "Agent 想执行会写到仓库外的命令",
+                    reason: plan.outward.why, detail: plan.outward.evidence, choices: ["once", "always"],
+                  }, controller.signal))
+                  reply = ans === "always" ? "always" : ans === "once" ? "once" : "reject"
+                  status.approvals.push({ id: pid, kind: "permission", what: plan.outward.why, detail: plan.outward.evidence, reply, at: Date.now() })
+                  if (reply === "reject") console.warn("[wb-agent] 外发写操作未获确认,已拒绝:" + plan.outward.evidence.slice(0, 160))
+                }
                 for (let round = 0; round < 3; round++) {
                   try {
+                    const body = reply === "reject"
+                      ? { reply, message: "工坊规则:往仓库外发布/推送的动作需要用户在页面上逐次确认,已拒绝。请改为在回答里说明需要用户确认,并继续其余工作。" }
+                      : { reply }
                     const r = await client.call(`/session/${sessionID}/permission/${pid}/reply`, {
                       method: "POST",
-                      body: JSON.stringify({ reply }),
+                      body: JSON.stringify(body),
                     })
                     if (r.status >= 200 && r.status < 300) return
                   } catch {}
@@ -442,16 +489,26 @@ export async function driveAgent(opts) {
             if (t === "question.asked" && p.sessionID === sessionID) {
               status.questions++
               // 提问应答同样以引擎路由串为准:POST /api/session/:sessionID/question/:requestID/reply
-              // body {answers:[[选项label],…]}(每题一个数组、按题序),成功=204;每题自动选第一项
+              // body {answers:[[选项label],…]}(每题一个数组、按题序),成功=204
+              // 普通提问:每题自动选第一项(常见就是「按默认继续」);
+              // 但问到「要不要推送/发布」这类外发写时:有界面就交给用户点,没界面则挑「不/先不」的选项,
+              // 绝不能把「选第一项」当成用户同意往外发。
               const qid = String(p.id || p.requestID || "")
-              const answers = Array.isArray(p.questions)
-                ? p.questions.map((q) => {
-                    const first = (q.options || q.choices || [])[0]
-                    const label = typeof first === "string" ? first : first?.label || first?.name || first?.id || ""
-                    return [label]
-                  })
-                : []
+              const qplan = classifyQuestionReply(p, typeof opts.confirmQuestion === "function")
               ;(async () => {
+                let answers = qplan.answers
+                if (qplan.confirm) {
+                  const picked = await withHeartbeat(askUser(opts.confirmQuestion, {
+                    kind: "question", id: qid, sessionID, title: "Agent 在问你是否要往仓库外发布",
+                    reason: qplan.outward ? qplan.outward.why : "", detail: qplan.outward ? qplan.outward.evidence : "",
+                    questions: (p.questions || []).map((q) => ({
+                      question: String(q.question || q.header || q.text || "").slice(0, 300),
+                      options: ((q.options || q.choices || []).map((o) => (typeof o === "string" ? o : o?.label || o?.name || "")).filter(Boolean)),
+                    })),
+                  }, controller.signal))
+                  status.approvals.push({ id: qid, kind: "question", what: (qplan.outward && qplan.outward.why) || "", detail: (qplan.outward && qplan.outward.evidence) || "", reply: Array.isArray(picked) && picked.length ? "user" : "fallback", at: Date.now() })
+                  if (Array.isArray(picked) && picked.length) answers = picked
+                }
                 for (let round = 0; round < 3; round++) {
                   try {
                     const r = await client.call(`/session/${sessionID}/question/${qid}/reply`, {
@@ -695,7 +752,8 @@ export async function driveAgent(opts) {
     stopped: aborted,
     error: reason,
     warnings: fatal ? [] : errors.slice(-5),
-    stats: { permissions: status.permissions, questions: status.questions },
+    stats: { permissions: status.permissions, questions: status.questions, approvals: status.approvals.length },
+    approvals: status.approvals,
     reply: finalReply,
     thinking,
     usage: turnUsage,
@@ -1147,4 +1205,148 @@ export function formatExpertBlock(pack, leadText = "", maxChars = 2200, disabled
     s += "\n…(专家团纪律过长已截断)"
   }
   return s
+}
+
+
+// ---------- 更新包完整性校验(纯逻辑,便于单测;调用方 wb-studio.mjs downloadFrom) ----------
+// 发布脚本把整包 SHA256 写进双端 release 说明的「## 校验」段(- SHA256:`HEX`),
+// GitHub 资产另有 digest 字段;两边都取一遍,谁有用谁。
+export function expectedSha256(src) {
+  const assets = (src && src.assets) || []
+  for (const a of assets) {
+    for (const raw of [a && a.digest, a && a.sha256]) {
+      const m = String(raw || "").match(/([0-9a-f]{64})/i)
+      if (m) return m[1].toLowerCase()
+    }
+  }
+  const notes = String((src && src.notes) || "")
+  const m = notes.match(/SHA256[^0-9a-f]{0,16}([0-9a-f]{64})/i)
+  return m ? m[1].toLowerCase() : ""
+}
+
+// 测试/离线更新源 WB_UPDATE_FEED 的准入:只允许本机。
+// 这个环境变量等于「换个地方下包」,写成公网地址就等于把自动更新的供应链交出去,
+// 所以只认 file: 与 127.0.0.1/localhost/[::1](开发者本机自测用)。
+export function isLocalUpdateFeed(url) {
+  const raw = String(url || "").trim()
+  if (!raw) return false
+  if (/^file:/i.test(raw)) return true
+  // 用 URL 解析而不是正则:正则容易被 http://127.0.0.1:80@evil.com/ 这种「假本机真远端」的写法绕过
+  let u = null
+  try { u = new URL(raw) } catch { return false }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return false
+  if (u.username || u.password) return false
+  const h = String(u.hostname || "").toLowerCase().replace(/^\[|\]$/g, "")
+  if (h === "localhost" || h === "::1" || h === "0:0:0:0:0:0:0:1") return true
+  return /^127\./.test(h) // 127/8 整段都是回环
+}
+
+// 校验判定:缺校验值一律不许装(宁让人手动安装,也不静默跳过校验)
+export function verifyUpdateIntegrity(src, actualSha) {
+  const want = expectedSha256(src)
+  const got = String(actualSha || "").toLowerCase()
+  if (!want) return { ok: false, want, got, reason: "更新包没有登记校验值(SHA256),为安全起见不自动安装:请到发布页手动下载 setup.exe 双击安装" }
+  if (!/^[0-9a-f]{64}$/.test(got)) return { ok: false, want, got, reason: "更新包校验值算不出来(文件可能已被占用或损坏),已取消安装" }
+  if (got !== want) return { ok: false, want, got, reason: "更新包校验不通过(SHA256 不一致,可能被供应商/镜像改包),已放弃此通道;期望 " + want.slice(0, 12) + "… 实算 " + got.slice(0, 12) + "…" }
+  return { ok: true, want, got, reason: "" }
+}
+
+// ---------- 外发写操作门禁(GitHub issue #9) ----------
+// 无人值守跑到「推送到远端 / 建 issue / 开 PR / 往外部接口 POST」这一步时,不能由程序替用户点头:
+// 这类动作把内容和仓库权限交到外面,事后撤不回(公开出去的 issue 删了也有缓存/邮件)。
+// 工坊的默认姿态:命中特征就把决定权交回界面等真人点;拿不到真人应答一律按拒绝处理。
+// 只读命令(git status/log/diff、gh issue view/list、拉取)不在此列,照常放行。
+const OUTWARD_WRITE_RULES = [
+  { re: /\bgit\s+push\b/i, why: "git push(推送到远端仓库)" },
+  { re: /\b(hub|gh)\s+sync\b/i, why: "同步到远端分支" },
+  { re: /\b(npm|pnpm|yarn)\s+publish\b/i, why: "发布包到 registry" },
+  { re: /\b(git\s+send-email|msmtp)\b/i, why: "往外发邮件" },
+  { re: /\b(curl|wget|Invoke-RestMethod|Invoke-WebRequest|iwr)\b/i, why: "往外部接口写数据", needOutward: true },
+]
+// gh 系列:只有「写远端」的子命令才算;list/view/status/diff/checkout 是只读,照常放行
+const GH_READ_VERBS = /^(list|view|status|diff|checkout|watch|log|search|get|counts)$/
+function ghOutward(s) {
+  const m = String(s || "").match(/\bgh\s+(issue|pr|release|api|repo|workflow|run|actions|gist)\s+([A-Za-z][\w-]*)?/i)
+  if (!m) return ""
+  const scope = String(m[1]).toLowerCase()
+  const verb = String(m[2] || "").toLowerCase()
+  if (scope === "api") return "gh api(可直接调远端写接口)"
+  if (!verb || !GH_READ_VERBS.test(verb)) return "gh " + scope + " " + verb + "(改远端仓库内容)"
+  return ""
+}
+// 外发 HTTP 只有「带写方法/带 body 且目标不是本机」才算,避免误伤拉取版本、下载依赖
+const HTTP_WRITE_RE = /(-X\s*['"]?(POST|PUT|PATCH|DELETE)|--data\b|--data-raw\b|--form\b|-F\s|--upload-file|-T\s|-Method\s+(Post|Put|Patch|Delete))/i
+// 注意:正则里的斜杠必须转义,否则字面量被 // 提前截断(踩过)
+const LOCAL_HOST_RE = /(?:127\.0\.0\.1|localhost|\[::1\]|0:0:0:0:0:0:0:1|:\/\/(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.))/i
+// 提问/权限文案里的中文意图:必须「往外做的动作」和「仓库/平台这类目标」同时出现才算。
+// 只匹配动词会把「要不要推送提醒」(定时提醒插件的普通澄清题)误判成外发,把正常任务卡死。
+const OUTWARD_TEXT_VERB = /(推送|推上|推给|推到|发到|发布到|上传到|传到|同步到|提交\s*(一个|这个)?\s*(issue|工单)|新建\s*(一个|这个)?\s*(issue|工单|PR)|创建\s*(一个|这个)?\s*(issue|工单|PR|合并请求)|开\s*(一个|这个)?\s*(PR|issue|工单|合并请求)|合并\s*(PR|合并请求)|提\s*(一个)?\s*issue|publish)/i
+const OUTWARD_TEXT_TARGET = /(github|gitee|码云|远端|远程仓库|仓库|线上|公开|issue|工单|\bPR\b|合并请求|release|registry|npm|镜像仓库|插件市场|marketplace)/i
+
+function outwardEvidence(text) {
+  const s = String(text || "")
+  const gh = ghOutward(s)
+  if (gh) return gh
+  for (const rule of OUTWARD_WRITE_RULES) {
+    if (!rule.re.test(s)) continue
+    if (rule.needOutward) {
+      // 本机/内网目标或纯拉取不算外发(自检、下依赖、查版本都是日常操作)
+      if (HTTP_WRITE_RE.test(s) && !LOCAL_HOST_RE.test(s)) return rule.why
+      continue
+    }
+    return rule.why
+  }
+  if (OUTWARD_TEXT_VERB.test(s) && OUTWARD_TEXT_TARGET.test(s)) return "文案里明确要往仓库外发布/推送"
+  return ""
+}
+
+// 从权限/提问事件里挖出命令文本:字段名各版本不一样,全量序列化再扫最稳
+export function detectOutwardWrite(evt) {
+  const p = evt || {}
+  const named = [p.patterns, p.pattern, p.command, p.cmd, p.text, p.input?.command, p.metadata?.command, p.args, p.title, p.description]
+  for (const v of named) {
+    const t = Array.isArray(v) ? v.join(" ") : String((v && typeof v === "object" && v.text) || v || "")
+    if (!t) continue
+    const why = outwardEvidence(t)
+    if (why) return { outward: true, why, evidence: t.slice(0, 400) }
+  }
+  const all = (() => { try { return JSON.stringify(p) } catch { return "" } })()
+  const why = outwardEvidence(all)
+  return why ? { outward: true, why, evidence: (p.patterns ? String(p.patterns) : all).slice(0, 400) } : { outward: false, why: "", evidence: "" }
+}
+
+// 权限应答判定:纯函数,方便单测。
+// reply="confirm" 表示「要真人点头」,由调用方去问界面;界面不可用时(纯 CLI/无人值守)直接 reject。
+export function classifyPermission(p, hasApprover) {  const ow = detectOutwardWrite(p)
+  if (!ow.outward) {
+    // 读写工作区外目录(external_directory)是无人值守建插件的常态,持久放行避免反复弹权限
+    return { reply: p && p.action === "external_directory" ? "always" : "once", outward: null }
+  }
+  return { reply: hasApprover ? "confirm" : "reject", outward: ow }
+}
+
+// 提问应答判定:普通提问照旧选第一项;命中外发意图的提问必须真人选,
+// 界面不在时选「看起来是拒绝/暂缓」的选项(而不是默认第一个,第一个通常是「好」)。
+export function classifyQuestionReply(p, hasApprover) {
+  const qs = Array.isArray(p && p.questions) ? p.questions : []
+  const labels = qs.map((q) => {
+    const opts = (q && (q.options || q.choices)) || []
+    return opts.map((o) => (typeof o === "string" ? o : (o && (o.label || o.name || o.id)) || "")).filter(Boolean)
+  })
+  const DECLINE_RE = /(不|先别|先不|暂不|别|取消|算了|再等|拒绝|否|no |don'?t|cancel|decline|skip)/i
+  // 「保守答案」:优先挑明显带「不/先不」的选项,找不到就选最后一项(第一项通常是「好」,不能当同意)
+  const declining = labels.map((opts) => {
+    if (!opts.length) return [""]
+    const d = opts.find((o) => DECLINE_RE.test(o))
+    return [d || opts[opts.length - 1]]
+  })
+  // 默认应答:每题选第一项(保持既有行为,普通澄清题不因此变慢)
+  const defaults = labels.map((opts) => [opts[0] || ""])
+  const head = qs.map((q) => String((q && (q.question || q.header || q.text)) || "")).join(" ")
+  const ow = detectOutwardWrite({ text: head, patterns: [head, labels.flat().join(" ")] })
+  if (!ow.outward) return { confirm: false, answers: defaults, outward: null }
+  // 外发意图:有界面 → 交给真人点(answers 是兜底,超时/停止/没答时用保守答案)
+  if (hasApprover) return { confirm: true, answers: declining, outward: ow }
+  // 没界面(纯 CLI/无人值守)→ 直接按保守答案回,不替用户答应
+  return { confirm: false, answers: declining, outward: ow }
 }

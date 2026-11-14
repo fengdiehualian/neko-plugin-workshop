@@ -1,0 +1,42 @@
+name: CI
+
+# 这些门禁以前只在本地手跑(bun test / static_check / syntax_check),
+# 没有落点:改坏了没人拦。issue #9 要求给门禁一个 landing point,就在这里。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gates:
+    name: 单测 + 静态门禁
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 bun(单测与 TSX 语法校验都要用)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装 Node(语法门禁用它做 JS 解析)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 安装 Python 3.12(tomllib / 静态检查脚本)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 单元测试(bun test)
+        run: bun test
+
+      - name: 静态交叉检查(页面 id / fetch 路由 / 标签配对 / 面板结构)
+        run: python tools/static_check.py
+
+      - name: 语法门禁(py/json/toml/mjs/yml + TSX 批量转译)
+        run: python tools/syntax_check.py
+
+      # 说明:tools/check-page.mjs 是要起本地 studio 的端到端自检,
+      # 依赖 Windows 安装实例与真实底座,不放 CI;发版前仍按发布流程手跑。
