@@ -1,4 +1,4 @@
-# [草稿,未发布] Galgame游玩助手 与猫爪重写 #3683 的兼容点(确实已坏(切换点 #3705 已合并))
+# [已发布 2026-11-14 → https://github.com/MomiJiSan/n.e.k.o_plugin_galgame_plugin/issues/5] Galgame游玩助手 与猫爪重写 #3683 的兼容点(确实已坏(切换点 #3705 已合并))
 
 > 自动生成,尚未提交。发布前逐条人工核实文件/行号属实——批量自动发=骚扰,禁止。
 目标仓库: https://github.com/MomiJiSan/n.e.k.o_plugin_galgame_plugin · 扫描源码: commit d3748e4 · 日期 2026-11-14
