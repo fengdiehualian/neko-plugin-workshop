@@ -14,8 +14,14 @@ try {
 }
 
 test("scan rules python 自检通过(python 缺失则跳过,不算失败)", () => {
-  const missing = spawnError !== "" || (!out && /not found|No such file|ENOENT|无法将/i.test(err + out))
-  if (missing) { console.warn("python absent, skipped:", (spawnError || err).slice(0, 120)); return }
+  // 只有"解释器不存在"才算跳过。其它启动失败、以及启动成功但没有任何输出的情况,
+  // 一律算失败——否则 python 用例没跑,bun test 仍是绿的。
+  if (spawnError !== "") {
+    if (/ENOENT|not found|No such file|无法将/i.test(spawnError)) {
+      console.warn("python absent, skipped:", spawnError.slice(0, 120)); return
+    }
+    throw new Error("python 启动失败但不是缺失:" + spawnError)
+  }
   console.log(out.trim())
   expect(out).toContain("PASS")
 })

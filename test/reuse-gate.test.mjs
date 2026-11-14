@@ -1,5 +1,5 @@
 // 复用门禁端到端用例(确定部分):新建任务在写码前必须先做市场检索.
-// 跑法: bun test test/reuse-gate.e2e.mjs
+// 跑法: bun test test/reuse-gate.test.mjs(其中「市场检索通路」一条要联网,离线时该条失败)
 // LLM 行为部分见 test/reuse-gate.llm-protocol.md(需要一个真 agent 跑,不能在这里自动)。Python 规则用例由 test/rules.test.ts 挂进 bun。
 import { expect, test, describe } from "bun:test"
 import { readFileSync, existsSync } from "node:fs"

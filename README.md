@@ -158,8 +158,9 @@ SDK 事实一律以官方 main 分支源码与其 docs/ 为准(冲突顺序见 `
   重跑三步:`python tools/fetch_market_plugins.py --out plugins_all.json` → `python tools/scan_nekoclaw_compat.py --plugins plugins_all.json --out market-corpus/compat-v2/scan_result.json` → `python tools/gen_compat_report.py --scan market-corpus/compat-v2/scan_result.json`(缓存已存在时扫描器会先 fetch 到最新并记 commit SHA)。
 - **issue 草稿规则**:`market-corpus/compat-v2/issue-drafts/` 只生成草稿。逐条人工核实文件/行号属实后才允许
   向插件仓库提 issue;禁止批量自动发,误报连发等于骚扰。
+- **行尾注意**:本仓库无 `.gitattributes` 且 `core.autocrlf=true`。`rules.json` 与 `test/packs.test.ts` 按上游原样存 CRLF;用 LF 工具重写它们之后必须 `git -c core.autocrlf=false add` 暂存,否则整份换行差异会重新出现在 diff 里。
 - **新鲜度 SOP**:市场清单 7 天重拉;#3683 每合一个 PR 重跑扫描;market-catalog/market-patterns 的历史样本(127)数字不随在架总数改写。
-- **验证**(本仓库未配 CI,以下命令是本机手跑,不是流水线闸门):`python test/scan_rules.test.py`(扫描规则正反例);`bun test`(引擎与 pack);;新增 `test/rules.test.ts` 会把 py 用例带进 `bun test`,python 缺失时只跳过;
+- **验证**(本仓库未配 CI,以下命令是本机手跑,不是流水线闸门):`python test/scan_rules.test.py`(扫描规则正反例);`bun test`(引擎与 pack)。新增 `test/rules.test.ts` 会把 py 用例带进 `bun test`,只有解释器不存在时才跳过;启动失败或用例无输出都算失败。`test/reuse-gate.test.mjs` 里有一条要联网,离线时它会红,这是设计如此。
 - **e2e 用例**:`bun test test/reuse-gate.test.mjs`(静态+市场 API 部分);真 agent 行为按 `test/reuse-gate.llm-protocol.md` 手跑并存档。
   真机侧用 N.E.K.O 仓库根的 `python plugin\neko_plugin_cli\cli.py check <插件目录>` 复核 pack 范例生成物。
 - 本仓库按 MIT 许可发布(LICENSE),并入内容同样按 MIT 处理,来源已在各自文件头注明。

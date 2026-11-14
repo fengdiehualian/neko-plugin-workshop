@@ -102,13 +102,29 @@ def main():
     for _, c in rows:
         counts[c] += 1
     now_files = set()
+
+    def is_published(name):
+        """首行带「# [已发布」的草稿是人工核实后的产物，重跑不得覆盖，也不得删。"""
+        fp = os.path.join(drafts, name)
+        try:
+            with open(fp, encoding="utf-8") as f:
+                return f.readline().startswith("# [已发布")
+        except OSError:
+            return False
+
     for p, c in rows:
         if c in ("breaks_now", "will_break"):
             fn = p["slug"] + ".md"
-            open(os.path.join(drafts, fn), "w", encoding="utf-8").write(make_draft(p, c))
             now_files.add(fn)
+            if is_published(fn):
+                print("KEEP published draft:", fn)
+                continue
+            open(os.path.join(drafts, fn), "w", encoding="utf-8").write(make_draft(p, c))
     for stale in set(os.listdir(drafts)) - now_files:
-        os.remove(os.path.join(drafts, stale))
+        fp = os.path.join(drafts, stale)
+        if not os.path.isfile(fp) or is_published(stale):
+            continue
+        os.remove(fp)
 
     md = ["# 市场插件兼容快照 v2(猫爪重写 #3683,扫描器 v5:ast+severity 模型)", "",
           f"- 扫描日期 {d['scan_date']} · RFC: {d['rfc_state']} · 数据 scan_result.json(每仓库带 commit SHA)",

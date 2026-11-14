@@ -8,6 +8,8 @@ describe("packs registry", () => {
     expect(neko).toBeDefined()
     expect(neko!.templates.sort()).toEqual(["hello_world", "notes", "reminder"])
     expect((neko!.rules.x_hard_rules as string[]).length).toBe(13)
+    // 机器层的复用门禁条目必须叫 R16，与 SKILL.md 铁律 10 / AGENTS.md R16 同一标签。
+    expect((neko!.rules.x_hard_rules as string[])[12]).toMatch(/^R16 /)
   })
 
   test("hello_world template renders placeholders", async () => {

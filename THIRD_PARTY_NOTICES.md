@@ -4,7 +4,7 @@
 
 1. **复用优先门禁(reuse-before-build)**
    规则改写自 https://github.com/1-dcjiang/neko-reuse-before-build(© 1-dcjiang,MIT License)。
-   载体:`packs/neko-plugin/skill/neko-plugin-dev/references/reuse-before-build.md`、SKILL.md 铁律 10、AGENTS.md R16、rules.json R13。
+   载体:`packs/neko-plugin/skill/neko-plugin-dev/references/reuse-before-build.md`、SKILL.md 铁律 10、AGENTS.md R16、rules.json R16（机器层与人类层同用 R16 这个标签）。
    该上游同时提供宿主运行时强制插件(N.E.K.O. 内安装版),本工程只吸收其 agent 层规则文本。
 2. **兼容扫描口径(RFC #3683)**
    引用自 https://github.com/Project-N-E-K-O/N.E.K.O/issues/3683(项目文本,引用注明链接,不构成再许可)。

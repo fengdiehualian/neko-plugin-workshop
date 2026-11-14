@@ -4,6 +4,7 @@
 用法:
     python tools/plugin_conformance.py <plugin_dir> [more_dirs...] [--json]
 退出码:0=全部通过(允许 warning),1=存在 error。
+编号说明:本脚本 warning/error 文本里的 R13/R14 是**脚本自己的检查项编号**,与 `packs/.../AGENTS.md` 的 R13/R14 不是同一套,别对照引用。
 """
 import ast
 import json

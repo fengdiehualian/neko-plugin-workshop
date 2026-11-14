@@ -6,7 +6,7 @@
 
 - `pack.json` — pack 元数据(供工作台 pack 注册器读取)
 - `rules.json` — 生成/检查规则:13 条硬规则(R1–R12 + R16)+ check 闸门 + 发布流程
-- `templates/` — 三个起步模板,均通过 R1–R12 与 R16 硬规则
+- `templates/` — 三个起步模板。`test/packs.test.ts` 只抽查 async 入口、`Ok(` 返回与禁用 API;R16 是流程门禁,模板自证不了,`check` 闸门也不评它
   - `hello_world` — 最小插件(入门)
   - `reminder` — 生命周期 + 定时任务 + 线程锁(进阶)
   - `notes` — Pydantic 校验 + data_path 持久化 + llm_result_fields(高级)
@@ -25,7 +25,8 @@
 
 ## 硬规则速查(R1–R12 + R16)
 
-见 `rules.json` 的 `x_hard_rules`。生成代码时逐条核对;`check` 闸门通过后才允许进入发布流程。
+见 `rules.json` 的 `x_hard_rules`（R1–R12 + R16）。**R13–R15 只写在 `AGENTS.md`**（宿主约定），`rules.json` 没有这三条，所以两处都要核对，别把编号空洞当成漏写。
+生成代码时逐条核对;`check` 闸门通过后才允许进入发布流程。
 
 ## 后续(待宿主侧答复)
 
