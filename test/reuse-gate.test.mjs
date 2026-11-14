@@ -38,7 +38,7 @@ describe("reuse-before-build gate", () => {
     const p = join(ROOT, "market-corpus/compat-v2/summary.json")
     expect(existsSync(p)).toBe(true)
     const s = JSON.parse(readFileSync(p, "utf-8"))
-    expect(Object.keys(s.counts).sort()).toEqual(["affected_dev", "affected_runtime", "compatible", "review", "unverified"].sort())
+    expect(Object.keys(s.counts).sort()).toEqual(["affected_dev", "breaks_now", "compatible", "degrade", "review", "unverified", "will_break"].sort())
     const sum = Object.values(s.counts).reduce((a, x) => a + x, 0)
     expect(sum).toBe(s.total)
     expect(s.total).toBeGreaterThan(100)

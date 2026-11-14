@@ -1,118 +1,44 @@
-# 市场插件兼容快照 v2(猫爪重写 #3683 静态扫描)
+# 市场插件兼容快照 v2(猫爪重写 #3683,扫描器 v5:ast+severity 模型)
 
-- 扫描日期: 2026-11-14 · RFC 状态: #3685 merged 2026-11-11; #3692 merged 2026-11-12; #3705 merged 2026-11-14; #3714 open(实时) · 原始数据: scan_result.json(含每仓库 commit SHA)
-- 全量收录 144 个在架插件: 受影响 2 · 仅文档测试面 4 · 待核 12 · 兼容 126 · 未验证 0
-- 口径: 兼容=strong+review 全零命中,行为项 4/5/6 仍需作者自查;待核=只命中 review 级特征(端口号/路由字样/文档提及),不自动发 issue;未验证=源码不可得,不代表兼容。
-- issue-drafts/ 是草稿,人工核实后才允许发布;快照不做门禁。
+- 扫描日期 2026-11-14 · RFC: #3685 merged 2026-11-11; #3692 merged 2026-11-12; #3705 merged 2026-11-14; #3714 open(实时) · 数据 scan_result.json(每仓库带 commit SHA)
+- 全量 144 个:现在就坏 1 · 将坏 0 · 有兜底会降级 1 · 仅文档/测试 4 · 待核 11 · 兼容 127 · 未验证 0
+- 草稿只为「现在就坏/将坏」生成;降级与待核不发独立 issue。快照不做门禁。
 
-## 需要动作的插件
-
-| 状态 | 插件 | 作者 | 下载 | 命中 |
+| 状态 | 插件 | 作者 | 下载 | 命中规则 |
 |---|---|---|---|---|
-| 受影响 | 猫娘小游戏 (neko_arcade @f077eee) | luoxue | 231 | bundled_playwright; host_internal_import; playwright_mention |
-| 受影响 | Galgame游玩助手 (galgame_plugin @d3748e4) | Momiji | 69 | deleted_endpoint; legacy_agent_port |
-| 受影响(仅文档/测试) | 喵喵碰碰大作战 (miao_miao_bump @796efcf) | wfrostune | 32 | bundled_playwright |
-| 受影响(仅文档/测试) | N.E.K.O RimWorld (neko_rimworld @35a9fbd) | yunwan233 | 18 | host_internal_import |
-| 受影响(仅文档/测试) | 炉石猫娘陪玩 (hearthstone_companion @e6924b9) | Arcobalenorf | 0 | bundled_playwright; deleted_endpoint |
-| 受影响(仅文档/测试) | 星铁游戏搭子 (hsr_companion @921f3cf) | wfrostune | 0 | host_internal_import |
-| 待核 | 永远的陪伴 (forever_companion @ab6c8ca) | qaqms | 635 | capabilities_unconfirmed |
-| 待核 | QQ集成 (qq_auto_reply @1b75286) | ZhaiJiu | 258 | openclaw_name |
-| 待核 | 伴学插件 (study_companion @365fcb6) | Momiji | 214 | openclaw_name |
-| 待核 | 表情包管理器 (sticker_manager @7479f25) | qaqms | 150 | deferred_symbol |
-| 待核 | Minecraft Autonomous · 我的世界自主游玩 (minecraft_autonomous @040c44f) | jcs130 | 62 | capabilities_unconfirmed |
-| 待核 | Suno音乐生成 (suno_cn_music @f6b8740) | ZhaiJiu | 46 | openclaw_name |
-| 待核 | 微信集成 (wechat_integration @f942332) | xxynet | 43 | openclaw_name |
-| 待核 | KARDS 猫娘陪玩 (kards_companion @20da4c3) | Luotianyi | 35 | capabilities_unconfirmed |
-| 待核 | 无尽测试 (endless_test @ba0153c) | tangbai | 17 | host_internal_import |
-| 待核 | 心理测评室 (neko_assessment @5902ac9) | MENGYAOYUE | 8 | legacy_agent_port |
-| 待核 | 本机 Agent 桥接 (agent_bridge @a8fea46) | Cloudy | 2 | openclaw_name |
-| 待核 | NekoStardew (stardew_companion @dc81e4a) | JingTou0225 | 0 | legacy_agent_port |
+| 现在就坏 | Galgame游玩助手 (galgame_plugin @d3748e4) | Momiji | 69 | deleted_endpoint/now; legacy_agent_port/review |
+| 有兜底会降级 | 猫娘小游戏 (neko_arcade @f077eee) | luoxue | 231 | bundled_playwright/degrade; host_internal_import/degrade; playwright_mention/review |
+| 仅文档/测试面 | 喵喵碰碰大作战 (miao_miao_bump @796efcf) | wfrostune | 32 | bundled_playwright/will |
+| 仅文档/测试面 | N.E.K.O RimWorld (neko_rimworld @35a9fbd) | yunwan233 | 18 | host_internal_import/now |
+| 仅文档/测试面 | 炉石猫娘陪玩 (hearthstone_companion @e6924b9) | Arcobalenorf | 0 | bundled_playwright/degrade; deleted_endpoint/now |
+| 仅文档/测试面 | 星铁游戏搭子 (hsr_companion @921f3cf) | wfrostune | 0 | host_internal_import/now |
+| 待核 | 永远的陪伴 (forever_companion @ab6c8ca) | qaqms | 635 | capabilities_unconfirmed/review |
+| 待核 | QQ集成 (qq_auto_reply @1b75286) | ZhaiJiu | 258 | openclaw_name/review |
+| 待核 | 伴学插件 (study_companion @365fcb6) | Momiji | 214 | openclaw_name/review |
+| 待核 | 表情包管理器 (sticker_manager @7479f25) | qaqms | 150 | deferred_symbol/review |
+| 待核 | Minecraft Autonomous · 我的世界自主游玩 (minecraft_autonomous @040c44f) | jcs130 | 62 | capabilities_unconfirmed/review |
+| 待核 | Suno音乐生成 (suno_cn_music @f6b8740) | ZhaiJiu | 46 | openclaw_name/review |
+| 待核 | 微信集成 (wechat_integration @f942332) | xxynet | 43 | openclaw_name/review |
+| 待核 | KARDS 猫娘陪玩 (kards_companion @20da4c3) | Luotianyi | 35 | capabilities_unconfirmed/review |
+| 待核 | 心理测评室 (neko_assessment @5902ac9) | MENGYAOYUE | 8 | legacy_agent_port/review |
+| 待核 | 本机 Agent 桥接 (agent_bridge @a8fea46) | Cloudy | 2 | openclaw_name/review |
+| 待核 | NekoStardew (stardew_companion @dc81e4a) | JingTou0225 | 0 | legacy_agent_port/review |
 
-## 待核明细(不要求改动,人工抽查)
+## #3683 回帖候选(降级类,不发独立 issue)
 
-- 永远的陪伴 :: `CHANGELOG.md:1320` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `CHANGELOG.md:1327` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `CHANGELOG.md:1388` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `README.md:461` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `__init__.py:38` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `core/intros.py:8` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `core/state.py:125` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `mixins/capabilities.py:3` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `tests/test_agent_surface.py:39` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `tests/test_capabilities.py:4` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `tests/test_i18n_contract.py:7` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `tools/hosted_ui_harness.mjs:61` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 永远的陪伴 :: `tools/HOSTED_UI_QA.md:782` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- QQ集成 :: `qq_official_bind.py:11` openclaw_name — 
-- QQ集成 :: `qq_official_bind.py:48` openclaw_name — 
-- QQ集成 :: `docs/GROUP-CHAT-MECHANISMS-ROUND2.md:14` openclaw_name — 
-- QQ集成 :: `docs/GROUP-CHAT-MECHANISMS-ROUND2.md:117` openclaw_name — 
-- QQ集成 :: `docs/GROUP-CHAT-MECHANISMS-ROUND2.md:554` openclaw_name — 
-- QQ集成 :: `docs/GROUP-CHAT-MECHANISMS-ROUND2.md:572` openclaw_name — 
-- QQ集成 :: `docs/SESSION-HANDOFF.md:3996` openclaw_name — 
-- QQ集成 :: `docs/UPSTREAM-LINEAGE.md:49` openclaw_name — 
-- QQ集成 :: `docs/UPSTREAM-LINEAGE.md:240` openclaw_name — 
-- QQ集成 :: `tests/test_qq_bind_start_entry.py:32` openclaw_name — 
-- QQ集成 :: `tests/test_qq_official_bind.py:153` openclaw_name — 
-- 伴学插件 :: `docs/认知引擎阶段文档.md:1190` openclaw_name — 
-- 表情包管理器 :: `tests/test_split_delivery_contract.py:167` deferred_symbol — 命中 deferred/bind_task 字样。RFC 第 6 节:直达路径保持现有行为;确实在用 deferred 机制的请去 #3683 回帖,不必改代码。
-- 表情包管理器 :: `tests/test_split_delivery_contract.py:229` deferred_symbol — 命中 deferred/bind_task 字样。RFC 第 6 节:直达路径保持现有行为;确实在用 deferred 机制的请去 #3683 回帖,不必改代码。
-- Minecraft Autonomous · 我的世界自主游玩 :: `docs/superpowers/plans/2026-10-12-agent-mc-world-port.md:42` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- Suno音乐生成 :: `README.md:47` openclaw_name — 
-- 微信集成 :: `plugin.toml:3` openclaw_name — 
-- 微信集成 :: `plugin.toml:5` openclaw_name — 
-- 微信集成 :: `README.md:3` openclaw_name — 
-- 微信集成 :: `README.md:14` openclaw_name — 
-- 微信集成 :: `wechat_client.py:12` openclaw_name — 
-- 微信集成 :: `__init__.py:283` openclaw_name — 
-- 微信集成 :: `__init__.py:418` openclaw_name — 
-- 微信集成 :: `doc/README.md:3` openclaw_name — 
-- 微信集成 :: `doc/README.md:14` openclaw_name — 
-- 微信集成 :: `i18n/zh-CN.json:3` openclaw_name — 
-- 微信集成 :: `i18n/zh-CN.json:7` openclaw_name — 
-- 微信集成 :: `i18n/zh-CN.json:11` openclaw_name — 
-- 微信集成 :: `i18n/zh-CN.json:54` openclaw_name — 
-- 微信集成 :: `i18n/zh-TW.json:3` openclaw_name — 
-- 微信集成 :: `i18n/zh-TW.json:7` openclaw_name — 
-- 微信集成 :: `i18n/zh-TW.json:11` openclaw_name — 
-- 微信集成 :: `i18n/zh-TW.json:54` openclaw_name — 
-- 微信集成 :: `static/index.html:78` openclaw_name — 
-- KARDS 猫娘陪玩 :: `delivery/publisher.py:2081` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- KARDS 猫娘陪玩 :: `delivery/publisher.py:2237` capabilities_unconfirmed — 命中 /capabilities 字样,可能是插件自己的路由而非 48915 上的待删接口,需人工确认调用对象。
-- 无尽测试 :: `__init__.py:53` host_internal_import — 
-- 心理测评室 :: `_yui_link.py:166` legacy_agent_port — 只命中了裸 48915 端口号。若只访问 /health 等仍存活接口则无需改动;若调用了 4.2 具名接口才需要处理。
-- 本机 Agent 桥接 :: `plugin.toml:4` openclaw_name — 
-- 本机 Agent 桥接 :: `plugin.toml:6` openclaw_name — 
-- 本机 Agent 桥接 :: `README.md:6` openclaw_name — 
-- 本机 Agent 桥接 :: `bridge/registry.py:189` openclaw_name — 
-- 本机 Agent 桥接 :: `bridge/registry.py:190` openclaw_name — 
-- 本机 Agent 桥接 :: `bridge/registry.py:191` openclaw_name — 
-- 本机 Agent 桥接 :: `bridge/registry.py:192` openclaw_name — 
-- 本机 Agent 桥接 :: `bridge/registry.py:235` openclaw_name — 
-- 本机 Agent 桥接 :: `docs/harness-landscape.md:36` openclaw_name — 
-- 本机 Agent 桥接 :: `skill/neko-bridge/frameworks.toml:200` openclaw_name — 
-- 本机 Agent 桥接 :: `skill/neko-bridge/frameworks.toml:201` openclaw_name — 
-- 本机 Agent 桥接 :: `skill/neko-bridge/frameworks.toml:207` openclaw_name — 
-- 本机 Agent 桥接 :: `skill/neko-bridge/SKILL.md:5` openclaw_name — 
-- 本机 Agent 桥接 :: `skill/neko-bridge/SKILL.md:50` openclaw_name — 
-- 本机 Agent 桥接 :: `skill/neko-bridge/bin/neko.py:7` openclaw_name — 
-- 本机 Agent 桥接 :: `skill/neko-bridge/bin/neko.py:195` openclaw_name — 
-- 本机 Agent 桥接 :: `skill/neko-bridge/bin/neko.py:205` openclaw_name — 
-- 本机 Agent 桥接 :: `skill/neko-bridge/bin/neko.py:1164` openclaw_name — 
-- 本机 Agent 桥接 :: `tests/test_providers.py:141` openclaw_name — 
-- 本机 Agent 桥接 :: `tools/inventory.py:48` openclaw_name — 
-- NekoStardew :: `README.md:80` legacy_agent_port — 只命中了裸 48915 端口号。若只访问 /health 等仍存活接口则无需改动;若调用了 4.2 具名接口才需要处理。
+- 猫娘小游戏: `adapters/image_renderer.py:457` bundled_playwright — 函数内/try 内导入,有 ImportError 后备,#3714 后功能降级但可用
+- 猫娘小游戏: `adapters/image_renderer.py:589` host_internal_import — try/except 兜底,常规安装不走,#3714 后功能降级但可用
 
 ## 三态一览(全部)
 
 | 状态 | 插件 | 作者 | 下载 |
 |---|---|---|---|
-| 受影响 | 猫娘小游戏 | luoxue | 231 |
-| 受影响 | Galgame游玩助手 | Momiji | 69 |
-| 受影响(仅文档/测试) | 喵喵碰碰大作战 | wfrostune | 32 |
-| 受影响(仅文档/测试) | N.E.K.O RimWorld | yunwan233 | 18 |
-| 受影响(仅文档/测试) | 炉石猫娘陪玩 | Arcobalenorf | 0 |
-| 受影响(仅文档/测试) | 星铁游戏搭子 | wfrostune | 0 |
+| 现在就坏 | Galgame游玩助手 | Momiji | 69 |
+| 有兜底会降级 | 猫娘小游戏 | luoxue | 231 |
+| 仅文档/测试面 | 喵喵碰碰大作战 | wfrostune | 32 |
+| 仅文档/测试面 | N.E.K.O RimWorld | yunwan233 | 18 |
+| 仅文档/测试面 | 炉石猫娘陪玩 | Arcobalenorf | 0 |
+| 仅文档/测试面 | 星铁游戏搭子 | wfrostune | 0 |
 | 待核 | 永远的陪伴 | qaqms | 635 |
 | 待核 | QQ集成 | ZhaiJiu | 258 |
 | 待核 | 伴学插件 | Momiji | 214 |
@@ -121,7 +47,6 @@
 | 待核 | Suno音乐生成 | ZhaiJiu | 46 |
 | 待核 | 微信集成 | xxynet | 43 |
 | 待核 | KARDS 猫娘陪玩 | Luotianyi | 35 |
-| 待核 | 无尽测试 | tangbai | 17 |
 | 待核 | 心理测评室 | MENGYAOYUE | 8 |
 | 待核 | 本机 Agent 桥接 | Cloudy | 2 |
 | 待核 | NekoStardew | JingTou0225 | 0 |
@@ -177,6 +102,7 @@
 | 兼容 | 米家 | xxhhy | 18 |
 | 兼容 | 拟股喵喵 | alpha | 18 |
 | 兼容 | 和猫娘一起造火箭(SFS) | piao1145 | 18 |
+| 兼容 | 无尽测试 | tangbai | 17 |
 | 兼容 | OpenBiliClaw 个性化推荐兼容层 | nekopara | 17 |
 | 兼容 | Claude Code Adapter | StarrySerendipity | 16 |
 | 兼容 | 图像记忆库 | Cloudy | 16 |

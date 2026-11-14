@@ -154,7 +154,7 @@ SDK 事实一律以官方 main 分支源码与其 docs/ 为准(冲突顺序见 `
 - **R16 先找现成,再自建**:新建插件/加新功能先走 `packs/neko-plugin/skill/neko-plugin-dev/references/reuse-before-build.md`
   四步(三轮市场检索→差距小先上游共建→证明不可复用才自建→方案附检索结论)。写进 SKILL.md 铁律第 10 条与 AGENTS.md R16。
 - **市场兼容快照 v2**(`market-corpus/compat-v2/`):全量在架插件逐个浅克隆源码做静态扫描,
-  按「兼容 / 受影响(运行时) / 受影响(仅文档测试) / 未验证」三态标注,不做收录门禁。
+  按 severity 标注:现在就坏(#3705 已删面)·将坏(#3714 待删面)·有兜底会降级·仅文档/测试面·待核·兼容·未验证,全量收录不做门禁。ast 解析区分真 import 与注释/docstring,仓库自带同名模块(brain.py)自动排除;草稿只生成给「现在就坏/将坏」,降级与待核不进草稿。
   重跑三步:`python tools/fetch_market_plugins.py --out plugins_all.json` → `python tools/scan_nekoclaw_compat.py --plugins plugins_all.json --out market-corpus/compat-v2/scan_result.json` → `python tools/gen_compat_report.py --scan market-corpus/compat-v2/scan_result.json`(缓存已存在时扫描器会先 fetch 到最新并记 commit SHA)。
 - **issue 草稿规则**:`market-corpus/compat-v2/issue-drafts/` 只生成草稿。逐条人工核实文件/行号属实后才允许
   向插件仓库提 issue;禁止批量自动发,误报连发等于骚扰。
