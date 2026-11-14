@@ -1,0 +1,10 @@
+{
+ "scan_date": "2026-11-14",
+ "counts": {
+  "affected_runtime": 4,
+  "affected_dev": 6,
+  "unverified": 0,
+  "compatible": 134
+ },
+ "total": 144
+}
