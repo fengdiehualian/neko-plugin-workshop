@@ -307,7 +307,7 @@ export function buildWishPrompt(wish, mode, askCount = 0, memory = "", userMemor
     profile + [
       "这是一位零基础小白许的愿,请把它做成能通过校验、能实际用的 N.E.K.O. 插件:",
       "1. 模板:reminder=定时提醒 / notes=记录存储 / hello_world=其他;类名=核心功能+Plugin,PLUGIN_ID 用小写下划线英文。",
-      "2. 生成后必须让 wb-plugin verify 全绿(error 清零)再交付,最多 5 轮;遵守 SKILL.md 硬规则 R1–R15。",
+      "2. 生成后必须让 wb-plugin verify 全绿(error 清零)再交付,最多 5 轮;遵守 AGENTS.md 硬规则 R1–R16(动手前先按 references/reuse-before-build.md 查现成)。",
       "3. 默认直接开工:小歧义按最常见理解做,汇报时说明。",
       "4. 只有「关键信息缺失、猜错会大返工」才允许停下来问(分不清提醒还是记录、不知道触发方式、不知道要不要界面)。提问规则:",
       askCount > 0

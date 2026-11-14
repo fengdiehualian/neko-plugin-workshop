@@ -7,7 +7,7 @@ describe("packs registry", () => {
     const neko = packs.find((p) => p.meta.id === "neko-plugin")
     expect(neko).toBeDefined()
     expect(neko!.templates.sort()).toEqual(["hello_world", "notes", "reminder"])
-    expect((neko!.rules.x_hard_rules as string[]).length).toBe(12)
+    expect((neko!.rules.x_hard_rules as string[]).length).toBe(13)
   })
 
   test("hello_world template renders placeholders", async () => {

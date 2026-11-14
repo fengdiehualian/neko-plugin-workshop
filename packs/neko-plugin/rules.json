@@ -34,7 +34,8 @@
     "R9 参数用 Annotated[T, '中文描述'] 或 Pydantic 模型;动态入口必须显式给 input_schema",
     "R10 签名只声明实际消费的参数,可选 **_ 接收额外字段",
     "R11 日志分级使用,禁止记录隐私 payload;长任务用 report_status 报进度",
-    "R12 线程共享状态必须加锁;shutdown 里关闭会话/文件句柄"
+    "R12 线程共享状态必须加锁;shutdown 里关闭会话/文件句柄",
+    "R16 先查现成再自建:新建插件/加新功能先走 references/reuse-before-build.md 四步(三轮市场检索→差距小先上游共建→证明不可复用才自建→方案附检索结论)"
   ],
 
   "x_check_gate": {

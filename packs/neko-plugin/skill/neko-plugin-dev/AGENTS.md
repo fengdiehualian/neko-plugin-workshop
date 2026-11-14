@@ -6,6 +6,7 @@
 
 1. 读 `SKILL.md`(本目录)——完整的 N.E.K.O. 插件规范,写代码前先核对相关章节。
 2. 涉及 UI / Adapter / 示例 / 生命周期 / tool calling 的任务,先读 `references/` 里对应文档再动手;这些文档是唯一事实来源,不要依赖训练记忆里的旧版 SDK。
+2a. 动手前先走 `references/reuse-before-build.md` 四步(三轮检索→能共建不另起→证明不可复用才自建)。
 2b. 动手前必读 `references/market-patterns.md`(127 个在架插件的写法统计);有同类功能时读 `references/market-examples/` 对应范例源码再写——优先复用市场惯用法(llm_tool 双注册 / httpx 异步 / 防重复状态机 / store 持久化)。
 3. `git log --oneline -3` 看最近改动,恢复工作上下文。
 
@@ -13,7 +14,7 @@
 
 ```
 理解想法 → 制定计划(中文,给用户看)
-→ 生成/修改代码(遵守 SKILL.md 硬规则 R1–R12)
+→ 生成/修改代码(遵守 SKILL.md 硬规则与 AGENTS.md R1–R16)
 → 实验:在 N.E.K.O 仓库根跑 `python plugin\neko_plugin_cli\cli.py check <插件目录>`;工作台 wb-plugin scaffold 已自动跑 check+build 并输出 JSON
 → 实验失败 → 读错误 → 最小修复 → 重跑实验
 → 通过 → git commit(消息写清做了什么)→ 向用户用中文汇报结果
@@ -36,9 +37,11 @@
 - R10 `push_message` 只用 v2 字段(source/visibility/ai_behavior/parts)。
 - R11 `@llm_tool` 与 `@plugin_entry` 不混用;响应包 `{"output": ...}`。
 - R12 禁用已移除 API:type=script/extension、[plugin.host]、plugin._types.result、plugin.sdk.extension、Bus where_*、get_message_plane_all、self.memory、push_message v1 字段。
-- R13 SDK 用法只认 `SKILL.md` 与 `references/`;文档里没有的 API/装饰器一律不用,查到等价写法再生成。
+- R13 SDK 用法只认 `SKILL.md` 与 `references/`;文档里没有的 API/装饰器一律不用,查到等价写法再生成。(与官方 main 源码/docs 冲突时,按 `references/reuse-before-build.md` 的权威链处理)
 - R14 所有文件一律 UTF-8(无 BOM);check 报 UnicodeDecodeError/编码类错误时,用写入工具以 UTF-8 重写出问题的文件(优先 plugin.toml),不要重试产生乱码的命令。
 - R15 兼容性三条:①pyproject 的 requires-python 写 ==3.11.*(宿主锁定 3.11);文件 IO 用关键字参数(如 read_text(encoding="utf-8")),不用位置参数。②类名 = 需求名 + Plugin 单后缀(如 NoteKeeperPlugin),禁止出现 XxxPluginPlugin 这类重复后缀;类名必须与 plugin.toml entry 的类名完全一致。③用户可配置的参数(间隔/文案/开关)优先用 PluginSettings 声明式配置(SKILL.md 有骨架),hot 字段支持热更新,不要写死常量。
+
+- R16 先查现成再自建:以 SKILL.md 铁律 10 为准,详见 `references/reuse-before-build.md`。
 
 ## 与用户沟通
 

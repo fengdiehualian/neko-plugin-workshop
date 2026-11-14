@@ -16,8 +16,10 @@ description: N.E.K.O.(猫娘计划)插件开发权威规范。写/改/修任何 
 5. **入口两种,别混淆**:`[plugin].entry` 是宿主加载入口(NekoPluginBase 子类);`greet` 这类运行时入口 ID 来自 `@plugin_entry(id=...)` 或 `register_dynamic_entry(...)`,加载成功后 Agent 才会调用。
 6. **插件在独立进程**里跑,通过 ZMQ IPC 与宿主通信;插件内不做长阻塞同步 IO(会拖死自己的事件循环)。
 7. **CLI 用法(便携/离线环境)**:`python plugin\neko_plugin_cli\cli.py check <插件目录>` 检查;`... build <插件目录> --out <输出.neko-plugin>` 打包。**禁止 `uv run`**(会触发全量依赖重建,数 GB 下载+超时)。依赖放 `vendor/` 或 plugin.toml 声明,CLI 不自动装依赖。
-'8. **check 全绿才能 build**;build 产物 `.neko-plugin` 落在指定 --out 路径。
-9. **已移除 API 黑名单(v0.9 起)**:`type=script`/`type=extension`、`[plugin.host]`、`plugin._types.result`、`plugin.sdk.extension`、Bus `where_*` 查询、`get_message_plane_all`、`self.memory`/MemoryClient、push_message v1 字段(`message_type`/`content`/`delivery`/`reply`/`fast_mode`)——一律禁止使用;push_message 用 v2(parts/visibility/ai_behavior/priority)。'
+8. **check 全绿才能 build**;build 产物 `.neko-plugin` 落在指定 --out 路径。
+9. **已移除 API 黑名单(v0.9 起)**:`type=script`/`type=extension`、`[plugin.host]`、`plugin._types.result`、`plugin.sdk.extension`、Bus `where_*` 查询、`get_message_plane_all`、`self.memory`/MemoryClient、push_message v1 字段(`message_type`/`content`/`delivery`/`reply`/`fast_mode`)——一律禁止使用;push_message 用 v2(parts/visibility/ai_behavior/priority)。
+
+10. **先找现成,再自建**:任何"新建插件/加新功能"任务,先按 `references/reuse-before-build.md` 走完四步(三轮市场检索→差距小先上游共建→证明不可复用才自建→方案附检索结论)。没有检索结论,不许写码。
 
 ## 文档索引(references/,按需读)
 
@@ -41,6 +43,8 @@ description: N.E.K.O.(猫娘计划)插件开发权威规范。写/改/修任何 
 | **`market-patterns.md`** | **市场插件写法统计与惯用法(127 个在架插件分析)——动手前必读** |
 | **`market-catalog.md`** | **社区规范(目录/配置/命名/依赖/接口)+ 127 个在架插件索引——按功能找同类参考** |
 | **`market-examples/`** | **3 个完整市场插件源码:shell_cmd(llm_tool 双注册)/ tavily_search(httpx 联网)/ sys_monitor(定时推送状态机)** |
+| **`reuse-before-build.md`** | **复用优先门禁:三轮检索、上游共建礼仪、市场 API 用法、新鲜度 SOP、权威链——新建任务先读** |
+| `market-compat-v2.md` | 猫爪重写 #3683 全量兼容快照(兼容/受影响/未验证),逐行证据在 `market-corpus/compat-v2/` |
 
 ## 常用骨架(Plugin)
 
@@ -129,8 +133,8 @@ class MyPlugin(NekoPluginBase):
 
 ## 防遗忘强规则(每轮生成代码前自检)
 
-- 本文件与 `references/` 是**唯一事实来源**。文档站(project-neko.online)更新时,由工作台同步到这里;不要依赖训练记忆里的旧版 SDK。
+- 本文件与 `references/` 是**唯一事实来源**;若与 N.E.K.O. main 分支源码/官方 docs 冲突,按 `references/reuse-before-build.md` 的权威链处理。
 - 写任何装饰器/SDK 调用前,若在本文件或 references 里找不到,视为**不存在**,换文档里的等价 API。
 - **动手前先读 `references/market-patterns.md`**(127 个在架插件的真实写法统计):用户一句话能触发的功能必须 `@llm_tool` + `@plugin_entry` 双注册;联网用 httpx 异步+超时;定时提醒必须有防重复状态机;持久化优先 data_path/store。然后翻 `references/market-catalog.md` 按功能找同类插件,直接读其完整源码(全在本机 `<WORKSHOP_DIR>\market-corpus\<slug>\src`,你有全局权限);`references/market-examples/` 里有 3 个精读范例。
-- 生成完整插件后,对照上方铁律 1–8 逐条自检;修他人代码时,先用 `check` 拿到结构化 issues 再动手。
+- 生成完整插件后,对照上方铁律 1–10 逐条自检;修他人代码时,先用 `check` 拿到结构化 issues 再动手。
 - 涉及 UI、Adapter、示例写法时,必须先读对应 reference(`hosted-ui.md` / `advanced.md` / `examples.md`),不要凭印象写。

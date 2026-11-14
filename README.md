@@ -143,3 +143,23 @@ MIT
 
 verify/scaffold 命令行支持 `--python <解释器>`(或环境变量 `WB_PYTHON`)与 `--strict`
 (warning 一律视为失败:NEKO 原生 `-s` + 残余 warning 兜底判负,不过 build)。
+
+
+## 复用门禁与市场兼容快照(2026-11-14 并入)
+
+三方内容合并:复用优先门禁来自 [neko-reuse-before-build](https://github.com/1-dcjiang/neko-reuse-before-build)(MIT),
+兼容扫描口径来自 [N.E.K.O RFC #3683](https://github.com/Project-N-E-K-O/N.E.K.O/issues/3683),
+SDK 事实一律以官方 main 分支源码与其 docs/ 为准(冲突顺序见 `references/reuse-before-build.md` 权威链)。并入内容的许可与署名见 `THIRD_PARTY_NOTICES.md`。
+
+- **R16 先找现成,再自建**:新建插件/加新功能先走 `packs/neko-plugin/skill/neko-plugin-dev/references/reuse-before-build.md`
+  四步(三轮市场检索→差距小先上游共建→证明不可复用才自建→方案附检索结论)。写进 SKILL.md 铁律第 10 条与 AGENTS.md R16。
+- **市场兼容快照 v2**(`market-corpus/compat-v2/`):全量在架插件逐个浅克隆源码做静态扫描,
+  按 severity 标注:现在就坏(#3705 已删面)·将坏(#3714 待删面)·有兜底会降级·仅文档/测试面·待核·兼容·未验证,全量收录不做门禁。ast 解析区分真 import 与注释/docstring,仓库自带同名模块(brain.py)自动排除;草稿只生成给「现在就坏/将坏」,降级与待核不进草稿。
+  重跑三步:`python tools/fetch_market_plugins.py --out plugins_all.json` → `python tools/scan_nekoclaw_compat.py --plugins plugins_all.json --out market-corpus/compat-v2/scan_result.json` → `python tools/gen_compat_report.py --scan market-corpus/compat-v2/scan_result.json`(缓存已存在时扫描器会先 fetch 到最新并记 commit SHA)。
+- **issue 草稿规则**:`market-corpus/compat-v2/issue-drafts/` 只生成草稿。逐条人工核实文件/行号属实后才允许
+  向插件仓库提 issue;禁止批量自动发,误报连发等于骚扰。
+- **新鲜度 SOP**:市场清单 7 天重拉;#3683 每合一个 PR 重跑扫描;market-catalog/market-patterns 的历史样本(127)数字不随在架总数改写。
+- **验证**(本仓库未配 CI,以下命令是本机手跑,不是流水线闸门):`python test/scan_rules.test.py`(扫描规则正反例);`bun test`(引擎与 pack);;新增 `test/rules.test.ts` 会把 py 用例带进 `bun test`,python 缺失时只跳过;
+- **e2e 用例**:`bun test test/reuse-gate.test.mjs`(静态+市场 API 部分);真 agent 行为按 `test/reuse-gate.llm-protocol.md` 手跑并存档。
+  真机侧用 N.E.K.O 仓库根的 `python plugin\neko_plugin_cli\cli.py check <插件目录>` 复核 pack 范例生成物。
+- 本仓库按 MIT 许可发布(LICENSE),并入内容同样按 MIT 处理,来源已在各自文件头注明。
