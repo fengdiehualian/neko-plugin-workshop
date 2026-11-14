@@ -1,6 +1,6 @@
 # 复用优先,最后自建(reuse-before-build)
 
-来源: https://github.com/1-dcjiang/neko-reuse-before-build (MIT)。它有两个形态:宿主里强制拦截的
+来源: © 1-dcjiang, https://github.com/1-dcjiang/neko-reuse-before-build, MIT License(许可全文见该仓库 LICENSE 与本工程 THIRD_PARTY_NOTICES.md)。它有两个形态:宿主里强制拦截的
 N.E.K.O. 运行时插件,和给 agent 看的本流程。本文是后者,规则与前者对齐;运行时版本升级时同步本文。
 
 ## 四步(动代码之前全部走完)
@@ -32,8 +32,7 @@ N.E.K.O. 运行时插件,和给 agent 看的本流程。本文是后者,规则�
 ## 市场检索(可复现)
 
 ```text
-# 全量在架清单(页数以返回的 total_pages 为准)
-python -X utf8 -c "import urllib.request,json;P=[json.load(urllib.request.urlopen('https://market.project-neko.cn/api/v1/plugins?page=%d&page_size=20'%p)) for p in range(1,P_total_pages+1)];items=[x for d in P for x in d['items']];json.dump(items,open('plugins_all.json','w',encoding='utf-8'),ensure_ascii=False)"
+python tools/fetch_market_plugins.py --out plugins_all.json
 # 然后按 name/short_description/tags/description 过滤三轮关键词
 ```
 

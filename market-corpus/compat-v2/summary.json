@@ -1,10 +1,12 @@
 {
  "scan_date": "2026-11-14",
+ "rfc_state": "#3685 merged 2026-11-11; #3692 merged 2026-11-12; #3705 merged 2026-11-14; #3714 open(实时)",
  "counts": {
-  "affected_runtime": 4,
-  "affected_dev": 6,
+  "affected_runtime": 2,
+  "affected_dev": 4,
+  "review": 12,
   "unverified": 0,
-  "compatible": 134
+  "compatible": 126
  },
  "total": 144
 }

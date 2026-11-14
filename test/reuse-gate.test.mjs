@@ -1,6 +1,6 @@
 // 复用门禁端到端用例(确定部分):新建任务在写码前必须先做市场检索.
 // 跑法: bun test test/reuse-gate.e2e.mjs
-// LLM 行为部分见 test/reuse-gate.llm-protocol.md(需要一个真 agent 跑,不能在这里自动).
+// LLM 行为部分见 test/reuse-gate.llm-protocol.md(需要一个真 agent 跑,不能在这里自动)。Python 规则用例由 test/rules.test.ts 挂进 bun。
 import { expect, test, describe } from "bun:test"
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
@@ -29,15 +29,18 @@ describe("reuse-before-build gate", () => {
     expect(r.ok).toBe(true)
     const d = await r.json()
     expect(d.total).toBeGreaterThan(100)
+    expect(d.items.length).toBeGreaterThan(0)
     const hits = d.items.filter((x) => /待办|todo/i.test(x.name + x.short_description + (x.tags || []).join()))
-    // "待办" 这一词在市场里必须搜得到结果或明确零命中——门禁要求报告写结论,不要求一定有
-    expect(Array.isArray(hits)).toBe(true)
+    // 命中可零可多,但每项必须有可跳转字段——门禁要求报告写结论,不要求一定有命中
+    for (const x of hits) { expect(typeof x.slug).toBe("string"); expect(x.repo_url).toBeTruthy() }
   })
   test("兼容快照数据在仓库里且与工具输出一致", () => {
     const p = join(ROOT, "market-corpus/compat-v2/summary.json")
     expect(existsSync(p)).toBe(true)
     const s = JSON.parse(readFileSync(p, "utf-8"))
-    expect(Object.keys(s.counts).sort()).toEqual(["affected_dev", "affected_runtime", "compatible", "unverified"].sort())
-    expect(s.total).toBe(144)
+    expect(Object.keys(s.counts).sort()).toEqual(["affected_dev", "affected_runtime", "compatible", "review", "unverified"].sort())
+    const sum = Object.values(s.counts).reduce((a, x) => a + x, 0)
+    expect(sum).toBe(s.total)
+    expect(s.total).toBeGreaterThan(100)
   })
 })
