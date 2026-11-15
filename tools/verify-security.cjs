@@ -33,7 +33,10 @@ const log = (s) => { lines.push(s); try { process.stdout.write(s + "\n") } catch
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const tok = (dir) => fs.readFileSync(path.join(dir, "runtime", "studio-token.txt"), "utf8").trim()
 async function j(url, opt) {
-  const r = await fetch(url, Object.assign({ signal: AbortSignal.timeout(8000) }, opt || {}))
+  // 关掉 keep-alive 复用:undici 复用被 Bun 关闭的空闲 socket 时,POST 不自动重试 →
+  // 表现为偶发 "fetch failed"(演练里 3a 就这么假红过一次),而服务端其实是好的
+  const h = Object.assign({ connection: "close" }, (opt && opt.headers) || {})
+  const r = await fetch(url, Object.assign({ signal: AbortSignal.timeout(8000) }, opt || {}, { headers: h }))
   let b = null
   try { b = await r.json() } catch {}
   return { status: r.status, b }
@@ -86,10 +89,15 @@ function chk(name, ok, detail) {
     const outStr = String((loser.stdout || "") + (loser.stderr || ""))
     const after = fs.readFileSync(tokFile, "utf8").trim()
     const again = await post(A + "/api/approvals", { id: "ghost", reply: "once" }, before)
-    const note = (outStr.match(/端口 \d+ 已被占用[^\n]{0,40}/) || ["日志里没写占用原因"])[0]
+    const stillUp = await j(A + "/api/health")
+    // 第二条路都算对:预检发现"已在运行"就优雅退出(0),或抢端口失败(EADDRINUSE,1)。
+    // 错的只有一种:它活下来并把 token 文件换掉 → 存活实例的本机工具集体 403。
+    const graceful = /已在运行/.test(outStr)
+    const refused = loser.status !== 0 && /端口 \d+ 已被占用|EADDRINUSE/.test(outStr)
+    const note = graceful ? "预检拦下(已在运行)" : refused ? "端口冲突后退出" : "既没预检也没报占用:退出码=" + loser.status
     chk("2e 二次启动不污染 token(本机工具不会突然 403)",
-      loser.status !== 0 && before === after && again.status === 200,
-      "二次退出码=" + loser.status + " token 被改=" + (before !== after) + " 用文件 token 写接口 HTTP=" + again.status + " | " + note)
+      (graceful || refused) && before === after && again.status === 200 && stillUp.status === 200,
+      "token 被改=" + (before !== after) + " 文件 token 写接口 HTTP=" + again.status + " 实例仍在服务=" + (stillUp.status === 200) + " | " + note)
   }
 
   // ---------- 3) 更新包完整性 + 信任根 ----------

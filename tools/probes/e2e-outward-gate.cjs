@@ -29,7 +29,11 @@ function chk(name, ok, detail) {
 }
 async function j(url, opt) {
   try {
-    const r = await fetch(url, Object.assign({ signal: AbortSignal.timeout(20000) }, opt || {}))
+    // 关掉连接复用:undici 的 keep-alive 池会复用被 Bun 服务端已关闭的空闲 socket,
+    // POST 带 body 时不会被自动重试,现象是"HTTP=0 连接失败"而服务端其实 0.8 秒就答了
+    // (同一接口用 urllib / 浏览器直连均 200,别把它读成向导坏了)
+    const h = Object.assign({ connection: "close" }, (opt && opt.headers) || {})
+    const r = await fetch(url, Object.assign({ signal: AbortSignal.timeout(20000) }, opt || {}, { headers: h }))
     let b = null
     try { b = await r.json() } catch {}
     return { status: r.status, b }
@@ -37,7 +41,7 @@ async function j(url, opt) {
     return { status: 0, b: null, err: String((e && e.message) || e) }
   }
 }
-const post = (p, obj) => j(BASE + p, { method: "POST", headers: { "content-type": "application/json", "x-wb-token": tok() }, body: JSON.stringify(obj) })
+const post = (p, obj, ms) => j(BASE + p, { method: "POST", headers: { "content-type": "application/json", "x-wb-token": tok() }, body: JSON.stringify(obj), signal: AbortSignal.timeout(ms || 20000) })
 
 function relaunch() {
   const rs = spawn(NODE, [path.join(__dirname, "restart-instance.cjs"), DIR, String(PORT), String(ENGINE_PORT)],
@@ -81,8 +85,15 @@ async function waitUp(sec) {
   await sleep(3000)
 
   // 2) 写 API 配置:writeProvider 会生成 permission 块
-  const set = await post("/api/setup", { baseURL: "http://127.0.0.1:" + MOCK_PORT + "/v1", apiKey: "mock-key", model: "mock-model", protocol: "openai" })
-  chk("2a 配置写入成功", set.status === 200 && set.b && set.b.ok === true, JSON.stringify(set.b))
+  //    /api/setup 会顺带重启引擎(本机实测 25~40 秒),所以这里给 120 秒;
+  //    旧预算 20 秒会稳定误报「配置写入失败」,而其实配置和引擎都正常(2b 之后全过)。
+  let set = await post("/api/setup", { baseURL: "http://127.0.0.1:" + MOCK_PORT + "/v1", apiKey: "mock-key", model: "mock-model", protocol: "openai" }, 120000)
+  if (set.status === 0) {
+    // 连接层偶发(引擎正在后台重启时也会掐断一次在途请求):重试一次,仍失败才算问题
+    await sleep(4000)
+    set = await post("/api/setup", { baseURL: "http://127.0.0.1:" + MOCK_PORT + "/v1", apiKey: "mock-key", model: "mock-model", protocol: "openai" }, 120000)
+  }
+  chk("2a 配置写入成功", set.status === 200 && set.b && set.b.ok === true, "HTTP=" + set.status + " " + JSON.stringify(set.b))
   const cfgFile = path.join(DIR, "runtime", "config", "opencode", "opencode.json")
   let cfg = {}
   try { cfg = JSON.parse(fs.readFileSync(cfgFile, "utf8")) } catch {}
