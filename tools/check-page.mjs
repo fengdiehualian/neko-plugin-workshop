@@ -190,6 +190,15 @@ await evalJs(`(() => {
     const url = typeof u === 'string' ? u : (u && u.url) || '';
     const method = (o.method || 'GET').toUpperCase();
     window.__calls.push({ url, method, body: o.body });   // 全量记录,便于断言"点一下有没有发请求"
+    // 手动压缩的判据用「这次点击自己的响应」:比查 /api/sessions 精确
+    // (页面里的 curSession 与服务端 sessions.current 未必是同一个,查错会话会稳定误报)
+    if (url.includes('/compact') && method === 'POST') {
+      const pr = real(u, o);
+      pr.then((r) => { try { return r.clone().json() } catch { return null } })
+        .then((j) => { window.__lastCompact = { at: Date.now(), url, json: j } })
+        .catch((e) => { window.__lastCompact = { at: Date.now(), url, error: String(e && e.message || e) } });
+      return pr;
+    }
     if (url.includes('/api/task') && method === 'POST') {
       return Promise.resolve(new Response(JSON.stringify({
         ok: true, reply: window.__mockReply, thinking: '想一下', modifiedFiles: window.__mockFiles.slice(), artifacts: [],
@@ -604,12 +613,32 @@ result = await evalJs(`(async () => {
     const cb2 = $('#compactSide');
     if (cb2) {
       const n0 = calls().filter((c) => c.url.includes('/compact')).length;
+      // 必须清空上一次点击的响应:这一项在套件里会跑第二次(重复压缩),
+      // 不清就会拿上一轮的 ok=true 蒙过本轮,变成假通过
+      window.__lastCompact = null;
       cb2.click();
       const sent = await wbWait(() => calls().filter((c) => c.url.includes('/compact')).length > n0, 3000);
-      // 等按钮文案从「压缩中…」变成结果(✅/⚠️),再断言反馈
-      const fb = await wbWait(() => (cb2.textContent || '').indexOf('✅') >= 0 || (cb2.textContent || '').indexOf('⚠️') >= 0, 4000);
-      sent && fb ? pass('左下角 手动压缩当前会话', cb2.textContent.trim().slice(0, 26))
-        : fail('左下角 手动压缩当前会话', 'sent=' + sent + ' 反馈=' + cb2.textContent.trim().slice(0, 26));
+      // 按钮文案 2.8s 后会自动复位,拿它当唯一判据就是随机失败(实测偶发「卡在压缩中…」)。
+      // 判据用这次点击的**响应**:压缩是异步的,而且页面 curSession 与服务端 current 未必同一个,
+      // 事后去查 /api/sessions 会因认不出「该看哪条会话」而稳定误报(踩过两次)。
+      let done = false, how = ""
+      for (let i = 0; i < 40; i++) {
+        const lc = window.__lastCompact
+        if (lc && lc.json) {
+          done = lc.json.ok === true
+          how = done
+            ? ("服务端返回 ok,摘要 " + (lc.json.compact ? lc.json.compact.before + "→" + lc.json.compact.after : "无需压缩"))
+            : ("服务端返回失败:" + String(lc.json.error || "?").slice(0, 60))
+          break
+        }
+        if (lc && lc.error) { how = "响应读不出:" + lc.error.slice(0, 60); break }
+        await sleep(200)
+      }
+      if (!how) how = "8s 内没拿到 /compact 的响应"
+      // 文案作为辅助证据:能抓到结果态更好,抓不到不影响判定
+      const fb = await wbWait(() => /✅|⚠️|已压缩|不用压缩/.test(cb2.textContent || ""), 1200)
+      sent && done ? pass('左下角 手动压缩当前会话', how + (fb ? " + 文案反馈" : "(文案已复位,不影响判定)"))
+        : fail('左下角 手动压缩当前会话', 'sent=' + sent + ' ' + how + ' 文案=' + (cb2.textContent || '').trim().slice(0, 26));
       const inSide = !!cb2.closest('#side');
       inSide ? pass('压缩按钮位于侧栏底部') : fail('压缩按钮位于侧栏底部', '不在 #side 内');
     } else fail('左下角 手动压缩当前会话', '找不到 #compactSide');
