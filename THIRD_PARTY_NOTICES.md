@@ -269,17 +269,54 @@
 `_engine`(OpenCode 编译版)、`_bin`、`_py`、`_site` 自 v1.2.26 起**从不进安装包**,故不在分发清单内;
 官方安装器事实上只支持覆盖升级。
 
-## 4. 本仓库生成物
+## 4. 随包分发的第三方 skill 正典:`references/rbb/`
 
-工坊生成的插件脚手架(`packs/neko-plugin/templates/**`)与官方文档快照
-(`packs/neko-plugin/skill/neko-plugin-dev/references/**`)按本仓库 MIT 许可分发;
-其中 references 下的官方文档属于 N.E.K.O. 项目文档,由工作台同步而来,
-引用时以文档站为准(见 `SKILL.md` 的「唯一事实来源」条目)。
+「先复用,再新建」(reuse-before-build)是**第三方上游 skill**,以逐字副本随包分发,不是本仓库产物。
+下表哈希为**生成时现算**,与 `UPSTREAM_PIN.json` 逐条比对;不一致就拒绝出具本声明(不许把不符的事实写进法务文档)。
+
+- 上游仓库:https://github.com/1-dcjiang/neko-reuse-before-build
+- 引用点:tag `v0.3.20` / commit `8388e27b1af2595abff780d707e560c9a3f0c7ec`
+- 许可:MIT(全文见 UPSTREAM_LICENSE;上游包内 SKILL.md 亦声明);版权行:Copyright (c) 2026 1-dcjiang
+- 不变块正典 SHA-256:fa0f991fbfd236d860a2c401aff6f104f994e97d2b1fa100c23eee9d046fbc93(由上游自带 `scripts/verify_localized.py` 钉住)
+- 本仓库另存一份**本地化副本** `references/reuse-before-build.neko.md`:上游中文整段逐字 + 工坊落位附录 + `localized:` 声明;对上游条款只收窄不放宽,与正典并存,**不替换正典**。
+
+| 文件 | 字节 | SHA-256(现算) |
+|---|---|---|
+| `references/rbb/SKILL.md` | 18470 | `87a4994cd33a5475a1ca594dfa180bdf7a9a50106ce48a73ffe328c2da7fbc6c` |
+| `references/rbb/localization.contract.json` | 4501 | `591d613fbab94eefea8282b69d1e8055288149ab78d701878b2a4d8576ed2251` |
+| `references/rbb/prompt-digests.json` | 2170 | `8dd41472d189faa0a44de96a5f887050711f6919dc3e5413239a2925e0ee4e82` |
+| `references/rbb/references/contribution-protocol.md` | 6759 | `9a1ede9f3ea9f1bbb38cd51ffbc5748ca86eb3a63baf49c16b3f121b9831a2c6` |
+| `references/rbb/references/discovery-playbook.md` | 5190 | `277a12de685f32cc6def95242de46823a6101f2ee6926a67955345836eb4ba01` |
+| `references/rbb/references/host-adapters.md` | 17016 | `bbe747ad4871cba6c90bb3c6ab4553c661a6d9db7da0e68996bc7c961727dda9` |
+| `references/rbb/references/integration-seam.md` | 3609 | `58f6114dd6dd2b6e7b600fffde4b282ee5ec0a494baf6076ea89d84c83a75ec6` |
+| `references/rbb/references/repo-triage.md` | 8199 | `273d0e78b45551db9aeb8ac8e265591ba23bb66e07029f5485bf9cd1b1228b52` |
+| `references/rbb/references/worked-examples.md` | 5344 | `ccd01b20fca10d95d187c547c7dbb8549da924e064401a678d95f5a72b0cde4d` |
+| `references/rbb/references/zh-guide.md` | 15537 | `b7476d9e6ed15a7ac2fdf86f7cfa9cc00e1acabcf665d5cb731369a0da0745ab` |
+| `references/rbb/scripts/gh_helpers.py` | 7782 | `61752e17261ab7750426cb8f53ca88ab8feab68deefe5b82d1f4c3d3f7f773a5` |
+| `references/rbb/scripts/prompt_digest.py` | 13034 | `b3b04f9bed4c7a43e506cf82c9a46267db14d348e57601ee92c4f7c60c7e779f` |
+| `references/rbb/scripts/redaction.py` | 2458 | `292e39c96c542af8df016e60164c4daa45432db035c2585b7ab35aa84d379423` |
+| `references/rbb/scripts/repo_scan.py` | 16805 | `d60854b22f356bd5d1e32d1b41f7b36f5c91b092a7ecfcff240a79c07052d405` |
+| `references/rbb/scripts/verify_localized.py` | 28575 | `83e3725250989d97cc7abb4fbc2bd3ad7bdb5e9f7bf4355a8d2b9d14d2da05c9` |
+| `references/rbb/tests/test_skill_pack.py` | 23201 | `6dbf3b813ce87c8773ae7a36ae8c9a67649b3c210207652367cba4acd41a874e` |
+| `references/rbb/UPSTREAM_LICENSE` | 1066 | `c8cb364d2c69548eff7029d07b21f3b7c1e05a45fb22d7cff6912593b165c841` |
+
+离线校验三条,都要 0:`node workbench/vendor_rbb.cjs --check`;
+`python -I -P references/rbb/scripts/verify_localized.py references/rbb/SKILL.md --canonical`;
+`python -I -P references/rbb/scripts/verify_localized.py references/reuse-before-build.neko.md`(副本**不许**加 `--canonical`,加了会被拒)。
+
+## 5. 本仓库生成物
+
+工坊生成的插件脚手架(`packs/neko-plugin/templates/**`)与本仓库自写的官方文档快照
+(`packs/neko-plugin/skill/neko-plugin-dev/references/**`,**不含上节的第三方正典 `references/rbb/**` 与据其派生的本地化副本**)按本仓库 MIT 许可分发。
+references 下的官方文档属于 N.E.K.O. 项目文档,由工作台同步而来,引用时以文档站为准(见 `SKILL.md` 的「唯一事实来源」条目)。
+
+`references/rbb/**` 与 `reuse-before-build.neko.md` 的版权归上游,按上游 MIT(第 4 节)分发——
+**把它们当本仓库 MIT 产物是错的**;此前评审指出过这类口径混淆(issue #8/#13),这里按实测逐条列明。
 
 **不存在的说法**:本文件不声称「forge / 其他仓库反向引用本工程」,也不声称市场语料「改写自」本仓库任何代码——
 此前评审意见指出这类表述与事实不符(issue #8),现在明细以上面第 2 节的实测判定为准。
 
-## 5. 本仓库的 MIT 全文
+## 6. 本仓库的 MIT 全文
 
 ```
 MIT License

@@ -31,6 +31,10 @@ $must = @(
   "wb-studio.mjs", "wb-agent-lib.mjs", "package.json", "start.cmd",
   "_zcode/node.exe", "_zcode/zcode.cjs", "_zcode/provider/zcode-builtin.json",
   "packs/neko-plugin/rules.json",
+  "packs/neko-plugin/skill/neko-plugin-dev/references/rbb/SKILL.md",
+  "packs/neko-plugin/skill/neko-plugin-dev/references/rbb/localization.contract.json",
+  "packs/neko-plugin/skill/neko-plugin-dev/references/rbb/scripts/verify_localized.py",
+  "packs/neko-plugin/skill/neko-plugin-dev/references/reuse-before-build.neko.md",
   "experts/neko-plugin-ops/.codebuddy-plugin/plugin.json"
 )
 $miss = @()

@@ -863,5 +863,100 @@
    "file": "",
    "field": ""
   }
- ]
+ ],
+ "vendored": {
+  "upstream": "https://github.com/1-dcjiang/neko-reuse-before-build",
+  "ref": "v0.3.20",
+  "commit": "8388e27b1af2595abff780d707e560c9a3f0c7ec",
+  "license": "MIT(全文见 UPSTREAM_LICENSE;上游包内 SKILL.md 亦声明)",
+  "invariant_block_sha256": "fa0f991fbfd236d860a2c401aff6f104f994e97d2b1fa100c23eee9d046fbc93",
+  "localized_copy": "packs/neko-plugin/skill/neko-plugin-dev/references/reuse-before-build.neko.md",
+  "files": [
+   {
+    "path": "SKILL.md",
+    "bytes": 18470,
+    "sha256": "87a4994cd33a5475a1ca594dfa180bdf7a9a50106ce48a73ffe328c2da7fbc6c"
+   },
+   {
+    "path": "localization.contract.json",
+    "bytes": 4501,
+    "sha256": "591d613fbab94eefea8282b69d1e8055288149ab78d701878b2a4d8576ed2251"
+   },
+   {
+    "path": "prompt-digests.json",
+    "bytes": 2170,
+    "sha256": "8dd41472d189faa0a44de96a5f887050711f6919dc3e5413239a2925e0ee4e82"
+   },
+   {
+    "path": "references/contribution-protocol.md",
+    "bytes": 6759,
+    "sha256": "9a1ede9f3ea9f1bbb38cd51ffbc5748ca86eb3a63baf49c16b3f121b9831a2c6"
+   },
+   {
+    "path": "references/discovery-playbook.md",
+    "bytes": 5190,
+    "sha256": "277a12de685f32cc6def95242de46823a6101f2ee6926a67955345836eb4ba01"
+   },
+   {
+    "path": "references/host-adapters.md",
+    "bytes": 17016,
+    "sha256": "bbe747ad4871cba6c90bb3c6ab4553c661a6d9db7da0e68996bc7c961727dda9"
+   },
+   {
+    "path": "references/integration-seam.md",
+    "bytes": 3609,
+    "sha256": "58f6114dd6dd2b6e7b600fffde4b282ee5ec0a494baf6076ea89d84c83a75ec6"
+   },
+   {
+    "path": "references/repo-triage.md",
+    "bytes": 8199,
+    "sha256": "273d0e78b45551db9aeb8ac8e265591ba23bb66e07029f5485bf9cd1b1228b52"
+   },
+   {
+    "path": "references/worked-examples.md",
+    "bytes": 5344,
+    "sha256": "ccd01b20fca10d95d187c547c7dbb8549da924e064401a678d95f5a72b0cde4d"
+   },
+   {
+    "path": "references/zh-guide.md",
+    "bytes": 15537,
+    "sha256": "b7476d9e6ed15a7ac2fdf86f7cfa9cc00e1acabcf665d5cb731369a0da0745ab"
+   },
+   {
+    "path": "scripts/gh_helpers.py",
+    "bytes": 7782,
+    "sha256": "61752e17261ab7750426cb8f53ca88ab8feab68deefe5b82d1f4c3d3f7f773a5"
+   },
+   {
+    "path": "scripts/prompt_digest.py",
+    "bytes": 13034,
+    "sha256": "b3b04f9bed4c7a43e506cf82c9a46267db14d348e57601ee92c4f7c60c7e779f"
+   },
+   {
+    "path": "scripts/redaction.py",
+    "bytes": 2458,
+    "sha256": "292e39c96c542af8df016e60164c4daa45432db035c2585b7ab35aa84d379423"
+   },
+   {
+    "path": "scripts/repo_scan.py",
+    "bytes": 16805,
+    "sha256": "d60854b22f356bd5d1e32d1b41f7b36f5c91b092a7ecfcff240a79c07052d405"
+   },
+   {
+    "path": "scripts/verify_localized.py",
+    "bytes": 28575,
+    "sha256": "83e3725250989d97cc7abb4fbc2bd3ad7bdb5e9f7bf4355a8d2b9d14d2da05c9"
+   },
+   {
+    "path": "tests/test_skill_pack.py",
+    "bytes": 23201,
+    "sha256": "6dbf3b813ce87c8773ae7a36ae8c9a67649b3c210207652367cba4acd41a874e"
+   },
+   {
+    "path": "UPSTREAM_LICENSE",
+    "bytes": 1066,
+    "sha256": "c8cb364d2c69548eff7029d07b21f3b7c1e05a45fb22d7cff6912593b165c841"
+   }
+  ]
+ }
 }
