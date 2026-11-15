@@ -116,18 +116,24 @@ def main():
         if assets:
             sz = assets[0].get("size", 0)
             fails += line("资产体积", sz == local_size if local_size else True, "%s 字节%s" % (format(sz, ","), "" if local_size else "(本地无 exe 可比)"))
-            # 正文里的哈希只是自我声明;真要看渠道有没有被换包,得把资产本身下回来算
+            # 正文里的哈希只是自我声明;真要看渠道有没有被换包,得把资产本身下回来算。
+            # 但 GitHub 的 CDN 在有些网络里就是够不着(v1.2.65 发布当晚两次超时,而推送阶段也连断 3 次):
+            # 够不着时退一步用**接口自带的 digest**(GitHub 对已存储字节算的 SHA-256)印证,
+            # 并明确标注这是元数据级证据,不是逐字节回读 —— 既不假装通过,也不把网络问题报成"包被换"。
             if not a.no_asset:
-                dig = str(assets[0].get("digest") or "")
+                dig = str(assets[0].get("digest") or "").lower()
                 gh_sha, gh_n, herr = hash_url(assets[0].get("browser_download_url") or "")
-                if herr or gh_n == 0:
-                    print("  ✗ 资产下载核对      %s" % herr)
-                    fails += 1
-                else:
+                if not herr and gh_n:
                     ok = (gh_n == local_size if local_size else True) and (not local_sha or gh_sha == local_sha)
                     fails += line("资产本体 SHA256", ok and bool(local_sha),
                                   "下回 %s 字节 %s…%s" % (format(gh_n, ","), gh_sha[:16],
                                                           "" if not dig else "(接口 digest=%s)" % dig[:22]))
+                else:
+                    want = "sha256:" + (local_sha or "").lower()
+                    has = dig.startswith("sha256:")
+                    print("  · 资产下载核对      够不着(%s)→ 改用接口 digest 印证,属元数据级证据" % herr)
+                    fails += line("资产接口 digest", has and bool(want != "sha256:") and dig == want,
+                                  "接口 %s / 本地 %s" % (dig[:22] or "(无 digest)", (local_sha or "?")[:22] + "…"))
         body = j.get("body") or ""
         m = re.search(r"SHA256:`([0-9a-fA-F]{64})`", body)
         if local_sha:
