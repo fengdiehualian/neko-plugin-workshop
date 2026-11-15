@@ -20,7 +20,7 @@ import { join, dirname, basename, normalize, resolve, relative, isAbsolute } fro
 import { spawn, spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
-import { driveAgent, driveAgentCli, driveZcode, planModelRetry, formatUserMemory, buildWishPrompt, formatExpertBlock, expectedSha256, verifyUpdateIntegrity, isLocalUpdateFeed } from "./wb-agent-lib.mjs"
+import { driveAgent, driveAgentCli, driveZcode, planModelRetry, formatUserMemory, buildWishPrompt, formatExpertBlock, expectedSha256, verifyUpdateIntegrity, isLocalUpdateFeed, enginePermissionConfig, cmpVersion, planUpdateTarget, verifyUpdateManifest, UPDATE_TRUST } from "./wb-agent-lib.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -579,8 +579,11 @@ function writeProvider({ baseURL, apiKey, modelID, protocol }) {
     $schema: "https://opencode.ai/config.json",
     model: `custom/${modelID}`,
     autoupdate: false,
-    // Agent 作用范围=全局:任意目录的读写/命令/网络都放行(不弹权限确认,无人值守必需)
-    permission: { edit: "allow", bash: "allow", webfetch: "allow" },
+    // Agent 作用范围=全局:任意目录的读写/网络都放行(不弹权限确认,无人值守必需)。
+    // bash 不能整段 allow:引擎会把它展开成 {"*":"allow"},于是命令根本不发出 permission.asked,
+    // 工坊侧的「外发写须确认」就永远不会触发(issue #10)。这里改成按模式细分,
+    // 规则与运行时判定同表生成,只读形态再放回 allow。
+    permission: enginePermissionConfig(),
     provider: {
       custom: {
         npm: proto.npm,
@@ -3504,6 +3507,9 @@ const updateState = {
   expectedSha: "", // 发布说明里声明的 SHA256(下载前就能拿到)
   actualSha: "", // 本地对下载文件实算的 SHA256
   verified: false, // 校验通过才允许 scheduleApply
+  trustSha: "", // 已验签清单里的 SHA256(issue #12:这才是优先依据)
+  trustRoot: "", // manifest | agreement | ""
+  blockReason: "", // 信任根不足时的人工可读原因(自动更新会被挡在这里)
 }
 let updateTimer = null
 let updateRunning = false
@@ -4224,15 +4230,7 @@ const srv = createServer(async (req, res) => {
     // ---------- 严格校验开关 ----------
 // ---------- 内置更新:检查 → 下载(GitHub 优先,码云兜底) → 安装 ----------
 
-function cmpVersion(a, b) {
-  const pa = String(a).replace(/^v/i, "").split(/[.+-]/).map((x) => parseInt(x, 10) || 0)
-  const pb = String(b).replace(/^v/i, "").split(/[.+-]/).map((x) => parseInt(x, 10) || 0)
-  for (let i = 0; i < 3; i++) {
-    const d = (pa[i] || 0) - (pb[i] || 0)
-    if (d) return d > 0 ? 1 : -1
-  }
-  return 0
-}
+// cmpVersion 改用 wb-agent-lib 里那一份(以前 studio 和 plan 各算各的,版本比较语义会漂)
 
 function updSnapshot() {
   return {
@@ -4252,6 +4250,9 @@ function updSnapshot() {
     expectedSha: updateState.expectedSha,
     actualSha: updateState.actualSha,
     verified: updateState.verified,
+    trustSha: updateState.trustSha,
+    trustRoot: updateState.trustRoot,
+    blockReason: updateState.blockReason,
     checkedAt: updateState.checkedAt,
     hasUpdate: !!updateState.latest && cmpVersion(updateState.latest, updateState.current) > 0,
   }
@@ -4279,7 +4280,7 @@ async function fetchJSON(url, timeoutMs = 6000) {
   throw lastErr || new Error("fetch failed")
 }
 
-// 返回 [{source:'github'|'gitee'|'feed', version, notes, assets:[{name,url,size}]}]
+// 返回 [{source, version, notes, assets:[{name,url,size,digest}], manifestUrl}]
 async function resolveReleaseSources() {
   const out = []
   // 开发者/离线测试:WB_UPDATE_FEED 指向一个本地 JSON(不暴露给 UI)。
@@ -4292,7 +4293,15 @@ async function resolveReleaseSources() {
     } else {
       try {
         const j = await fetchJSON(feed)
-        out.push({ source: "feed", version: String(j.version || "").replace(/^v/i, ""), notes: j.notes || "", assets: j.assets || [] })
+        // 本机演练源可以内联一份已签好的清单(manifest 字段),这样能连着验签逻辑一起测
+        out.push({
+          source: "feed",
+          version: String(j.version || "").replace(/^v/i, ""),
+          notes: j.notes || "",
+          assets: (j.assets || []).map((a) => ({ ...a, digest: a.digest || a.sha256 || "" })),
+          manifestUrl: j.manifestUrl || "",
+          manifest: j.manifest || null,
+        })
       } catch (e) {
         console.warn("[wb-studio] 更新测试源不可用:", e.message)
       }
@@ -4303,30 +4312,65 @@ async function resolveReleaseSources() {
     // 优先用绿色包 zip(解压即更新),没有 zip 再用自解压 exe
     const zip = (j.assets || []).find((a) => /\.zip$/i.test(a.name) && /payload|setup|workshop/i.test(a.name))
     const asset = zip || (j.assets || []).find((a) => /\.exe$/i.test(a.name))
+    const man = (j.assets || []).find((a) => a.name === UPDATE_TRUST.manifestAsset)
     if (asset && j.tag_name) {
-      out.push({ source: "github", version: String(j.tag_name).replace(/^v/i, ""), notes: j.body || "", assets: [{ name: asset.name, url: asset.browser_download_url, size: asset.size }] })
+      out.push({
+        source: "github",
+        version: String(j.tag_name).replace(/^v/i, ""),
+        notes: j.body || "",
+        // digest 是 GitHub 自己给资产的摘要;以前被丢掉了,于是 expectedSha256 里那条分支是死代码
+        assets: [{ name: asset.name, url: asset.browser_download_url, size: asset.size, digest: asset.digest || "" }],
+        manifestUrl: man ? man.browser_download_url : "",
+      })
     }
   } catch (e) {
     console.warn("[wb-studio] GitHub 版本检查失败:", e.message)
   }
   try {
     const j = await fetchJSON(`https://gitee.com/api/v5/repos/${GITEE_REPO}/releases/latest`)
-    const assets = (j.assets || []).filter((a) => /\.(zip|exe|part\d+)$/i.test(a.name))
+    const all = j.assets || j.attach_files || []
+    const assets = all.filter((a) => /\.(zip|exe|part\d+)$/i.test(a.name))
     const parts = assets.filter((a) => /\.part\d+$/i.test(a.name)).sort((x, y) => Number(x.name.match(/part(\d+)/)[1]) - Number(y.name.match(/part(\d+)/)[1]))
     const single = assets.find((a) => /\.zip$/i.test(a.name) && /payload|setup|workshop/i.test(a.name)) || assets.find((a) => /\.exe$/i.test(a.name))
     const list = single ? [single] : parts
+    const man = all.find((a) => a.name === UPDATE_TRUST.manifestAsset)
     if (list.length && j.tag_name) {
       out.push({
         source: "gitee",
         version: String(j.tag_name).replace(/^v/i, ""),
         notes: j.body || "",
-        assets: list.map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size })),
+        assets: list.map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size, digest: a.digest || "" })),
+        manifestUrl: man ? man.browser_download_url || man.url || "" : "",
       })
     }
   } catch (e) {
     console.warn("[wb-studio] 码云版本检查失败:", e.message)
   }
   return out
+}
+
+// 取「已验签」清单里的 SHA256:渠道自己正文里写的哈希不算信任根(issue #12),
+// 只有内置公钥验过的清单才算。任何渠道给出合法签名都可用,验不过就当没有。
+async function signedManifestSha(sources, version) {
+  const cands = (sources || []).filter((s) => s && cmpVersion(s.version, version) === 0 && (s.manifestUrl || s.manifest))
+  for (const s of cands) {
+    try {
+      const doc = s.manifest || (await fetchJSON(s.manifestUrl))
+      const r = verifyUpdateManifest(doc)
+      if (r.ok) {
+        if (String(r.manifest.asset || "") && !s.assets.some((a) => a.name === r.manifest.asset)) {
+          console.warn("[wb-studio] 清单里的资产名与实际资产对不上,忽略这份清单:", r.manifest.asset)
+          continue
+        }
+        console.log("[wb-studio] 已验签的更新清单:", s.source, r.manifest.version, r.manifest.sha256.slice(0, 12) + "…")
+        return r.manifest.sha256
+      }
+      console.warn("[wb-studio] 清单验签未通过(" + s.source + "):" + r.reason)
+    } catch (e) {
+      console.warn("[wb-studio] 取更新清单失败(" + s.source + "):", String((e && e.message) || e).slice(0, 120))
+    }
+  }
+  return ""
 }
 
 async function checkUpdate() {
@@ -4344,11 +4388,19 @@ async function checkUpdate() {
     ])
     updateState.checkedAt = Date.now()
     if (!list.length) throw new Error("GitHub 与码云都没取到版本信息(检查网络或加速器)")
-    const best = list.reduce((a, b) => (cmpVersion(b.version, a.version) > 0 ? b : a))
-    updateState.latest = best.version
+    const top = list.map((s) => s.version).sort((a, b) => cmpVersion(b, a))[0]
+    // 信任根:先问「有没有一份内置公钥验得过的清单」,再看渠道之间是否互相印证
+    const signedSha = await signedManifestSha(list, top)
+    const plan = planUpdateTarget(list, signedSha)
+    const best = list.find((s) => cmpVersion(s.version, plan.version) === 0) || list[0]
+    updateState.latest = plan.version || best.version
     updateState.source = best.source
     updateState.notes = String(best.notes || "").slice(0, 1500)
     updateState.sources = list
+    updateState.trustSha = plan.ok ? String(plan.sha || "") : ""
+    updateState.trustRoot = plan.trustRoot || ""
+    updateState.blockReason = plan.ok ? "" : plan.reason
+    if (!plan.ok) console.warn("[wb-studio] 自动更新被信任根挡住:" + plan.reason)
     updateState.phase = "idle"
     return updSnapshot()
   } catch (e) {
@@ -4467,7 +4519,8 @@ async function downloadFrom(src) {
   updateState.source = src.source
   updateState.phase = "downloading"
   updateState.verified = false
-  updateState.expectedSha = expectedSha256(src)
+  // 依据优先级:已验签清单(#12 的信任根)> 资产 digest > 发布正文声明
+  updateState.expectedSha = updateState.trustSha || expectedSha256(src)
   updateState.actualSha = ""
   updateState.received = 0
   updateState.percent = 0
@@ -4576,6 +4629,13 @@ async function runUpdate() {
   console.log("[wb-studio] 开始更新:current=" + updateState.current + " latest=" + updateState.latest + " sources=" + updateState.sources.map((x) => x.source).join(","))
   if (cmpVersion(updateState.latest, updateState.current) <= 0) {
     updateState.phase = "done"
+    return updSnapshot()
+  }
+  // 信任根不足(issue #12):单渠道自说自话、或各渠道哈希互相矛盾时,不做任何下载/安装动作
+  if (updateState.blockReason) {
+    updateState.phase = "error"
+    updateState.error = updateState.blockReason
+    console.warn("[wb-studio] 更新被拒绝:" + updateState.blockReason)
     return updSnapshot()
   }
   updateState.startedAt = Date.now()

@@ -1,0 +1,33 @@
+{
+  "$comment": "随包 ZCode 底座的来源与完整性清单。build_payload.py 打包时逐项比对哈希,对不上就拒绝出包。",
+  "source": {
+    "runtime": "Node.js 官方发行版(改名随包):v24.14.0",
+    "agent": "ZCode CLI bundle(zcode.cjs),版本:0.13.3",
+    "provider": "工坊内置 provider 清单(本仓库生成)",
+    "obtained": "随官方安装包/构建注入,不落 git(仓库里 _zcode/ 被 .gitignore 忽略)"
+  },
+  "license": "Node.js: MIT;ZCode CLI: 随其官方许可(第三方),详见 THIRD_PARTY_NOTICES.md",
+  "nodeVersion": "v24.14.0",
+  "agentVersion": "0.13.3",
+  "files": [
+    {
+      "path": "node.exe",
+      "role": "runtime",
+      "size": 91380224,
+      "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+    },
+    {
+      "path": "zcode.cjs",
+      "role": "agent",
+      "size": 11416833,
+      "sha256": "da61b0663336a65f7cce3dec223678794ccaa58158e304fc0d97b695434a8f01"
+    },
+    {
+      "path": "provider/zcode-builtin.json",
+      "role": "provider",
+      "size": 105183,
+      "sha256": "0e32ca6e3ec0b538252a5d68c3e621d78b25caf98d55435a0c3f4e5d3abd365b"
+    }
+  ],
+  "generatedAt": "2026-11-15"
+}

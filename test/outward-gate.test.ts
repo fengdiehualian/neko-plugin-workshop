@@ -1,22 +1,78 @@
 import { describe, expect, test } from "bun:test"
-import { detectOutwardWrite, classifyPermission, classifyQuestionReply } from "../wb-agent-lib.mjs"
+import { detectOutwardWrite, classifyPermission, classifyQuestionReply, enginePermissionConfig } from "../wb-agent-lib.mjs"
 
-// 对应 GitHub issue #9:往仓库外写的动作不能由程序替用户点头
+// 对应 GitHub issue #9/#10:外发写既要在事件侧被认出来,也要在引擎侧真的会被拦下来问
 const ow = (text) => detectOutwardWrite({ patterns: [text] })
+
+describe("绕过写法也要命中(issue #10:黑名单正则曾被全局选项绕过)", () => {
+  test("git 全局选项变体", () => {
+    for (const t of [
+      "git push origin main",
+      "git -C /repo push origin main",
+      "git -c user.name=x push",
+      "git --git-dir=/repo/.git push",
+      "git --no-pager push -u origin HEAD",
+      "cd /repo && git push",
+      "git -C repo push --force-with-lease",
+    ]) expect(ow(t).outward, t).toBe(true)
+  })
+  test("gh 带 --repo/-R 的变体", () => {
+    for (const t of [
+      "gh issue create --title 反馈",
+      "gh --repo owner/x issue create --title 反馈",
+      "gh -R owner/x pr create --base main",
+      "gh api repos/x/y/issues -X POST",
+      "cd repo && gh release create v1.0.0",
+    ]) expect(ow(t).outward, t).toBe(true)
+  })
+  test("内联脚本往外发 POST", () => {
+    for (const t of [
+      'python -c "import requests;requests.post(\'https://hook.example.com/x\')"',
+      'node -e "fetch(\'https://api.example.com/x\',{method:\'POST\'})"',
+      'pwsh -Command "Invoke-RestMethod -Uri https://api.example.com/x -Method Post"',
+    ]) expect(ow(t).outward, t).toBe(true)
+  })
+  test("只读与本机自检仍然放行", () => {
+    for (const t of [
+      "git status", "git log --oneline", "git diff", "git commit -m x", "git -C repo status",
+      "gh issue list", "gh pr view 4", "gh -R owner/x pr list", "gh run watch 12",
+      "curl -s https://api.github.com/repos/x/y/releases/latest",
+      "curl -X POST http://127.0.0.1:5199/api/ui",
+      "git clone https://github.com/x/y.git",
+      "python tools/static_check.py",
+    ]) expect(ow(t).outward, t).toBe(false)
+  })
+})
+
+describe("引擎权限配置与判定同源(issue #10:整段 allow 会让 permission.asked 永不发出)", () => {
+  const cfg = enginePermissionConfig()
+  test("bash 是模式表而不是整段 allow,通配仍为 allow", () => {
+    expect(typeof cfg.bash).toBe("object")
+    expect(cfg.bash["*"]).toBe("allow")
+  })
+  test("外发写形态被设成 ask", () => {
+    for (const k of ["git push*", "*git push*", "git -C * push*", "gh *", "npm publish*", "docker push*", "*curl *-X *"]) {
+      expect(cfg.bash[k], k).toBe("ask")
+    }
+  })
+  test("只读形态排在 ask 之后回放行(引擎取最后命中)", () => {
+    for (const k of ["git status*", "git -C * status*", "gh issue list*", "gh pr view*"]) {
+      expect(cfg.bash[k], k).toBe("allow")
+    }
+    const keys = Object.keys(cfg.bash)
+    const lastAsk = keys.map((k, i) => [k, i]).filter(([, i]) => cfg.bash[keys[i]] === "ask").map(([, i]) => i)
+    const firstAllowBack = keys.findIndex((k, i) => i > 0 && cfg.bash[k] === "allow" && /\b(status|issue list|pr view)\b/.test(k))
+    expect(firstAllowBack > Math.min(...lastAsk)).toBe(true)
+  })
+  test("ask 规则数够多(覆盖 git/gh/发布/镜像/HTTP/内联脚本)", () => {
+    const asks = Object.entries(cfg.bash).filter(([, v]) => v === "ask").length
+    expect(asks).toBeGreaterThanOrEqual(25)
+  })
+})
 
 describe("detectOutwardWrite:什么算「写到仓库外」", () => {
   test("命中:推送/gh 写/外网 POST", () => {
-    for (const t of [
-      "git push origin main",
-      "git push --force-with-lease",
-      "gh issue create --title 反馈",
-      "gh pr create --base main",
-      "gh release create v1.2.63",
-      "gh api repos/x/y/issues -X POST",
-      "npm publish",
-      'curl -X POST https://api.example.com/hooks -d "{}"',
-      "Invoke-RestMethod -Uri https://api.example.com/x -Method Post",
-    ]) {
+    for (const t of ["git push origin main", "gh issue create --title x", "gh pr create", "gh release create v1.0", "npm publish", "docker push img", 'curl -X POST https://api.example.com/h -d "{}"', "Invoke-RestMethod -Uri https://api.example.com/x -Method Post"]) {
       expect(ow(t).outward, t).toBe(true)
     }
   })

@@ -15,9 +15,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 安装 bun(单测与 TSX 语法校验都要用)
+        # issue #13:钉死版本。`latest` 会让上游一发新版就把 CI 跑法换掉,
+        # 失败时先怀疑工具链漂移而不是自己的改动。升级时和下面的 node 一起改。
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.2
 
       - name: 安装 Node(语法门禁用它做 JS 解析)
         uses: actions/setup-node@v4

@@ -18,7 +18,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GH = ("fengdiehualian", "neko-plugin-workshop")
 GT = ("maple-butterfly-flower-love", "neko-plugin-workshop")
 NAME = "N.E.K.O.PluginWorkshop-Setup.exe"
-CTX = ssl._create_unverified_context()
+# issue #11:这里以前用 ssl._create_unverified_context(),而请求带着 token。
+# 现在与 publish_release.py 同一个口径:默认照常校验证书,要降级必须显式设环境变量并打印警告。
+sys.path.insert(0, os.path.join(ROOT, "workbench"))
+from release_tls import cred as _cred, make_context  # noqa: E402
+
+CTX = make_context()
 # urllib 在 Windows 上除环境变量外还会读注册表里的系统代理(加速器/已死掉的本地代理都会留在那里),
 # 结果直连能通的 api.github.com / gitee.com 会变成 10061「目标计算机积极拒绝」。
 # 与 publish_release.py 保持同一口径:显式不走代理。
@@ -26,14 +31,34 @@ OPENER = urllib.request.build_opener(
     urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=CTX))
 
 
+def hash_url(url, headers=None):
+    """把资产真正下回来算 SHA256:正文里那行哈希只是自我声明,
+    资产被换掉时它对不上才有意义(issue #11:以前只比正文,等于没核资产)。
+
+    注意:不要用响应头里的 content-length 当「应有大小」——GitHub 的 browser_download_url
+    会 302 到 objects.githubusercontent.com,那一跳的头与 release API 报的 size 不同源,
+    实测会误报「字节数与声明不符」。这里只如实回报实际收到的字节数,由调用方与本地 exe 比对。
+    """
+    h = hashlib.sha256()
+    n = 0
+    req = urllib.request.Request(url, headers=headers or {"user-agent": "neko"})
+    try:
+        with OPENER.open(req, timeout=1800) as r:
+            while True:
+                chunk = r.read(1024 * 1024)
+                if not chunk:
+                    break
+                n += len(chunk)
+                h.update(chunk)
+    except Exception as e:
+        return "", 0, "下载失败:%s" % str(e)[:140]
+    if n == 0:
+        return "", 0, "下载到的内容是空的"
+    return h.hexdigest().upper(), n, ""
+
+
 def cred(host):
-    p = subprocess.run(["git", "credential", "fill"], input="protocol=https\nhost=%s\n\n" % host,
-                       capture_output=True, text=True, cwd=ROOT)
-    out = {}
-    for line in (p.stdout or "").splitlines():
-        k, _, v = line.partition("=")
-        out[k.strip()] = v.strip()
-    return out.get("password", "")
+    return _cred(host, cwd=ROOT)
 
 
 def get(url, headers=None):
@@ -68,6 +93,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--expect", default="")
     ap.add_argument("--exe", default=os.path.join(ROOT, "build", NAME))
+    ap.add_argument("--no-asset", action="store_true", dest="no_asset",
+                    help="只比元数据,不把 71MB 资产下回来算哈希(默认会算)")
     a = ap.parse_args()
     ver = json.load(open(os.path.join(ROOT, "package.json"), encoding="utf-8"))["version"]
     expect = a.expect or ("v%s" % ver)
@@ -89,6 +116,18 @@ def main():
         if assets:
             sz = assets[0].get("size", 0)
             fails += line("资产体积", sz == local_size if local_size else True, "%s 字节%s" % (format(sz, ","), "" if local_size else "(本地无 exe 可比)"))
+            # 正文里的哈希只是自我声明;真要看渠道有没有被换包,得把资产本身下回来算
+            if not a.no_asset:
+                dig = str(assets[0].get("digest") or "")
+                gh_sha, gh_n, herr = hash_url(assets[0].get("browser_download_url") or "")
+                if herr or gh_n == 0:
+                    print("  ✗ 资产下载核对      %s" % herr)
+                    fails += 1
+                else:
+                    ok = (gh_n == local_size if local_size else True) and (not local_sha or gh_sha == local_sha)
+                    fails += line("资产本体 SHA256", ok and bool(local_sha),
+                                  "下回 %s 字节 %s…%s" % (format(gh_n, ","), gh_sha[:16],
+                                                          "" if not dig else "(接口 digest=%s)" % dig[:22]))
         body = j.get("body") or ""
         m = re.search(r"SHA256:`([0-9a-fA-F]{64})`", body)
         if local_sha:
@@ -96,7 +135,9 @@ def main():
 
     print("== Gitee ==")
     tok = cred("gitee.com")
-    j, err = get(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/latest?access_token={tok}")
+    # issue #11:token 不再拼进 URL(会进日志),改走请求头
+    GT_H = {"user-agent": "neko", "authorization": "token " + tok}
+    j, err = get(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/latest", GT_H)
     if not isinstance(j, dict):
         print("  取不到 latest:", err)
         fails += 1
@@ -106,11 +147,21 @@ def main():
         att_list = j.get("attach_files")
         if att_list is None and j.get("id"):
             # 码云的 latest 接口不内联附件列表,要按发行版 id 单查(否则会被误判成「没附件」)
-            j2, _e2 = get(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{j['id']}/attach_files?access_token={tok}")
+            j2, _e2 = get(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{j['id']}/attach_files", GT_H)
             att_list = j2 if isinstance(j2, list) else []
         atts = [x.get("name") for x in (att_list or [])]
         exact = [n for n in atts if n == NAME]
         fails += line("附件精确名", len(exact) == 1, "附件 %s" % (atts[:5] or "无"))
+        if att_list and not a.no_asset:
+            one = [x for x in att_list if x.get("name") == NAME][0]
+            gh_sha, gh_n, herr = hash_url(one.get("browser_download_url") or "")
+            if herr or gh_n == 0:
+                print("  ✗ 附件本体核对       %s" % herr)
+                fails += 1
+            else:
+                ok = (gh_n == local_size if local_size else True) and (not local_sha or gh_sha == local_sha)
+                fails += line("附件本体 SHA256", ok and bool(local_sha),
+                              "下回 %s 字节 %s…" % (format(gh_n, ","), gh_sha[:16]))
         body = j.get("body") or ""
         m = re.search(r"SHA256:`([0-9a-fA-F]{64})`", body)
         if local_sha:
