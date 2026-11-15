@@ -73,11 +73,18 @@ def main():
     except Exception as e:
         print("读版本失败:", e)
     studio = os.path.join(INST, "wb-studio.mjs")
-    txt = open(studio, encoding="utf-8").read()
+    lib = os.path.join(INST, "wb-agent-lib.mjs")
+    txt = open(studio, encoding="utf-8").read() + open(lib, encoding="utf-8").read()
     markers = {
+        # 本轮(issue #1-#7)装上去必须能看到这些
         "外发写确认队列": "/api/approvals" in txt,
+        "引擎权限一律先问": '"*": "ask"' in txt or '"*":"ask"' in txt,
         "更新包 SHA256 校验": "verifyUpdateIntegrity" in txt,
+        "清单验签(信任根)": "verifyUpdateManifest" in txt and "UPDATE_TRUST" in txt,
+        "清单核对版本/资产/体积": "与要装的版本" in txt,
         "引擎随机密码": "engine-auth.json" in txt,
+        "老配置启动自愈": "upgradeEnginePermission" in txt,
+        "底座页门禁说明": "gateNote" in txt,
         "更新状态在模块作用域": txt.index("const updateState = {") < txt.index("const srv = createServer"),
     }
     print("实例内代码标记:", markers)
