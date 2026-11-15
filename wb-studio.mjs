@@ -526,6 +526,47 @@ const ENGINE_CONFIG_DIR = join(__dirname, "runtime", "config", "opencode")
 const ENGINE_CONFIG_FILE = join(ENGINE_CONFIG_DIR, "opencode.json")
 const PLACEHOLDER = /^(YOUR_API_KEY|\s*|x+)$/i
 
+/**
+ * 启动自愈:把老的引擎配置里的权限写法升级成「按模式细分」(issue #5)。
+ * 老用户机器上只有 opencode.json、从没在设置页重新保存过 API 的话,
+ * writeProvider 永远不会被调用,权限块会一直停在 `bash:"allow"` ——
+ * 那等于外发写的门禁对这些实例永远不生效,而且表面完全看不出问题。
+ * 返回是否改了配置(改了就要重启引擎才吃得到)。
+ */
+function upgradeEnginePermission() {
+  try {
+    const fs2 = require("node:fs")
+    if (!fs2.existsSync(ENGINE_CONFIG_FILE)) return false
+    const cfg = JSON.parse(fs2.readFileSync(ENGINE_CONFIG_FILE, "utf8"))
+    const perm = cfg.permission || {}
+    const bash = perm.bash
+    const want = enginePermissionConfig()
+    // 需要升级的形态:bash 是字符串(旧「整段 allow」)、或缺失、或规则数明显偏少(旧表)
+    const stale = typeof bash === "string" || !bash || Object.keys(bash).length < Object.keys(want.bash).length
+    if (!stale) return false
+    cfg.permission = Object.assign({}, perm, want, { bash: want.bash })
+    fs2.writeFileSync(ENGINE_CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf8")
+    console.log("[wb-studio] 引擎权限配置已升级为按模式细分(旧写法:" + (typeof bash === "string" ? bash : "缺失") + ")——外发写现在会先问用户")
+    return true
+  } catch (e) {
+    console.warn("[wb-studio] 权限配置自愈失败(不挡启动):", String((e && e.message) || e).slice(0, 120))
+    return false
+  }
+}
+
+// 市场语料缺失提示(issue #4:安装包不再打包第三方源码)
+function corpusNotice() {
+  try {
+    const dir = join(__dirname, "market-corpus")
+    if (!existsSync(dir)) {
+      console.log("[wb-studio] 本机没有市场语料 market-corpus(不再随包分发)。需要 Agent 参考市场写法时,在自己机器上跑:node workbench/fetch_corpus.cjs")
+      return
+    }
+    const n = readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).length
+    console.log(`[wb-studio] 市场语料:本机 ${n} 个插件源码(第三方,仅本地阅读参考,不复制进生成物)`)
+  } catch {}
+}
+
 function currentProvider() {
   try {
     const cfg = JSON.parse(readFileSync(ENGINE_CONFIG_FILE, "utf8"))
@@ -1944,6 +1985,7 @@ const PAGE = `<!doctype html>
       <span id="baseMsg" style="font-size:12px;color:var(--muted)"></span>
     </div>
     <div id="baseStatus" style="margin-top:8px;font-size:12px;color:var(--muted-2);line-height:1.7"></div>
+    <div id="gateNote" style="margin-top:10px;font-size:12px;line-height:1.7;border-left:3px solid rgba(230,126,34,.6);padding:8px 10px;background:rgba(230,126,34,.07);border-radius:0 8px 8px 0"></div>
   </div>
   <div class="sp-body" id="tab-run" style="display:none">
     <div class="sp-head">超时与重试 <span class="sp-tip">保存后从下一个任务开始生效;任务总超时是整轮上限,无响应超时是连续多久没收到输出就判卡死</span></div>
@@ -2541,6 +2583,20 @@ function renderBackend(){
   if(inp&&document.activeElement!==inp)inp.value=(baseState.zcodeCmd||[]).join(' ');
   const st=document.getElementById('baseStatus');
   if(!st)return;
+  // 门禁能力随底座不同,必须如实标出来(issue #5):ZCode 是外部 CLI,权限由它自己管,
+  // 工坊的「外发写要你点头」在这条路径上拦不住,只有规则文本在约束
+  const gn=document.getElementById('gateNote');
+  if(gn){
+    if(baseState.mode==='zcode'){
+      gn.innerHTML='<b>🛡 外发写确认:当前底座拦不住</b><br>'+
+        'ZCode 由它自己的权限系统决定要不要问,工坊收不到询问事件 —— '+
+        '「git push / 发 issue / 往外网 POST」这类动作此刻只靠任务书里的规则约束 Agent,不是硬闸。<br>'+
+        '要真拦:切到 OpenCode(内置)底座,外发写会弹窗等你点。';
+    } else {
+      gn.innerHTML='<b>🛡 外发写确认:已生效</b><br>'+
+        'OpenCode 引擎下,git push、gh 写操作、发布、往外网 POST 等都会先进确认队列,由你在对话区点「允许/不要」;不点=不执行。';
+    }
+  }
   if(baseState.mode!=='zcode'){st.innerHTML='当前使用内置 OpenCode 引擎,与之前完全一致。';return}
   const z=baseState.zcode||{};
   const lbl=document.getElementById('baseZcodeLabel');
@@ -4349,28 +4405,35 @@ async function resolveReleaseSources() {
   return out
 }
 
-// 取「已验签」清单里的 SHA256:渠道自己正文里写的哈希不算信任根(issue #12),
-// 只有内置公钥验过的清单才算。任何渠道给出合法签名都可用,验不过就当没有。
-async function signedManifestSha(sources, version) {
+// 取「已验签且与本次目标对得上」的清单结论(issue #3)。
+// 关键两点:
+//   1) 核对清单里的 version/asset/size 就是本次要装的那一份 —— 否则一张签名合法的**旧清单**
+//      也能被拿来把用户回滚到旧包;
+//   2) 验签失败/内容不符必须返回 fatal,让上层直接拒装,而不是「当没清单」再靠双渠道互证放行。
+async function manifestTrust(sources, version) {
   const cands = (sources || []).filter((s) => s && cmpVersion(s.version, version) === 0 && (s.manifestUrl || s.manifest))
+  let lastFatal = ""
   for (const s of cands) {
     try {
       const doc = s.manifest || (await fetchJSON(s.manifestUrl))
-      const r = verifyUpdateManifest(doc)
+      const asset = (s.assets || [])[0] || {}
+      const r = verifyUpdateManifest(doc, {
+        version,
+        asset: asset.name || "",
+        size: Number(asset.size) || 0,
+      })
       if (r.ok) {
-        if (String(r.manifest.asset || "") && !s.assets.some((a) => a.name === r.manifest.asset)) {
-          console.warn("[wb-studio] 清单里的资产名与实际资产对不上,忽略这份清单:", r.manifest.asset)
-          continue
-        }
-        console.log("[wb-studio] 已验签的更新清单:", s.source, r.manifest.version, r.manifest.sha256.slice(0, 12) + "…")
-        return r.manifest.sha256
+        console.log("[wb-studio] 清单验签通过:", s.source, r.manifest.version, r.manifest.sha256.slice(0, 12) + "…", r.manifest.size.toLocaleString() + " 字节")
+        return { sha: r.manifest.sha256, fatal: false, reason: "" }
       }
-      console.warn("[wb-studio] 清单验签未通过(" + s.source + "):" + r.reason)
+      console.warn("[wb-studio] 清单不可信(" + s.source + "):" + r.reason)
+      if (r.fatal) lastFatal = r.reason
     } catch (e) {
       console.warn("[wb-studio] 取更新清单失败(" + s.source + "):", String((e && e.message) || e).slice(0, 120))
     }
   }
-  return ""
+  // 只有「签名合法但渠道压根没给清单」才算没清单;签过但被改坏的必须硬拒
+  return { sha: "", fatal: !!lastFatal, reason: lastFatal }
 }
 
 async function checkUpdate() {
@@ -4389,9 +4452,10 @@ async function checkUpdate() {
     updateState.checkedAt = Date.now()
     if (!list.length) throw new Error("GitHub 与码云都没取到版本信息(检查网络或加速器)")
     const top = list.map((s) => s.version).sort((a, b) => cmpVersion(b, a))[0]
-    // 信任根:先问「有没有一份内置公钥验得过的清单」,再看渠道之间是否互相印证
-    const signedSha = await signedManifestSha(list, top)
-    const plan = planUpdateTarget(list, signedSha)
+    // 信任根:只认「说的是本次目标版本」的清单(issue #3)。
+    // 低版本的合法清单绝不能拿来给高版本背书 —— 那正是「劫持一端谎报高版本 + 附一张旧真签名」的骗法。
+    const trust = await manifestTrust(list, top)
+    const plan = planUpdateTarget(list, trust)
     const best = list.find((s) => cmpVersion(s.version, plan.version) === 0) || list[0]
     updateState.latest = plan.version || best.version
     updateState.source = best.source
@@ -4551,7 +4615,7 @@ async function downloadFrom(src) {
   // 真正的完整性判定:与发布时登记的 SHA256 比对。拿不到校验值同样不许装,
   // 不给「静默跳过校验」留口子(判定逻辑见 wb-agent-lib.mjs verifyUpdateIntegrity)
   const got = await sha256File(exe)
-  const verdict = verifyUpdateIntegrity(src, got)
+  const verdict = verifyUpdateIntegrity(src, got, updateState.trustSha)
   updateState.expectedSha = verdict.want
   updateState.actualSha = verdict.got
   if (!verdict.ok) throw new Error(verdict.reason)
@@ -5455,6 +5519,9 @@ const boot = async () => {
       require("node:fs").writeFileSync(gAgents, GLOBAL_AGENTS_MD, "utf8")
     }
   } catch {}
+  // 老配置里的 bash:"allow" 会在启动时自动升级,否则这些机器的外发门禁一直不生效(issue #5)
+  if (upgradeEnginePermission()) engineConfigStale = true
+  corpusNotice()
   // 便携 Python:包内自带,加入 PATH 供 Agent 用 wb.cmd 跑 N.E.K.O check/build
   if (config.pythonPath && existsSync(config.pythonPath)) {
     const pyDir = dirname(config.pythonPath)

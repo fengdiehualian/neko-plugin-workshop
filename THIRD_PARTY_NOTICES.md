@@ -3,23 +3,38 @@
 本文件由 `node workbench/collect_notices.cjs` 生成,记录仓库内**第三方来源**的许可情况。
 改内容后请重跑生成脚本,别手改数字——issue #8/#13 抱怨过「声明与事实不符」。
 
-## 1. 市场语料 `market-corpus/`
+## 0. 重要:市场语料已不进安装包
 
-共 **128 个插件源码目录**,取自官方市场接口(2026-10-26 抓取),仅作本地学习语料,不随工坊安装包分发二进制资产。
-每个目录的许可按「仓库里的 LICENSE 文件正文 → plugin.toml 的 license 字段」顺序判定,判定结果:
+自 v1.2.64 起,`.gitattributes` 对 `market-corpus/**` 设了 `export-ignore`,
+**`git archive` 产出的安装载荷不再包含这份语料**(`tools/check_package.ps1` 会核对载荷里没有 `market-corpus`)。
+原因:这些是第三方插件源码,其中相当一部分没有可识别的许可声明(见下表),
+由我们打包再分发并不合适。语料保留在开发仓库里作为**本地学习材料**;
+需要的人在自己的机器上跑 `node workbench/fetch_corpus.cjs` 自行拉取。
 
-| 许可 | 目录数 |
+> 老用户不受影响:覆盖安装只解包写入载荷里存在的文件,不会删除本机已有语料。
+
+## 1. 市场语料 `market-corpus/` 的许可判定
+
+共 **128 个插件源码目录**,取自官方市场接口(2026-10-26 抓取)。
+判定顺序:仓库里的 LICENSE/COPYING 正文(含 `src/` 层级与大小写变体)→ `plugin.toml` 的 license 字段。
+
+| 判定结果 | 目录数 |
 |---|---|
-| 未声明 | 108 |
+| 未声明(仓库里没有可识别的 LICENSE) | 84 |
+| Apache-2.0 | 23 |
 | MIT | 11 |
-| GPL | 8 |
-| AGPL | 1 |
+| GPL | 5 |
+| AGPL | 4 |
+| LGPL | 1 |
 
-### 未能确认许可的目录(108 个)
+两类「不是许可」的情况要分开看:
 
-这些仓库既没有可识别的 LICENSE 正文,`plugin.toml` 也没写 license。
-**默认按「版权所有、未授予再分发权利」对待**:只作本地阅读参考,不复制其代码进生成物,
-不把它们打包分发。需要引用时先向上游确认许可。
+- **有 LICENSE 文件但未识别条款(0 个)**:文件在,但正文是我们没匹配上的写法。
+  这类**不代表无许可**,需要逐个肉眼确认;确认前同样按不分发处理。
+- **未声明(84 个)**:仓库里根本没有可识别的 LICENSE 文件。
+  按「版权所有、未授予再分发权利」对待:只作本地阅读参考,不复制其代码进生成物,不打包分发。
+
+<details><summary>无 LICENSE 文件的 84 个</summary>
 
 - `agent_bridge`
 - `ai_learns_to_drive`
@@ -27,9 +42,7 @@
 - `apibook`
 - `app_launcher`
 - `autocad_assistant_tool`
-- `better_txt_output`
 - `better_web_search`
-- `bilibili_integration`
 - `bililearn_bridge`
 - `bili_viewer`
 - `browser_skill`
@@ -41,30 +54,22 @@
 - `codex_adapter`
 - `code_sandbox`
 - `course_schedule`
-- `custom_music_list`
-- `data_backup`
-- `deepseekharness_bridge`
 - `development_aide`
 - `dsh_bridge`
 - `forever_companion`
 - `from_the_heart`
 - `galgame_plugin`
 - `genshin_game_buddy`
-- `git_memory`
-- `keyboard_controller`
 - `luogu`
 - `media_generator`
 - `meeting_insight`
 - `miao_miao_bump`
-- `minecraft_autonomous`
 - `minesweeper`
 - `mini_games`
 - `mock_stock_meow`
 - `mood_state`
 - `mo_realistic_adjutant`
 - `neko_163mail`
-- `neko_ads`
-- `neko_arcade`
 - `neko_assessment`
 - `neko_calabiqiu`
 - `neko_clipboard_watcher`
@@ -78,48 +83,34 @@
 - `neko_mail`
 - `neko_mail_agently`
 - `neko_mcp_serve`
-- `neko_morning_brief`
 - `neko_natural_command`
-- `neko_pawpilot`
-- `neko_perf_saver`
 - `neko_sous`
-- `neko_stellaris`
 - `neko_study_copilot`
 - `neko_survivors`
-- `neko_terraria`
 - `neko_tlm`
-- `neko_token_monitor`
 - `neko_translate`
 - `neko_video`
 - `neko_voice_bridge`
 - `neko_warthunder`
 - `neko_weather`
-- `neko_wows`
 - `plugin_database`
 - `plugin_knowledge_base`
 - `plugin_skill_manager`
-- `proactive_recommender`
 - `pvz_agent`
 - `qqbot_bridge`
 - `qq_auto_reply`
-- `recall`
 - `screen_reader`
-- `selfie`
-- `shale_core_lib`
 - `shell_cmd`
 - `skill_compat`
 - `source_player`
 - `steam_manager`
-- `sticker_manager`
 - `store_search`
 - `sts2_autoplay`
-- `study_companion`
 - `suno_cn_music`
 - `sys_monitor`
 - `tarot`
 - `tavily_search`
 - `tc_companion`
-- `teach_sister_drive`
 - `testbench`
 - `tfwr_companion`
 - `web_searching`
@@ -130,138 +121,140 @@
 - `yuilock`
 - `yui_home`
 
-## 2. 逐目录许可明细
+</details>
 
-| 目录 | 判定许可 | 依据 | plugin.toml 里写的 license |
+## 2. 逐目录明细
+
+| 目录 | 判定 | 依据 | plugin.toml 里写的 license |
 |---|---|---|---|
-| `agent_bridge` | 未声明 | 无 LICENSE 文件 | — |
-| `ai_learns_to_drive` | 未声明 | 无 LICENSE 文件 | — |
-| `anysearch` | 未声明 | 无 LICENSE 文件 | — |
-| `apibook` | 未声明 | 无 LICENSE 文件 | — |
-| `app_launcher` | 未声明 | 无 LICENSE 文件 | — |
-| `autocad_assistant_tool` | 未声明 | 无 LICENSE 文件 | — |
-| `better_txt_output` | 未声明 | `src/LICENSE` | — |
-| `better_web_search` | 未声明 | 无 LICENSE 文件 | — |
-| `bili_viewer` | 未声明 | 无 LICENSE 文件 | — |
-| `bilibili_integration` | 未声明 | `src/LICENSE` | — |
-| `bililearn_bridge` | 未声明 | 无 LICENSE 文件 | — |
-| `browser_skill` | 未声明 | 无 LICENSE 文件 | — |
-| `call_mom` | 未声明 | 无 LICENSE 文件 | — |
-| `card_master` | 未声明 | 无 LICENSE 文件 | — |
-| `catgirl_daily_planner` | 未声明 | 无 LICENSE 文件 | — |
-| `civ6_buddy` | 未声明 | 无 LICENSE 文件 | — |
-| `claude_code_adapter` | 未声明 | 无 LICENSE 文件 | — |
-| `code_sandbox` | 未声明 | 无 LICENSE 文件 | — |
-| `codex_adapter` | 未声明 | 无 LICENSE 文件 | — |
-| `course_schedule` | 未声明 | 无 LICENSE 文件 | — |
+| `agent_bridge` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `ai_learns_to_drive` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `anysearch` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `apibook` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `app_launcher` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `autocad_assistant_tool` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `better_txt_output` | Apache-2.0 | `src/LICENSE` | — |
+| `better_web_search` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `bili_viewer` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `bilibili_integration` | Apache-2.0 | `src/LICENSE` | — |
+| `bililearn_bridge` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `browser_skill` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `call_mom` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `card_master` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `catgirl_daily_planner` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `civ6_buddy` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `claude_code_adapter` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `code_sandbox` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `codex_adapter` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `course_schedule` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `coyote_control` | MIT | `src/LICENSE` | — |
-| `custom_music_list` | 未声明 | `src/LICENSE` | — |
-| `data_backup` | 未声明 | `src/LICENSE` | — |
-| `deepseekharness_bridge` | 未声明 | `src/LICENSE` | — |
-| `development_aide` | 未声明 | 无 LICENSE 文件 | — |
-| `dsh_bridge` | 未声明 | 无 LICENSE 文件 | — |
+| `custom_music_list` | Apache-2.0 | `src/LICENSE` | — |
+| `data_backup` | Apache-2.0 | `src/LICENSE` | — |
+| `deepseekharness_bridge` | Apache-2.0 | `src/LICENSE` | — |
+| `development_aide` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `dsh_bridge` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `endless_test` | MIT | `src/LICENSE` | — |
-| `forever_companion` | 未声明 | 无 LICENSE 文件 | — |
-| `from_the_heart` | 未声明 | 无 LICENSE 文件 | — |
-| `galgame_plugin` | 未声明 | 无 LICENSE 文件 | — |
-| `genshin_game_buddy` | 未声明 | 无 LICENSE 文件 | — |
-| `git_memory` | 未声明 | `src/LICENSE` | — |
+| `forever_companion` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `from_the_heart` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `galgame_plugin` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `genshin_game_buddy` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `git_memory` | LGPL | `src/LICENSE` | — |
 | `hearthstone_companion` | MIT | `src/LICENSE` | — |
 | `hitokoto` | MIT | `src/LICENSE` | — |
 | `hsr_companion` | AGPL | `src/LICENSE.md` | — |
 | `juno_bridge` | GPL | `src/LICENSE` | — |
-| `kards_companion` | GPL | `src/LICENSE` | — |
-| `keyboard_controller` | 未声明 | `src/LICENSE` | — |
+| `kards_companion` | AGPL | `src/LICENSE` | — |
+| `keyboard_controller` | Apache-2.0 | `src/LICENSE` | — |
 | `ksp_bridge` | GPL | `src/LICENSE` | — |
-| `luogu` | 未声明 | 无 LICENSE 文件 | — |
+| `luogu` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `mail_all` | MIT | `src/LICENSE` | — |
 | `mcbot_bridge` | MIT | `src/LICENSE` | — |
-| `media_generator` | 未声明 | 无 LICENSE 文件 | — |
-| `meeting_insight` | 未声明 | 无 LICENSE 文件 | — |
-| `miao_miao_bump` | 未声明 | 无 LICENSE 文件 | — |
+| `media_generator` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `meeting_insight` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `miao_miao_bump` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `mijia` | MIT | `src/LICENSE` | — |
-| `minecraft_autonomous` | 未声明 | `src/LICENSE` | — |
-| `minesweeper` | 未声明 | 无 LICENSE 文件 | — |
-| `mini_games` | 未声明 | 无 LICENSE 文件 | — |
-| `mo_realistic_adjutant` | 未声明 | 无 LICENSE 文件 | — |
-| `mock_stock_meow` | 未声明 | 无 LICENSE 文件 | — |
+| `minecraft_autonomous` | Apache-2.0 | `src/LICENSE` | — |
+| `minesweeper` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `mini_games` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `mo_realistic_adjutant` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `mock_stock_meow` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `moneta_fx` | MIT | `src/LICENSE` | — |
-| `mood_state` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_163mail` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_ads` | 未声明 | `src/LICENSE` | — |
-| `neko_arcade` | 未声明 | `src/LICENSE` | — |
-| `neko_assessment` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_calabiqiu` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_clipboard_watcher` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_community_chat` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_diary` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_done_bridge` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_fishpower` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_jam_band` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_ledger` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_live` | GPL | `src/LICENSE` | — |
-| `neko_live_album` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_mail` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_mail_agently` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_mcp_serve` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_morning_brief` | 未声明 | `src/LICENSE` | — |
-| `neko_natural_command` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_pawpilot` | 未声明 | `src/LICENSE` | — |
-| `neko_perf_saver` | 未声明 | `src/LICENSE` | — |
+| `mood_state` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_163mail` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_ads` | Apache-2.0 | `src/LICENSE` | — |
+| `neko_arcade` | Apache-2.0 | `src/LICENSE` | — |
+| `neko_assessment` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_calabiqiu` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_clipboard_watcher` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_community_chat` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_diary` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_done_bridge` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_fishpower` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_jam_band` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_ledger` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_live` | AGPL | `src/LICENSE` | — |
+| `neko_live_album` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_mail` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_mail_agently` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_mcp_serve` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_morning_brief` | Apache-2.0 | `src/LICENSE` | — |
+| `neko_natural_command` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_pawpilot` | Apache-2.0 | `src/LICENSE` | — |
+| `neko_perf_saver` | Apache-2.0 | `src/LICENSE` | — |
 | `neko_rimworld` | MIT | `src/LICENSE` | — |
-| `neko_sous` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_stellaris` | 未声明 | `src/LICENSE` | — |
-| `neko_study_copilot` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_survivors` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_terraria` | 未声明 | `src/LICENSE` | — |
-| `neko_tlm` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_token_monitor` | 未声明 | `src/LICENSE` | — |
-| `neko_translate` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_video` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_voice_bridge` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_warthunder` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_weather` | 未声明 | 无 LICENSE 文件 | — |
-| `neko_wows` | 未声明 | `src/LICENSE` | — |
+| `neko_sous` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_stellaris` | Apache-2.0 | `src/LICENSE` | — |
+| `neko_study_copilot` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_survivors` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_terraria` | Apache-2.0 | `src/LICENSE` | — |
+| `neko_tlm` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_token_monitor` | Apache-2.0 | `src/LICENSE` | — |
+| `neko_translate` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_video` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_voice_bridge` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_warthunder` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_weather` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `neko_wows` | Apache-2.0 | `src/LICENSE` | — |
 | `openrails_copilot` | MIT | `src/LICENSE` | — |
-| `phone_workflows` | GPL | `src/LICENSE` | — |
-| `plugin_database` | 未声明 | 无 LICENSE 文件 | — |
-| `plugin_knowledge_base` | 未声明 | 无 LICENSE 文件 | — |
-| `plugin_skill_manager` | 未声明 | 无 LICENSE 文件 | — |
-| `proactive_recommender` | 未声明 | `src/LICENSE` | — |
-| `pvz_agent` | 未声明 | 无 LICENSE 文件 | — |
-| `qq_auto_reply` | 未声明 | 无 LICENSE 文件 | — |
-| `qqbot_bridge` | 未声明 | 无 LICENSE 文件 | — |
+| `phone_workflows` | AGPL | `src/LICENSE` | — |
+| `plugin_database` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `plugin_knowledge_base` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `plugin_skill_manager` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `proactive_recommender` | Apache-2.0 | `src/LICENSE` | — |
+| `pvz_agent` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `qq_auto_reply` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `qqbot_bridge` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `quote_extract` | MIT | `src/LICENSE` | — |
-| `recall` | 未声明 | `src/LICENSE` | — |
-| `screen_reader` | 未声明 | 无 LICENSE 文件 | — |
-| `selfie` | 未声明 | `src/LICENSE` | — |
+| `recall` | Apache-2.0 | `src/LICENSE` | — |
+| `screen_reader` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `selfie` | Apache-2.0 | `src/LICENSE` | — |
 | `sfs_bridge` | GPL | `src/LICENSE` | — |
-| `shale_core_lib` | 未声明 | `src/LICENSE` | — |
-| `shell_cmd` | 未声明 | 无 LICENSE 文件 | — |
-| `skill_compat` | 未声明 | 无 LICENSE 文件 | — |
-| `source_player` | 未声明 | 无 LICENSE 文件 | — |
+| `shale_core_lib` | Apache-2.0 | `src/LICENSE` | — |
+| `shell_cmd` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `skill_compat` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `source_player` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `sp2_copilot` | GPL | `src/LICENSE` | — |
 | `space_launch` | GPL | `src/LICENSE` | — |
-| `steam_manager` | 未声明 | 无 LICENSE 文件 | — |
-| `sticker_manager` | 未声明 | `src/LICENSE` | — |
-| `store_search` | 未声明 | 无 LICENSE 文件 | — |
-| `sts2_autoplay` | 未声明 | 无 LICENSE 文件 | — |
-| `study_companion` | 未声明 | `src/LICENSE` | — |
-| `suno_cn_music` | 未声明 | 无 LICENSE 文件 | — |
-| `sys_monitor` | 未声明 | 无 LICENSE 文件 | — |
-| `tarot` | 未声明 | 无 LICENSE 文件 | — |
-| `tavily_search` | 未声明 | 无 LICENSE 文件 | — |
-| `tc_companion` | 未声明 | 无 LICENSE 文件 | — |
-| `teach_sister_drive` | 未声明 | `src/LICENSE` | — |
-| `testbench` | 未声明 | 无 LICENSE 文件 | — |
-| `tfwr_companion` | 未声明 | 无 LICENSE 文件 | — |
-| `web_searching` | 未声明 | 无 LICENSE 文件 | — |
-| `wechat_integration` | 未声明 | 无 LICENSE 文件 | — |
-| `workbench_installer` | 未声明 | 无 LICENSE 文件 | — |
-| `writer_power_analysis` | 未声明 | 无 LICENSE 文件 | — |
-| `xiyin_pavilion` | 未声明 | 无 LICENSE 文件 | — |
-| `yui_home` | 未声明 | 无 LICENSE 文件 | — |
-| `yuilock` | 未声明 | 无 LICENSE 文件 | — |
+| `steam_manager` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `sticker_manager` | Apache-2.0 | `src/LICENSE` | — |
+| `store_search` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `sts2_autoplay` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `study_companion` | Apache-2.0 | `src/LICENSE` | — |
+| `suno_cn_music` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `sys_monitor` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `tarot` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `tavily_search` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `tc_companion` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `teach_sister_drive` | Apache-2.0 | `src/LICENSE` | — |
+| `testbench` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `tfwr_companion` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `web_searching` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `wechat_integration` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `workbench_installer` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `writer_power_analysis` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `xiyin_pavilion` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `yui_home` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `yuilock` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 
 ## 3. 随包分发的运行时
 
@@ -286,12 +279,12 @@
 **不存在的说法**:本文件不声称「forge / 其他仓库反向引用本工程」,也不声称市场语料「改写自」本仓库任何代码——
 此前评审意见指出这类表述与事实不符(issue #8),现在明细以上面第 2 节的实测判定为准。
 
-## 5. MIT 许可证全文
+## 5. 本仓库的 MIT 全文
 
 ```
 MIT License
 
-Copyright (c) <年份> <版权持有人>
+Copyright (c) 2026 fengdiehualian
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -131,10 +131,19 @@ function chk(name, ok, detail) {
   let r = await runScenario({ version: "9.9.9", notes: "本版没有校验信息", assets: asset(buf.length) }, sawError)
   chk("3a 单渠道且无签名清单 → 不自动安装", r.ok && /一个渠道|签名清单/.test(String(r.s.error)) && (await alive()), r.s && String(r.s.error).slice(0, 110))
 
-  // B. 伪造清单(签名对不上内置公钥) → 清单作废,依旧拒装
+  // B. 伪造清单(签名对不上内置公钥)→ 必须硬拒,不能退化成「当没清单」再靠双渠道互证(issue #3)
   const forged = { ...goodManifest, sig: Buffer.from("x".repeat(64)).toString("base64") }
   r = await runScenario({ version: "9.9.9", notes: "SHA256:`" + realSha + "`", assets: asset(buf.length), manifest: forged }, sawError)
-  chk("3b 清单签名伪造 → 视为没有清单并拒装", r.ok && /一个渠道|签名清单/.test(String(r.s.error)) && (await alive()), r.s && String(r.s.error).slice(0, 110))
+  chk("3b 清单签名伪造 → 硬拒(不退化为多渠道互证)", r.ok && /清单不可信/.test(String(r.s.error)) && (await alive()), r.s && String(r.s.error).slice(0, 130))
+
+  // B2. 一张「旧版本」的合法清单拿来给新版本用 → 拒绝(签名回滚演练)
+  const staleManifest = JSON.parse(JSON.stringify(goodManifest))
+  {
+    const pl = Buffer.from(staleManifest.payload, "base64").toString("utf8").replace('"v9.9.9"', '"v9.9.8"')
+    staleManifest.payload = Buffer.from(pl, "utf8").toString("base64")
+  }
+  r = await runScenario({ version: "9.9.9", notes: "SHA256:`" + realSha + "`", assets: asset(buf.length), manifest: staleManifest }, sawError)
+  chk("3b2 旧版清单冒充新版 → 拒绝(防签名回滚)", r.ok && /清单版本|清单不可信/.test(String(r.s.error)), r.s && String(r.s.error).slice(0, 130))
 
   // C. 清单有效,但渠道实际发的包被换掉(镜像换包演练) → 下载后实算不符,拒装
   served = Buffer.concat([buf.subarray(0, 4), Buffer.alloc(buf.length - 4, 9)])

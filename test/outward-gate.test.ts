@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { detectOutwardWrite, classifyPermission, classifyQuestionReply, enginePermissionConfig } from "../wb-agent-lib.mjs"
+import { detectOutwardWrite, classifyPermission, classifyQuestionReply, enginePermissionConfig, resolveBashEffect } from "../wb-agent-lib.mjs"
 
 // 对应 GitHub issue #9/#10:外发写既要在事件侧被认出来,也要在引擎侧真的会被拦下来问
 const ow = (text) => detectOutwardWrite({ patterns: [text] })
@@ -46,27 +46,88 @@ describe("绕过写法也要命中(issue #10:黑名单正则曾被全局选项�
 
 describe("引擎权限配置与判定同源(issue #10:整段 allow 会让 permission.asked 永不发出)", () => {
   const cfg = enginePermissionConfig()
-  test("bash 是模式表而不是整段 allow,通配仍为 allow", () => {
+  test("bash 是模式表而不是整段 allow,通配为 ask(一律先问工坊)", () => {
     expect(typeof cfg.bash).toBe("object")
-    expect(cfg.bash["*"]).toBe("allow")
+    expect(cfg.bash["*"]).toBe("ask")
   })
   test("外发写形态被设成 ask", () => {
-    for (const k of ["git push*", "*git push*", "git -C * push*", "gh *", "npm publish*", "docker push*", "*curl *-X *"]) {
+    for (const k of ["git push*", "*git push*", "git -C * push*", "gh *", "npm publish*", "docker push*", "*curl *--data*", "*scp *", "*twine upload*"]) {
       expect(cfg.bash[k], k).toBe("ask")
     }
   })
-  test("只读形态排在 ask 之后回放行(引擎取最后命中)", () => {
-    for (const k of ["git status*", "git -C * status*", "gh issue list*", "gh pr view*"]) {
-      expect(cfg.bash[k], k).toBe("allow")
-    }
+  test("外发询问规则排在最后(引擎取最后命中,后面的 allow 会盖掉前面的 ask)", () => {
     const keys = Object.keys(cfg.bash)
-    const lastAsk = keys.map((k, i) => [k, i]).filter(([, i]) => cfg.bash[keys[i]] === "ask").map(([, i]) => i)
-    const firstAllowBack = keys.findIndex((k, i) => i > 0 && cfg.bash[k] === "allow" && /\b(status|issue list|pr view)\b/.test(k))
-    expect(firstAllowBack > Math.min(...lastAsk)).toBe(true)
+    const askIdx = keys.map((k, i) => [k, i] as const).filter(([k]) => cfg.bash[k] === "ask").map(([, i]) => i)
+    const allowIdx = keys.map((k, i) => [k, i] as const).filter(([k]) => cfg.bash[k] === "allow" && k !== "*").map(([, i]) => i)
+    // 这里必须是 max:要的是「最靠后的那条 allow 回放行」也不能盖过任何 ask。
+    // 用 min 的话只要第一个 ask 在开头就能骗过断言,后面混进回放行也照样绿。
+    expect(allowIdx.length).toBe(0)
+    expect(Math.max(...askIdx)).toBeGreaterThan(0)
   })
   test("ask 规则数够多(覆盖 git/gh/发布/镜像/HTTP/内联脚本)", () => {
     const asks = Object.entries(cfg.bash).filter(([, v]) => v === "ask").length
     expect(asks).toBeGreaterThanOrEqual(25)
+  })
+  test("复合命令必须被认出来(引擎 glob 不跨空格,只能靠判定层)", () => {
+    for (const c of [
+      'bash -c "git add . && git push"',
+      "git add . && git push origin main",
+      "git commit -m x; git push",
+      "cd repo && git push",
+      "ls && npm publish",
+    ]) {
+      expect(detectOutwardWrite({ patterns: [c] }).outward, c).toBe(true)
+      expect(classifyPermission({ patterns: [c], action: "shell" }, true).reply, c).toBe("confirm")
+    }
+  })
+  test("引擎默认一律要问(实测 glob 不跨空格,复合命令靠模式列不全)", () => {
+    expect(cfg.bash["*"]).toBe("ask")
+  })
+  test("但只读命令不会打扰用户:工坊自动应答 once", () => {
+    for (const c of ["git status", "git add .", "ls -la", "python tools/static_check.py", "tar -xf payload.zip", "uv pip install ruff"]) {
+      const plan = classifyPermission({ patterns: [c], action: "shell" }, true)
+      expect(plan.reply, c).toBe("once")
+    }
+  })
+  test("外发写才进人工确认队列", () => {
+    for (const c of ["git push", "git add . && git push origin main", "gh pr create", "npm publish"]) {
+      const plan = classifyPermission({ patterns: [c], action: "shell" }, true)
+      expect(plan.reply, c).toBe("confirm")
+    }
+  })
+  test("间接外发形态也被认出来(别名/对象存储/远端复制)", () => {
+    for (const c of [
+      "git -c alias.p=push alias p",
+      "git config alias.up 'push --mirror'",
+      "scp dist.tar user@host:/var/www/",
+      "rsync -avz src/ host:/srv/www/",
+      "aws s3 cp dist/ s3://bucket/dist/",
+      "twine upload dist/*",
+      "curl https://hook.example.com --json '{\"a\":1}'",
+    ]) {
+      expect(detectOutwardWrite({ patterns: [c] }).outward, c).toBe(true)
+    }
+  })
+  test("生成的配置是干净 JSON:不存在只有大小写不同的重复键", () => {
+    // PowerShell ConvertFrom-Json 对这类键直接报错,说明我们的产出物不是「任何解析器都能读」
+    const keys = Object.keys(cfg.bash)
+    const lower = keys.map((k) => k.toLowerCase())
+    expect(new Set(lower).size).toBe(keys.length)
+    const txt = JSON.stringify(cfg)
+    expect(() => JSON.parse(txt)).not.toThrow()
+  })
+  test("引擎一律先问 ⇒ 是否打扰用户完全由判定层决定(两侧必须同结论)", () => {
+    // 通配是 ask,所以「会不会弹给用户」只剩一个决定者:detectOutwardWrite。
+    // 这条测试钉住链条:被判定为外发的命令,绝不能被自动应答吞掉。
+    for (const c of ["git push", "git -C /repo push", "git add . && git push", "gh pr create", "npm publish", "docker push x"]) {
+      expect(resolveBashEffect(c), c).toBe("ask")
+      expect(classifyPermission({ patterns: [c], action: "shell" }, true).reply, c).toBe("confirm")
+    }
+  })
+  test("非外发的常规命令由工坊自动放行(不把无人值守变成点点点)", () => {
+    for (const c of ["git status", "ls -la", "python verify.py", "tar -xf payload.zip"]) {
+      expect(classifyPermission({ patterns: [c], action: "shell" }, true).reply, c).toBe("once")
+    }
   })
 })
 

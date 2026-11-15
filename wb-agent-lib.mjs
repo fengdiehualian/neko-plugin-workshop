@@ -1241,9 +1241,12 @@ export function isLocalUpdateFeed(url) {
   return /^127\./.test(h) // 127/8 整段都是回环
 }
 
-// 校验判定:缺校验值一律不许装(宁让人手动安装,也不静默跳过校验)
-export function verifyUpdateIntegrity(src, actualSha) {
-  const want = expectedSha256(src)
+// 校验判定:缺校验值一律不许装(宁让人手动安装,也不静默跳过校验)。
+// wantSha(issue #7):上层已经决定了「这次以什么为准」(签名清单 > 资产 digest > 正文声明),
+// 这里必须用那个值比对;自己再算一遍 expectedSha256(src) 会把清单依据丢掉,
+// 变成「明明按清单放行了,却拿正文哈希验收」——清单与正文不一致时就会出岔子。
+export function verifyUpdateIntegrity(src, actualSha, wantSha) {
+  const want = String(wantSha || "").toLowerCase() || expectedSha256(src)
   const got = String(actualSha || "").toLowerCase()
   if (!want) return { ok: false, want, got, reason: "更新包没有登记校验值(SHA256),为安全起见不自动安装:请到发布页手动下载 setup.exe 双击安装" }
   if (!/^[0-9a-f]{64}$/.test(got)) return { ok: false, want, got, reason: "更新包校验值算不出来(文件可能已被占用或损坏),已取消安装" }
@@ -1279,54 +1282,79 @@ export function cmpVersion(a, b) {
 }
 
 /**
- * 验清单签名。doc 形如 { v, alg, payload(base64 的原始清单字节), sig(base64) }。
+ * 验清单签名并核对内容。doc 形如 { v, alg, payload(base64 的原始清单字节), sig(base64) }。
  * 验的是 payload 解码出来的**那段字节**,不做二次序列化(序列化风格一变就验不过)。
+ *
+ * expect(issue #3):必须核对清单说的是不是「这次真要装的那一版」——
+ * 一张签名完全合法的**旧版清单**如果也被接受,就等于允许拿旧签名骗回滚。
+ * @param {{version?:string, asset?:string, size?:number}} [expect] 本次更新目标的版本/资产名/体积
+ * @param {string} [pubkeyB64] 覆盖公钥(仅测试用:示范素材用独立测试密钥签,不碰生产私钥)
+ * @returns {{ok:boolean, fatal:boolean, manifest:?object, reason:string}}
+ *   fatal=true 表示「签名有问题或内容与目标不符」,调用方必须直接拒装,
+ *   不能退化成「没有清单」再靠双渠道互证放行(issue #3 指出的正是这条降级路径)。
  */
-export function verifyUpdateManifest(doc) {
-  const bad = (reason) => ({ ok: false, manifest: null, reason })
-  if (!doc || typeof doc !== "object") return bad("清单不是一个对象")
-  if (doc.alg !== UPDATE_TRUST.alg) return bad("签名算法不认识:" + doc.alg)
-  if (!doc.payload || !doc.sig) return bad("清单缺 payload 或 sig")
+export function verifyUpdateManifest(doc, expect, pubkeyB64) {
+  const bad = (reason, fatal) => ({ ok: false, fatal: !!fatal, manifest: null, reason })
+  if (!doc || typeof doc !== "object") return bad("清单不是一个对象", true)
+  if (doc.alg !== UPDATE_TRUST.alg) return bad("签名算法不认识:" + doc.alg, true)
+  if (!doc.payload || !doc.sig) return bad("清单缺 payload 或 sig", true)
   let payload
   let sig
   try {
     payload = Buffer.from(String(doc.payload), "base64")
     sig = Buffer.from(String(doc.sig), "base64")
   } catch {
-    return bad("清单的 base64 解不开")
+    return bad("清单的 base64 解不开", true)
   }
   let m
-  try { m = JSON.parse(payload.toString("utf8")) } catch { return bad("清单正文不是 JSON") }
+  try { m = JSON.parse(payload.toString("utf8")) } catch { return bad("清单正文不是 JSON", true) }
   let ok = false
   try {
     const { createPublicKey, verify } = require("node:crypto")
-    const pub = createPublicKey({ key: Buffer.from(UPDATE_TRUST.pubkey, "base64"), format: "der", type: "spki" })
+    const pub = createPublicKey({
+      key: Buffer.from(String(pubkeyB64 || UPDATE_TRUST.pubkey), "base64"), format: "der", type: "spki",
+    })
     ok = verify(null, payload, pub, sig)
   } catch (e) {
-    return bad("验签不可用:" + (e && e.message ? e.message : e))
+    return bad("验签不可用:" + (e && e.message ? e.message : e), true)
   }
-  if (!ok) return bad("清单签名不匹配(公钥对不上,或清单被改过)")
+  if (!ok) return bad("清单签名不匹配(公钥对不上,或清单被改过)", true)
   const sha = String(m.sha256 || "").toLowerCase()
-  if (!/^[0-9a-f]{64}$/.test(sha)) return bad("清单里没有合法的 SHA256")
-  if (Number(m.size) <= 0) return bad("清单体积不合法")
-  return { ok: true, manifest: { ...m, sha256: sha }, reason: "" }
+  if (!/^[0-9a-f]{64}$/.test(sha)) return bad("清单里没有合法的 SHA256", true)
+  if (!(Number(m.size) > 0)) return bad("清单体积不合法", true)
+  // 内容必须对应本次目标(旧清单/别的资产一概不算数)
+  const e = expect || {}
+  const norm = (v) => String(v || "").replace(/^v/i, "")
+  if (e.version && norm(m.version) !== norm(e.version)) {
+    return bad("清单版本(v" + norm(m.version) + ")与要装的版本(v" + norm(e.version) + ")不一致——可能是旧清单被拿来骗回滚", true)
+  }
+  if (e.asset && String(m.asset || "") !== String(e.asset)) {
+    return bad("清单里的资产名(" + m.asset + ")与本次要下载的资产(" + e.asset + ")对不上", true)
+  }
+  if (e.size && Number(m.size) !== Number(e.size)) {
+    return bad("清单体积(" + m.size + ")与渠道声明(" + e.size + ")对不上", true)
+  }
+  return { ok: true, fatal: false, manifest: { ...m, sha256: sha }, reason: "" }
 }
 
 /**
- * 选定要更新的版本,并判断这个结论有多少独立性(issue #12 第 2 点)。
+ * 选定要更新的版本,并判断这个结论有多少独立性(issue #12 第 2 点、#12/#3 组合)。
  * @param sources    渠道列表 [{source,version,notes,assets}]
- * @param signedSha  已通过内置公钥验签的清单里的 SHA256(没有就传空)
+ * @param manifest   清单结论:{sha, fatal, reason}(没有清单就传 {});也兼容直接传 sha 字符串
  * 规则(按信任强度从高到低):
- *   - 各渠道对同一版本声明的哈希互相矛盾 → 直接拒装;
+ *   - 清单签名有问题或与目标不符(fatal)→ **直接拒装**,不退化成「靠双渠道互证」放行(issue #3);
+ *   - 各渠道对同一版本声明的哈希互相矛盾 → 拒装;
  *   - 该版本被 ≥2 个渠道同时报出 → 渠道互相印证,可以装(trustRoot="agreement");
- *   - 只有 1 个渠道报这个版本 → 必须有签名清单背书才行(trustRoot="manifest"),
- *     否则等于「谁劫持了单渠道,谁就能决定升级」——这正是原实现的漏洞;
- *   - 有签名清单时一律以清单里的哈希为准(正文/资产 digest 与清单不符视为冲突)。
+ *   - 只有 1 个渠道报这个版本 → 必须有验签通过的清单(trustRoot="manifest"),否则拒装。
  */
-export function planUpdateTarget(sources, signedSha) {
+export function planUpdateTarget(sources, manifest) {
+  const mf = typeof manifest === "string" ? { sha: manifest } : (manifest || {})
+  if (mf.fatal) {
+    return { ok: false, version: String(mf.version || ""), trustRoot: "manifest", reason: "更新清单不可信:" + (mf.reason || "验签未通过") + "(不因「多渠道一致」而放行)" }
+  }
+  const signed = String(mf.sha || "").toLowerCase()
   const list = (sources || []).filter((s) => s && s.version)
   if (!list.length) return { ok: false, version: "", trustRoot: "", reason: "一个版本信息都没拿到" }
-  const signed = String(signedSha || "").toLowerCase()
   const best = list.map((s) => s.version).sort((a, b) => cmpVersion(b, a))[0]
   const agree = list.filter((s) => cmpVersion(s.version, best) === 0)
   const declared = [...new Set(agree.map((s) => expectedSha256(s)).filter(Boolean).map((x) => x.toLowerCase()))]
@@ -1362,7 +1390,7 @@ const GH_WRITE_SCOPES = ["issue", "pr", "release", "repo", "workflow", "run", "a
 const GIT_GLOBAL_VALUED = ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix"]
 const GIT_GLOBAL_BARE = ["--no-pager", "--literal-pathspecs", "--no-optional-locks", "--bare", "--paginate", "-m", "-v", "-q"]
 const GH_GLOBAL_VALUED = ["-R", "--repo", "--hostname", "--json", "--jq", "--template"]
-const HTTP_WRITE_RE = /(-X\s*['"]?(POST|PUT|PATCH|DELETE)|--data\b|--data-raw\b|--data-binary\b|--form\b|-F\s|--upload-file|-T\s|-Method\s+(Post|Put|Patch|Delete))/i
+const HTTP_WRITE_RE = /(-X\s*['"]?(POST|PUT|PATCH|DELETE)|--data\b|--data-raw\b|--data-binary\b|--json\b|--form\b|-F\s|--upload-file|-T\s|-Method\s+(Post|Put|Patch|Delete))/i
 // 注意:正则里的斜杠必须转义,否则字面量被 // 提前截断(踩过)
 const LOCAL_HOST_RE = /(?:127\.0\.0\.1|localhost|\[::1\]|0:0:0:0:0:0:0:1|:\/\/(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.))/i
 const REMOTE_URL_RE = /https?:\/\/[^/"'\s]+/i
@@ -1372,6 +1400,22 @@ const OUTWARD_TEXT_TARGET = /(github|gitee|码云|远端|远程仓库|仓库|线
 // 用命令正则永远列不全,所以这里按「解释器 + 内联代码开关 + 远端 URL/写方法」三件同时命中才算
 const INLINE_INTERP_RE = /(?:\bpython[0-9.]*\b|\bpy\.exe\b|\bnode\b|\bbun\b|\bdeno\b|\bpwsh\b|\bpowershell\b|\bphp\b|\bperl\b|\bruby\b|\bbash\b|\bsh\b)(?=[\s\S]{0,40}(?:\s-c\s|\s-e\s|--command\s|--eval\s|--input-string\s|-EncodedCommand\s))/i
 const REMOTE_CALL_CODE_RE = /(requests\.(post|put|patch|delete)|httpx\.(post|put|patch|delete)|urllib\.request|urlopen|http\.client|aiohttp|fetch\s*\(|axios|invoke-restmethod|invoke-webrequest|newman|webhook)/i
+// 其它「把东西送到机器外面」的通道(issue #1 补充):对象存储、镜像仓库、包索引、远端复制
+const OTHER_OUTWARD_RE = [
+  [/\b(twine|cargo|gem)\s+(upload|publish|push)\b/i, "发布包到远端索引"],
+  [/\b(mvn|gradle)\s+(deploy|publish)\b/i, "发布构件到远端仓库"],
+  [/\b(docker|podman|nerdctl|buildah)\s+push\b/i, "推送镜像到远端仓库"],
+  [/\bscp\b|\bsftp\b|\bftp\b\s+-/i, "往远端主机传文件"],
+  // rsync 的远端形态:host:/path、user@host:/path、::模块。
+  // 冒号前要求至少两个字符,免得把 Windows 盘符(C:/)当远端 —— 本地复制不该弹窗
+  [/\brsync\b[^\n]*?(?:::|[A-Za-z][\w.-]+:\/|[A-Za-z][\w.-]*@[\w.-]+:\/)/i, "rsync 到远端主机"],
+  [/\b(aws|aliyun|ossutil|gsutil|az|b2)\b[^\n]{0,60}\b(cp|sync|upload|deploy)\b/i, "上传到对象存储"],
+  [/\bhelm\s+push\b|\bargo\s+push\b/i, "推送到远端 chart/仓库"],
+]
+// 别名/配置类「绕道推送」:git -c alias.x=push、git config alias.push 'push --mirror'
+const GIT_ALIAS_RE = /\bgit\b[^\n]{0,80}\balias[.=][^\n]{0,40}\bpush\b/i
+// 复合命令分段符:引擎的 glob 不跨空格,`git add . && git push` 要拆开逐段判定(issue #1)
+const SEGMENT_SPLIT = /(?:&&|\|\||[;\n|])/
 
 // 跳过命令行前导的全局选项,返回 { 子命令, 之后剩余部分 }
 function subcommandAfter(s, bin, valued, bare) {
@@ -1401,9 +1445,26 @@ function subcommandAfter(s, bin, valued, bare) {
   return { sub: "", rest: "" }
 }
 
-// 命令文本 → 外发原因(空串=不是外发)。git/gh 走 token 解析,其它走特征正则
+// 命令文本 → 外发原因(空串=不是外发)
+//
+// 两层判定,缺一不可:
+//   1) **整串**:有些形态必须看到全句才成立,比如 `python -c "import requests;requests.post(url)"`
+//      —— 拆段之后解释器与网络调用被切散,反而会漏判(踩过);
+//   2) **逐段**:复合命令 `git add . && git push` 里,推送不是句首,
+//      引擎的通配又不跨空格,glob 拦不住,只能靠按 && / || / ; / | / 换行 拆开逐段判(issue #1)。
 function outwardEvidence(text) {
-  const s = String(text || "")
+  const whole = String(text || "")
+  if (!whole) return ""
+  const byWhole = outwardEvidenceOne(whole)
+  if (byWhole) return byWhole
+  for (const seg of whole.split(SEGMENT_SPLIT)) {
+    const why = outwardEvidenceOne(String(seg || "").trim())
+    if (why) return why
+  }
+  return ""
+}
+
+function outwardEvidenceOne(s) {
   if (!s) return ""
   const g = subcommandAfter(s, "git", GIT_GLOBAL_VALUED, GIT_GLOBAL_BARE)
   if (g && g.sub) {
@@ -1419,9 +1480,11 @@ function outwardEvidence(text) {
       return "gh " + scope + " " + verb + "(改远端仓库内容)"
     }
   }
-  if (/\b(hub)\s+sync\b/i.test(s)) return "同步到远端分支"
+  // 别名/配置绕道:git -c alias.x=push、git config alias.push 'push --mirror' 之后跑 git x
+  if (GIT_ALIAS_RE.test(s)) return "用 git 别名/配置绕道推送"
+  if (/\bhub\s+sync\b/i.test(s)) return "同步到远端分支"
+  for (const [re, why] of OTHER_OUTWARD_RE) if (re.test(s)) return why
   if (/\b(npm|pnpm|yarn|bun)\s+publish\b/i.test(s)) return "发布包到 registry"
-  if (/\bdocker\s+push\b/i.test(s) || /\bpodman\s+push\b/i.test(s)) return "推送镜像到远端仓库"
   if (/\b(curl|wget|Invoke-RestMethod|Invoke-WebRequest|iwr)\b/i.test(s) && HTTP_WRITE_RE.test(s) && !LOCAL_HOST_RE.test(s)) {
     return "往外部接口写数据"
   }
@@ -1437,36 +1500,105 @@ function outwardEvidence(text) {
 // 引擎把 `bash: "allow"` 展开成 `{"*":"allow"}`(编译版里能看到),于是任何 bash 命令
 // 都不会发出 permission.asked,工坊侧的门禁根本不会被触发。
 // 这里产出「按模式细分」的规则:外发写形态先设 ask,再把只读形态设回 allow;
-// 引擎取**最后命中**的规则,所以只读回放行必须排在 ask 之后。
-//  glob 只能做前缀/通配,列不全所有写法,所以运行时判定(outwardEvidence)继续作为第二道闸。
+// 引擎取**最后命中**的规则(编译版里是 findLast),所以规则表只能有一个方向的例外:
+// 「*」放行 + 外发形态询问。以前还额外写了一批只读回放行(`"*git add*"` 之类),
+// 结果 `bash -c "git add . && git push"` 这种复合命令被后插入的回放行整体放行 ——
+// 门禁又能被绕过(issue #1)。回放行全部删掉,只读命令交给「*」放行即可。
+// 注意:glob 只能匹配字符串形态,列不尽所有写法;`python deploy.py` 这类「脚本内部再外发」
+// 由 W1 规则与运行时判定兜住,不假装正则能覆盖一切(见下方 resolveBashEffect 的说明)。
 const OUTWARD_ASK_GLOBS = [
+  // git:推送与「别名间接推送」。前缀形态与「包含」形态都列:
+  // 不同版本的匹配器有的是「前缀 glob(隐含结尾 *)」有的是「整串匹配」,只写一种会因语义不同而漏(issue #1)
   "git push*", "*git push*",
   "git -C * push*", "*git -C * push*", "git -c * push*", "*git -c * push*",
-  "git --git-dir=* push*", "*git --git-dir=* push*", "git --no-pager push*", "*git --no-pager push*",
-  "git send-email*", "*git send-email*",
+  "git --git-dir=* push*", "*git --git-dir=* push*", "git --work-tree=* push*", "*git --work-tree=* push*",
+  "git --no-pager push*", "*git --no-pager push*",
+  "git send-email*", "*git send-email*", "*git config*alias*", "git config*alias*", "*git -c alias.*",
+  "*--mirror*", "*--atomic*",
+  // gh:整个都是远端操作,读子命令也一样问(工坊日常极少用 gh 读,问了不心疼)
   "gh *", "*gh *", "*hub *",
+  // 发布类(前缀形态与包含形态都列,理由同 git)
   "npm publish*", "*npm publish*", "pnpm publish*", "*pnpm publish*", "yarn publish*", "*yarn publish*",
-  "docker push*", "*docker push*", "podman push*", "*podman push*",
-  "curl *-X *", "*curl *-X *", "curl *--data*", "*curl *--data*", "curl *-F *", "*curl *-F *",
-  "wget *--post-data*", "*wget *--post-data*", "wget *--method=*", "*wget *--method=*",
-  "*Invoke-RestMethod*", "*Invoke-WebRequest*", "iwr *",
-  "*python* -c *", "*python* -e *", "*node -e *", "*pwsh -Command *",
+  "bun publish*", "*bun publish*", "twine upload*", "*twine upload*",
+  "cargo publish*", "*cargo publish*", "gem push*", "*gem push*", "mvn deploy*", "*mvn deploy*",
+  "gradle publish*", "*gradle publish*", "docker push*", "*docker push*", "podman push*", "*podman push*",
+  // 直接对外发数据的命令行工具
+  "*curl *--data*", "*curl *-d *", "*curl *--json*", "*curl *-f *", "*curl *--upload-file*", "*curl *-T *",
+  "*wget *--post-data*", "*wget *--post-file*", "*wget *--method=*", "*wget *--content-post*",
+  "*Invoke-RestMethod*", "*Invoke-WebRequest*", "*iwr *", "*http post*", "*http PUT*",
+  "*scp *", "*sftp *", "*rsync *:*", "*aws s3 cp*", "*aws s3 sync*", "*gsutil cp*", "*az storage blob upload*",
+  "*ossutil cp*", "*gh-api*",
+  // 解释器内联代码(脚本里发 HTTP)
+  "*python* -c *", "*python* -e *", "*node -e *", "*deno eval *", "*pwsh -Command *", "*powershell -Command *",
+  "*bash -c *curl*", "*sh -c *curl*", "*bash -c *git push*", "*sh -c *git push*",
 ]
-const READONLY_ALLOW_GLOBS = []
-for (const v of GH_READ_VERBS) {
-  for (const sc of GH_WRITE_SCOPES) {
-    READONLY_ALLOW_GLOBS.push("gh " + sc + " " + v + "*", "*gh " + sc + " " + v + "*")
-  }
-}
-for (const sc of ["status", "log", "diff", "show", "add", "commit", "branch", "switch", "checkout", "restore", "stash", "fetch", "pull", "merge", "rebase", "tag", "remote", "rev-parse", "ls-files", "config"]) {
-  READONLY_ALLOW_GLOBS.push("git " + sc + "*", "git -C * " + sc + "*", "git -c * " + sc + "*", "*git " + sc + "*")
+
+/**
+ * glob 转正则:支持 `*`,并按前缀 glob 的语义**隐含结尾 `*`**。
+ * 这一条很关键:不加隐含结尾的话 `git push*` 匹配不上 `git push origin main`(后面还有内容),
+ * 而 `bash -c "git add . && git push"` 也可能因为形态算不中而整条放行(issue #1 的洞)。
+ * 引擎用的是 git 风格 wildmatch(默认隐含结尾通配),这里保持同一口径。
+ */
+function globToRe(g) {
+  let p = String(g)
+  if (!p.endsWith("*")) p += "*"
+  return new RegExp("^" + p.split("*").map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[\\s\\S]*") + "$", "i")
 }
 
-/** 给引擎 opencode.json 用的 permission 块:edit/webfetch 放行,bash 按外发形态细分 */
+/**
+ * 按引擎的「最后命中胜出」语义算出某条命令的效果,用来在单测里钉住规则表的行为。
+ * 引擎自己匹配时可能有更细的实现,这里复现的是它的取舍顺序(后定义的规则赢),
+ * 因此任何一条会让外发命令被判成 allow 的规则改动都会在测试里红。
+ * @returns "allow" | "ask"
+ */
+export function resolveBashEffect(cmd, extraRules) {
+  const table = Object.assign({ "*": "allow" }, enginePermissionConfig().bash, extraRules || {})
+  const s = String(cmd || "")
+  let effect = "allow"
+  let matched = false
+  for (const [g, act] of Object.entries(table)) {
+    if (g === "*") continue
+    if (globToRe(g).test(s)) { matched = true; effect = act }
+  }
+  return matched ? effect : String(table["*"] || "allow")
+}
+
+/**
+ * 规则表去重:通配匹配是大小写不敏感的,所以 `git -C * push*` 与 `git -c * push*`
+ * 在语义上是同一个键 —— 写两遍会在 JSON 里留下「只有大小写不同」的重复键,
+ * 大小写不敏感的解析器(PowerShell ConvertFrom-Json、部分配置校验)会直接报错。
+ * 引擎按什么规则匹配我们不赌,但**产出的配置必须是任何解析器都能吃的干净 JSON**。
+ */
+function dedupeGlobs(list) {
+  const seen = new Set()
+  const out = []
+  for (const g of list) {
+    const k = String(g).toLowerCase()
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push(g)
+  }
+  return out
+}
+
+/**
+ * 给引擎 opencode.json 用的 permission 块。
+ *
+ * ⚠ 为什么通配必须是 ask(实测结论,不是推断):
+ *   真引擎跑 `git add . && git push origin main` 时,
+ *   - `git push*`(前缀形态)命中不了 —— 命令不是以它开头;
+ *   - `*git push*`(包含形态)也命中不了 —— 引擎的通配**不跨空格**,`*` 只能匹配一个词;
+ *   于是整条命令落到 `{"*":"allow"}` 被直接执行,复合命令成了门禁的洞(issue #1)。
+ *   glob 列不全写法这个事实没法靠堆模式补救,所以默认改成「都要问」。
+ *
+ * 「都要问」不会把人淹死:工坊在 driveAgent 里对**非外发写**的询问自动答 once(毫秒级,不打扰用户),
+ * 只有命中外发写判定(按 `&&`/`;`/`|` 逐段解析,不依赖 glob)才进确认队列。
+ * 也就是说:引擎负责「一律先问」,工坊负责「只把真外发的拦下来给人看」。
+ */
 export function enginePermissionConfig() {
-  const bash = { "*": "allow" }
-  for (const g of OUTWARD_ASK_GLOBS) bash[g] = "ask"
-  for (const g of READONLY_ALLOW_GLOBS) bash[g] = "allow"
+  const bash = { "*": "ask" }
+  // 外发形态显式再标一遍:万一将来有人把通配改回 allow,这些规则还在(纵深防御,不靠单点)
+  for (const g of dedupeGlobs(OUTWARD_ASK_GLOBS)) bash[g] = "ask"
   return { edit: "allow", webfetch: "allow", bash }
 }
 

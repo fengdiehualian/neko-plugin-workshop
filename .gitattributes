@@ -1,0 +1,26 @@
+# 打包口径(issue #13/#4):
+#
+# `git archive`(= 安装包载荷的唯一来源)以前会把 market-corpus 整个打进包里 ——
+# 那是 10000+ 条第三方插件源码,里面实测有 GPL 8 个、AGPL 1 个、许可未声明 108 个,
+# 而 THIRD_PARTY_NOTICES.md 明写「未声明的不打包分发」。两边说法此前是矛盾的,
+# 用 export-ignore 让「不分发」这件事由打包机制保证,不再靠人记着。
+#
+# 这些目录仍然留在仓库工作区里(单测要靠它们核对真实数量与许可),只是不进导出的包。
+market-corpus/** export-ignore
+market-corpus export-ignore
+
+# 一次性排查脚本与临时件也不进包(装到用户机器上没用,还泄露本机路径线索)
+tools/probes/** export-ignore
+_tmp_*/** export-ignore
+
+# 发布/打包用的脚本自身不需要出现在安装包里
+workbench/build_payload.py export-ignore
+workbench/make-exe.ps1 export-ignore
+workbench/make-setup-iexpress.py export-ignore
+workbench/publish_release.py export-ignore
+workbench/check_package.ps1 export-ignore
+workbench/check_release_state.py export-ignore
+workbench/sync_instance.py export-ignore
+workbench/update_sign.cjs export-ignore
+workbench/collect_notices.cjs export-ignore
+workbench/notes-*.md export-ignore

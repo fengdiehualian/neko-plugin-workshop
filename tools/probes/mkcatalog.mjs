@@ -1,10 +1,17 @@
-// 为全部 46 个市场插件生成学习卡片目录(market-catalog.md)
+// 为市场插件生成学习卡片目录(market-catalog.md)——历史一次性脚本,路径不再写死
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs"
+import { resolve, dirname } from "node:path"
+import { fileURLToPath } from "node:url"
 
+const HERE = dirname(fileURLToPath(import.meta.url))
 const items = JSON.parse(await Bun.file(process.env.TEMP + "/m_all.json").text())
 const analysis = JSON.parse(await Bun.file(process.env.TEMP + "/market_analysis.json").text())
 const bySlug = Object.fromEntries(analysis.plugins.map((p) => [p.slug, p]))
-const CORPUS = "C:\\Users\\Administrator\\dev\\market-plugins"
+// 语料目录:环境变量 → 仓库内 market-corpus → 旧的 dev/market-plugins(本机历史数据)
+const CORPUS =
+  process.env.NEKO_CORPUS_DIR ||
+  [resolve(HERE, "..", "..", "market-corpus"), resolve(HERE, "..", "..", "..", "market-plugins")].find((p) => existsSync(p)) ||
+  resolve(HERE, "..", "..", "market-corpus")
 
 function srcInfo(slug) {
   const dir = `${CORPUS}\\${slug}\\src`

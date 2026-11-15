@@ -125,9 +125,28 @@ function main() {
   return 0
 }
 
-// 签一份「示范清单」当单测素材:CI 上没有私钥,所以素材必须随仓库走、
-// 断言的是「内置公钥能不能验过这份签名」(而不是在 CI 里重新签)。
+// 签一份「示范清单」当单测素材。
+// 关键(issue #7):绝不能用生产私钥签测试素材 ——
+// 那会造出一条「签名完全合法、但内容与任何真实发布都无关」的清单(9.9.9 / 假哈希),
+// 一旦被拿出去配合别的渠道展示,就是误导性的「我们签过这一版」。
+// 所以测试素材用一把独立、公开的测试钥匙,与生产钥匙完全隔离。
+function testKeyPair() {
+  const dir = path.join(__dirname, "..", "test", "fixtures")
+  fs.mkdirSync(dir, { recursive: true })
+  const pf = path.join(dir, "test-sign-ed25519")
+  if (!fs.existsSync(pf)) {
+    const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519")
+    fs.writeFileSync(pf, privateKey.export({ type: "pkcs8", format: "pem" }), "utf8")
+    fs.writeFileSync(pf + ".pub", publicKey.export({ type: "spki", format: "pem" }), "utf8")
+  }
+  return {
+    priv: crypto.createPrivateKey(fs.readFileSync(pf, "utf8")),
+    pub: fs.readFileSync(pf + ".pub", "utf8").replace(/-----[^-]+-----/g, "").replace(/\s+/g, ""),
+  }
+}
 function demo() {
+  const { priv, pub } = testKeyPair()
+  const dir = path.join(__dirname, "..", "test", "fixtures")
   const manifest = {
     v: 1,
     version: "v9.9.9",
@@ -137,13 +156,23 @@ function demo() {
     publishedAt: "2026-11-15T00:00:00.000Z",
   }
   const payload = canonical(manifest)
-  const sig = crypto.sign(null, payload, privKey())
+  const sig = crypto.sign(null, payload, priv)
   const doc = { v: 1, alg: "ed25519", payload: payload.toString("base64"), sig: sig.toString("base64") }
-  const out = arg("out", path.join(__dirname, "..", "test", "fixtures", "manifest-good.json"))
-  fs.mkdirSync(path.dirname(out), { recursive: true })
+  const out = arg("out", path.join(dir, "manifest-good.json"))
   fs.writeFileSync(out, JSON.stringify(doc, null, 2) + "\n", "utf8")
-  console.log("示范清单已签名(测试素材):", out)
-  return verifyFile(out)
+  fs.writeFileSync(path.join(dir, "test-pubkey.txt"), pub + "\n", "utf8")
+  // 自验用测试公钥,不用生产公钥
+  const ok = crypto.verify(null, payload, crypto.createPublicKey({ key: Buffer.from(pub, "base64"), format: "der", type: "spki" }), sig)
+  console.log("示范清单已签名(独立测试钥匙,不碰生产私钥):", out, ok ? "自验通过" : "自验失败")
+  console.log("  测试公钥(单测要用这把):" + pub.slice(0, 24) + "…")
+  console.log("  生产公钥(未参与本次签名):" + pubkeySpki().slice(0, 24) + "…")
+  console.log("  ⚠ 用生产公钥验这份素材必须失败 —— 这正是「测试素材不是生产签名」的证明")
+  try {
+    const okProd = crypto.verify(null, payload,
+      crypto.createPublicKey({ key: Buffer.from(pubkeySpki(), "base64"), format: "der", type: "spki" }), sig)
+    console.log("  用生产公钥验这份测试素材:", okProd ? "居然通过了(不对,请检查钥匙)" : "失败(符合预期)")
+  } catch {}
+  return ok ? 0 : 1
 }
 if (require.main === module) process.exit(main())
-module.exports = { canonical, sign, verifyFile }
+module.exports = { canonical, sign, verifyFile, testKeyPair }

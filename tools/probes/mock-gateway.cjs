@@ -16,10 +16,12 @@ const LOG = path.join(LOGDIR, "mock-requests-" + PORT + ".log")
 
 // 端到端断言的凭据不写标记文件:那种做法依赖 shell 的语句分隔符(cmd 用 &,bash 用 ;,
 // PowerShell 只认 ;)和引擎 shell 工具的默认 workdir,任一不符就是假阴性(实测连踩两次)。
-// 改成「网关计数」:引擎只有在**真的执行完工具**之后才会带着工具结果再发一次请求,
+// 改成「网关计数」:引擎只有在真的执行完工具之后才会带着工具结果再发一次请求,
 // 这件事与命令内容、退出码、工作目录都无关 —— 批准前后各计一次就是铁证。
 const PROBE_CMD = "git push origin main"
-const hits = { reqs: 0, pushToolCalls: 0, toolResultReqs: 0, lastAt: "" }
+// 复合命令:前面是只读动作。用来验「规则表里的只读形态会不会把整条命令放行」(issue #1)
+const PROBE_CMD_COMBO = "git add . && git push origin main"
+const hits = { reqs: 0, pushToolCalls: 0, toolResultReqs: 0, executedReqs: 0, rejectedReqs: 0, lastAt: "" }
 
 function reply(res, obj) {
   res.writeHead(200, { "content-type": "application/json" })
@@ -96,10 +98,19 @@ const srv = http.createServer((req, res) => {
       // 「本轮是否带着工具结果回来」只看结构,不看正文关键词:
       // 用关键词判断时,同一会话跑第二次会因为历史里残留 PUSHED 而误判成「已执行」(实测踩到)
       const hasToolResult = /"role"\s*:\s*"tool"|tool_call_id|"type"\s*:\s*"tool-result"/i.test(msg)
-      if (hasToolResult) hits.toolResultReqs++
-      if (!hasToolResult && msg.indexOf("PUSHME") >= 0 && toolList.some((n) => /^(shell|bash)$/i.test(n))) {
+      if (hasToolResult) {
+        hits.toolResultReqs++
+        // 关键区分:被拒绝时引擎同样会「带着工具结果回来」(那是一条权限被拒的回执),
+        // 所以「有工具结果」不等于「命令执行了」。用结果内容把两者分开,
+        // 否则拒绝路径会被读成「拒绝后还是执行了」的假阳性(实测踩过)
+        if (/permission|denied|rejected|用户拒绝|已拒绝|not approved|blocked/i.test(msg)) hits.rejectedReqs++
+        else hits.executedReqs++
+      }
+      if (!hasToolResult && /PUSHME|PUSHCOMBO/.test(msg) && toolList.some((n) => /^(shell|bash)$/i.test(n))) {
         const name = toolList.find((n) => /^(shell|bash)$/i.test(n))
-        const args = JSON.stringify({ command: PROBE_CMD })
+        // PUSHCOMBO → 「先只读再推送」的复合命令,专门验只读形态会不会把整条命令放行
+        const cmdText = /PUSHCOMBO/.test(msg) ? PROBE_CMD_COMBO : PROBE_CMD
+        const args = JSON.stringify({ command: cmdText })
         hits.pushToolCalls++
         if (parsed.stream) {
           replySSE(res, [

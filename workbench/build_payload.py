@@ -28,6 +28,9 @@ GIT = resolve_git()
 DEFAULT_ZCODE = os.environ.get("NEKO_ZCODE_DIR") or os.path.join(
     os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Programs", "NEKOWorkshop", "_zcode"
 )
+# 载荷里**不许出现**的条目(issue #4):第三方市场语料不打包分发。
+# 光在 THIRD_PARTY_NOTICES.md 里写「不分发」不算数,必须在出包前真的拦下来。
+FORBIDDEN = ["market-corpus/", "tools/probes/"]
 # 载荷里必须出现的条目:底座三件 + 工坊入口
 REQUIRED = [
     ("wb-studio.mjs", 100_000),
@@ -61,8 +64,18 @@ def add_zcode(zip_path, zcode_dir):
     if os.path.isfile(prov_path):
         prov = json.load(open(prov_path, encoding="utf-8"))
     want = {f["path"]: f for f in (prov.get("files") or [])}
-    if not want:
-        print("! 没有 workbench/zcode_bundle.json 来源登记,本次跳过哈希比对(建议跑一次采集脚本)")
+    # 没有来源登记 = 我们不知道这份 91MB 的运行时的哪来的、该是哪个哈希 → 不允许出包。
+    # 以前这里是「打印一句警告继续」,那等于登记形同虚设(issue #6 指出的就是这种「说了但没拦」)
+    missing_prov = [p for p in ("node.exe", "zcode.cjs", "provider/zcode-builtin.json") if p not in want]
+    if missing_prov:
+        sys.exit(
+            "workbench/zcode_bundle.json 缺少这些条目的来源登记:%s\n"
+            "补齐(要含下载地址与上游哈希出处)再打包:node workbench/collect_zcode.cjs" % ", ".join(missing_prov)
+        )
+    # 来源必须逐项写清楚:只记哈希等于没记(哈希是谁给的、对着哪儿核验的,出问题查不到)
+    no_upstream = [p for p, f in want.items() if not str(f.get("upstream") or "").strip() or not str(f.get("hash_source") or "").strip()]
+    if no_upstream:
+        sys.exit("zcode_bundle.json 里这些条目没有 upstream/hash_source,拒绝出包:%s" % ", ".join(no_upstream))
     n = 0
     with zipfile.ZipFile(zip_path, "a", zipfile.ZIP_DEFLATED) as z:
         existing = set(z.namelist())
@@ -98,7 +111,9 @@ def verify(zip_path):
         count = len(names)
     missing = [p for p, _ in REQUIRED if p not in names]
     small = [(p, sizes.get(p, 0)) for p, mn in REQUIRED if p in names and sizes.get(p, 0) < mn]
-    return count, missing, small
+    # 语料/探针混进包里 = 分发口径出错(许可问题)或本机路径泄露,一律不出包
+    leaked = [p for p in FORBIDDEN for n in names if n.startswith(p) or n == p.rstrip("/")]
+    return count, missing, small, leaked
 
 
 def main():
@@ -124,16 +139,25 @@ def main():
         os.remove(a.out)
     os.replace(tmp, a.out)
 
-    count, missing, small = verify(a.out)
+    count, missing, small, leaked = verify(a.out)
     if missing or small:
         sys.exit(
             "载荷不完整,拒绝出包!\n  缺条目:%s\n  体积异常:%s\n  (历史上就因缺 _zcode 少打 30MB,别放过)"
             % (missing, small)
         )
+    if leaked:
+        sys.exit(
+            "载荷里混进了不该分发的内容,拒绝出包!\n  命中:%s\n"
+            "  market-corpus 是第三方源码(实测 GPL/AGPL/未声明占多数),按 THIRD_PARTY_NOTICES.md 的口径不打包分发;\n"
+            "  出现它通常意味着 .gitattributes 的 export-ignore 失效或被人删了。"
+            % ", ".join(sorted(set(leaked))[:6])
+        )
     size = os.path.getsize(a.out)
     print("payload.zip:源码 %d 条 + _zcode 补 %d 条 = %d 条,%s 字节(压缩后)" % (src_count, added, count, format(size, ",")))
     print("必查条目全部就位:", ", ".join(p for p, _ in REQUIRED))
+    print("禁含条目检查通过:", ", ".join(FORBIDDEN))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

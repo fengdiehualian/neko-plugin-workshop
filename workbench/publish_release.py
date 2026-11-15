@@ -17,7 +17,8 @@ import uuid
 
 GH = ("fengdiehualian", "neko-plugin-workshop")
 GT = ("maple-butterfly-flower-love", "neko-plugin-workshop")
-REPO_DIR = r"C:\Users\Administrator\dev\neko-plugin-workshop"
+# 仓库根由脚本位置推导,别写死本机绝对路径(issue #6:换台机器就跑不了,而且日志里泄露本机目录)
+REPO_DIR = os.environ.get("NEKO_REPO_DIR") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NAME = "N.E.K.O.PluginWorkshop-Setup.exe"
 
 

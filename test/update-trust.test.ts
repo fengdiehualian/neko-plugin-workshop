@@ -5,89 +5,90 @@ import { verifyUpdateManifest, planUpdateTarget, expectedSha256, cmpVersion, UPD
 // 对应 GitHub issue #12:哈希与包同渠道 → 渠道被劫持就能一起换;
 // 信任根改成内置公钥验签的清单,并要求多渠道互相印证。
 const GOOD = JSON.parse(readFileSync(new URL("./fixtures/manifest-good.json", import.meta.url), "utf8"))
-const GOOD_SHA = "7d490fd9180a3c6dd722ecbca569161d06b4eeb07aaaabd54aba6d96a3a584a4"
+// 示范素材是用**独立测试钥匙**签的(issue #7):不能用生产私钥签测试内容
+const TEST_PUB = readFileSync(new URL("./fixtures/test-pubkey.txt", import.meta.url), "utf8").trim()
+const GOOD_SHA = JSON.parse(Buffer.from(GOOD.payload, "base64").toString("utf8")).sha256.toLowerCase()
+const GOOD_VERSION = "v9.9.9"
+const GOOD_ASSET = "N.E.K.O.PluginWorkshop-Setup.exe"
+const GOOD_SIZE = 12345678
+const okExpect = { version: GOOD_VERSION, asset: GOOD_ASSET, size: GOOD_SIZE }
 
 const src = (o) => ({ source: "github", version: "1.2.63", notes: "", assets: [], ...o })
 
-describe("verifyUpdateManifest:内置公钥验签", () => {
-  test("随仓库的签名素材验得过", () => {
-    const r = verifyUpdateManifest(GOOD)
+describe("verifyUpdateManifest:独立测试钥匙签的素材", () => {
+  test("测试公钥验得过", () => {
+    const r = verifyUpdateManifest(GOOD, okExpect, TEST_PUB)
     expect(r.ok).toBe(true)
     expect(r.manifest.sha256).toBe(GOOD_SHA)
-    expect(r.manifest.version).toBe("v9.9.9")
   })
-  test("换掉清单内容但保留原签名 → 验签必须失败(换包演练)", () => {
-    // 注意:不能直接改 payload 的 base64 尾巴——那样连 JSON 都解不开,报的是格式错而不是签名错,
-    // 测试看着绿其实没验到签名这条路
-    const m = JSON.parse(Buffer.from(GOOD.payload, "base64").toString("utf8"))
-    const swapped = { ...m, sha256: "f".repeat(64), size: 1 }
-    const r = verifyUpdateManifest({ ...GOOD, payload: Buffer.from(JSON.stringify(swapped), "utf8").toString("base64") })
+  test("生产公钥验不过测试素材(证明素材不是生产签名,issue #7)", () => {
+    const r = verifyUpdateManifest(GOOD, okExpect)
     expect(r.ok).toBe(false)
-    expect(r.reason).toContain("签名")
+    expect(r.fatal).toBe(true)
   })
-  test("payload 被改坏(解不出 JSON)也拒绝,且给出人话原因", () => {
-    const r = verifyUpdateManifest({ ...GOOD, payload: Buffer.from("不是 JSON", "utf8").toString("base64") })
-    expect(r.ok).toBe(false)
-    expect(r.reason).toContain("JSON")
-  })
-  test("签名段被换也验不过", () => {
-    const r = verifyUpdateManifest({ ...GOOD, sig: Buffer.from("x".repeat(64)).toString("base64") })
-    expect(r.ok).toBe(false)
-  })
-  test("换成别的算法/缺字段/坏 base64 都拒绝", () => {
-    expect(verifyUpdateManifest({ ...GOOD, alg: "rsa" }).ok).toBe(false)
-    expect(verifyUpdateManifest({ v: 1, alg: "ed25519" }).ok).toBe(false)
-    expect(verifyUpdateManifest(null).ok).toBe(false)
-    expect(verifyUpdateManifest({ alg: "ed25519", payload: "@@@@", sig: "@@@@" }).ok).toBe(false)
-  })
-  test("公钥是 SPKI base64 且长度合理", () => {
-    expect(UPDATE_TRUST.alg).toBe("ed25519")
-    expect(Buffer.from(UPDATE_TRUST.pubkey, "base64").length).toBeGreaterThan(30)
+  test("测试钥匙与生产钥匙不是同一把", () => {
+    expect(TEST_PUB).not.toBe(UPDATE_TRUST.pubkey)
   })
 })
 
-describe("planUpdateTarget:单渠道不足以决定升级", () => {
-  test("两个渠道都报同一版本 → 互相印证可装", () => {
-    const p = planUpdateTarget([src({}), src({ source: "gitee" })], "")
-    expect(p.ok).toBe(true)
-    expect(p.trustRoot).toBe("agreement")
-    expect(p.channels.sort()).toEqual(["gitee", "github"])
+describe("verifyUpdateManifest:签名与内容都要对得上本次目标(issue #3)", () => {
+  test("换内容保留原签名 → fatal 拒绝", () => {
+    const m = JSON.parse(Buffer.from(GOOD.payload, "base64").toString("utf8"))
+    const swapped = { ...m, sha256: "f".repeat(64) }
+    const r = verifyUpdateManifest({ ...GOOD, payload: Buffer.from(JSON.stringify(swapped), "utf8").toString("base64") }, okExpect, TEST_PUB)
+    expect(r.ok).toBe(false)
+    expect(r.fatal).toBe(true)
+    expect(r.reason).toContain("签名")
   })
-  test("只有一个渠道报最高版本、没有签名清单 → 拒装", () => {
-    const p = planUpdateTarget([src({ version: "9.9.9" }), src({ source: "gitee", version: "1.2.63" })], "")
-    expect(p.ok).toBe(false)
-    expect(p.reason).toContain("一个渠道")
+  test("旧版清单拿来给新版用 → 明确拒绝(防签名回滚)", () => {
+    const r = verifyUpdateManifest(GOOD, { ...okExpect, version: "v9.9.10" }, TEST_PUB)
+    expect(r.ok).toBe(false)
+    expect(r.fatal).toBe(true)
+    expect(r.reason).toContain("不一致")
   })
-  test("只有一个渠道报最高版本,但有验签清单 → 可装,并以清单哈希为准", () => {
-    const p = planUpdateTarget([src({ version: "9.9.9" })], GOOD_SHA)
+  test("清单资产名与本次下载的资产不符 → 拒绝", () => {
+    const r = verifyUpdateManifest(GOOD, { ...okExpect, asset: "别的包.exe" }, TEST_PUB)
+    expect(r.ok).toBe(false)
+    expect(r.fatal).toBe(true)
+  })
+  test("清单体积与渠道声明不符 → 拒绝", () => {
+    const r = verifyUpdateManifest(GOOD, { ...okExpect, size: 999 }, TEST_PUB)
+    expect(r.ok).toBe(false)
+    expect(r.fatal).toBe(true)
+  })
+  test("payload 被改坏(解不出 JSON)也 fatal", () => {
+    const r = verifyUpdateManifest({ ...GOOD, payload: Buffer.from("不是 JSON", "utf8").toString("base64") }, okExpect, TEST_PUB)
+    expect(r.ok).toBe(false)
+    expect(r.fatal).toBe(true)
+  })
+  test("坏 base64 / 缺字段 / 换算法 都 fatal", () => {
+    expect(verifyUpdateManifest({ ...GOOD, sig: "" }, okExpect, TEST_PUB).fatal).toBe(true)
+    expect(verifyUpdateManifest({ ...GOOD, alg: "rsa" }, okExpect, TEST_PUB).fatal).toBe(true)
+    expect(verifyUpdateManifest(null, okExpect, TEST_PUB).fatal).toBe(true)
+  })
+})
+
+describe("planUpdateTarget:清单不可信时不能靠双渠道互证放行(issue #3)", () => {
+  const twoChannels = [
+    src({ version: "9.9.9", notes: "SHA256:`" + GOOD_SHA + "`" }),
+    src({ source: "gitee", version: "9.9.9", notes: "SHA256:`" + GOOD_SHA + "`" }),
+  ]
+  test("两渠道一致 + 清单正常 → 放行(以清单为准)", () => {
+    const p = planUpdateTarget(twoChannels, { sha: GOOD_SHA, fatal: false })
     expect(p.ok).toBe(true)
     expect(p.trustRoot).toBe("manifest")
-    expect(p.sha).toBe(GOOD_SHA)
   })
-  test("被劫持的一端谎报更高版本想压制另一端:另一端版本较低时,单渠道+无签名=拒装(不能靠谎报升级)", () => {
-    const p = planUpdateTarget([src({ version: "99.0.0", notes: "SHA256:`" + "a".repeat(64) + "`" }), src({ source: "gitee", version: "1.2.63" })], "")
+  test("两渠道一致但清单验签失败 → 必须拒装,不能退回互证放行", () => {
+    const p = planUpdateTarget(twoChannels, { sha: "", fatal: true, reason: "清单签名不匹配" })
+    expect(p.ok).toBe(false)
+    expect(p.reason).toContain("清单不可信")
+  })
+  test("清单版本对不上(fatal)同样直接拒", () => {
+    const p = planUpdateTarget(twoChannels, { sha: "", fatal: true, reason: "清单版本与要装的版本不一致", version: "9.9.9" })
     expect(p.ok).toBe(false)
   })
-  test("两渠道对同一版本声明的哈希互相矛盾 → 拒装", () => {
-    const a = src({ notes: "SHA256:`" + "a".repeat(64) + "`" })
-    const b = src({ source: "gitee", notes: "SHA256:`" + "b".repeat(64) + "`" })
-    const p = planUpdateTarget([a, b], "")
-    expect(p.ok).toBe(false)
-    expect(p.reason).toContain("不一致")
-  })
-  test("清单与正文声明不一致 → 以清单为准并拒装(正文被改的演练)", () => {
-    const a = src({ notes: "SHA256:`" + "a".repeat(64) + "`" })
-    const b = src({ source: "gitee", notes: "SHA256:`" + "a".repeat(64) + "`" })
-    const p = planUpdateTarget([a, b], GOOD_SHA)
-    expect(p.ok).toBe(false)
-    expect(p.reason).toContain("签名清单")
-  })
-  test("资产 digest 被利用(issue #12 第 3 点:以前 digest 被丢掉是死代码)", () => {
-    const s = src({ assets: [{ name: "x.exe", url: "u", size: 1, digest: "sha256-" + GOOD_SHA }] })
-    expect(expectedSha256(s)).toBe(GOOD_SHA)
-  })
-  test("一个源都没有 → 明确拒绝而不是放行", () => {
-    expect(planUpdateTarget([], "").ok).toBe(false)
+  test("兼容旧调用:直接传 sha 字符串", () => {
+    expect(planUpdateTarget([src({ version: "9.9.9" })], GOOD_SHA).ok).toBe(true)
   })
 })
 
