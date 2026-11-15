@@ -136,14 +136,20 @@ function chk(name, ok, detail) {
   r = await runScenario({ version: "9.9.9", notes: "SHA256:`" + realSha + "`", assets: asset(buf.length), manifest: forged }, sawError)
   chk("3b 清单签名伪造 → 硬拒(不退化为多渠道互证)", r.ok && /清单不可信/.test(String(r.s.error)) && (await alive()), r.s && String(r.s.error).slice(0, 130))
 
-  // B2. 一张「旧版本」的合法清单拿来给新版本用 → 拒绝(签名回滚演练)
-  const staleManifest = JSON.parse(JSON.stringify(goodManifest))
-  {
-    const pl = Buffer.from(staleManifest.payload, "base64").toString("utf8").replace('"v9.9.9"', '"v9.9.8"')
-    staleManifest.payload = Buffer.from(pl, "utf8").toString("base64")
+  // B2. 一张「签名完全合法、但版本是旧的」清单拿来给新版本用 → 必须拒(防签名回滚)
+  //     注意:一定要**重新签**一张 9.9.8 的清单。手工改 payload 里的版本号会破坏签名,
+  //     命中的是「签名不符」而不是「版本不符」那条分支,等于没测到想测的东西(实测踩过)
+  const stalePath = path.join(TMP, "manifest-998.json")
+  let staleManifest = null
+  try {
+    staleManifest = signManifest(path.join(TMP, "fake.zip"), "9.9.8", stalePath)
+  } catch (e) {
+    log("     ! 签旧版清单失败:" + String(e.message || e).slice(0, 100))
   }
-  r = await runScenario({ version: "9.9.9", notes: "SHA256:`" + realSha + "`", assets: asset(buf.length), manifest: staleManifest }, sawError)
-  chk("3b2 旧版清单冒充新版 → 拒绝(防签名回滚)", r.ok && /清单版本|清单不可信/.test(String(r.s.error)), r.s && String(r.s.error).slice(0, 130))
+  if (staleManifest) {
+    r = await runScenario({ version: "9.9.9", notes: "SHA256:`" + realSha + "`", assets: asset(buf.length), manifest: staleManifest }, sawError)
+    chk("3b2 签名合法的旧版清单冒充新版 → 拒绝(防签名回滚)", r.ok && /清单版本|不一致/.test(String(r.s.error)), r.s && String(r.s.error).slice(0, 150))
+  }
 
   // C. 清单有效,但渠道实际发的包被换掉(镜像换包演练) → 下载后实算不符,拒装
   served = Buffer.concat([buf.subarray(0, 4), Buffer.alloc(buf.length - 4, 9)])
