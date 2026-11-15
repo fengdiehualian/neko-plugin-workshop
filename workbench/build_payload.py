@@ -148,8 +148,10 @@ def main():
     if leaked:
         sys.exit(
             "载荷里混进了不该分发的内容,拒绝出包!\n  命中:%s\n"
-            "  market-corpus 是第三方源码(实测 GPL/AGPL/未声明占多数),按 THIRD_PARTY_NOTICES.md 的口径不打包分发;\n"
-            "  出现它通常意味着 .gitattributes 的 export-ignore 失效或被人删了。"
+            "  market-corpus 是第三方源码(实测 GPL/AGPL/未声明占多数),按 THIRD_PARTY_NOTICES.md 的口径不打包分发;"
+            "tools/probes 里是本机排查脚本(含路径线索)。\n"
+            "  出现它们通常意味着 .gitattributes 的 export-ignore 被删了,"
+            "或者只写了 `dir/**` 没写 `dir`(两行都要,少一行就还会导出来)。"
             % ", ".join(sorted(set(leaked))[:6])
         )
     size = os.path.getsize(a.out)

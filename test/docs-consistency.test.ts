@@ -31,6 +31,23 @@ const indexed = (md: string) => {
 }
 const supplemented = [...catalog.split("### 本机补采")[1]?.split("### 附")[0]?.matchAll(/^\|\s*`([a-z0-9_.-]+)`\s*\|/gmi) || []].map((m) => m[1])
 
+describe("打包口径:.gitattributes 的 export-ignore", () => {
+  const attrs = (() => {
+    try { return read(join(ROOT, ".gitattributes")) } catch { return "" }
+  })()
+  test("每个排除目录都同时写了「目录本身」与「目录内容」两行", () => {
+    // 只写 `dir/**` 时 git archive 依旧会导出该目录下的文件(实测栽过一次)
+    for (const dir of ["market-corpus", "tools/probes"]) {
+      expect(attrs.includes(dir + " export-ignore"), dir + " 缺「目录本身」那一行").toBe(true)
+      expect(attrs.includes(dir + "/** export-ignore"), dir + " 缺「目录内容」那一行").toBe(true)
+    }
+  })
+  test("语料与探针明确不进安装包", () => {
+    expect(attrs).toMatch(/market-corpus/)
+    expect(attrs).toMatch(/tools\/probes/)
+  })
+})
+
 describe("语料数量:以 market-corpus 真实目录为准", () => {
   test("事实核对:目录数 = 在架索引 + 补采,且补采项不混进索引表", () => {
     const idx = indexed(catalog)

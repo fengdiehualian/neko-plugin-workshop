@@ -10,7 +10,10 @@ market-corpus/** export-ignore
 market-corpus export-ignore
 
 # 一次性排查脚本与临时件也不进包(装到用户机器上没用,还泄露本机路径线索)
+# 注意:目录本身与目录内容要**两行都写**,只写 `dir/**` 时 git archive 仍会带出该目录下的文件
+tools/probes export-ignore
 tools/probes/** export-ignore
+_tmp_* export-ignore
 _tmp_*/** export-ignore
 
 # 发布/打包用的脚本自身不需要出现在安装包里
