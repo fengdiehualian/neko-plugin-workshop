@@ -63,4 +63,4 @@ keywords = ["古诗", "诗", "唐诗", "宋词", "来一首诗"]
 ## 五、配套规范（写代码的硬约束，另查）
 
 - 官方插件 SDK：`https://project-neko.online/zh-CN/plugins/`
-- 工坊插件规范铁律：`neko-plugin-workshop` 的 `packs/neko-plugin/skill/neko-plugin-dev/SKILL.md` 与 `rules.json`（R1–R19：`plugin_id` 规则、entry 格式、`Ok`/`Err` 返回、已移除 API 黑名单、`push_message` v2、`@lifecycle` 初始化、`data`/`cache` 路径、跨插件调用、参数注解、日志分级与加锁；R16 为复用门禁，先搜现成再自建）。
+- 工坊插件规范铁律：`neko-plugin-workshop` 的 `packs/neko-plugin/skill/neko-plugin-dev/SKILL.md` 与 `rules.json`（R1–R19：`plugin_id` 规则、entry 格式、`Ok`/`Err` 返回、已移除 API 黑名单、`push_message` v2、`@lifecycle` 初始化、`data`/`cache` 路径、跨插件调用、参数注解、日志分级与加锁；R19 为复用门禁，先搜现成再自建）。

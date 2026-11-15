@@ -22,15 +22,19 @@ NAME = "N.E.K.O.PluginWorkshop-Setup.exe"
 
 
 def cred(host):
-    out = subprocess.run(["git", "credential", "fill"], input=f"protocol=https\nhost={host}\n\n",
-                         capture_output=True, text=True).stdout
-    return next(l.split("=", 1)[1] for l in out.splitlines() if l.startswith("password="))
+    # 统一走 release_tls:凭据只在这一处取,不回显、不进日志(路径解析也集中在那里)
+    return _cred(host, cwd=REPO_DIR)
 
 
-ctx = ssl.create_default_context()
-ctx.check_hostname = False
-ctx.verify_mode = ssl.CERT_NONE
-op = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=ctx))
+# issue #11:以前这里是 CERT_NONE + git sslVerify=false,而这些请求都带着 token。
+# 现在默认校验证书;真要降级必须显式设环境变量,而且每次都会打印风险。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from release_tls import cred as _cred, git_nocred, make_context, resolve_git, resolve_node  # noqa: E402
+from release_tls import run_git as git_tls_run  # noqa: E402
+
+_opener_ctx = make_context()
+op = urllib.request.build_opener(
+    urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=_opener_ctx))
 
 
 def call(url, data=None, method="GET", ctype="application/json", raw=None, headers=None, timeout=900):
@@ -70,12 +74,34 @@ def main():
     title = a.title or f"{tag} 安装包"
     print(f"发布 {tag}  {size:,} 字节  {sha}")
 
-    # 1) tag
-    subprocess.run(["git", "tag", "-f", tag], cwd=REPO_DIR, capture_output=True, text=True)
+    # 1) tag —— issue #11:不再 `tag -f` + `push -f` 重写已发布的 tag。
+    #    已装好的客户端按同名 tag 比对内容,tag 被挪动就等于「同一个版本号换了包」,
+    #    排查时谁也说不清谁装的是哪一份。出问题时正确做法是换一个新版本号。
+    local_sha = git_nocred(["rev-parse", tag], cwd=REPO_DIR).stdout.strip()
+    if not local_sha:
+        git_nocred(["tag", tag], cwd=REPO_DIR)
+        local_sha = git_nocred(["rev-parse", tag], cwd=REPO_DIR).stdout.strip()
+    print(f"  本仓库 {tag} → {local_sha[:7]}")
+
+    def remote_tag_sha(remote):
+        r = git_tls_run(["ls-remote", remote, "refs/tags/" + tag], cwd=REPO_DIR, timeout=180)
+        for line in (r.stdout or "").splitlines():
+            parts = line.split()
+            if len(parts) >= 2:
+                return parts[1]
+        return ""
+
     for remote in ("gitee", "origin"):
+        cur = remote_tag_sha(remote)
+        if cur and cur != local_sha:
+            print(f"  !! {remote} 上的 {tag} 指向 {cur[:7]},与本地 {local_sha[:7]} 不同 —— 已发布的 tag 不重写。"
+                  f"请改 package.json 版本号后重新发布(见 issue #11)。")
+            raise SystemExit(2)
+        if cur == local_sha:
+            print(f"  tag→{remote}: 已在 {cur[:7]},无需重复推送")
+            continue
         for i in range(4):
-            r = subprocess.run(["git", "-c", "http.proxy=", "-c", "http.sslVerify=false", "push", "-f", remote, tag],
-                               cwd=REPO_DIR, capture_output=True, text=True)
+            r = git_tls_run(["push", remote, tag], cwd=REPO_DIR, timeout=900)
             print(f"  tag→{remote}:", (r.stderr or r.stdout).strip().splitlines()[-1][:90])
             if r.returncode == 0:
                 break
@@ -124,35 +150,46 @@ def main():
         print("  ! GitHub 最终未发布,继续发码云(事后重跑本脚本会补上 GitHub)")
 
     # 3) Gitee(同样不让它因一次抖动就中断;附件名必须是精确名,安装器插件按精确名回退)
+    # issue #11:token 不再拼进 URL —— URL 会进代理日志/服务端访问日志/Shell 历史。
+    # 先按请求头鉴权;只有码云明确拒绝(401/403)才退回查询参数老办法,并把这件事打印出来。
+    tok = cred("gitee.com")
+
+    def gitee(path, data=None, method="GET", raw=None, ctype="application/json"):
+        url = f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/{path}"
+        code, res = call(url, data=data, method=method, raw=raw, ctype=ctype,
+                         headers={"authorization": "token " + tok})
+        if code in (401, 403):
+            print("  (码云不认 Authorization 头,退回查询参数携带 token;这条 URL 请勿外贴)")
+            code, res = call(url + ("&" if "?" in url else "?") + "access_token=" + tok,
+                             data=data, method=method, raw=raw, ctype=ctype)
+        return code, res
+
     def do_gitee():
-        tok = cred("gitee.com")
-        code, rel = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/tags/{tag}?access_token={tok}")
+        code, rel = gitee(f"releases/tags/{tag}")
         # 坑:发行版不存在时,码云返回 HTTP 200 + body "null",不能只判状态码
         if code == 200 and isinstance(rel, dict) and rel.get("id"):
             gid = rel["id"]
-            call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}?access_token={tok}",
-                 {"tag_name": tag, "name": title, "body": body, "prerelease": False}, method="PATCH")
+            gitee(f"releases/{gid}", {"tag_name": tag, "name": title, "body": body, "prerelease": False}, method="PATCH")
             print("  Gitee 发行版已存在", gid)
         else:
-            code, rel = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases?access_token={tok}",
-                             {"tag_name": tag, "name": title, "body": body, "target_commitish": "main", "prerelease": False},
-                             method="POST")
+            code, rel = gitee("releases", {"tag_name": tag, "name": title, "body": body,
+                                           "target_commitish": "main", "prerelease": False}, method="POST")
             print("  Gitee 建发行版:", code)
             if code not in (200, 201) or not isinstance(rel, dict) or not rel.get("id"):
                 return "建发行版失败 HTTP %s %s" % (code, str(rel)[:160])
             gid = rel["id"]
-        code, att = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}/attach_files?access_token={tok}")
+        code, att = gitee(f"releases/{gid}/attach_files")
         if any(x.get("name") == NAME for x in (att if isinstance(att, list) else [])):
             print("  Gitee 附件已存在(先删后传)")
             for x in att:
                 if x.get("name") == NAME:
-                    call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}/attach_files/{x['id']}?access_token={tok}", method="DELETE")
+                    gitee(f"releases/{gid}/attach_files/{x['id']}", method="DELETE")
         b = "----neko" + uuid.uuid4().hex
         parts = [f"--{b}\r\nContent-Disposition: form-data; name=\"access_token\"\r\n\r\n{tok}\r\n".encode(),
                  f"--{b}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{NAME}\"\r\nContent-Type: application/octet-stream\r\n\r\n".encode(),
                  blob, f"\r\n--{b}--\r\n".encode()]
-        c, res = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}/attach_files",
-                      raw=b"".join(parts), method="POST", ctype=f"multipart/form-data; boundary={b}")
+        c, res = gitee(f"releases/{gid}/attach_files", raw=b"".join(parts), method="POST",
+                      ctype=f"multipart/form-data; boundary={b}")
         print("  Gitee 上传:", c, str(res)[:90])
         if c not in (200, 201):
             return "附件上传失败 HTTP %s %s" % (c, str(res)[:160])
@@ -168,6 +205,69 @@ def main():
         fails.append("gitee:%s" % err)
         print("  Gitee 第 %d 次没成功:%s" % (attempt, err))
         time.sleep(min(30, 5 * attempt))
+
+    # 4) 签名清单(issue #12)——客户端的自更新信任根。
+    #    私钥只在这台发布机上(%USERPROFILE%\.neko-workshop\update-sign-ed25519),仓库里没有;
+    #    客户端用内置公钥验签,验不过就不自动安装。清单没发出去 = 单渠道场景下用户只能手动装,
+    #    所以这一步失败要显式报出来,不能悄悄跳过。
+    MANIFEST_NAME = "N.E.K.O.PluginWorkshop-Manifest.json"
+
+    def do_manifest():
+        node = resolve_node()
+        if not node:
+            return "找不到 node,无法签清单(设 NODE_BIN)"
+        mpath = os.path.join(REPO_DIR, "build", MANIFEST_NAME)
+        r = subprocess.run([node, os.path.join(REPO_DIR, "workbench", "update_sign.cjs"), "sign",
+                            "--exe", a.exe, "--version", tag, "--out", mpath],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=REPO_DIR)
+        print("  签清单:", (r.stdout or "").strip().replace("\n", " | ")[:220] or (r.stderr or "").strip()[:200])
+        if r.returncode != 0:
+            return "签清单失败:" + (r.stderr or r.stdout or "")[:180]
+        mblob = open(mpath, "rb").read()
+        errs = []
+        # GitHub:作为 release 资产
+        H = {"authorization": "token " + cred("github.com"), "user-agent": "neko", "accept": "application/vnd.github+json"}
+        code, rel = call(f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases/tags/{tag}", headers=H)
+        rid = (rel or {}).get("id") if isinstance(rel, dict) else None
+        if not rid:
+            errs.append("GitHub 取不到 release id")
+        else:
+            code, assets = call(f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases/{rid}/assets", headers=H)
+            for x in (assets if isinstance(assets, list) else []):
+                if x.get("name") == MANIFEST_NAME:
+                    call("https://api.github.com" + x.get("url", "").split("api.github.com")[-1], method="DELETE", headers=H)
+            c, res = call(f"https://uploads.github.com/repos/{GH[0]}/{GH[1]}/releases/{rid}/assets?name={MANIFEST_NAME}",
+                          raw=mblob, method="POST", ctype="application/json", headers=H)
+            print("  GitHub 清单上传:", c)
+            if c not in (200, 201):
+                errs.append("GitHub 清单上传 HTTP %s %s" % (c, str(res)[:120]))
+        # 码云:作为附件
+        code, rel = gitee(f"releases/tags/{tag}")
+        gid = (rel or {}).get("id") if isinstance(rel, dict) else None
+        if not gid:
+            errs.append("码云取不到发行版 id")
+        else:
+            code, att = gitee(f"releases/{gid}/attach_files")
+            for x in (att if isinstance(att, list) else []):
+                if x.get("name") == MANIFEST_NAME:
+                    gitee(f"releases/{gid}/attach_files/{x['id']}", method="DELETE")
+            b = "----neko" + uuid.uuid4().hex
+            parts = [f"--{b}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{MANIFEST_NAME}\"\r\nContent-Type: application/json\r\n\r\n".encode(),
+                     mblob, f"\r\n--{b}--\r\n".encode()]
+            c, res = gitee(f"releases/{gid}/attach_files", raw=b"".join(parts), method="POST",
+                           ctype=f"multipart/form-data; boundary={b}")
+            print("  码云清单上传:", c, str(res)[:80])
+            if c not in (200, 201):
+                errs.append("码云清单上传 HTTP %s %s" % (c, str(res)[:120]))
+        return "; ".join(errs)
+
+    try:
+        err = do_manifest()
+    except Exception as e:
+        err = "异常 %s" % str(e)[:150]
+    if err:
+        fails.append("manifest:" + err)
+        print("  ! 签名清单没发全:" + err)
 
     if fails:
         # 去重:重试循环里同一端会留多条

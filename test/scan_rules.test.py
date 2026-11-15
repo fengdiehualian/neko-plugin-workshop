@@ -91,5 +91,29 @@ want(G.classify(pl([{"severity": "now", "where": "dev", "rule": "host_internal_i
 want(G.classify(pl([])) == "compatible", "零命中应兼容")
 want(G.classify({"verdict": "unverified", "hits": []}) == "unverified", "unverified 保持")
 
+# 8) from X import <子模块> 的别名形式，必须与 import X.<子模块> 同判（外部审 A6 第 4 条）
+hf = S.scan_dir(mk({"src/f.py": "from brain import task_executor\n",
+                   "src/g.py": "from app import agent_server\n",
+                   "src/i.py": "import brain.task_executor\n"}))
+a1 = find(hf, "host_internal_import", 1, "src/f.py")
+a2 = find(hf, "host_internal_import", 1, "src/g.py")
+a3 = find(hf, "host_internal_import", 1, "src/i.py")
+want(a1 and a3 and a1["severity"] == a3["severity"],
+     "from brain import task_executor 应与 import brain.task_executor 同级:" + str(a1))
+want(a2 is not None, "from app import agent_server 不该整条丢掉:" + str(a2))
+
+# 9) 草稿文件名与清理范围（外部审 A6 第 5 条）
+want(G.safe_draft_name("../../etc/passwd") == "passwd.md",
+     "slug 路径穿越没夹成单段名:" + G.safe_draft_name("../../etc/passwd"))
+want(G.safe_draft_name("..") == "_..md", "纯点号 slug 没处理:" + G.safe_draft_name(".."))
+want(G.safe_draft_name("ok_slug") == "ok_slug.md", "正常 slug 被改坏了")
+want(G.safe_draft_name("a/b") == "b.md", "带分隔符的 slug 没夹住:" + G.safe_draft_name("a/b"))
+want(all(os.sep not in G.safe_draft_name(s) and "/" not in G.safe_draft_name(s)
+         for s in ("../../etc/passwd", "..", "a/b", "C:\\x\\p", "", "  ")),
+     "某个 slug 仍能逃出 drafts")
+_auto = os.path.join(mk({"x.md": "# [草稿,未发布] t\n"}), "x.md")
+_hand = os.path.join(mk({"y.md": "# 手写笔记\n"}), "y.md")
+want(G.draft_is_auto(_auto) and not G.draft_is_auto(_hand), "清理范围没认首行标记")
+
 print("scan_rules:", "FAIL " + str(fail) if fail else "PASS")
 sys.exit(1 if fail else 0)

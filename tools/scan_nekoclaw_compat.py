@@ -96,7 +96,14 @@ def py_import_facts(path):
             if not p[0]:
                 continue
             g, f = ctx(node)
-            facts.append((p[0], ".".join(p[1:]), node.lineno, g, f))
+            # 别名也要展开。`from brain import task_executor` 依赖的是 brain.task_executor，
+            # 旧版只看 node.module：同一个已删模块走 import 形式判 now，走 from 形式判 will，
+            # `from app import agent_server` 更是被 head 为空的 continue 整条丢掉。
+            # 命中串按模块路径显示（import brain.task_executor），与 from 形式等价。
+            base = ".".join(p[1:])
+            for al in node.names:
+                facts.append((p[0], ".".join(x for x in (base, al.name) if x),
+                              node.lineno, g, f))
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) \
                 and node.func.attr == "import_module" and node.args \
                 and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):

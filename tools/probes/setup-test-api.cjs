@@ -3,7 +3,8 @@
 const fs = require("fs")
 const path = require("path")
 
-const dir = process.argv[2] || "C:\\Users\\Administrator\\dev\\_wb_test"
+const P = require("./paths.cjs")
+const dir = process.argv[2] || P.testDir()
 const port = Number(process.argv[3] || 4321)
 fs.mkdirSync(path.join(dir, "runtime"), { recursive: true })
 const file = path.join(dir, "runtime", "apis.json")

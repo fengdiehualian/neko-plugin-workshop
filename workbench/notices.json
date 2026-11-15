@@ -1,0 +1,889 @@
+{
+ "total": 128,
+ "tally": {
+  "未声明": 108,
+  "MIT": 11,
+  "AGPL": 1,
+  "GPL": 8
+ },
+ "unknown": [
+  "agent_bridge",
+  "ai_learns_to_drive",
+  "anysearch",
+  "apibook",
+  "app_launcher",
+  "autocad_assistant_tool",
+  "better_txt_output",
+  "better_web_search",
+  "bilibili_integration",
+  "bililearn_bridge",
+  "bili_viewer",
+  "browser_skill",
+  "call_mom",
+  "card_master",
+  "catgirl_daily_planner",
+  "civ6_buddy",
+  "claude_code_adapter",
+  "codex_adapter",
+  "code_sandbox",
+  "course_schedule",
+  "custom_music_list",
+  "data_backup",
+  "deepseekharness_bridge",
+  "development_aide",
+  "dsh_bridge",
+  "forever_companion",
+  "from_the_heart",
+  "galgame_plugin",
+  "genshin_game_buddy",
+  "git_memory",
+  "keyboard_controller",
+  "luogu",
+  "media_generator",
+  "meeting_insight",
+  "miao_miao_bump",
+  "minecraft_autonomous",
+  "minesweeper",
+  "mini_games",
+  "mock_stock_meow",
+  "mood_state",
+  "mo_realistic_adjutant",
+  "neko_163mail",
+  "neko_ads",
+  "neko_arcade",
+  "neko_assessment",
+  "neko_calabiqiu",
+  "neko_clipboard_watcher",
+  "neko_community_chat",
+  "neko_diary",
+  "neko_done_bridge",
+  "neko_fishpower",
+  "neko_jam_band",
+  "neko_ledger",
+  "neko_live_album",
+  "neko_mail",
+  "neko_mail_agently",
+  "neko_mcp_serve",
+  "neko_morning_brief",
+  "neko_natural_command",
+  "neko_pawpilot",
+  "neko_perf_saver",
+  "neko_sous",
+  "neko_stellaris",
+  "neko_study_copilot",
+  "neko_survivors",
+  "neko_terraria",
+  "neko_tlm",
+  "neko_token_monitor",
+  "neko_translate",
+  "neko_video",
+  "neko_voice_bridge",
+  "neko_warthunder",
+  "neko_weather",
+  "neko_wows",
+  "plugin_database",
+  "plugin_knowledge_base",
+  "plugin_skill_manager",
+  "proactive_recommender",
+  "pvz_agent",
+  "qqbot_bridge",
+  "qq_auto_reply",
+  "recall",
+  "screen_reader",
+  "selfie",
+  "shale_core_lib",
+  "shell_cmd",
+  "skill_compat",
+  "source_player",
+  "steam_manager",
+  "sticker_manager",
+  "store_search",
+  "sts2_autoplay",
+  "study_companion",
+  "suno_cn_music",
+  "sys_monitor",
+  "tarot",
+  "tavily_search",
+  "tc_companion",
+  "teach_sister_drive",
+  "testbench",
+  "tfwr_companion",
+  "web_searching",
+  "wechat_integration",
+  "workbench_installer",
+  "writer_power_analysis",
+  "xiyin_pavilion",
+  "yuilock",
+  "yui_home"
+ ],
+ "rows": [
+  {
+   "slug": "agent_bridge",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "ai_learns_to_drive",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "anysearch",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "apibook",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "app_launcher",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "autocad_assistant_tool",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "better_txt_output",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "better_web_search",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "bili_viewer",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "bilibili_integration",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "bililearn_bridge",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "browser_skill",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "call_mom",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "card_master",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "catgirl_daily_planner",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "civ6_buddy",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "claude_code_adapter",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "code_sandbox",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "codex_adapter",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "course_schedule",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "coyote_control",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "custom_music_list",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "data_backup",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "deepseekharness_bridge",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "development_aide",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "dsh_bridge",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "endless_test",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "forever_companion",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "from_the_heart",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "galgame_plugin",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "genshin_game_buddy",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "git_memory",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "hearthstone_companion",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "hitokoto",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "hsr_companion",
+   "license": "AGPL",
+   "file": "src/LICENSE.md",
+   "field": ""
+  },
+  {
+   "slug": "juno_bridge",
+   "license": "GPL",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "kards_companion",
+   "license": "GPL",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "keyboard_controller",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "ksp_bridge",
+   "license": "GPL",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "luogu",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "mail_all",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "mcbot_bridge",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "media_generator",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "meeting_insight",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "miao_miao_bump",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "mijia",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "minecraft_autonomous",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "minesweeper",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "mini_games",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "mo_realistic_adjutant",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "mock_stock_meow",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "moneta_fx",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "mood_state",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_163mail",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_ads",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "neko_arcade",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "neko_assessment",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_calabiqiu",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_clipboard_watcher",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_community_chat",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_diary",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_done_bridge",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_fishpower",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_jam_band",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_ledger",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_live",
+   "license": "GPL",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "neko_live_album",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_mail",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_mail_agently",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_mcp_serve",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_morning_brief",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "neko_natural_command",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_pawpilot",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "neko_perf_saver",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "neko_rimworld",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "neko_sous",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_stellaris",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "neko_study_copilot",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_survivors",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_terraria",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "neko_tlm",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_token_monitor",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "neko_translate",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_video",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_voice_bridge",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_warthunder",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_weather",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "neko_wows",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "openrails_copilot",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "phone_workflows",
+   "license": "GPL",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "plugin_database",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "plugin_knowledge_base",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "plugin_skill_manager",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "proactive_recommender",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "pvz_agent",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "qq_auto_reply",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "qqbot_bridge",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "quote_extract",
+   "license": "MIT",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "recall",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "screen_reader",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "selfie",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "sfs_bridge",
+   "license": "GPL",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "shale_core_lib",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "shell_cmd",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "skill_compat",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "source_player",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "sp2_copilot",
+   "license": "GPL",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "space_launch",
+   "license": "GPL",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "steam_manager",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "sticker_manager",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "store_search",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "sts2_autoplay",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "study_companion",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "suno_cn_music",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "sys_monitor",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "tarot",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "tavily_search",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "tc_companion",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "teach_sister_drive",
+   "license": "未声明",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "testbench",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "tfwr_companion",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "web_searching",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "wechat_integration",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "workbench_installer",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "writer_power_analysis",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "xiyin_pavilion",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "yui_home",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  },
+  {
+   "slug": "yuilock",
+   "license": "未声明",
+   "file": "",
+   "field": ""
+  }
+ ]
+}

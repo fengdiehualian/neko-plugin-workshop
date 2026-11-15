@@ -1251,53 +1251,223 @@ export function verifyUpdateIntegrity(src, actualSha) {
   return { ok: true, want, got, reason: "" }
 }
 
+// ---------- 自更新的独立信任根(GitHub issue #12) ----------
+// 只把 SHA256 写在 release 正文里,等于「哈希和包走同一条渠道」:渠道被劫持(token 泄露、
+// 镜像被抢注)时两者可以一起换;而客户端原先在 GitHub/码云之间「取版本号最高的源」,
+// 被劫持的一端只要谎报更高版本就能胜出。这里把信任根挪到随包内置的 ed25519 公钥:
+// 发布端用私钥对「版本+资产名+体积+SHA256」清单签名,客户端验签通过才认这份哈希。
+//
+// 私钥只存在于发布机 %USERPROFILE%\.neko-workshop\(workbench/update_sign.cjs),仓库里没有;
+// 私钥丢失 = 签不出新清单,那时自动更新会退到「双源必须互相印证」这条路,再不行就提示手动安装,
+// 而不是悄悄装来路不明的包。
+export const UPDATE_TRUST = {
+  alg: "ed25519",
+  // SPKI DER 的 base64;换钥匙时同步改这里并跑 test/update-integrity.test.ts
+  pubkey: "MCowBQYDK2VwAyEAkNXfon/rHVzO59Ldq8O2ZH67W+bVu1/OeN2yVZpszzE=",
+  manifestAsset: "N.E.K.O.PluginWorkshop-Manifest.json",
+}
+
+// 版本号比较:三段子数字,缺位补 0;与 studio 侧共用这一份实现(以前两处各写一遍会漂)
+export function cmpVersion(a, b) {
+  const pa = String(a || "").replace(/^v/i, "").split(/[.+-]/).map((x) => parseInt(x, 10) || 0)
+  const pb = String(b || "").replace(/^v/i, "").split(/[.+-]/).map((x) => parseInt(x, 10) || 0)
+  for (let i = 0; i < 3; i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0)
+    if (d) return d > 0 ? 1 : -1
+  }
+  return 0
+}
+
+/**
+ * 验清单签名。doc 形如 { v, alg, payload(base64 的原始清单字节), sig(base64) }。
+ * 验的是 payload 解码出来的**那段字节**,不做二次序列化(序列化风格一变就验不过)。
+ */
+export function verifyUpdateManifest(doc) {
+  const bad = (reason) => ({ ok: false, manifest: null, reason })
+  if (!doc || typeof doc !== "object") return bad("清单不是一个对象")
+  if (doc.alg !== UPDATE_TRUST.alg) return bad("签名算法不认识:" + doc.alg)
+  if (!doc.payload || !doc.sig) return bad("清单缺 payload 或 sig")
+  let payload
+  let sig
+  try {
+    payload = Buffer.from(String(doc.payload), "base64")
+    sig = Buffer.from(String(doc.sig), "base64")
+  } catch {
+    return bad("清单的 base64 解不开")
+  }
+  let m
+  try { m = JSON.parse(payload.toString("utf8")) } catch { return bad("清单正文不是 JSON") }
+  let ok = false
+  try {
+    const { createPublicKey, verify } = require("node:crypto")
+    const pub = createPublicKey({ key: Buffer.from(UPDATE_TRUST.pubkey, "base64"), format: "der", type: "spki" })
+    ok = verify(null, payload, pub, sig)
+  } catch (e) {
+    return bad("验签不可用:" + (e && e.message ? e.message : e))
+  }
+  if (!ok) return bad("清单签名不匹配(公钥对不上,或清单被改过)")
+  const sha = String(m.sha256 || "").toLowerCase()
+  if (!/^[0-9a-f]{64}$/.test(sha)) return bad("清单里没有合法的 SHA256")
+  if (Number(m.size) <= 0) return bad("清单体积不合法")
+  return { ok: true, manifest: { ...m, sha256: sha }, reason: "" }
+}
+
+/**
+ * 选定要更新的版本,并判断这个结论有多少独立性(issue #12 第 2 点)。
+ * @param sources    渠道列表 [{source,version,notes,assets}]
+ * @param signedSha  已通过内置公钥验签的清单里的 SHA256(没有就传空)
+ * 规则(按信任强度从高到低):
+ *   - 各渠道对同一版本声明的哈希互相矛盾 → 直接拒装;
+ *   - 该版本被 ≥2 个渠道同时报出 → 渠道互相印证,可以装(trustRoot="agreement");
+ *   - 只有 1 个渠道报这个版本 → 必须有签名清单背书才行(trustRoot="manifest"),
+ *     否则等于「谁劫持了单渠道,谁就能决定升级」——这正是原实现的漏洞;
+ *   - 有签名清单时一律以清单里的哈希为准(正文/资产 digest 与清单不符视为冲突)。
+ */
+export function planUpdateTarget(sources, signedSha) {
+  const list = (sources || []).filter((s) => s && s.version)
+  if (!list.length) return { ok: false, version: "", trustRoot: "", reason: "一个版本信息都没拿到" }
+  const signed = String(signedSha || "").toLowerCase()
+  const best = list.map((s) => s.version).sort((a, b) => cmpVersion(b, a))[0]
+  const agree = list.filter((s) => cmpVersion(s.version, best) === 0)
+  const declared = [...new Set(agree.map((s) => expectedSha256(s)).filter(Boolean).map((x) => x.toLowerCase()))]
+  if (signed && declared.length && declared[0] !== signed) {
+    return { ok: false, version: best, trustRoot: "manifest", reason: "签名清单与渠道正文声明的 SHA256 不一致(" + declared[0].slice(0, 10) + "… vs " + signed.slice(0, 10) + "…),拒装" }
+  }
+  if (declared.length > 1) {
+    return { ok: false, version: best, trustRoot: "", reason: "多个渠道对 v" + best + " 声明的 SHA256 不一致(" + declared.map((x) => x.slice(0, 10) + "…").join(" / ") + "),拒装并提示手动下载" }
+  }
+  if (agree.length < 2 && !signed) {
+    return { ok: false, version: best, trustRoot: "", reason: "只有 " + agree.map((s) => s.source).join("/") + " 一个渠道报 v" + best + ",又没有可用的签名清单印证——单渠道被劫持就能推着升级,所以不自动装" }
+  }
+  return {
+    ok: true,
+    version: best,
+    channels: agree.map((s) => s.source),
+    sha: signed || declared[0] || "",
+    trustRoot: signed ? "manifest" : "agreement",
+    reason: "",
+  }
+}
+
 // ---------- 外发写操作门禁(GitHub issue #9) ----------
 // 无人值守跑到「推送到远端 / 建 issue / 开 PR / 往外部接口 POST」这一步时,不能由程序替用户点头:
 // 这类动作把内容和仓库权限交到外面,事后撤不回(公开出去的 issue 删了也有缓存/邮件)。
 // 工坊的默认姿态:命中特征就把决定权交回界面等真人点;拿不到真人应答一律按拒绝处理。
 // 只读命令(git status/log/diff、gh issue view/list、拉取)不在此列,照常放行。
-const OUTWARD_WRITE_RULES = [
-  { re: /\bgit\s+push\b/i, why: "git push(推送到远端仓库)" },
-  { re: /\b(hub|gh)\s+sync\b/i, why: "同步到远端分支" },
-  { re: /\b(npm|pnpm|yarn)\s+publish\b/i, why: "发布包到 registry" },
-  { re: /\b(git\s+send-email|msmtp)\b/i, why: "往外发邮件" },
-  { re: /\b(curl|wget|Invoke-RestMethod|Invoke-WebRequest|iwr)\b/i, why: "往外部接口写数据", needOutward: true },
-]
-// gh 系列:只有「写远端」的子命令才算;list/view/status/diff/checkout 是只读,照常放行
-const GH_READ_VERBS = /^(list|view|status|diff|checkout|watch|log|search|get|counts)$/
-function ghOutward(s) {
-  const m = String(s || "").match(/\bgh\s+(issue|pr|release|api|repo|workflow|run|actions|gist)\s+([A-Za-z][\w-]*)?/i)
-  if (!m) return ""
-  const scope = String(m[1]).toLowerCase()
-  const verb = String(m[2] || "").toLowerCase()
-  if (scope === "api") return "gh api(可直接调远端写接口)"
-  if (!verb || !GH_READ_VERBS.test(verb)) return "gh " + scope + " " + verb + "(改远端仓库内容)"
-  return ""
-}
-// 外发 HTTP 只有「带写方法/带 body 且目标不是本机」才算,避免误伤拉取版本、下载依赖
-const HTTP_WRITE_RE = /(-X\s*['"]?(POST|PUT|PATCH|DELETE)|--data\b|--data-raw\b|--form\b|-F\s|--upload-file|-T\s|-Method\s+(Post|Put|Patch|Delete))/i
+// 只读动词:这些子命令不改仓库外内容,照常放行(gh 的 list/view/diff/status 与 git 的本地操作)
+const GH_READ_VERBS = ["list", "view", "status", "diff", "checkout", "watch", "log", "search", "get", "counts"]
+const GH_WRITE_SCOPES = ["issue", "pr", "release", "repo", "workflow", "run", "actions", "gist"]
+// git/gh 的全局选项(带值或不带值),必须跳过才能看到真正的子命令——否则 `git -C repo push`、
+// `gh --repo x issue create` 这种写法会绕过判定(issue #10 指名)
+const GIT_GLOBAL_VALUED = ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix"]
+const GIT_GLOBAL_BARE = ["--no-pager", "--literal-pathspecs", "--no-optional-locks", "--bare", "--paginate", "-m", "-v", "-q"]
+const GH_GLOBAL_VALUED = ["-R", "--repo", "--hostname", "--json", "--jq", "--template"]
+const HTTP_WRITE_RE = /(-X\s*['"]?(POST|PUT|PATCH|DELETE)|--data\b|--data-raw\b|--data-binary\b|--form\b|-F\s|--upload-file|-T\s|-Method\s+(Post|Put|Patch|Delete))/i
 // 注意:正则里的斜杠必须转义,否则字面量被 // 提前截断(踩过)
 const LOCAL_HOST_RE = /(?:127\.0\.0\.1|localhost|\[::1\]|0:0:0:0:0:0:0:1|:\/\/(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.))/i
-// 提问/权限文案里的中文意图:必须「往外做的动作」和「仓库/平台这类目标」同时出现才算。
-// 只匹配动词会把「要不要推送提醒」(定时提醒插件的普通澄清题)误判成外发,把正常任务卡死。
+const REMOTE_URL_RE = /https?:\/\/[^/"'\s]+/i
 const OUTWARD_TEXT_VERB = /(推送|推上|推给|推到|发到|发布到|上传到|传到|同步到|提交\s*(一个|这个)?\s*(issue|工单)|新建\s*(一个|这个)?\s*(issue|工单|PR)|创建\s*(一个|这个)?\s*(issue|工单|PR|合并请求)|开\s*(一个|这个)?\s*(PR|issue|工单|合并请求)|合并\s*(PR|合并请求)|提\s*(一个)?\s*issue|publish)/i
 const OUTWARD_TEXT_TARGET = /(github|gitee|码云|远端|远程仓库|仓库|线上|公开|issue|工单|\bPR\b|合并请求|release|registry|npm|镜像仓库|插件市场|marketplace)/i
+// 解释器内联代码走网络:python -c "requests.post(...)" / node -e "fetch(...)" 这类
+// 用命令正则永远列不全,所以这里按「解释器 + 内联代码开关 + 远端 URL/写方法」三件同时命中才算
+const INLINE_INTERP_RE = /(?:\bpython[0-9.]*\b|\bpy\.exe\b|\bnode\b|\bbun\b|\bdeno\b|\bpwsh\b|\bpowershell\b|\bphp\b|\bperl\b|\bruby\b|\bbash\b|\bsh\b)(?=[\s\S]{0,40}(?:\s-c\s|\s-e\s|--command\s|--eval\s|--input-string\s|-EncodedCommand\s))/i
+const REMOTE_CALL_CODE_RE = /(requests\.(post|put|patch|delete)|httpx\.(post|put|patch|delete)|urllib\.request|urlopen|http\.client|aiohttp|fetch\s*\(|axios|invoke-restmethod|invoke-webrequest|newman|webhook)/i
 
-function outwardEvidence(text) {
-  const s = String(text || "")
-  const gh = ghOutward(s)
-  if (gh) return gh
-  for (const rule of OUTWARD_WRITE_RULES) {
-    if (!rule.re.test(s)) continue
-    if (rule.needOutward) {
-      // 本机/内网目标或纯拉取不算外发(自检、下依赖、查版本都是日常操作)
-      if (HTTP_WRITE_RE.test(s) && !LOCAL_HOST_RE.test(s)) return rule.why
+// 跳过命令行前导的全局选项,返回 { 子命令, 之后剩余部分 }
+function subcommandAfter(s, bin, valued, bare) {
+  const head = new RegExp("\\b" + bin + "\\b", "i")
+  if (!head.test(s)) return null
+  // 从 bin 出现的位置往后逐 token 扫
+  const idx = s.search(head)
+  const rest = s.slice(idx + bin.length)
+  const toks = rest.match(/^\s*((?:(?:-\S+|"[^"]*"|'[^']*'|[^\s"']+)\s*)*)/)
+  const list = (toks ? toks[1] : "").trim().split(/\s+/).filter(Boolean)
+  for (let i = 0; i < list.length; i++) {
+    const t = list[i]
+    if (/^--[^=]+=/.test(t)) {
+      const k = t.split("=")[0]
+      if (valued.includes(k)) continue
+      if (bare.includes(k) || /^-/.test(k)) continue
+      return { sub: t, rest: list.slice(i + 1).join(" ") } // --git-dir=x push 形式:等号后不是子命令
+    }
+    if (/^-/.test(t)) {
+      if (valued.includes(t)) { i++; continue }   // -C <值>
+      if (bare.includes(t)) continue
+      // 未知选项:后面还可能是子命令,继续扫但不能越过它猜
       continue
     }
-    return rule.why
+    return { sub: t.replace(/^["']|["']$/g, ""), rest: list.slice(i + 1).join(" ") }
+  }
+  return { sub: "", rest: "" }
+}
+
+// 命令文本 → 外发原因(空串=不是外发)。git/gh 走 token 解析,其它走特征正则
+function outwardEvidence(text) {
+  const s = String(text || "")
+  if (!s) return ""
+  const g = subcommandAfter(s, "git", GIT_GLOBAL_VALUED, GIT_GLOBAL_BARE)
+  if (g && g.sub) {
+    if (g.sub === "push") return "git push(推送到远端仓库)"
+    if (g.sub === "send-email") return "git send-email(往外发邮件)"
+  }
+  const h = subcommandAfter(s, "gh", GH_GLOBAL_VALUED, [])
+  if (h && h.sub) {
+    const scope = String(h.sub).toLowerCase()
+    const verb = String(h.rest || "").split(/\s+/)[0] || ""
+    if (scope === "api") return "gh api(可直接调远端写接口)"
+    if (GH_WRITE_SCOPES.includes(scope) && !GH_READ_VERBS.includes(String(verb).toLowerCase())) {
+      return "gh " + scope + " " + verb + "(改远端仓库内容)"
+    }
+  }
+  if (/\b(hub)\s+sync\b/i.test(s)) return "同步到远端分支"
+  if (/\b(npm|pnpm|yarn|bun)\s+publish\b/i.test(s)) return "发布包到 registry"
+  if (/\bdocker\s+push\b/i.test(s) || /\bpodman\s+push\b/i.test(s)) return "推送镜像到远端仓库"
+  if (/\b(curl|wget|Invoke-RestMethod|Invoke-WebRequest|iwr)\b/i.test(s) && HTTP_WRITE_RE.test(s) && !LOCAL_HOST_RE.test(s)) {
+    return "往外部接口写数据"
+  }
+  if (INLINE_INTERP_RE.test(s) && (REMOTE_CALL_CODE_RE.test(s) || (HTTP_WRITE_RE.test(s) && !LOCAL_HOST_RE.test(s)))) {
+    // 解释器内联代码 + 远端调用:典型 `python -c "import requests;requests.post(...)"`
+    if (REMOTE_URL_RE.test(s) && !LOCAL_HOST_RE.test(s)) return "用内联脚本往外部接口写数据"
   }
   if (OUTWARD_TEXT_VERB.test(s) && OUTWARD_TEXT_TARGET.test(s)) return "文案里明确要往仓库外发布/推送"
   return ""
+}
+
+// ---------- 引擎权限配置必须由同一张规则表生成(issue #10) ----------
+// 引擎把 `bash: "allow"` 展开成 `{"*":"allow"}`(编译版里能看到),于是任何 bash 命令
+// 都不会发出 permission.asked,工坊侧的门禁根本不会被触发。
+// 这里产出「按模式细分」的规则:外发写形态先设 ask,再把只读形态设回 allow;
+// 引擎取**最后命中**的规则,所以只读回放行必须排在 ask 之后。
+//  glob 只能做前缀/通配,列不全所有写法,所以运行时判定(outwardEvidence)继续作为第二道闸。
+const OUTWARD_ASK_GLOBS = [
+  "git push*", "*git push*",
+  "git -C * push*", "*git -C * push*", "git -c * push*", "*git -c * push*",
+  "git --git-dir=* push*", "*git --git-dir=* push*", "git --no-pager push*", "*git --no-pager push*",
+  "git send-email*", "*git send-email*",
+  "gh *", "*gh *", "*hub *",
+  "npm publish*", "*npm publish*", "pnpm publish*", "*pnpm publish*", "yarn publish*", "*yarn publish*",
+  "docker push*", "*docker push*", "podman push*", "*podman push*",
+  "curl *-X *", "*curl *-X *", "curl *--data*", "*curl *--data*", "curl *-F *", "*curl *-F *",
+  "wget *--post-data*", "*wget *--post-data*", "wget *--method=*", "*wget *--method=*",
+  "*Invoke-RestMethod*", "*Invoke-WebRequest*", "iwr *",
+  "*python* -c *", "*python* -e *", "*node -e *", "*pwsh -Command *",
+]
+const READONLY_ALLOW_GLOBS = []
+for (const v of GH_READ_VERBS) {
+  for (const sc of GH_WRITE_SCOPES) {
+    READONLY_ALLOW_GLOBS.push("gh " + sc + " " + v + "*", "*gh " + sc + " " + v + "*")
+  }
+}
+for (const sc of ["status", "log", "diff", "show", "add", "commit", "branch", "switch", "checkout", "restore", "stash", "fetch", "pull", "merge", "rebase", "tag", "remote", "rev-parse", "ls-files", "config"]) {
+  READONLY_ALLOW_GLOBS.push("git " + sc + "*", "git -C * " + sc + "*", "git -c * " + sc + "*", "*git " + sc + "*")
+}
+
+/** 给引擎 opencode.json 用的 permission 块:edit/webfetch 放行,bash 按外发形态细分 */
+export function enginePermissionConfig() {
+  const bash = { "*": "allow" }
+  for (const g of OUTWARD_ASK_GLOBS) bash[g] = "ask"
+  for (const g of READONLY_ALLOW_GLOBS) bash[g] = "allow"
+  return { edit: "allow", webfetch: "allow", bash }
 }
 
 // 从权限/提问事件里挖出命令文本:字段名各版本不一样,全量序列化再扫最稳

@@ -1,6 +1,6 @@
 // 双推:gitee 与 origin(GitHub DNS 会整段抖动,失败就退避重试;一端失败不能挡另一端口)
 const { execFileSync } = require("child_process")
-const GIT = "C:\\Users\\Administrator\\.workbuddy\\binaries\\PortableGit\\versions\\1.3.0\\cmd\\git.exe"
+const GIT = require("./paths.cjs").gitExe()
 const env = Object.assign({}, process.env, { GIT_SSL_NO_VERIFY: "1" })
 function git(args) {
   return execFileSync(GIT, ["-c", "http.proxy=", ...args], { env, encoding: "latin1", stdio: "pipe", timeout: 600000 })

@@ -10,6 +10,7 @@
 import argparse
 import json
 import os
+import re
 from datetime import date
 
 ISSUE = "https://github.com/Project-N-E-K-O/N.E.K.O/issues/3683"
@@ -33,6 +34,30 @@ REVIEW_NOTE = {
     "deferred_symbol": "RFC 第 6 节:直达保持现状;确在用 deferred 的请去 #3683 回帖。",
     "openclaw_name": "同名嫌疑(腾讯连接页/第三方 openclaw CLI),不是宿主通道。",
 }
+
+
+def safe_draft_name(slug):
+    """把市场 API 给的 slug 变成 drafts 目录内的安全文件名。
+
+    slug 是外部数据：含 ../ 或绝对路径时，直接 join 就能写到目录外面去。
+    """
+    base = os.path.basename(str(slug).replace("\\", "/"))
+    base = re.sub(r"[^A-Za-z0-9._-]", "_", base) or "plugin"
+    while base.startswith("."):
+        base = "_" + base[1:]
+    return base + ".md"
+
+
+def draft_is_auto(path):
+    """只有本脚本生成的草稿（首行「# [草稿,未发布]」）才允许被清理。
+
+    旧逻辑是 listdir 减去本轮名单就删，会连手写草稿和 README 一起删掉。
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.readline().startswith("# [草稿,未发布]")
+    except OSError:
+        return False
 
 
 def classify(p):
@@ -114,7 +139,7 @@ def main():
 
     for p, c in rows:
         if c in ("breaks_now", "will_break"):
-            fn = p["slug"] + ".md"
+            fn = safe_draft_name(p["slug"])
             now_files.add(fn)
             if is_published(fn):
                 print("KEEP published draft:", fn)
@@ -122,7 +147,7 @@ def main():
             open(os.path.join(drafts, fn), "w", encoding="utf-8").write(make_draft(p, c))
     for stale in set(os.listdir(drafts)) - now_files:
         fp = os.path.join(drafts, stale)
-        if not os.path.isfile(fp) or is_published(stale):
+        if not os.path.isfile(fp) or is_published(stale) or not draft_is_auto(fp):
             continue
         os.remove(fp)
 
