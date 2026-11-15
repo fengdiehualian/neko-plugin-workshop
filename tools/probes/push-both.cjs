@@ -46,31 +46,30 @@ if (!localTag) { console.log("本地没有 tag " + tag + "(先在版本号提交
 
 const results = {}
 for (const remote of ["gitee", "origin"]) {
-  let last = ""
-  for (let i = 1; i <= 12; i++) {
-    try {
-      git(["push", "--force-with-lease", remote, "main"])
-      let remoteSha = ""
-      try { remoteSha = (git(["ls-remote", remote, "refs/tags/" + tag], 180000).trim().split(/\s+/)[0] || "") } catch {}
-      if (remoteSha && remoteSha !== localTag) {
-        if (!forceTag) {
-          throw new Error(remote + " 上的 " + tag + " 指向 " + remoteSha.slice(0, 7) + ",本地是 " + localTag.slice(0, 7) +
-            ";已发布的 tag 默认不挪(要挪加 --force-tag,并接受「同名版本换内容」的后果)")
-        }
-        console.log("! " + remote + ":按 --force-tag 挪动已发布 tag")
-        git(["push", "--force", remote, "refs/tags/" + tag])
-      } else if (!remoteSha) {
-        git(["push", remote, "refs/tags/" + tag])
-      }
-      results[remote] = "OK(第 " + i + " 次)"
-      break
-    } catch (e) {
-      last = String((e && ((e.stdout || "") + (e.stderr || ""))) || (e && e.message) || e).replace(/\r?\n/g, " ").slice(-200)
-      console.log(remote + " 第 " + i + " 次:" + last)
+  // main 与 tag 分开记账:tag 分叉不该把已经推成功的 main 连坐成 FAILED(这正是本轮批评的那类错)
+  let mainOk = "", tagNote = ""
+  for (let i = 1; i <= 12 && !mainOk; i++) {
+    try { git(["push", "--force-with-lease", remote, "main"]); mainOk = "OK(第 " + i + " 次)" }
+    catch (e) {
+      const msg = String((e && ((e.stdout || "") + (e.stderr || ""))) || (e && e.message) || e).replace(/\r?\n/g, " ").slice(-170)
+      console.log(remote + " main 第 " + i + " 次:" + msg)
       rest(Math.min(30000, 3000 * i))
     }
   }
-  if (!results[remote]) results[remote] = "FAILED:" + last
+  if (!mainOk) { results[remote] = { main: "FAILED", tag: "跳过(main 没推上去)" } ; continue }
+  try {
+    let remoteSha = ""
+    try { remoteSha = (git(["ls-remote", remote, "refs/tags/" + tag], 180000).trim().split(/\s+/)[0] || "") } catch {}
+    if (!remoteSha) { git(["push", remote, "refs/tags/" + tag]); tagNote = "已推送(新建)" }
+    else if (remoteSha === localTag) tagNote = "已一致 " + remoteSha.slice(0, 7)
+    else if (forceTag) { git(["push", "--force", remote, "refs/tags/" + tag]); tagNote = "按 --force-tag 挪动 " + remoteSha.slice(0, 7) + " → " + localTag.slice(0, 7) }
+    // 默认不动:已发布的 tag 挪动等于「同名版本换内容」,要动请显式加 --force-tag
+    else tagNote = "未挪(远端 " + remoteSha.slice(0, 7) + " ≠ 本地 " + localTag.slice(0, 7) + ";要挪请加 --force-tag)"
+  } catch (e) {
+    tagNote = "tag 检查失败:" + String((e && (e.stderr || e.message)) || e).replace(/\r?\n/g, " ").slice(0, 120)
+  }
+  results[remote] = { main: mainOk, tag: tagNote }
 }
 console.log(JSON.stringify({ tag, results }, null, 1))
-process.exit(Object.values(results).some((r) => String(r).startsWith("FAILED")) ? 1 : 0)
+// 退出码只看 main:tag 分叉是「需要人来决定」的状态,不该被当成推送失败
+process.exit(Object.values(results).some((r) => String(r.main).startsWith("FAILED")) ? 1 : 0)
