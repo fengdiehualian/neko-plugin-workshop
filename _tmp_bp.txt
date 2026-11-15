@@ -1,0 +1,2 @@
+payload.zip:源码 11149 条 + _zcode 补 3 条 = 11152 条,217,857,956 字节(压缩后)
+必查条目全部就位: wb-studio.mjs, wb-agent-lib.mjs, package.json, _zcode/node.exe, _zcode/zcode.cjs, _zcode/provider/zcode-builtin.json

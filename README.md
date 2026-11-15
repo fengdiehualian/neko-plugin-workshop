@@ -34,9 +34,9 @@
 ├── wb-studio.mjs         # 网页服务(对话 UI/多会话/设置/归档/主题)
 ├── wb-agent-lib.mjs      # 无人值守 Agent 驱动(v1/v2 引擎双协议)
 ├── src/index.ts          # 生成→check→build 闭环内核 + 错误解析器
-├── packs/                # 模板 + 插件规范 skill(15 页官方文档 + 市场写法分析)
+├── packs/                # 模板 + 插件规范 skill(17 页官方文档 + 市场写法分析)
 ├── experts/              # 配套专家团(WorkBuddy/CodeBuddy 专家包,可导入自己的 Agent 底座)
-├── market-corpus/        # 46 个官方市场插件源码(Agent 的学习语料)
+├── market-corpus/        # 127 个官方市场插件源码(Agent 的学习语料;本机可读源码 126 份)
 ├── test/                 # 单元测试(bun test)
 ├── workbench/            # 打包工具(make-exe.ps1 一键 SFX 安装器)
 └── 使用说明.txt           # 面向小白的完整说明
@@ -46,10 +46,11 @@
 
 ## Agent 的知识体系(让它写出市场上架水准的插件)
 
-1. **官方规范写死**:`packs/.../SKILL.md` 15 条铁律 + 15 页官方文档引用,文档里没有的 API 一律不用
-2. **市场统计分析**:`references/market-patterns.md`——46 个真实上架插件的能力使用率
+1. **官方规范写死**:规则编号唯一来源是 `packs/neko-plugin/rules.json` 的 `x_hard_rules`(R1–R19);
+   `SKILL.md` 的铁律与 `AGENTS.md` 的摘要都按同一套 R 号引用,外加 17 页官方文档。文档里没有的 API 一律不用
+2. **市场统计分析**:`references/market-patterns.md`——126 份真实上架插件源码的能力使用率
    (llm_tool 50% / push_message 57% / store 37%…)与四大惯用法
-3. **全量插件卡片**:`references/market-catalog.md`——46 个插件的功能/接口/能力/源码索引
+3. **全量插件卡片**:`references/market-catalog.md`——127 个插件的功能/接口/能力/源码索引
 4. **语料库**:`market-corpus/` 全部源码,按功能找同类直接读
 
 ## 配套专家团(可选)
@@ -71,12 +72,26 @@
 前置:N.E.K.O. 源码(check/build 依赖)、Node/bun 运行时、一套 OpenAI 兼容(或其它支持协议)的模型服务。
 
 ```bash
-bun install && bun test        # 9 个单元测试(在仓库根目录执行)
+bun install && bun test        # 单元测试(121 项,在仓库根目录执行)
 bun cli.mjs scaffold neko-plugin reminder \
   --out C:/projects --neko C:/path/to/N.E.K.O \
   --PLUGIN_ID my_reminder --PLUGIN_NAME 提醒 --CLASS_NAME MyReminder
 bun wb-studio.mjs              # 启动网页工坊(127.0.0.1:5099)
 ```
+
+### 四道门禁(改坏了必须当场拦住)
+
+| 门禁 | 命令 | 抓什么 |
+|---|---|---|
+| 单元测试 | `bun test` | 提示词拼装、底座参数/输出解析、重试与熔断判定、规则编号与文档口径一致性、更新包校验判定、外发写判定 |
+| 静态交叉检查 | `python tools/static_check.py` | 页面元素 id、前端 fetch 有没有对应路由、HTML 标签/面板嵌套(更新页签隐形那类 bug) |
+| 语法门禁 | `python tools/syntax_check.py` | py/json/toml/mjs/yml 语法 + TSX 批量转译 |
+| 页面体检 | `node tools/check-page.mjs --mutate` | 真 Chrome 真点击 133 项:更新弹窗进度与 SHA256 校验标记、外发写确认卡能否点拒绝、专家团会诊卡片… |
+
+前三道在 GitHub Actions 里跑(`.github/workflows/ci.yml`,issue #9 要求给门禁一个落点);
+页面体检要起本地实例,发版前手跑。安全相关的端到端复验(引擎随机密码、确认队列、更新包校验)
+用 `node tools/verify-security.cjs`,对**隔离实例**跑,绝不碰用户真实安装实例。
+历史上的临时排查脚本(截图、CDP、市场语料抓取等)统一放在 `tools/probes/`,不进 CI、不被 `bun test` 收集。
 
 发布为绿色一键包(便携运行时 + SFX 安装器):
 
@@ -151,8 +166,8 @@ verify/scaffold 命令行支持 `--python <解释器>`(或环境变量 `WB_PYTHO
 兼容扫描口径来自 [N.E.K.O RFC #3683](https://github.com/Project-N-E-K-O/N.E.K.O/issues/3683),
 SDK 事实一律以官方 main 分支源码与其 docs/ 为准(冲突顺序见 `references/reuse-before-build.md` 权威链)。并入内容的许可与署名见 `THIRD_PARTY_NOTICES.md`。
 
-- **R16 先找现成,再自建**:新建插件/加新功能先走 `packs/neko-plugin/skill/neko-plugin-dev/references/reuse-before-build.md`
-  四步(三轮市场检索→差距小先上游共建→证明不可复用才自建→方案附检索结论)。写进 SKILL.md 铁律第 10 条与 AGENTS.md R16。
+- **R19 先找现成,再自建**:新建插件/加新功能先走 `packs/neko-plugin/skill/neko-plugin-dev/references/reuse-before-build.md`
+  四步(三轮市场检索→差距小先上游共建→证明不可复用才自建→方案附检索结论)。写进 SKILL.md 铁律第 13 条与 AGENTS.md R19。
 - **市场兼容快照 v2**(`market-corpus/compat-v2/`):全量在架插件逐个浅克隆源码做静态扫描,
   按 severity 标注:现在就坏(#3705 已删面)·将坏(#3714 待删面)·有兜底会降级·仅文档/测试面·待核·兼容·未验证,全量收录不做门禁。ast 解析区分真 import 与注释/docstring,仓库自带同名模块(brain.py)自动排除;草稿只生成给「现在就坏/将坏」,降级与待核不进草稿。
   重跑三步:`python tools/fetch_market_plugins.py --out plugins_all.json` → `python tools/scan_nekoclaw_compat.py --plugins plugins_all.json --out market-corpus/compat-v2/scan_result.json` → `python tools/gen_compat_report.py --scan market-corpus/compat-v2/scan_result.json`(缓存已存在时扫描器会先 fetch 到最新并记 commit SHA)。
@@ -160,7 +175,7 @@ SDK 事实一律以官方 main 分支源码与其 docs/ 为准(冲突顺序见 `
   向插件仓库提 issue;禁止批量自动发,误报连发等于骚扰。
 - **行尾注意**:本仓库无 `.gitattributes` 且 `core.autocrlf=true`。`rules.json` 与 `test/packs.test.ts` 按上游原样存 CRLF;用 LF 工具重写它们之后必须 `git -c core.autocrlf=false add` 暂存,否则整份换行差异会重新出现在 diff 里。
 - **新鲜度 SOP**:市场清单 7 天重拉;#3683 每合一个 PR 重跑扫描;market-catalog/market-patterns 的历史样本(127)数字不随在架总数改写。
-- **验证**(本仓库未配 CI,以下命令是本机手跑,不是流水线闸门):`python test/scan_rules.test.py`(扫描规则正反例);`bun test`(引擎与 pack)。新增 `test/rules.test.ts` 会把 py 用例带进 `bun test`,只有解释器不存在时才跳过;启动失败或用例无输出都算失败。`test/reuse-gate.test.mjs` 里有一条要联网,离线时它会红,这是设计如此。
+- **验证**:上游已配 CI —— `.github/workflows/ci.yml` 在 push 与 PR 上跑 `bun test` + `tools/static_check.py` + `tools/syntax_check.py`(issue #9 的落点)。本机同样三条命令可直接跑。扫描规则正反例另走 `python test/scan_rules.test.py`。新增 `test/rules.test.ts` 会把 py 用例带进 `bun test`,只有解释器不存在时才跳过;启动失败或用例无输出都算失败。`test/reuse-gate.test.mjs` 里有一条要联网,离线时它会红,这是设计如此。
 - **e2e 用例**:`bun test test/reuse-gate.test.mjs`(静态+市场 API 部分);真 agent 行为按 `test/reuse-gate.llm-protocol.md` 手跑并存档。
   真机侧用 N.E.K.O 仓库根的 `python plugin\neko_plugin_cli\cli.py check <插件目录>` 复核 pack 范例生成物。
 - 本仓库按 MIT 许可发布(LICENSE),并入内容同样按 MIT 处理,来源已在各自文件头注明。

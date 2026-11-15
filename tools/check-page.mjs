@@ -156,6 +156,8 @@ const send = (method, params = {}) => new Promise((res, rej) => {
   ws.send(JSON.stringify({ id, method, params }))
 })
 const PROBE_SRC = readFileSync(new URL("./update-modal-probe.js", import.meta.url), "utf8")
+// 外发写确认卡探针(issue #9):任务期间页面必须能把「要往仓库外写」的动作交给用户点,并回发结果
+const AP_PROBE_SRC = readFileSync(new URL("./approvals-probe.js", import.meta.url), "utf8")
 
 const evalJs = async (expression) => {
   const r = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })
@@ -651,6 +653,16 @@ ${PROBE_SRC}
     tabs[0].click(); await sleep(50);
   } else fail('更新页签', '找不到 data-tab=update');
 
+  // 11.8b) 外发写确认卡:任务途中 Agent 要 push/发布时,页面必须能看见、能拒绝(issue #9)
+  try {
+    const ap = await (
+${AP_PROBE_SRC}
+    )
+    for (const r of ap) (r.ok ? pass : fail)(r.name, r.detail)
+  } catch (e) {
+    fail('外发写确认卡探针', String((e && e.message) || e))
+  }
+
   // 11.9) 专家团页签:面板可见、成员名单渲染、开关往返(隔离实例上真实 POST)
   const exTab = tabs.find((x) => x.dataset && x.dataset.tab === 'expert');
   if (exTab) {
@@ -673,6 +685,41 @@ ${PROBE_SRC}
     onOk && offOk
       ? pass('专家团开关 开/关往返还原')
       : fail('专家团开关 开/关往返还原', 'on=' + onOk + ' off=' + offOk + ' from=' + (j0 && j0.enabled));
+    // 每位专家的调用来源选单:存在、可绑定到某 API 的某模型、可恢复跟随默认
+    {
+      const sels = $$('#expertList .memapi');
+      const snap0 = await (await fetch('/api/experts')).json();
+      const hasApi = (snap0.apiOptions || []).length > 0;
+      if (sels.length && hasApi) {
+        const o = (snap0.apiOptions || [])[0];
+        const mdl = (o.models || [])[0];
+        const val = o.id + '::' + mdl;
+        const sel = sels[0];
+        const memId = sel.dataset.mem;
+        sel.value = val;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        const bound = await wbWait(async () => {
+          const s = await (await fetch('/api/experts')).json();
+          const mm = ((s.packs || [])[0] || {}).members || [];
+          const me = mm.find((x) => x.id === memId);
+          return !!(me && me.bind && me.bind.apiId === o.id && me.bind.model === mdl);
+        }, 6000);
+        bound ? pass('专家调用来源 可指定 API+模型', memId + ' → ' + o.name + '/' + mdl)
+          : fail('专家调用来源 可指定 API+模型', '未生效 ' + memId);
+        // 恢复跟随默认
+        const sel2 = document.querySelector('#expertList .memapi[data-mem="' + memId + '"]');
+        if (sel2) { sel2.value = ''; sel2.dispatchEvent(new Event('change', { bubbles: true })); }
+        const cleared = await wbWait(async () => {
+          const s = await (await fetch('/api/experts')).json();
+          const mm = ((s.packs || [])[0] || {}).members || [];
+          const me = mm.find((x) => x.id === memId);
+          return !!(me && !me.bind);
+        }, 6000);
+        cleared ? pass('专家调用来源 可恢复跟随默认') : fail('专家调用来源 可恢复跟随默认', '未清空');
+      } else {
+        fail('专家调用来源 可指定 API+模型', '选单数=' + sels.length + ' 可选API数=' + ((snap0.apiOptions || []).length));
+      }
+    }
     // 单个专家开关:点第一张成员卡片应翻到另一态,再点回去(隔离实例上真实 POST)
     const chips2 = $$('#expertList .chip.memb');
     if (chips2.length) {

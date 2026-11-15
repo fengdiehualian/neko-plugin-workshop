@@ -9,6 +9,7 @@ import json
 import os
 import ssl
 import subprocess
+import sys  # 结尾要 sys.exit(main()):GitHub 抖动时不再装作发布成功
 import time
 import urllib.error
 import urllib.request
@@ -80,60 +81,106 @@ def main():
                 break
             time.sleep(8)
 
-    # 2) GitHub
-    H = {"authorization": "token " + cred("github.com"), "user-agent": "neko", "accept": "application/vnd.github+json"}
-    code, rel = call(f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases/tags/{tag}", headers=H)
-    if code == 200 and isinstance(rel, dict) and rel.get("id"):
-        rid = rel["id"]
-        call(f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases/{rid}", {"body": body, "name": title}, method="PATCH", headers=H)
-        print("  GitHub release 已存在", rid)
-    else:
-        code, rel = call(f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases",
-                         {"tag_name": tag, "name": title, "body": body, "draft": False, "prerelease": False},
-                         method="POST", headers=H)
-        print("  GitHub 建 release:", code)
-        if code not in (200, 201):
-            raise SystemExit(str(rel)[:200])
-        rid = rel["id"]
-    code, assets = call(f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases/{rid}/assets", headers=H)
-    if any(a.get("name") == NAME for a in (assets if isinstance(assets, list) else [])):
-        print("  GitHub 资产已存在")
-    else:
-        c, res = call(f"https://uploads.github.com/repos/{GH[0]}/{GH[1]}/releases/{rid}/assets?name={NAME}",
-                      raw=blob, method="POST", ctype="application/octet-stream", headers=H)
-        print("  GitHub 上传:", c, (res or {}).get("size") if isinstance(res, dict) else str(res)[:80])
+    # 2) GitHub —— 一端不通绝不能挡另一端:原来 GitHub 一失败就 raise SystemExit,
+    #    结果 github.com 周期性抖动的时段里,码云明明能发也被一起卡住。
+    def do_github():
+        H = {"authorization": "token " + cred("github.com"), "user-agent": "neko", "accept": "application/vnd.github+json"}
+        code, rel = call(f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases/tags/{tag}", headers=H)
+        if code == 200 and isinstance(rel, dict) and rel.get("id"):
+            rid = rel["id"]
+            call(f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases/{rid}", {"body": body, "name": title}, method="PATCH", headers=H)
+            print("  GitHub release 已存在", rid)
+        else:
+            code, rel = call(f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases",
+                             {"tag_name": tag, "name": title, "body": body, "draft": False, "prerelease": False},
+                             method="POST", headers=H)
+            print("  GitHub 建 release:", code)
+            if code not in (200, 201) or not isinstance(rel, dict) or not rel.get("id"):
+                return "建 release 失败 HTTP %s %s" % (code, str(rel)[:160])
+            rid = rel["id"]
+        code, assets = call(f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases/{rid}/assets", headers=H)
+        if any(a.get("name") == NAME for a in (assets if isinstance(assets, list) else [])):
+            print("  GitHub 资产已存在")
+        else:
+            c, res = call(f"https://uploads.github.com/repos/{GH[0]}/{GH[1]}/releases/{rid}/assets?name={NAME}",
+                          raw=blob, method="POST", ctype="application/octet-stream", headers=H)
+            print("  GitHub 上传:", c, (res or {}).get("size") if isinstance(res, dict) else str(res)[:80])
+            if c not in (200, 201):
+                return "资产上传失败 HTTP %s %s" % (c, str(res)[:160])
+        return ""
 
-    # 3) Gitee
-    tok = cred("gitee.com")
-    code, rel = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/tags/{tag}?access_token={tok}")
-    # 坑:发行版不存在时,码云返回 HTTP 200 + body "null",不能只判状态码
-    if code == 200 and isinstance(rel, dict) and rel.get("id"):
-        gid = rel["id"]
-        call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}?access_token={tok}",
-             {"tag_name": tag, "name": title, "body": body, "prerelease": False}, method="PATCH")
-        print("  Gitee 发行版已存在", gid)
+    fails = []
+    for attempt in range(1, 7):
+        try:
+            err = do_github()
+        except Exception as e:
+            err = "异常 %s" % str(e)[:150]
+        if not err:
+            break
+        fails.append("github:%s" % err)
+        print("  GitHub 第 %d 次没成功:%s" % (attempt, err))
+        time.sleep(min(45, 6 * attempt))
     else:
-        code, rel = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases?access_token={tok}",
-                         {"tag_name": tag, "name": title, "body": body, "target_commitish": "main", "prerelease": False},
-                         method="POST")
-        print("  Gitee 建发行版:", code)
-        if code not in (200, 201):
-            raise SystemExit(str(rel)[:200])
-        gid = rel["id"]
-    code, att = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}/attach_files?access_token={tok}")
-    if any(x.get("name") == NAME for x in (att if isinstance(att, list) else [])):
-        print("  Gitee 附件已存在(先删后传)")
-        for x in att:
-            if x.get("name") == NAME:
-                call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}/attach_files/{x['id']}?access_token={tok}", method="DELETE")
-    b = "----neko" + uuid.uuid4().hex
-    parts = [f"--{b}\r\nContent-Disposition: form-data; name=\"access_token\"\r\n\r\n{tok}\r\n".encode(),
-             f"--{b}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{NAME}\"\r\nContent-Type: application/octet-stream\r\n\r\n".encode(),
-             blob, f"\r\n--{b}--\r\n".encode()]
-    c, res = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}/attach_files",
-                  raw=b"".join(parts), method="POST", ctype=f"multipart/form-data; boundary={b}")
-    print("  Gitee 上传:", c, str(res)[:90])
+        print("  ! GitHub 最终未发布,继续发码云(事后重跑本脚本会补上 GitHub)")
+
+    # 3) Gitee(同样不让它因一次抖动就中断;附件名必须是精确名,安装器插件按精确名回退)
+    def do_gitee():
+        tok = cred("gitee.com")
+        code, rel = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/tags/{tag}?access_token={tok}")
+        # 坑:发行版不存在时,码云返回 HTTP 200 + body "null",不能只判状态码
+        if code == 200 and isinstance(rel, dict) and rel.get("id"):
+            gid = rel["id"]
+            call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}?access_token={tok}",
+                 {"tag_name": tag, "name": title, "body": body, "prerelease": False}, method="PATCH")
+            print("  Gitee 发行版已存在", gid)
+        else:
+            code, rel = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases?access_token={tok}",
+                             {"tag_name": tag, "name": title, "body": body, "target_commitish": "main", "prerelease": False},
+                             method="POST")
+            print("  Gitee 建发行版:", code)
+            if code not in (200, 201) or not isinstance(rel, dict) or not rel.get("id"):
+                return "建发行版失败 HTTP %s %s" % (code, str(rel)[:160])
+            gid = rel["id"]
+        code, att = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}/attach_files?access_token={tok}")
+        if any(x.get("name") == NAME for x in (att if isinstance(att, list) else [])):
+            print("  Gitee 附件已存在(先删后传)")
+            for x in att:
+                if x.get("name") == NAME:
+                    call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}/attach_files/{x['id']}?access_token={tok}", method="DELETE")
+        b = "----neko" + uuid.uuid4().hex
+        parts = [f"--{b}\r\nContent-Disposition: form-data; name=\"access_token\"\r\n\r\n{tok}\r\n".encode(),
+                 f"--{b}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{NAME}\"\r\nContent-Type: application/octet-stream\r\n\r\n".encode(),
+                 blob, f"\r\n--{b}--\r\n".encode()]
+        c, res = call(f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/{gid}/attach_files",
+                      raw=b"".join(parts), method="POST", ctype=f"multipart/form-data; boundary={b}")
+        print("  Gitee 上传:", c, str(res)[:90])
+        if c not in (200, 201):
+            return "附件上传失败 HTTP %s %s" % (c, str(res)[:160])
+        return ""
+
+    for attempt in range(1, 5):
+        try:
+            err = do_gitee()
+        except Exception as e:
+            err = "异常 %s" % str(e)[:150]
+        if not err:
+            break
+        fails.append("gitee:%s" % err)
+        print("  Gitee 第 %d 次没成功:%s" % (attempt, err))
+        time.sleep(min(30, 5 * attempt))
+
+    if fails:
+        # 去重:重试循环里同一端会留多条
+        uniq = []
+        for f in fails:
+            if not any(f.split(":")[0] == u.split(":")[0] and f == u for u in uniq):
+                uniq.append(f)
+        print("\n!! 发布未全部完成:%s" % "; ".join(uniq[-2:]))
+        print("   两端都是「已存在就改、缺附件就传」的幂等写法,重跑本脚本即可补齐。")
+        return 1
+    print("\n双端发布完成:%s(%s 字节)" % (tag, format(size, ",")))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

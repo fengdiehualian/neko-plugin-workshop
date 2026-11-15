@@ -9,14 +9,14 @@ const ROOT = join(import.meta.dir, "..")
 const SKILL = join(ROOT, "packs/neko-plugin/skill/neko-plugin-dev")
 
 describe("reuse-before-build gate", () => {
-  test("SKILL.md 有第 10 条铁律且指向门禁文档", () => {
+  test("SKILL.md 有第 13 条铁律且指向门禁文档", () => {
     const t = readFileSync(join(SKILL, "SKILL.md"), "utf8")
-    expect(t).toContain("10. **先找现成,再自建**")
+    expect(t).toContain("13. **先找现成,再自建**")
     expect(t).toContain("references/reuse-before-build.md")
   })
-  test("AGENTS.md 有 R16 与 2a 前置步", () => {
+  test("AGENTS.md 有 R19 与 2a 前置步", () => {
     const t = readFileSync(join(SKILL, "AGENTS.md"), "utf8")
-    expect(t).toContain("R16")
+    expect(t).toContain("R19")
     expect(t).toContain("2a. 动手前先走")
   })
   test("门禁文档含三轮检索、90 天共建规则和验收三条件", () => {

@@ -100,6 +100,23 @@
   const speedTxt = (document.getElementById('updMSpeed').textContent || '');
   out.push({ name: '弹窗进度条随下载更新(40%·码云镜像)', ok: barOk, detail: phaseTxt + ' / bar=' + (document.getElementById('updMBar').style.width || '') });
   out.push({ name: '弹窗显示测速结果与下载量', ok: detailTxt.indexOf('MB') >= 0 && speedTxt.indexOf('码云') >= 0, detail: detailTxt + ' / ' + speedTxt });
+  // 下载完成后必须进入校验阶段,并且把「已核对 SHA256」显示出来(issue #6)
+  const phaseEl = () => (document.getElementById('updMPhase').textContent || '');
+  const stubPhase = (body) => {
+    window.fetch = function (u, o) {
+      const m = (o && o.method) || 'GET';
+      if (String(u).indexOf('/api/update') >= 0 && m === 'GET') {
+        return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }));
+      }
+      return window.__origFetch.apply(this, arguments);
+    };
+  };
+  stubPhase({ ok: true, phase: 'verifying', current: '1.2.3', latest: '1.2.4', hasUpdate: true, percent: 100, received: 80000000, total: 80000000, verified: false });
+  const verShown = await wait(() => phaseEl().indexOf('校验安装包') >= 0, 5000);
+  out.push({ name: '下载完成后进入 SHA256 校验阶段', ok: verShown, detail: phaseEl() });
+  stubPhase({ ok: true, phase: 'extracting', current: '1.2.3', latest: '1.2.4', hasUpdate: true, percent: 100, received: 80000000, total: 80000000, verified: true });
+  const verPassed = await wait(() => phaseEl().indexOf('SHA256 已核对') >= 0, 5000);
+  out.push({ name: '校验通过时标明「SHA256 已核对」', ok: verPassed, detail: phaseEl() });
   // 模拟两个通道都失败 → 弹窗切回失败态并恢复「重试/关闭」按钮
   window.fetch = function (u, o) {
     const m = (o && o.method) || 'GET';

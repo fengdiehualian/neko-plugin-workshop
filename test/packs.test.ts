@@ -7,9 +7,11 @@ describe("packs registry", () => {
     const neko = packs.find((p) => p.meta.id === "neko-plugin")
     expect(neko).toBeDefined()
     expect(neko!.templates.sort()).toEqual(["hello_world", "notes", "reminder"])
-    expect((neko!.rules.x_hard_rules as string[]).length).toBe(13)
-    // 机器层的复用门禁条目必须叫 R16，与 SKILL.md 铁律 10 / AGENTS.md R16 同一标签。
-    expect((neko!.rules.x_hard_rules as string[])[12]).toMatch(/^R16 /)
+    // 规则编号唯一来源:rules.json(数量与连续性由 test/docs-consistency.test.ts 校验)
+    expect((neko!.rules.x_hard_rules as string[]).length).toBe(19)
+    // 机器层的复用门禁条目必须是 R19（编号只往后追加，不复用已发布编号）。
+    expect((neko!.rules.x_hard_rules as string[])[18]).toMatch(/^R19 /)
+    expect((neko!.rules.x_workflow_rules as string[]).length).toBe(3)
   })
 
   test("hello_world template renders placeholders", async () => {

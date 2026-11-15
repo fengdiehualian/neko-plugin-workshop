@@ -16,6 +16,8 @@ CORPUS = os.path.join(ROOT, "market-corpus")
 
 PY = sys.executable
 NODE = os.environ.get("NODE_BIN", "node")
+_NODE_OK = None  # 探测一次:本机/CI 有没有可用的 node
+_JS_SKIPPED = [0]  # 因为没 node 而没校验的 JS 文件数
 
 
 def iter_files():
@@ -53,15 +55,37 @@ def check_json(path):
         return str(e)[:120]
 
 
+def node_missing():
+    """工具链没配好时不要装作「65 个文件全坏了」:那会让人以为代码崩了。
+    改成「这些 JS 本次没校验」并在末尾显式警告(CI 里装了 node,不会出现这条)。"""
+    global _NODE_OK
+    if _NODE_OK is None:
+        try:
+            r = subprocess.run([NODE, "--version"], capture_output=True, text=True, timeout=20)
+            _NODE_OK = r.returncode == 0
+        except Exception:
+            _NODE_OK = False
+    return not _NODE_OK
+
+
 def check_node(path):
-    r = subprocess.run([NODE, "--check", path], capture_output=True, text=True)
+    if node_missing():
+        _JS_SKIPPED[0] += 1
+        return None  # 跳过并在结尾汇总里警告,不算文件有问题
+    try:
+        r = subprocess.run([NODE, "--check", path], capture_output=True, text=True)
+    except FileNotFoundError:
+        return None
     if r.returncode == 0:
         return None
     return (r.stderr or "").strip().splitlines()[-3:]
 
 
 def check_sh(path):
-    r = subprocess.run(["bash", "-n", path], capture_output=True, text=True)
+    try:
+        r = subprocess.run(["bash", "-n", path], capture_output=True, text=True)
+    except FileNotFoundError:
+        return None  # 本机没有 bash(Windows 常见):跳过,不算失败
     return None if r.returncode == 0 else (r.stderr or "").strip()[:160]
 
 
@@ -125,12 +149,21 @@ def check_tsx_batch(files):
         return {}
     bun = os.environ.get("BUN_BIN", "bun")
     try:
+        probe = subprocess.run([bun, "--version"], capture_output=True, text=True, timeout=20)
+        if probe.returncode != 0:
+            raise FileNotFoundError(bun)
+    except Exception:
+        # 和 node 同理:工具链缺失要说成「没校验」,不能把 16 个 .ts 全报成坏文件
+        _JS_SKIPPED[0] += len(files)
+        return {}
+    try:
         r = subprocess.run([bun, os.path.join(ROOT, "tools", "tsx_check.mjs")] + files,
                            capture_output=True, text=True, timeout=300)
         data = json.loads(r.stdout.strip().splitlines()[-1])
         return {b["file"]: b["error"] for b in data.get("bad", [])}
     except Exception as e:
-        return {f: f"TSX 校验器不可用:{str(e)[:80]}" for f in files}
+        # bun 在但跑挂了:这确实要报,否则「转译器静默失效」没人发现
+        return {f: f"TSX 校验器异常:{str(e)[:80]}" for f in files}
 
 
 CHECKS = {".py": check_py, ".toml": check_toml, ".json": check_json, ".mjs": check_node,
@@ -139,6 +172,13 @@ CHECKS = {".py": check_py, ".toml": check_toml, ".json": check_json, ".mjs": che
 
 
 def main():
+    # 输出里有 ✗ / … 这类字符,Windows 控制台默认 GBK:一旦把结果重定向到文件就会
+    # UnicodeEncodeError 崩在半路(报错信息反而看不见)。强制按 UTF-8 输出,兜不住就替换成 ?。
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
@@ -184,6 +224,11 @@ def main():
             print(f"  ! {rel}  {str(err)[:90]}")
         if len(corpus) > 15:
             print(f"  … 另有 {len(corpus)-15} 个")
+        if _JS_SKIPPED[0]:
+            print(f"\n⚠ 工具链没配好(node / bun 不可用):{_JS_SKIPPED[0]} 个 JS/MJS/TS 文件本次「未校验」(不是通过)。"
+                  f"设 NODE_BIN、BUN_BIN 或把它们加进 PATH 再跑。")
+        else:
+            print("\nJS/TS 语法校验:全部已校验(未出现「工具链缺失跳过」)")
     return 1 if own else 0
 
 

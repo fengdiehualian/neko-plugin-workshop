@@ -1,6 +1,6 @@
 {
   "name": "@neko/workbench",
-  "version": "1.2.61",
+  "version": "1.2.63",
   "private": true,
   "description": "N.E.K.O. 附属工作台:packs 注册器、模板渲染、中文向导逻辑",
   "type": "module",
@@ -15,6 +15,7 @@
     "check:page": "node tools/check-page.mjs",
     "check:plugin": "python tools/plugin_conformance.py",
     "check:syntax": "python tools/syntax_check.py",
-    "check:static": "python tools/static_check.py"
+    "check:static": "python tools/static_check.py",
+    "check:security": "node tools/verify-security.cjs"
   }
 }

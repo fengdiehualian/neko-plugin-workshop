@@ -5,7 +5,16 @@
  */
 import { readFileSync } from "node:fs"
 
-const auth = "Basic " + Buffer.from("opencode:neko-studio-pw").toString("base64")
+// 引擎 Basic 认证:密码是本实例首启随机生成的,存在 runtime/engine-auth.json(旧版硬编码已废弃)
+function engineAuth() {
+  try {
+    const j = JSON.parse(require("fs").readFileSync(new URL("../../runtime/engine-auth.json", import.meta.url), "utf8"))
+    return "Basic " + Buffer.from("opencode:" + j.password).toString("base64")
+  } catch {
+    return process.env.WB_ENGINE_AUTH || ""
+  }
+}
+const auth = engineAuth()
 const rt = "C:/Users/Administrator/AppData/Local/Programs/NEKOWorkshop/runtime"
 const sids = JSON.parse(readFileSync(rt + "/sessions.json", "utf8")).items.map((s) => s.engineSessionId)
 

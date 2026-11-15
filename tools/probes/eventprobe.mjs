@@ -2,7 +2,16 @@
  * eventprobe - 抓取 v2 引擎 /api/event 的真实事件结构,诊断看门狗活动匹配
  * 用法: bun test/eventprobe.mjs
  */
-const auth = "Basic " + Buffer.from("opencode:neko-studio-pw").toString("base64")
+// 引擎 Basic 认证:密码是本实例首启随机生成的,存在 runtime/engine-auth.json(旧版硬编码已废弃)
+function engineAuth() {
+  try {
+    const j = JSON.parse(require("fs").readFileSync(new URL("../../runtime/engine-auth.json", import.meta.url), "utf8"))
+    return "Basic " + Buffer.from("opencode:" + j.password).toString("base64")
+  } catch {
+    return process.env.WB_ENGINE_AUTH || ""
+  }
+}
+const auth = engineAuth()
 const seen = []
 const controller = new AbortController()
 
