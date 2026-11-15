@@ -85,11 +85,14 @@ def main():
     print(f"  本仓库 {tag} → {local_sha[:7]}")
 
     def remote_tag_sha(remote):
+        # ls-remote 输出是 "<sha>\trefs/tags/<tag>"[annotated 还会多一行 ^{}]:
+        # 取 parts[1] 会把 ref 名当 SHA 比,于是「一致」永远判成「不一致」(我自己踩过,直接挡死发布)
         r = git_tls_run(["ls-remote", remote, "refs/tags/" + tag], cwd=REPO_DIR, timeout=180)
+        want = "refs/tags/" + tag
         for line in (r.stdout or "").splitlines():
             parts = line.split()
-            if len(parts) >= 2:
-                return parts[1]
+            if len(parts) >= 2 and parts[1] == want:
+                return parts[0]
         return ""
 
     for remote in ("gitee", "origin"):
