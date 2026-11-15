@@ -29,6 +29,7 @@ Write-Output ("payload.zip entries: " + $names.Count)
 
 $must = @(
   "wb-studio.mjs", "wb-agent-lib.mjs", "package.json", "start.cmd",
+  "BUILD_INFO.json",
   "_zcode/node.exe", "_zcode/zcode.cjs", "_zcode/provider/zcode-builtin.json",
   "packs/neko-plugin/rules.json",
   "packs/neko-plugin/skill/neko-plugin-dev/references/rbb/SKILL.md",
@@ -45,8 +46,9 @@ foreach ($m in $must) {
 if ($miss.Count) { Write-Output ("MISSING REQUIRED: " + ($miss -join ", ")); $FAIL = 1 }
 else { Write-Output "required entries present (incl _zcode)" }
 
-# 禁含条目:第三方语料与本机探针脚本绝不能出现在安装包里
-$forbidden = @("market-corpus/", "tools/probes/")
+# 禁含条目:第三方语料、本机探针、以及本机配置都绝不能出现在安装包里
+# (wb-studio.config.json 一旦进包,覆盖安装就会把用户的端口/引擎口/模型/界面设定冲回开发机默认值)
+$forbidden = @("market-corpus/", "tools/probes/", "wb-studio.config.json")
 $bad = @()
 foreach ($f in $forbidden) {
   $hit = @($names | Where-Object { $_.StartsWith($f) })

@@ -27,3 +27,14 @@ workbench/sync_instance.py export-ignore
 workbench/update_sign.cjs export-ignore
 workbench/collect_notices.cjs export-ignore
 workbench/notes-*.md export-ignore
+workbench/vendor_rbb.cjs export-ignore
+workbench/localize_rbb.cjs export-ignore
+workbench/rbb_neko_appendix.md export-ignore
+workbench/cr_*.cjs export-ignore
+
+# 本机配置绝不进包(v1.2.65 实测踩到):wb-studio.config.json 被仓库跟踪,
+# 覆盖安装时把用户的端口/引擎口/模型/是否开浏览器全部冲回开发机默认值——
+# 隔离实例当场被改写成真实例的 5099/4096 就是证据。
+# 工作室读不到该文件时用 defaultConfig 兜底(wb-studio.mjs:config = { ...defaultConfig, ...file }),
+# 所以「包里不带」才是正确姿势:首启用默认值,用户改过的设置随升级保留。
+wb-studio.config.json export-ignore

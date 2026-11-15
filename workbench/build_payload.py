@@ -17,6 +17,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,6 +32,10 @@ DEFAULT_ZCODE = os.environ.get("NEKO_ZCODE_DIR") or os.path.join(
 # 载荷里**不许出现**的条目(issue #4):第三方市场语料不打包分发。
 # 光在 THIRD_PARTY_NOTICES.md 里写「不分发」不算数,必须在出包前真的拦下来。
 FORBIDDEN = ["market-corpus/", "tools/probes/"]
+# 本机配置也不许进包(v1.2.65 实测):它被仓库跟踪,覆盖安装会把用户的端口/引擎口/模型/界面设定
+# 冲回开发机默认值(隔离实例被改成真实例的 5099/4096 就是当场证据)。工作室读不到该文件会走 defaultConfig,
+# 所以「包里不带」才是对的:首启默认值,用户改过的东西随升级保留。
+NOT_PACKAGED = ["wb-studio.config.json"]
 # 载荷里必须出现的条目:底座三件 + 工坊入口
 REQUIRED = [
     ("wb-studio.mjs", 100_000),
@@ -39,7 +44,28 @@ REQUIRED = [
     ("_zcode/node.exe", 50_000_000),   # 91MB:小于 50MB 就是没打进去或打了残件
     ("_zcode/zcode.cjs", 1_000_000),
     ("_zcode/provider/zcode-builtin.json", 10_000),
+    # 出处凭证:哪个提交打的包。缺它就等于"包来路不明",下游不许继续
+    ("BUILD_INFO.json", 60),
 ]
+
+
+def resolve_ref(ref):
+    """把要打包的引用解析成提交号,解析不了就当场停手。
+
+    本轮实测踩到的坑:`--tag v1.2.65` 指一个还没创建的 tag 时,git archive 会失败退出,
+    可磁盘上**还留着上一版的 payload.zip**——后面打 exe、装实例照用不误,
+    发出去的是旧代码,表面上一切正常。所以两件事一起做:先解析引用,再在开工时删掉旧产物。"""
+    r = subprocess.run(
+        [GIT, "rev-parse", "--verify", ref + "^{commit}"],
+        cwd=ROOT, capture_output=True, text=True, encoding="latin1",
+    )
+    if r.returncode != 0:
+        sys.exit(
+            "引用 %r 解析不到提交:%s\n"
+            "  要打当前提交用 --tag HEAD;发版若要用 tag,先 git tag 再构建(别拿旧 payload.zip 凑数)。"
+            % (ref, (r.stderr or r.stdout).strip()[:200])
+        )
+    return r.stdout.strip()
 
 
 def git_archive(tag, out):
@@ -113,7 +139,8 @@ def verify(zip_path):
     small = [(p, sizes.get(p, 0)) for p, mn in REQUIRED if p in names and sizes.get(p, 0) < mn]
     # 语料/探针混进包里 = 分发口径出错(许可问题)或本机路径泄露,一律不出包
     leaked = [p for p in FORBIDDEN for n in names if n.startswith(p) or n == p.rstrip("/")]
-    return count, missing, small, leaked
+    clobber = [p for p in NOT_PACKAGED if p in names]
+    return count, missing, small, leaked, clobber
 
 
 def main():
@@ -129,6 +156,12 @@ def main():
     a = ap.parse_args()
 
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
+    # 第一件事就是删旧产物,连"引用解析不了"这种早退也不能留下陈包:
+    # 失败后宁可没有包(下一步会明确报"文件不存在"),也不能有一个上一版的包被误用
+    if os.path.exists(a.out):
+        print("先删除旧产物(避免本轮失败后被误用):%s" % a.out)
+        os.remove(a.out)
+    commit = resolve_ref(a.tag)
     tmp = a.out + ".src.zip"
     git_archive(a.tag, tmp)
     with zipfile.ZipFile(tmp) as z:
@@ -139,7 +172,20 @@ def main():
         os.remove(a.out)
     os.replace(tmp, a.out)
 
-    count, missing, small, leaked = verify(a.out)
+    # 出处写进包内:下游(打 exe / 装完自检)据此证明"这就是那个提交",而不是"大概是新的吧"
+    try:
+        version = json.load(open(os.path.join(ROOT, "package.json"), encoding="utf-8"))["version"]
+    except Exception as e:
+        sys.exit("读不到 package.json 的版本号:%s" % e)
+    info = {
+        "ref": a.tag, "commit": commit, "version": version,
+        "builtAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "generator": "workbench/build_payload.py",
+    }
+    with zipfile.ZipFile(a.out, "a", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("BUILD_INFO.json", json.dumps(info, ensure_ascii=False, indent=1) + "\n")
+
+    count, missing, small, leaked, clobber = verify(a.out)
     if missing or small:
         sys.exit(
             "载荷不完整,拒绝出包!\n  缺条目:%s\n  体积异常:%s\n  (历史上就因缺 _zcode 少打 30MB,别放过)"
@@ -154,10 +200,18 @@ def main():
             "或者只写了 `dir/**` 没写 `dir`(两行都要,少一行就还会导出来)。"
             % ", ".join(sorted(set(leaked))[:6])
         )
+    if clobber:
+        sys.exit(
+            "载荷里带着本机配置文件,拒绝出包:%s\n"
+            "  覆盖安装会把用户的端口/引擎口/模型/界面设定冲回开发机默认值(本轮实测踩到)。\n"
+            "  修:在 .gitattributes 里给它加 export-ignore(改完要先提交,git archive 才认新属性)。"
+            % ", ".join(clobber)
+        )
     size = os.path.getsize(a.out)
     print("payload.zip:源码 %d 条 + _zcode 补 %d 条 = %d 条,%s 字节(压缩后)" % (src_count, added, count, format(size, ",")))
+    print("打包出处:%s = %s(v%s),已写进包内 BUILD_INFO.json" % (a.tag, commit[:12], version))
     print("必查条目全部就位:", ", ".join(p for p, _ in REQUIRED))
-    print("禁含条目检查通过:", ", ".join(FORBIDDEN))
+    print("禁含条目检查通过:", ", ".join(FORBIDDEN + NOT_PACKAGED))
     return 0
 
 

@@ -13,6 +13,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 
 INSTALL_CMD = r"""@echo off
@@ -80,12 +81,48 @@ SourceFiles0={work}\\
 """
 
 
+def assert_fresh(zip_path):
+    """打 exe 前核对载荷出处:包内 BUILD_INFO.json 的 commit 必须等于当前 HEAD,版本必须等于 package.json。
+
+    为什么必须有这道:本轮实测 `--tag` 写了个还不存在的 tag,build_payload 报错退出,
+    但磁盘上留着**上一版**的 payload.zip——直接往下打 exe 就会把旧代码当新版发出去,而且全程没有异常。
+    安装包是对外分发的东西,这一步宁可拒绝干活,也不许"大概是新的吧"。"""
+    import json
+    import zipfile
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from release_tls import resolve_git
+    try:
+        with zipfile.ZipFile(zip_path) as z:
+            info = json.loads(z.read("BUILD_INFO.json").decode("utf-8"))
+    except KeyError:
+        sys.exit("载荷里没有 BUILD_INFO.json——它不是 build_payload.py 出的包(或是旧版产物),拒绝打 exe")
+    except Exception as e:
+        sys.exit("读不到载荷里的 BUILD_INFO.json:%s" % e)
+    r = subprocess.run([resolve_git(), "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, encoding="latin1")
+    head = (r.stdout or "").strip()
+    if not head:
+        sys.exit("拿不到当前 HEAD(%s),无法证明载荷是新的" % (r.stderr or "").strip()[:120])
+    if info.get("commit") != head:
+        sys.exit(
+            "载荷出处对不上,拒绝打 exe:\n  包内 commit = %s(ref %s,建于 %s)\n  当前 HEAD  = %s\n"
+            "  重跑 python -I workbench/build_payload.py --tag HEAD" % (
+                str(info.get("commit"))[:12], info.get("ref"), info.get("builtAt"), head[:12])
+        )
+    want = json.load(open(os.path.join(root, "package.json"), encoding="utf-8"))["version"]
+    if info.get("version") != want:
+        sys.exit("载荷里的版本 v%s 与 package.json 的 v%s 不一致,拒绝打 exe(先重跑 build_payload)" % (info.get("version"), want))
+    print("载荷出处核对通过:%s = %s(v%s)" % (info.get("ref"), str(info.get("commit"))[:12], info.get("version")))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--zip", required=True, help="payload.zip(工作台文件,已排除 runtime/ workspace/)")
     ap.add_argument("--out", required=True, help="输出 Setup.exe 路径")
     ap.add_argument("--keep", action="store_true", help="保留临时打包目录")
     a = ap.parse_args()
+
+    assert_fresh(a.zip)
 
     work = tempfile.mkdtemp(prefix="neko_sfx_")
     shutil.copyfile(a.zip, os.path.join(work, "payload.zip"))

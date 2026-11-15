@@ -46,6 +46,20 @@ describe("打包口径:.gitattributes 的 export-ignore", () => {
     expect(attrs).toMatch(/market-corpus/)
     expect(attrs).toMatch(/tools\/probes/)
   })
+  test("本机配置不进包,三处口径必须一致", () => {
+    // v1.2.65 实测踩到:wb-studio.config.json 被仓库跟踪并随包覆盖,
+    // 安装/升级把用户的端口、引擎口、模型、是否开浏览器全冲回开发机默认值(隔离实例当场变成 5099/4096)。
+    expect(attrs.match(/^wb-studio\.config\.json\s+export-ignore\s*$/m), ".gitattributes 缺这一行").toBeTruthy()
+    const bp = read(join(ROOT, "workbench", "build_payload.py"))
+    expect(bp, "build_payload 没把它列入 NOT_PACKAGED,出包不会拦").toMatch(/NOT_PACKAGED\s*=\s*\[[\s\S]{0,120}"wb-studio\.config\.json"/)
+    const cp = read(join(ROOT, "workbench", "check_package.ps1"))
+    expect(cp, "包级复核没查这项,装完也发现不了").toMatch(/\$forbidden\s*=\s*@\([^\)]*wb-studio\.config\.json/)
+  })
+  test("前提核对:工作室缺配置时有默认值兜底(不然就不该 export-ignore)", () => {
+    const studio = read(join(ROOT, "wb-studio.mjs"))
+    expect(studio).toMatch(/const defaultConfig\s*=\s*\{/)
+    expect(studio, "配置合并方式变了,缺文件时可能起不来——先确认再打包").toMatch(/\{\s*\.\.\.defaultConfig,\s*\.\.\.JSON\.parse/)
+  })
 })
 
 describe("语料数量:以 market-corpus 真实目录为准", () => {
