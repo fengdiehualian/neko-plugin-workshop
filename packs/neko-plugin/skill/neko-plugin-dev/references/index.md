@@ -59,3 +59,4 @@ N.E.K.O. 插件系统是一个基于 Python 的插件框架，建立在**进程�
 - [Adapter 与并发编程](./advanced) — Adapter 网关、异步入口与线程安全
 - [LLM 工具调用](./tool-calling) — 注册插件功能给 LLM 在对话中调用
 - [最佳实践](./best-practices) — 错误处理、测试、代码组织
+- [深度专题（52 篇）](./deep-dive/README.md) — 官方 main 源码逆向、ZMQ 与消息面内部、市场插件写法、构建发布审核、可直接抄的示例

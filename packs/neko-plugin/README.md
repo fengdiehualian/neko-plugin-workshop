@@ -6,6 +6,7 @@
 
 - `pack.json` — pack 元数据(供工作台 pack 注册器读取)
 - `rules.json` — 生成/检查规则:12 条硬规则 + check 闸门 + 发布流程
+- `skill/neko-plugin-dev/` — `SKILL.md` + `AGENTS.md` + 官方文档;`references/deep-dive/` 为 52 篇深度专题与可直接抄的 `minimal_plugin` 示例(规则编号仍以 `rules.json` 为准)
 - `templates/` — 三个起步模板,均通过 R1–R12 硬规则
   - `hello_world` — 最小插件(入门)
   - `reminder` — 生命周期 + 定时任务 + 线程锁(进阶)

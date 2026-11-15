@@ -1,0 +1,46 @@
+# CodeRabbit 配置（V2）
+# 目的：给 PR 一个自动审查落点，重点守住「规则编号唯一来源」与「文档不许自造编号」。
+# 安装：GitHub Marketplace 安装 CodeRabbit App 并授权本仓库后生效；配置文件本身不依赖安装。
+version: 2
+
+language: "zh-CN"
+
+reviews:
+  profile: "chill"
+  high_level_summary: true
+  review_status: true
+  poem: false
+
+  # market-corpus 是 127 个插件的只读语料，逐行审没有意义且会淹没真正的改动。
+  path_filters:
+    - "!market-corpus/**"
+    - "!**/*.lock"
+    - "!workbench/**"
+    - "!**/*.png"
+    - "!**/*.jpg"
+
+  path_instructions:
+    - path: "packs/neko-plugin/**"
+      instructions: |
+        - 规则编号的唯一来源是 `packs/neko-plugin/rules.json` 的 `x_hard_rules`（R1–R18）与 `x_workflow_rules`（W1–W3）。任何新增文档、提示词、模板都不得另立编号，也不得把「铁律 #1–#20」「F1–F9」当作规则号使用。
+        - 改 `SKILL.md` / `AGENTS.md` 时检查：AGENTS 的 `- R<n>` 摘要必须与 rules.json 的 hard 规则一一对应；SKILL/AGENTS 中出现的每个 R/W 号都必须在 rules.json 里存在。
+        - 改模板时检查生成物：入口函数 `async def` 且返回 `Ok(...)`，不出现 `plugin._types.result` / `plugin.sdk.extension` / `[plugin.host]` 等 v0.9 已移除 API。
+    - path: "packs/neko-plugin/skill/neko-plugin-dev/references/deep-dive/**"
+      instructions: |
+        - 本目录是增补的深度参考，不参与 `test/rules-numbering.test.ts`。审查重点是：相对链接是否有效、是否明确声明「规则编号以 rules.json 为准」、是否把原文编号冒充成规则号。
+        - 文档中的命令与 API 必须与官方 N.E.K.O. main 一致；发现与 `rules.json` 或官方 `docs/` 冲突时，要求作者标注冲突而不是二选一写成事实。
+        - 示例目录 `deep-dive/examples/minimal_plugin/` 的支撑文件（ruff.toml、两个 workflow、.gitignore、.vscode、test_smoke.py）应保持与官方 `neko-plugin init` 生成物一致，不要手改。
+    - path: "src/**"
+      instructions: |
+        - 关注生成→check→build 闭环的错误解析是否仍与官方 CLI 输出格式匹配。
+    - path: "test/**"
+      instructions: |
+        - 测试必须能拦住「编号漂移」「文档数量口径不一致」「模板生成物违反 R 号」三类回归，避免只断言字符串存在。
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+
+chat:
+  auto_reply: true
