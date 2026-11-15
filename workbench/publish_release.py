@@ -63,6 +63,9 @@ def main():
     ap.add_argument("--exe", required=True)
     ap.add_argument("--notes", required=True, help="更新说明 markdown")
     ap.add_argument("--title", default="")
+    ap.add_argument("--allow-tag-move", action="store_true", dest="allow_tag_move",
+                    help="允许把 tag 挪到新提交:仅当**两端都没有引用该 tag 的 release** 时才生效"
+                         "(脚本会自己去查,不信人说的话)。有 release 引用就一律拒绝")
     a = ap.parse_args()
 
     ver = json.load(open(os.path.join(REPO_DIR, "package.json"), encoding="utf-8"))["version"]
@@ -95,12 +98,42 @@ def main():
                 return parts[0]
         return ""
 
+    def release_references_tag(url, headers=None):
+        """这个 tag 有没有被 release 引用。
+        码云的坑:发行版不存在时返回 HTTP 200 + body "null",所以必须验 body 不是只看状态码。"""
+        code, rel = call(url, headers=headers)
+        return code == 200 and isinstance(rel, dict) and bool(rel.get("id"))
+
+    def tag_is_free():
+        try:
+            gh = release_references_tag(
+                f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases/tags/{tag}",
+                {"authorization": "token " + cred("github.com"), "user-agent": "neko", "accept": "application/vnd.github+json"})
+            gt = release_references_tag(
+                f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/tags/{tag}?access_token=" + cred("gitee.com"))
+            return (gh or gt), gh, gt
+        except Exception as e:
+            # 查不动就当作「已被引用」:宁可卡住发布,也不能悄悄挪走别人可能在用的 tag
+            return True, "查询异常 " + str(e)[:60], ""
+
     for remote in ("gitee", "origin"):
         cur = remote_tag_sha(remote)
         if cur and cur != local_sha:
-            print(f"  !! {remote} 上的 {tag} 指向 {cur[:7]},与本地 {local_sha[:7]} 不同 —— 已发布的 tag 不重写。"
-                  f"请改 package.json 版本号后重新发布(见 issue #11)。")
-            raise SystemExit(2)
+            if not a.allow_tag_move:
+                print(f"  !! {remote} 上的 {tag} 指向 {cur[:7]},与本地 {local_sha[:7]} 不同 —— 已发布的 tag 不重写。"
+                      f"请改 package.json 版本号后重新发布(见 issue #11);确认没人用过可加 --allow-tag-move。")
+                raise SystemExit(2)
+            # 给了开关也不代表可以挪:必须脚本自己证明两端都没有 release 引用这个 tag
+            used, gh_used, gt_used = tag_is_free()
+            if used:
+                print(f"  !! 已给 --allow-tag-move,但 release 正在引用该 tag(GitHub={gh_used} / Gitee={gt_used}),"
+                      f"仍然拒绝挪动。请改用新的版本号。")
+                raise SystemExit(2)
+            print(f"  ~ 核实两端均无 release 引用 {tag}(GitHub={gh_used} / Gitee={gt_used}),"
+                  f"按 --allow-tag-move 挪动 {cur[:7]} → {local_sha[:7]}")
+            r = git_tls_run(["push", "--force", remote, "refs/tags/" + tag], cwd=REPO_DIR, timeout=900)
+            print(f"  tag→{remote}(挪动):", (r.stderr or r.stdout).strip().splitlines()[-1][:90])
+            continue
         if cur == local_sha:
             print(f"  tag→{remote}: 已在 {cur[:7]},无需重复推送")
             continue
