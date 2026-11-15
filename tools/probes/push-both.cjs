@@ -59,7 +59,15 @@ for (const remote of ["gitee", "origin"]) {
   if (!mainOk) { results[remote] = { main: "FAILED", tag: "跳过(main 没推上去)" } ; continue }
   try {
     let remoteSha = ""
-    try { remoteSha = (git(["ls-remote", remote, "refs/tags/" + tag], 180000).trim().split(/\s+/)[0] || "") } catch {}
+    // ls-remote 对**注解 tag** 返回的是 tag 对象哈希,而本地比的是 peel 之后的提交哈希,
+    // 直接比会把"完全一致"读成分叉(v1.2.65 发布后就假报过「远端 9cd972 ≠ 本地 89aa89」)。
+    // 同时问 refs/tags/X 与 refs/tags/X^{}:后者由服务端给出 peel 后的提交,以它为准,取不到再退回前者。
+    try {
+      const out = git(["ls-remote", remote, "refs/tags/" + tag, "refs/tags/" + tag + "^{}"], 180000)
+      const rows = out.split(/\r?\n/).map((l) => l.trim().split(/\s+/)).filter((r) => r.length >= 2 && r[0])
+      const peeled = rows.find((r) => r[1].endsWith("^{}"))
+      remoteSha = ((peeled || rows[0] || [])[0] || "")
+    } catch {}
     if (!remoteSha) { git(["push", remote, "refs/tags/" + tag]); tagNote = "已推送(新建)" }
     else if (remoteSha === localTag) tagNote = "已一致 " + remoteSha.slice(0, 7)
     else if (forceTag) { git(["push", "--force", remote, "refs/tags/" + tag]); tagNote = "按 --force-tag 挪动 " + remoteSha.slice(0, 7) + " → " + localTag.slice(0, 7) }
