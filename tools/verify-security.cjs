@@ -8,7 +8,8 @@
 //
 // 检查项:
 //   1) 引擎 Basic 密码是本实例随机值,旧硬编码常量已失效(旧=401、无认证=401、新=200)
-//   2) 外发写确认队列接口:未知 id / 坏 body 不崩,缺 token 的写被门禁挡下
+//   2) 外发写确认队列接口:未知 id / 坏 body 不崩,缺 token 的写被门禁挡下,
+//      且抢不到端口的第二个实例不许污染 runtime/studio-token.txt
 //   3) 自动更新完整性与信任根(issue #6 + #12):
 //      单渠道无签名清单 → 拒;伪造清单 → 拒;清单有效但包被换 → 拒;正文与清单矛盾 → 拒;
 //      清单验签且哈希一致 → 才放行(此时进程退出、安装脚本落盘)
@@ -37,8 +38,8 @@ async function j(url, opt) {
   try { b = await r.json() } catch {}
   return { status: r.status, b }
 }
-const post = (url, obj, token) =>
-  j(url, { method: "POST", headers: { "content-type": "application/json", "x-wb-token": token }, body: typeof obj === "string" ? obj : JSON.stringify(obj) })
+const post = (url, obj, token, ms) =>
+  j(url, { method: "POST", headers: { "content-type": "application/json", "x-wb-token": token }, body: typeof obj === "string" ? obj : JSON.stringify(obj), signal: AbortSignal.timeout(ms || 8000) })
 let pass = 0, fail = 0
 function chk(name, ok, detail) {
   if (ok) pass++; else fail++
@@ -66,6 +67,30 @@ function chk(name, ok, detail) {
   chk("2c 坏 body 不崩", junk.status === 200 && junk.b && junk.b.found === false, JSON.stringify(junk.b))
   const noTok = await fetch(B + "/api/approvals", { method: "POST", headers: { "content-type": "application/json", origin: "http://127.0.0.1:5299" }, body: JSON.stringify({ id: "x" }) })
   chk("2d 无 token 的写被门禁挡下", noTok.status === 401 || noTok.status === 403, "HTTP " + noTok.status)
+
+  // ---------- 2e) 抢不到端口的第二个实例,不许污染 token 文件 ----------
+  // v1.2.65 发版前实测撞到:token 原本在模块加载时就落盘。第二个实例(连点两次快捷方式、
+  // 或更新器撞上还在跑的实例)先写了自己的 token,再因端口占用异常退出 —— 存活实例用的是
+  // 第一个进程的 token,文件里却是死掉那个的 → 之后所有读该文件的本机工具/自检一律 403,
+  // 而提示语还让人以为是自己的错。修法:只有真的占住端口的进程才 publishLocalToken()。
+  const tokFile = path.join(DST, "runtime", "studio-token.txt")
+  const live2e = await j(A + "/api/health")
+  if (live2e.status !== 200) {
+    chk("2e 二次启动不污染 token", false, "5199 实例没在跑,本场景无法验证(不是通过)")
+  } else {
+    const before = fs.readFileSync(tokFile, "utf8").trim()
+    const loser = spawnSync(P.bunExe(), ["wb-studio.mjs"], {
+      cwd: DST, encoding: "utf8", timeout: 150000,
+      env: Object.assign({}, process.env, { WB_STUDIO_NOWINDOW: "1" }),
+    })
+    const outStr = String((loser.stdout || "") + (loser.stderr || ""))
+    const after = fs.readFileSync(tokFile, "utf8").trim()
+    const again = await post(A + "/api/approvals", { id: "ghost", reply: "once" }, before)
+    const note = (outStr.match(/端口 \d+ 已被占用[^\n]{0,40}/) || ["日志里没写占用原因"])[0]
+    chk("2e 二次启动不污染 token(本机工具不会突然 403)",
+      loser.status !== 0 && before === after && again.status === 200,
+      "二次退出码=" + loser.status + " token 被改=" + (before !== after) + " 用文件 token 写接口 HTTP=" + again.status + " | " + note)
+  }
 
   // ---------- 3) 更新包完整性 + 信任根 ----------
   // 清单素材:用发布机的私钥现场签(演练用,不进包)。定义要放在第一次调用之前。
@@ -116,10 +141,16 @@ function chk(name, ok, detail) {
     return null
   }
   // 每个场景先 action=check(重读演练源),再 action=start
+  // check 会串行拉 GitHub + 码云两个渠道,本机实测 13~14 秒,所以这里给 45 秒(探针的旧 8 秒预算会把好结果读成超时)
   async function runScenario(feed, pred) {
     feedJson = feed
-    await post(B + "/api/update", { action: "check" }, tok(FEED))
-    await post(B + "/api/update", { action: "start" }, tok(FEED))
+    try {
+      await post(B + "/api/update", { action: "check" }, tok(FEED), 45000)
+      await post(B + "/api/update", { action: "start" }, tok(FEED), 45000)
+    } catch (e) {
+      // 实例没起来/超时要在结果里说清楚,不能抛出去把整轮变成一坨栈
+      return { s: { phase: "error", error: "请求失败:" + String(e && e.message || e) }, ok: false }
+    }
     const s = await waitState(pred, 60000)
     return { s, ok: pred(s) }
   }

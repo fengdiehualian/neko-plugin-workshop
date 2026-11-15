@@ -3492,19 +3492,26 @@ async function runTaskWithRetry(kind, run) {
 // application/json + 启动时随机 token(挡简单请求 CSRF;token 经页面注入,本机工具读 runtime/studio-token.txt)。
 const { randomBytes } = require("node:crypto")
 const API_TOKEN = randomBytes(24).toString("hex")
-try {
-  const { mkdirSync, writeFileSync } = require("node:fs")
-  mkdirSync(join(__dirname, "runtime"), { recursive: true })
-  writeFileSync(join(__dirname, "runtime", "studio-token.txt"), API_TOKEN, "utf8")
-} catch (e) {
-  // 原来这里是空的 catch:写盘失败(只读目录、杀软占用、runtime 被删)时页面仍能正常操作
-  // (token 是注入进页面的),但本机工具/自检脚本读不到或读到旧 token,只会收到一句
-  // 「token 校验失败」,查不到原因。必须留话,并且把路径说清楚。
-  console.warn(
-    "[wb-studio] 本机 token 写盘失败:网页照常可用,但读 " +
-      join(__dirname, "runtime", "studio-token.txt") +
-      " 的本机工具会 401(" + (e && e.message ? e.message : e) + ")",
-  )
+// token **必须等本进程真的占住端口之后**才落盘。
+// 以前在模块加载时就写:双击两次快捷(或更新器与在跑的实例撞车)时,抢不到端口的那个进程
+// 会先把自己的 token 覆盖进 runtime/studio-token.txt,然后未捕获异常退出;
+// 活下来的实例用的是上一个进程写的 token → 之后所有读这个文件的本机工具/自检脚本一律 403,
+// 而提示语还让人以为是自己的错(v1.2.65 发版前实测撞到,连带 4 条端到端断言假红)。
+function publishLocalToken() {
+  try {
+    const { mkdirSync, writeFileSync } = require("node:fs")
+    mkdirSync(join(__dirname, "runtime"), { recursive: true })
+    writeFileSync(join(__dirname, "runtime", "studio-token.txt"), API_TOKEN, "utf8")
+  } catch (e) {
+    // 原来这里是空的 catch:写盘失败(只读目录、杀软占用、runtime 被删)时页面仍能正常操作
+    // (token 是注入进页面的),但本机工具/自检脚本读不到或读到旧 token,只会收到一句
+    // 「token 校验失败」,查不到原因。必须留话,并且把路径说清楚。
+    console.warn(
+      "[wb-studio] 本机 token 写盘失败:网页照常可用,但读 " +
+        join(__dirname, "runtime", "studio-token.txt") +
+        " 的本机工具会 401(" + (e && e.message ? e.message : e) + ")",
+    )
+  }
 }
 const ALLOWED_HOSTS = new Set([
   `127.0.0.1:${config.port}`,
@@ -5559,10 +5566,21 @@ const boot = async () => {
     }
   }
   srv.listen(config.port, "127.0.0.1", () => {
+    // 只有真正在服务的进程才公布自己的 token(见 publishLocalToken 上方注释)
+    publishLocalToken()
     const url = `http://127.0.0.1:${config.port}`
     console.log(`[wb-studio] 对话页: ${url}`)
     console.log(`[wb-studio] 工作区: ${config.workspace}`)
     if (config.openBrowser && !process.env.WB_STUDIO_NOWINDOW) openWorkshopWindow(url)
+  })
+  // 端口被占(已有实例在跑)以前是未捕获异常:堆栈甩进日志、退出码 1,现象像"工坊自己崩了"。
+  // 现在说清楚是谁占了、该怎么处理,并且**不碰 token 文件**,占着端口的实例继续可用。
+  srv.on("error", (e) => {
+    const why = e && e.code === "EADDRINUSE"
+      ? `端口 ${config.port} 已被占用——多半已有一个工坊实例在跑(用 start.cmd 或浏览器直接打开 http://127.0.0.1:${config.port} 即可,不需要再起一个)`
+      : `监听失败:${(e && (e.code || e.message)) || e}`
+    console.error(`[wb-studio] ⚠ ${why}`)
+    process.exit(1)
   })
 }
 
