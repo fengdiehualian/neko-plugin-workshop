@@ -63,6 +63,7 @@ function pubKey() {
   return crypto.createPublicKey({ key: Buffer.from(pubkeySpki(), "base64"), format: "der", type: "spki" })
 }
 // 规范载荷:字段顺序固定,签的是这段**原始字节**,客户端解 base64 后原样验签,
+// 规范载荷:字段顺序固定,签的是这段**原始字节**,客户端解 base64 后原样验签,
 // 不做二次序列化(序列化风格不同就会验不过——这类坑没必要踩)
 function canonical(manifest) {
   return Buffer.from(JSON.stringify({
@@ -72,7 +73,22 @@ function canonical(manifest) {
     size: manifest.size,
     sha256: manifest.sha256,
     publishedAt: manifest.publishedAt,
+    // 构建来源提交(签名覆盖,可信):release 的 tag 指向哪个提交不由我们控制,
+    // 而「这个二进制是哪份源码构建的」必须有记录(实测就出现过 tag 与构建提交不一致的情况)
+    sourceCommit: manifest.sourceCommit || "",
   }), "utf8")
+}
+// 取当前 HEAD(或 --commit 指定的 ref)的完整提交号
+function resolveCommit(given) {
+  if (given) return given
+  try {
+    const { execFileSync } = require("child_process")
+    const GIT = process.env.GIT_BIN ||
+      [require("path").join(require("os").homedir(), ".workbuddy", "binaries", "PortableGit", "versions", "1.3.0", "cmd", "git.exe"),
+       "C:\\Program Files\\Git\\cmd\\git.exe"].find((p) => require("fs").existsSync(p)) || "git"
+    return execFileSync(GIT, ["rev-parse", "HEAD"],
+      { cwd: path.join(__dirname, ".."), encoding: "utf8", timeout: 30000 }).trim()
+  } catch { return "" }
 }
 function sign() {
   const exe = arg("exe", path.join(__dirname, "..", "build", NAME))
@@ -87,6 +103,7 @@ function sign() {
     size: blob.length,
     sha256: crypto.createHash("sha256").update(blob).digest("hex").toUpperCase(),
     publishedAt: new Date().toISOString(),
+    sourceCommit: resolveCommit(arg("commit", "")),
   }
   const payload = canonical(manifest)
   const sig = crypto.sign(null, payload, privKey())

@@ -4423,7 +4423,11 @@ async function manifestTrust(sources, version) {
         size: Number(asset.size) || 0,
       })
       if (r.ok) {
-        console.log("[wb-studio] 清单验签通过:", s.source, r.manifest.version, r.manifest.sha256.slice(0, 12) + "…", r.manifest.size.toLocaleString() + " 字节")
+        // 构建来源提交也打印出来:release 的 tag 指向哪个提交我们控制不了(挪不得),
+        // 但「这份二进制由哪份源码构建」必须有可信记录 —— 清单是签名的,所以这个字段可信
+        console.log("[wb-studio] 清单验签通过:", s.source, r.manifest.version, r.manifest.sha256.slice(0, 12) + "…",
+          r.manifest.size.toLocaleString() + " 字节",
+          r.manifest.sourceCommit ? "源码提交 " + String(r.manifest.sourceCommit).slice(0, 7) : "(该版本清单未记录源码提交)")
         return { sha: r.manifest.sha256, fatal: false, reason: "" }
       }
       console.warn("[wb-studio] 清单不可信(" + s.source + "):" + r.reason)
