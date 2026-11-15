@@ -9,3 +9,6 @@ build/
 dist/
 _tmp_*
 _iss_new.txt 
+
+# 页面自检产物(报告/截图),别被 git add -A 顺手带进包
+check-report.txt
