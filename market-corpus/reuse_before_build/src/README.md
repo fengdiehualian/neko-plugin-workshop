@@ -108,7 +108,7 @@ docs/vendor.md                     下游 vendor 的固定版本接入与校验�
 
 本版（v0.3.21）：
 
-- **本地**：`python -m pytest -q tests skills/reuse-before-build/tests` **191 passed**（另有 73 个子测试）；`python -m unittest discover -s tests -v` **147 tests**；Ruff 全绿；vendor 重复构建字节一致，解压后可脱离源仓库运行。`test_vendor_release` 里读 `.github/workflows/release.yml` 的 1 个用例在本 workspace 语料副本下失败（副本没同步 `.github`），在插件仓内通过。
+- **本地**：`python -m pytest -q tests skills/reuse-before-build/tests` **192 passed**（另有 73 个子测试）；`python -m unittest discover -s tests -v` **147 tests**；Ruff 全绿；vendor 重复构建字节一致，解压后可脱离源仓库运行。
 - **随包 skill**：`verify_localized.py` 对 `SKILL.md` 输出 `PASS verbatim`，`zh-guide.md` 输出 `translated(zh)`；核心不变块哈希 `fa0f991f…bc93` 未变。
 - **CI**：官方检查、payload 哈希与发布证明见本版 Release 的 `market-evidence.json` 和检查文本。
 

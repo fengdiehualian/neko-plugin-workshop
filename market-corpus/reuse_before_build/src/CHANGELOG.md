@@ -11,7 +11,7 @@
 - **新增回归**：`tests/test_fenced_sections.py` 锁定 Step 4 模板完整、不越界吞并下一节、缺章返回空串，并确认 `mandatory_rules` 仍取得到四个必需章节；另用内联 fixture（围栏里放一个 `## What I found`）直接验证切节不被围栏标题截断，不依赖 SKILL.md 当前写了什么。
 - **计划废弃（先标记，待核实仓外无引用后执行）**：`rbb_core.manifest_settings()` 包装（`load_manifest_settings` 的单行别名，仓内零业务调用）、`rbb_core` / `repo_scan` 里的 `PERMISSIVE` 别名、`resolve_python` / `canonical_hash` / `verify_localized` 的 `python_exe` 注入通道。三项都是仓外可能 import 或调用过的公开面，本次不删，核实无外部依赖后再删并单列变更。
 - **版本**：插件升 `0.3.21`；`verify_localized.py` 本次未改，版本保持 `1.2.15`。
-- 测试 191 passed（另有 73 个子测试），unittest 147 tests，Ruff 全绿；`test_vendor_release` 里读 `.github/workflows/release.yml` 的 1 个用例在本 workspace 语料副本下失败（副本没同步 `.github`），在插件仓内通过。
+- 测试 192 passed（另有 73 个子测试），unittest 147 tests，Ruff 全绿。
 
 ## 0.3.20 — 2026-11-15
 
