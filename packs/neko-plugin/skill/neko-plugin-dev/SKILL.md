@@ -47,8 +47,6 @@ description: N.E.K.O.(猫娘计划)插件开发权威规范。写/改/修任何 
 | **`market-patterns.md`** | **市场插件写法统计与惯用法(127 个在架插件分析)——动手前必读** |
 | **`market-catalog.md`** | **社区规范(目录/配置/命名/依赖/接口)+ 127 个在架插件索引——按功能找同类参考** |
 | **`market-examples/`** | **3 个完整市场插件源码:shell_cmd(llm_tool 双注册)/ tavily_search(httpx 联网)/ sys_monitor(定时推送状态机)** |
-| **`rbb/SKILL.md`** | **「先复用,再新建」正典(逐字节 vendor 自上游,tag/commit/每文件 SHA-256 见 `rbb/UPSTREAM_PIN.json`)**:判决序 Join/Extend/Fork/Build、不可复用原因首行门禁、可改性硬闸、公开写逐次确认、不可信仓库内容的原始条款 |
-| **`reuse-before-build.neko.md`** | **同一套规则的工坊本地化副本**(上游中文整段逐字 + 工坊落位附录 + `localized:` 声明):检索五层顺序、自定阈值(标注出处)、判决→工坊动作映射、引擎门禁实测口径。**流程本身以正典为准,本副本不替换它** |
 
 ## 常用骨架(Plugin)
 

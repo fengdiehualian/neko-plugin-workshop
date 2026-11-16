@@ -83,7 +83,7 @@ bun wb-studio.mjs              # 启动网页工坊(127.0.0.1:5099)
 
 | 门禁 | 命令 | 抓什么 |
 |---|---|---|
-| 单元测试 | `bun test` | 提示词拼装、底座参数/输出解析、重试与熔断判定、规则编号与文档口径一致性、更新包校验判定、外发写判定、第三方 skill 正典逐字哈希与本地化副本声明 |
+| 单元测试 | `bun test` | 提示词拼装、底座参数/输出解析、重试与熔断判定、规则编号与文档口径一致性、更新包校验判定、外发写判定 |
 | 静态交叉检查 | `python tools/static_check.py` | 页面元素 id、前端 fetch 有没有对应路由、HTML 标签/面板嵌套(更新页签隐形那类 bug) |
 | 语法门禁 | `python tools/syntax_check.py` | py/json/toml/mjs/yml 语法 + TSX 批量转译 |
 | 页面体检 | `node tools/check-page.mjs --mutate` | 真 Chrome 真点击 133 项:更新弹窗进度与 SHA256 校验标记、外发写确认卡能否点拒绝、专家团会诊卡片… |

@@ -159,67 +159,17 @@ lines.push("")
 lines.push("`_engine`(OpenCode 编译版)、`_bin`、`_py`、`_site` 自 v1.2.26 起**从不进安装包**,故不在分发清单内;")
 lines.push("官方安装器事实上只支持覆盖升级。")
 lines.push("")
-lines.push("## 4. 随包分发的第三方 skill 正典:`references/rbb/`")
+lines.push("## 4. 本仓库生成物")
 lines.push("")
-lines.push("「先复用,再新建」(reuse-before-build)是**第三方上游 skill**,以逐字副本随包分发,不是本仓库产物。")
-lines.push("下表哈希为**生成时现算**,与 `UPSTREAM_PIN.json` 逐条比对;不一致就拒绝出具本声明(不许把不符的事实写进法务文档)。")
-const drift = []
-let vendored = null
-{
-  const crypto = require("crypto")
-  const RBB = path.join(ROOT, "packs/neko-plugin/skill/neko-plugin-dev/references/rbb")
-  let pin = null
-  try { pin = JSON.parse(fs.readFileSync(path.join(RBB, "UPSTREAM_PIN.json"), "utf8")) } catch {}
-  if (!pin || !Array.isArray(pin.files) || !pin.files.length) {
-    lines.push("")
-    lines.push("(读不到 `references/rbb/UPSTREAM_PIN.json`——正典缺登记,请重跑 `node workbench/vendor_rbb.cjs`)")
-    drift.push("rbb/UPSTREAM_PIN.json 读不到")
-  } else {
-    let contract = null
-    try { contract = JSON.parse(fs.readFileSync(path.join(RBB, "localization.contract.json"), "utf8")) } catch {}
-    const upLic = (() => { try { return fs.readFileSync(path.join(RBB, "UPSTREAM_LICENSE"), "utf8") } catch { return "" } })()
-    const upCopy = (upLic.match(/^Copyright.*$/im) || ["(上游 LICENSE 里没有 Copyright 行)"])[0]
-    lines.push("")
-    lines.push("- 上游仓库:" + pin.upstream)
-    lines.push("- 引用点:tag `" + pin.ref + "` / commit `" + pin.commit + "`")
-    lines.push("- 许可:" + pin.license + ";版权行:" + upCopy)
-    lines.push("- 不变块正典 SHA-256:" + ((contract && contract.block && contract.block.canonical_sha256) || "(缺契约,应由上游随包提供)") + "(由上游自带 `scripts/verify_localized.py` 钉住)")
-    lines.push("- 本仓库另存一份**本地化副本** `references/reuse-before-build.neko.md`:上游中文整段逐字 + 工坊落位附录 + `localized:` 声明;对上游条款只收窄不放宽,与正典并存,**不替换正典**。")
-    lines.push("")
-    lines.push("| 文件 | 字节 | SHA-256(现算) |")
-    lines.push("|---|---|---|")
-    for (const f of pin.files) {
-      let got = ""
-      try { got = crypto.createHash("sha256").update(fs.readFileSync(path.join(RBB, f.path))).digest("hex") } catch {}
-      if (got !== f.sha256) drift.push("rbb/" + f.path + " 实算哈希与 pin 不符")
-      lines.push("| `references/rbb/" + f.path + "` | " + f.bytes + " | `" + (got || "读不到") + "` |")
-    }
-    vendored = {
-      upstream: pin.upstream, ref: pin.ref, commit: pin.commit, license: pin.license,
-      invariant_block_sha256: (contract && contract.block && contract.block.canonical_sha256) || "",
-      localized_copy: "packs/neko-plugin/skill/neko-plugin-dev/references/reuse-before-build.neko.md",
-      files: pin.files.map((f) => ({ path: f.path, bytes: f.bytes, sha256: f.sha256 })),
-    }
-    lines.push("")
-    lines.push("离线校验三条,都要 0:`node workbench/vendor_rbb.cjs --check`;")
-    lines.push("`python -I -P references/rbb/scripts/verify_localized.py references/rbb/SKILL.md --canonical`;")
-    lines.push("`python -I -P references/rbb/scripts/verify_localized.py references/reuse-before-build.neko.md`(副本**不许**加 `--canonical`,加了会被拒)。")
-  }
-  lines.push("")
-}
-lines.push("## 5. 本仓库生成物")
-lines.push("")
-lines.push("工坊生成的插件脚手架(`packs/neko-plugin/templates/**`)与本仓库自写的官方文档快照")
-lines.push("(`packs/neko-plugin/skill/neko-plugin-dev/references/**`,**不含上节的第三方正典 `references/rbb/**` 与据其派生的本地化副本**)按本仓库 MIT 许可分发。")
-lines.push("references 下的官方文档属于 N.E.K.O. 项目文档,由工作台同步而来,引用时以文档站为准(见 `SKILL.md` 的「唯一事实来源」条目)。")
-lines.push("")
-lines.push("`references/rbb/**` 与 `reuse-before-build.neko.md` 的版权归上游,按上游 MIT(第 4 节)分发——")
-lines.push("**把它们当本仓库 MIT 产物是错的**;此前评审指出过这类口径混淆(issue #8/#13),这里按实测逐条列明。")
+lines.push("工坊生成的插件脚手架(`packs/neko-plugin/templates/**`)与官方文档快照")
+lines.push("(`packs/neko-plugin/skill/neko-plugin-dev/references/**`)按本仓库 MIT 许可分发;")
+lines.push("其中 references 下的官方文档属于 N.E.K.O. 项目文档,由工作台同步而来,")
+lines.push("引用时以文档站为准(见 `SKILL.md` 的「唯一事实来源」条目)。")
 lines.push("")
 lines.push("**不存在的说法**:本文件不声称「forge / 其他仓库反向引用本工程」,也不声称市场语料「改写自」本仓库任何代码——")
 lines.push("此前评审意见指出这类表述与事实不符(issue #8),现在明细以上面第 2 节的实测判定为准。")
 lines.push("")
-lines.push("## 6. 本仓库的 MIT 全文")
+lines.push("## 5. 本仓库的 MIT 全文")
 lines.push("")
 // 版权行从仓库 LICENSE 里读,别写 <年份> <持有人> 这种空模板:
 // 空模板会让人以为「还没填」,而且和 LICENSE 里的真实声明不一致(issue #6)
@@ -237,16 +187,10 @@ if (copyrightLine) {
 lines.push("```")
 lines.push("")
 lines.push("生成于:" + new Date().toISOString().slice(0, 10))
-if (drift.length) {
-  // 正典与登记不符 = 许可声明无处立足,拒绝写文件(别出具一份"看着齐全"的假声明)
-  console.error("✗ 第三方正典与 UPSTREAM_PIN 不符,拒绝生成声明:\n  " + drift.join("\n  "))
-  console.error("  修:node workbench/vendor_rbb.cjs " + (process.env.RBB_REF || "v0.3.20") + " 重新逐字 vendor")
-  process.exit(1)
-}
 fs.writeFileSync(OUT, lines.join("\n") + "\n", "utf8")
 
 // 明细表也存一份机器可读版,给测试用
-fs.writeFileSync(path.join(ROOT, "workbench", "notices.json"), JSON.stringify({ total: rows.length, tally, unknown, rows: rows.map((r) => ({ slug: r.slug, license: r.license, file: r.licFile, field: r.meta.licenseField || "" })), vendored }, null, 1) + "\n", "utf8")
+fs.writeFileSync(path.join(ROOT, "workbench", "notices.json"), JSON.stringify({ total: rows.length, tally, unknown, rows: rows.map((r) => ({ slug: r.slug, license: r.license, file: r.licFile, field: r.meta.licenseField || "" })) }, null, 1) + "\n", "utf8")
 console.log("目录总数:" + rows.length)
 console.log("许可分布:" + JSON.stringify(tally))
 console.log("未声明清单(前 20):" + unknown.slice(0, 20).join(", "))

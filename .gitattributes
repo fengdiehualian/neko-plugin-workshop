@@ -27,9 +27,6 @@ workbench/sync_instance.py export-ignore
 workbench/update_sign.cjs export-ignore
 workbench/collect_notices.cjs export-ignore
 workbench/notes-*.md export-ignore
-workbench/vendor_rbb.cjs export-ignore
-workbench/localize_rbb.cjs export-ignore
-workbench/rbb_neko_appendix.md export-ignore
 workbench/cr_*.cjs export-ignore
 
 # 本机配置绝不进包(v1.2.65 实测踩到):wb-studio.config.json 被仓库跟踪,
