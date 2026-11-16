@@ -47,6 +47,7 @@ description: N.E.K.O.(猫娘计划)插件开发权威规范。写/改/修任何 
 | **`market-patterns.md`** | **市场插件写法统计与惯用法(127 个在架插件分析)——动手前必读** |
 | **`market-catalog.md`** | **社区规范(目录/配置/命名/依赖/接口)+ 127 个在架插件索引——按功能找同类参考** |
 | **`market-examples/`** | **3 个市场插件副本:shell_cmd(llm_tool 双注册)/ tavily_search(httpx 联网)/ sys_monitor(定时推送状态机)——第三方源码且许可未声明,只在开发仓里;安装包不携带,装机版改读 `market-corpus/<slug>/src`** |
+| **`reuse-before-build.md`** | **先搜后建接入线:正典只读语料那一份(`market-corpus/reuse_before_build/src/skills/`)——写新程序前先查有没有现成实现** |
 
 ## 常用骨架(Plugin)
 

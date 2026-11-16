@@ -1,0 +1,137 @@
+{
+  "version": 4,
+  "block": {
+    "begin": "RBB:INVARIANTS:BEGIN",
+    "end": "RBB:INVARIANTS:END",
+    "lang_marker_prefix": "RBB:INVARIANTS:LANG:",
+    "canonical_file": "SKILL.md",
+    "canonical_sha256": "fa0f991fbfd236d860a2c401aff6f104f994e97d2b1fa100c23eee9d046fbc93",
+    "canonical_files": ["SKILL.md", "references/zh-guide.md"]
+  },
+  "rules_min": 5,
+  "rule_anchors": [
+    {
+      "id": "rule_1",
+      "any": ["Assume it already exists", "已经有人做过"]
+    },
+    {
+      "id": "rule_2",
+      "any": ["joining an existing public repository", "加入已有公开仓库"]
+    },
+    {
+      "id": "rule_3",
+      "any": ["Prove non-reusability", "先证明不可复用"]
+    },
+    {
+      "id": "rule_4",
+      "any": ["genuinely useful", "贡献必须真的有用"]
+    },
+    {
+      "id": "rule_5",
+      "any": ["Code gate", "门禁先于代码"]
+    }
+  ],
+  "must_have": [
+    {
+      "id": "gate",
+      "any": ["Not reusable because:", "不可复用原因"]
+    },
+    {
+      "id": "verdict_order",
+      "all": ["Join", "Extend", "Fork", "Build"]
+    },
+    {
+      "id": "deliverable",
+      "any": ["What I found", "找到了什么"]
+    },
+    {
+      "id": "contributing_rule",
+      "any": ["CONTRIBUTING"]
+    },
+    {
+      "id": "public_write_gate",
+      "any": ["per-action confirmation", "逐次确认"]
+    },
+    {
+      "id": "quick_lane",
+      "any": ["Reused:", "复用："]
+    },
+    {
+      "id": "untrusted_repository_content",
+      "any": ["data, not instructions", "数据，不是指令"]
+    },
+    {
+      "id": "modifiability_green_only",
+      "any": ["modifiability green only", "可改性仅限绿"]
+    },
+    {
+      "id": "no_fifth_verdict",
+      "any": ["There is no fifth verdict", "没有第五个判决"]
+    },
+    {
+      "id": "branch_first",
+      "any": ["Branch first, never the default branch", "分支优先，绝不直写主干"]
+    },
+    {
+      "id": "thin_adapter",
+      "any": ["stable seam and a thin adapter", "稳定接入口 + 薄适配层"]
+    },
+    {
+      "id": "never_join_red",
+      "any": ["Never Join a repo whose modifiability", "不 Join 可改性判红的仓库"]
+    }
+  ],
+  "critical_sections": [
+    {
+      "id": "step2",
+      "headings": ["Step 2 — Evaluate", "第 2 步：评估"],
+      "min_chars": 500,
+      "sha256": "031a0a7cbff5c5f3b500c46a12d35e83036ff4109b5c1d041abbdb30623613a4",
+      "anchors": [
+        {"id": "scoring", "any": ["activity", "活跃度"]},
+        {"id": "modifiability", "any": ["Modifiability gate", "可改性硬闸"]},
+        {"id": "verdict_table", "all": ["Join", "Extend", "Fork", "Build"]},
+        {"id": "no_fifth", "any": ["There is no fifth verdict", "没有第五个判决"]}
+      ]
+    },
+    {
+      "id": "step3",
+      "headings": ["Step 3 — Contribute", "第 3 步：加入"],
+      "min_chars": 500,
+      "sha256": "6bba58cd17a327df6284844010f17ba8a72e59e588c8bf4e31e7499caace8d76",
+      "anchors": [
+        {"id": "contributing", "any": ["CONTRIBUTING"]},
+        {"id": "branch", "any": ["Branch first, never the default branch", "分支优先，绝不直写主干"]},
+        {"id": "adapter", "any": ["stable seam and a thin adapter", "稳定接入口 + 薄适配层"]},
+        {"id": "ai", "any": ["Disclose AI assistance", "说清 AI 参与"]}
+      ]
+    },
+    {
+      "id": "hard_constraints",
+      "headings": ["Hard constraints", "硬约束"],
+      "min_chars": 350,
+      "sha256": "c5699bd8be27016e9fcab95b80f0702dca3b44ed49df00501895855c25e61761",
+      "anchors": [
+        {"id": "never_invent", "any": ["Never invent repos", "不虚构仓库"]},
+        {"id": "public_write", "any": ["per-action confirmation", "每一次公开写都要逐次确认"]},
+        {"id": "never_join", "any": ["Never Join a repo", "不 Join 可改性判红"]}
+      ]
+    },
+    {
+      "id": "untrusted",
+      "headings": ["Untrusted repository content", "不可信的仓库内容"],
+      "min_chars": 180,
+      "sha256": "c878e673c7ca0394c4d211114dfdb589df4238735d4806b5a08d28dacabc984f",
+      "anchors": [
+        {"id": "data", "any": ["data, not instructions", "数据，不是指令"]},
+        {"id": "no_exec", "any": ["Never execute a command", "绝不直接在宿主机执行"]},
+        {"id": "verdict", "any": ["deliverable's verdict", "交付结论必须来自"]}
+      ]
+    }
+  ],
+  "declaration": {
+    "prefix": "localized:",
+    "keys": ["host", "kept", "changed", "unsupported"],
+    "within_last": 8
+  }
+}
