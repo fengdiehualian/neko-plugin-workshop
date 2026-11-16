@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.21 — 2026-11-16
+
+收口 `rbb_core.py` 自己实现的两处章节切分：围栏里的示例标题曾把正文截断。
+
+- **`skill_section` 改走 `extract_section`**：原先用 `(?ms)^##\s+<标题>\s*$\n(.*?)(?=^##\s+|\Z)` 手写切节，代码围栏里的 `## ` 行会被当成章节边界。现在交给随包校验器的 `extract_section`（用 `_fence_mask` 跳过围栏），与 `core_rules_block` 调 `extract_block` 同口径；保留「把标题拼回去」和「取不到返回空串、由调用方失败关闭」两个原有行为。
+- **`flow_steps` 同样改为围栏安全切节**：标题扫描按 `_fence_mask` 过滤，正文用 `extract_section` 抽取；四步不齐或某步正文为空仍返回空列表。
+- **实际影响**：`SKILL.md` 的 Step 4 在 ` ```markdown ` 围栏里嵌着 `## What I found` / `## Why this one` / `## What I will add (issue / PR plan)` / `## Alternatives and risks`，旧实现取到的 Step 4 正文在围栏开头就被截断，交付模板整段丢失。
+- **`default_since` 不再接受日期作第一个参数**：旧实现遇到 `default_since(日期, today)` 会把 `today` 静默覆盖成那个日期、丢掉第二个参数；现在第一个参数只收天数，传日期在 `int()` 处直接报错。闰日回退防线保留，两处调用改为双参、断言值不变（行为变更：不再兼容旧的 `default_since(today)` 写法）。
+- **新增回归**：`tests/test_fenced_sections.py` 锁定 Step 4 模板完整、不越界吞并下一节、缺章返回空串，并确认 `mandatory_rules` 仍取得到四个必需章节。
+- **版本**：插件升 `0.3.21`；`verify_localized.py` 本次未改，版本保持 `1.2.15`。
+- 测试 189 passed（另有 73 个子测试），unittest 145 tests，Ruff 全绿；`test_vendor_release` 里读 `.github/workflows/release.yml` 的 1 个用例在本 workspace 语料副本下失败（副本没同步 `.github`），在插件仓内通过。
+
 ## 0.3.20 — 2026-11-15
 
 按 `83043a9`（0.3.19）增量深审 A470 收口非基线关键章节条目的崩溃面：

@@ -729,12 +729,14 @@ def skill_text(rel: str = "SKILL.md") -> str:
 
 
 def skill_section(heading: str) -> str:
-    """原样抽取正典二级章节，避免入口里的手写摘要与规则漂移。"""
-    match = re.search(
-        rf"(?ms)^##\s+{re.escape(heading)}\s*$\n(.*?)(?=^##\s+|\Z)",
-        skill_text("SKILL.md"),
-    )
-    return f"## {heading}\n{match.group(1).strip()}" if match else ""
+    """原样抽取正典二级章节，避免入口里的手写摘要与规则漂移。
+
+    切节交给随包校验器的 ``extract_section``：它用 ``_fence_mask`` 跳过围栏里的示例标题，
+    不会把 Step 4 的 Markdown 模板中 ``## What I found`` 当成章节边界。与 ``core_rules_block``
+    调用 ``extract_block`` 的口径一致。取不到时返回空串，由调用方失败关闭。
+    """
+    body = _verify_module().extract_section(skill_text("SKILL.md"), [heading]) or ""
+    return f"## {heading}\n{body}" if body else ""
 
 
 def mandatory_rules() -> str:
@@ -754,15 +756,29 @@ def mandatory_rules() -> str:
 
 
 def flow_steps() -> list[dict[str, str]]:
-    """从正典提取四步标题与正文，不维护另一份容易过期的流程。"""
+    """从正典提取四步标题与正文，不维护另一份容易过期的流程。
+
+    标题扫描与正文切分都走随包校验器：围栏里的示例标题不算章节边界。
+    四步必须齐全、每步都有正文，否则返回空列表，由调用方按“流程取不到”处理。
+    """
     text = skill_text("SKILL.md")
+    module = _verify_module()
+    lines = text.splitlines()
+    fenced = module._fence_mask(lines)
+    titles: list[str] = []
+    for index, line in enumerate(lines):
+        if fenced[index]:
+            continue
+        match = re.match(r"^##\s+(Step\s+[1-4]\s+—\s+.+?)\s*$", line)
+        if match:
+            titles.append(match.group(1).strip())
     steps = [
-        {"title": match.group(1), "content": match.group(2).strip()}
-        for match in re.finditer(
-            r"(?ms)^##\s+(Step\s+[1-4]\s+—\s+[^\n]+)\s*$\n(.*?)(?=^##\s+|\Z)", text,
-        )
+        {"title": title, "content": module.extract_section(text, [title]) or ""}
+        for title in titles
     ]
-    return steps if len(steps) == 4 else []
+    if len(steps) != 4 or any(not step["content"] for step in steps):
+        return []
+    return steps
 
 
 _VERIFY_MODULE: Any = None

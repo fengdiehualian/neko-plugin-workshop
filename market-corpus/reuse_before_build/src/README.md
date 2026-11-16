@@ -33,6 +33,7 @@ N.E.K.O 里的 AI 接到「帮我做个 X」时，最容易干的事是直接写
 - `0.3.18`：关键章节的 `any` 也改用词边界并删除旧别名，契约顶层/`block` 非对象时不再抛栈；`repo_scan.py` 升 `1.2.9`，校验器升 `1.2.13`。
 - `0.3.19`：补齐契约内层字段类型校验，`critical_sections[].headings` / `block.begin` / `declaration.keys` 等坏结构不再抛栈；校验器升 `1.2.14`。
 - `0.3.20`：补齐非基线关键章节条目的 `min_chars` / `anchors` 形状防御；校验器升 `1.2.15`。
+- `0.3.21`：`skill_section` / `flow_steps` 改走校验器的 `extract_section`，Step 4 模板围栏里的示例标题不再截断正文；`default_since` 不再接受日期作第一个参数。
 
 ## 五个工具
 
@@ -101,19 +102,19 @@ docs/vendor.md                     下游 vendor 的固定版本接入与校验�
 - `config.example.toml` 承接运行配置模板（不含 `[plugin]`），`[settings]` 默认值不重复抄写，消掉「legacy runtime configuration」警告；
 - `tests/test_smoke.py`、`.vscode/settings.json`、`.vscode/tasks.json`、`pyproject.toml`、`.gitignore` 齐备；
 - `.github/workflows/{verify,release}.yml` 复用官方 `plugin-market-{verify,release}.yml@main`；
-- 发版 tag 必须与 `[plugin].version` 相同（当前 `0.3.20` → tag `v0.3.20`）。
+- 发版 tag 必须与 `[plugin].version` 相同（当前 `0.3.21` → tag `v0.3.21`）。
 
 ## 验过什么
 
-本版（v0.3.20）：
+本版（v0.3.21）：
 
-- **本地**：`python -m pytest -q tests skills/reuse-before-build/tests` **185 passed**（另有 73 个子测试）；`python -m unittest discover -s tests -v` **140 tests**；Ruff 全绿；vendor 重复构建字节一致，解压后可脱离源仓库运行。
+- **本地**：`python -m pytest -q tests skills/reuse-before-build/tests` **189 passed**（另有 73 个子测试）；`python -m unittest discover -s tests -v` **145 tests**；Ruff 全绿；vendor 重复构建字节一致，解压后可脱离源仓库运行。`test_vendor_release` 里读 `.github/workflows/release.yml` 的 1 个用例在本 workspace 语料副本下失败（副本没同步 `.github`），在插件仓内通过。
 - **随包 skill**：`verify_localized.py` 对 `SKILL.md` 输出 `PASS verbatim`，`zh-guide.md` 输出 `translated(zh)`；核心不变块哈希 `fa0f991f…bc93` 未变。
 - **CI**：官方检查、payload 哈希与发布证明见本版 Release 的 `market-evidence.json` 和检查文本。
 
 ## 发布与市场
 
-- 流程：打 tag → 官方 Release 产出 `reuse_before_build.neko-plugin`、检查文本与 `market-evidence.json` → 独立 `workflow_run` vendor 工作流上传 `neko-reuse-before-build-v0.3.20-vendor.zip`、`vendor_release.py` 和统一 `SHA256SUMS.txt`；官方 managed `release.yml` 保持原样。
+- 流程：打 tag → 官方 Release 产出 `reuse_before_build.neko-plugin`、检查文本与 `market-evidence.json` → 独立 `workflow_run` vendor 工作流上传 `neko-reuse-before-build-v0.3.21-vendor.zip`、`vendor_release.py` 和统一 `SHA256SUMS.txt`；官方 managed `release.yml` 保持原样。
 - 下游把源码纳入自己仓库时，按 [vendor 接入文档](docs/vendor.md) 固定 tag、校验 ZIP、复制到 `plugin/plugins/reuse_before_build` 并做复制后复检；不要与 `.neko-plugin` 重复安装。
 - 插件包发布到市场：`neko-plugin publish market <release-url>`。
 - 市场展示信息（简介、展示页 README）由市场侧独立维护，发版不会覆盖；发布后在开发者中心「编辑展示信息 / 编辑展示页面」同步。
