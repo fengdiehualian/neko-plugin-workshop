@@ -26,8 +26,13 @@ const MAX_FILE = 1500 * 1024          // 单个文件上限:二进制/大资产�
 const KEEP_EXT = new Set([".py", ".toml", ".md", ".json", ".yaml", ".yml", ".txt", ".ts", ".tsx", ".js", ".jsx", ".css", ".html", ".sql", ".sh", ".ps1"])
 const SKIP_DIRS = new Set([".git", "node_modules", "__pycache__", ".venv", "dist", "build", ".vscode"])
 // 许可/说明类文件没有扩展名,按 KEEP_EXT 会被整类丢掉;语料里少了 LICENSE,
-// THIRD_PARTY_NOTICES 与各接入线文档就指向不存在的路径
-const KEEP_NAME = new Set(["license", "licence", "copying", "notice", "readme"])
+// THIRD_PARTY_NOTICES 与各接入线文档就指向不存在的路径。
+// 带连字符的变体(LICENSE-MIT / LICENSE-APACHE / UNLICENSE)是 collect_notices.cjs
+// 的 LIC_NAMES 明确要认的名字,漏了会把它报成「未声明 license」
+const KEEP_NAME = new Set([
+  "license", "licence", "copying", "notice", "readme",
+  "license-mit", "licence-mit", "license-apache", "unlicense",
+])
 
 function arg(name, d) {
   const i = process.argv.indexOf("--" + name)
@@ -139,18 +144,25 @@ const sha256buf = (b) => crypto.createHash("sha256").update(b).digest("hex")
       // 拼到 codeload 域名下必然 404(上面探测那行一直是对的,只有这行混用了两种形式)
       const url = m + "https://codeload.github.com/" + gh[1] + "/zip/refs/heads/" + branch
       const zipPath = path.join(os.tmpdir(), "wb-" + slug + ".zip")
+      // 先写进 src.partial,成功后再改名成 src:否则 ENOSPC 之类中途失败会留下半成品,
+      // 而"dest/src 存在就跳过"会把半成品当成抓完了,之后再也补不上
+      const staging = path.join(dest, "src.partial")
       try {
         const buf = httpGet(url, 120000)
         if (buf.length < 1000) throw new Error("内容太小,疑似不是压缩包")
         fs.writeFileSync(zipPath, buf)
         if (dryRun) { ok++; console.log("  [dry] " + slug + " ← " + url); got = true; break }
-        const kept = extractZip(zipPath, path.join(dest, "src"))
+        fs.rmSync(staging, { recursive: true, force: true })
+        fs.mkdirSync(staging, { recursive: true })
+        const kept = extractZip(zipPath, staging)
+        fs.renameSync(staging, path.join(dest, "src"))
         sources[slug] = { repo: gh[1], ref: "refs/heads/" + branch, zip_sha256: sha256buf(buf), files_kept: kept, fetchedAt: new Date().toISOString(), mirror: m, note: "抓的是分支 HEAD;要完全可复现请钉到 tag/commit" }
         fs.rmSync(zipPath, { force: true })
         console.log("  " + slug + ":保留 " + kept + " 个文件")
         ok++; got = true; break
       } catch (e) {
         try { fs.rmSync(zipPath, { force: true }) } catch {}
+        try { fs.rmSync(staging, { recursive: true, force: true }) } catch {}
       }
     }
     if (!got) failed.push([slug, "三个镜像都没下到"])
