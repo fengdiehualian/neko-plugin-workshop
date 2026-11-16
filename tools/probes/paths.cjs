@@ -74,4 +74,23 @@ function zcodeDir() {
 // 脚本自己所在的仓库根(不用到处 __dirname/../..)
 const REPO = path.resolve(__dirname, "..", "..")
 
-module.exports = { REPO, HOME, installDir, testDir, feedDir, gitExe, bunExe, nodeExe, zcodeDir, firstExisting }
+
+// 临时目录(截图/解包/演练都用它,别写死 C:\Users\<某人>\AppData\Local\Temp)
+function tmpDir() {
+  return process.env.NEKO_TMP_DIR || path.join(os.tmpdir() || path.join(HOME, "AppData", "Local", "Temp"), "")
+}
+// 真实安装实例的 runtime(只有排查「装好的工坊」时才用;绝不往里面写业务数据)
+function installRuntimeDir() {
+  const inst = installDir()
+  return inst ? path.join(inst, "runtime") : ""
+}
+// 本机市场语料(仓库内 market-corpus;历史探针曾指向已删除的 dev/market-plugins)
+function corpusDir() {
+  return (
+    process.env.NEKO_CORPUS_DIR ||
+    firstExisting([path.join(REPO, "market-corpus"), path.join(HOME, "dev", "market-plugins")]) ||
+    path.join(REPO, "market-corpus")
+  )
+}
+
+module.exports = { REPO, HOME, installDir, testDir, feedDir, gitExe, bunExe, nodeExe, zcodeDir, firstExisting, tmpDir, installRuntimeDir, corpusDir }

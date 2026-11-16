@@ -269,17 +269,59 @@
 `_engine`(OpenCode 编译版)、`_bin`、`_py`、`_site` 自 v1.2.26 起**从不进安装包**,故不在分发清单内;
 官方安装器事实上只支持覆盖升级。
 
-## 4. 本仓库生成物
+## 4. 仓库里的第三方文本与副本(逐条实测)
 
-工坊生成的插件脚手架(`packs/neko-plugin/templates/**`)与官方文档快照
-(`packs/neko-plugin/skill/neko-plugin-dev/references/**`)按本仓库 MIT 许可分发;
-其中 references 下的官方文档属于 N.E.K.O. 项目文档,由工作台同步而来,
-引用时以文档站为准(见 `SKILL.md` 的「唯一事实来源」条目)。
+以前这一段最容易被含混过去:把 `references/**` 整片说成「本仓库文档」。这里按实测分开写。
+
+- `market-examples/shell_cmd`:5 个文件,与 `market-corpus/shell_cmd` 逐字节相同,许可判定:**未声明**(仓库里没有 LICENSE 文件)
+- `market-examples/sys_monitor`:5 个文件,与 `market-corpus/sys_monitor` 逐字节相同,许可判定:**未声明**(仓库里没有 LICENSE 文件)
+- `market-examples/tavily_search`:6 个文件,与 `market-corpus/tavily_search` 逐字节相同,许可判定:**未声明**(仓库里没有 LICENSE 文件)
+
+处理方式:既然 `market-corpus/**` 因许可问题已不进安装包,这三份**同内容副本**也没有理由继续随包分发。
+`market-examples` 与 `market-examples/**` 都设了 `export-ignore`,`build_payload.py` 的 FORBIDDEN 与
+`check_package.ps1` 的禁含清单同样拦住它;开发仓里仍保留(要读源码时它是现成的精读范例),
+装机版改成本机 `node workbench/fetch_corpus.cjs` 取回后读 `market-corpus/<slug>/src`。
+
+### `experts/neko-plugin-ops/`(专家团文本)
+
+该团 `README.md` 自陈:多名成员的能力**吸收自**开源 agent 集合
+[msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) 与其中文版
+[jnMetaCode/agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh)。
+两个上游 2026-11-16 实测**均存在、均为 MIT**(GitHub API license=MIT)。
+所以这里是「按 MIT 分发并保留上游署名」,不是「本仓库原创」;逐文件的对应关系尚未建立,
+下表先把现状哈希钉住,日后改动或补映射时能看出差异。
+
+| 文件 | 字节 | SHA-256(现算) |
+|---|---|---|
+| `experts/neko-plugin-ops/references/neko-market-patterns.md` | 4484 | `f33a8c716f58c87ef239dab78c62a62d9f647cb7e3be6fc4838fd2b0f415d768` |
+| `experts/neko-plugin-ops/references/neko-sources.md` | 4321 | `f1141873df69bd9fdf0587fcb0ee70c00758f10e36758dd6d4cef7515c318d8c` |
+| `experts/neko-plugin-ops/references/plugin-system-prompt-template.md` | 4591 | `9cac202208b9f5478e8e0c9df62f9061f6f504b57f4d41d8d41471605a87a617` |
+| `experts/neko-plugin-ops/references/system.llm` | 50125 | `82e012e0c7510af66e7b690370e1c8e79ff38b0bcd892f5e5adcb199d7a6d9d1` |
+| `experts/neko-plugin-ops/agents/neko-architect.md` | 2753 | `c367d8506c199c92448c40a6adf08c7ad9cf82560a049cdadb2b514436e56cbb` |
+| `experts/neko-plugin-ops/agents/neko-planner.md` | 2003 | `4a87cb708e41e7a5f54fdd97d8abcb4e6838d4e3fb35019f96869f3c5fc27664` |
+| `experts/neko-plugin-ops/agents/neko-plugin-dev.md` | 3395 | `c0db54c42b2c477605a21d293d3bb744c012e142964fddfa277a08271fecf34f` |
+| `experts/neko-plugin-ops/agents/neko-plugin-ops-team-lead.md` | 10634 | `4458b3af1fcdb944c0ce252d7125f50c01408a90f572820a360c4705482e3951` |
+| `experts/neko-plugin-ops/agents/neko-reliability.md` | 2548 | `58fdd8f5889f2f04614930bbe00ad4c7d3ed44ebaa1e9fadee93f111f1504ad3` |
+| `experts/neko-plugin-ops/agents/neko-reviewer.md` | 2154 | `77b90e84aabbe1f54f848899183c9af28e1e1f62ebe0097db2afdca10dab499f` |
+| `experts/neko-plugin-ops/agents/neko-security.md` | 3021 | `80a31c167b55ba0324ea643bc9ecedd1a35b5bbb0875cab1344b4f5a14251770` |
+| `experts/neko-plugin-ops/agents/neko-simplifier.md` | 2188 | `9f67f564b5b9d5038bfb32345b46ae76e8db81591f53574e290689941c533e26` |
+| `experts/neko-plugin-ops/agents/neko-skill-ops.md` | 2173 | `f004b13e529006f4cd0e236775471646f94e2896c4eb91ccab9f662a6e8966cb` |
+| `experts/neko-plugin-ops/agents/neko-tdd.md` | 2063 | `ab9e0d088d0330aaa143403dab988e14e97e03433eab5c80c64473d1f4085473` |
+
+
+## 5. 本仓库生成物
+
+工坊生成的插件脚手架(`packs/neko-plugin/templates/**`)与本仓库自写的官方文档快照
+(`packs/neko-plugin/skill/neko-plugin-dev/references/**`,**不含第 4 节所列的第三方副本与派生文本**)按本仓库 MIT 许可分发。
+references 下的官方文档属于 N.E.K.O. 项目文档,由工作台同步而来,引用时以文档站为准(见 `SKILL.md` 的「唯一事实来源」条目)。
+
+第 4 节那两类不归在这里:`market-examples/**` 是第三方市场插件的逐字节副本(许可未声明,已不进包),
+`experts/neko-plugin-ops` 的提示词文本吸收自两个 MIT 上游(保留上游署名,不是本仓库原创)。
 
 **不存在的说法**:本文件不声称「forge / 其他仓库反向引用本工程」,也不声称市场语料「改写自」本仓库任何代码——
 此前评审意见指出这类表述与事实不符(issue #8),现在明细以上面第 2 节的实测判定为准。
 
-## 5. 本仓库的 MIT 全文
+## 6. 本仓库的 MIT 全文
 
 ```
 MIT License

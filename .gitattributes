@@ -35,3 +35,10 @@ workbench/cr_*.cjs export-ignore
 # 工作室读不到该文件时用 defaultConfig 兜底(wb-studio.mjs:config = { ...defaultConfig, ...file }),
 # 所以「包里不带」才是正确姿势:首启用默认值,用户改过的设置随升级保留。
 wb-studio.config.json export-ignore
+
+# 第三方市场插件副本:references/market-examples/ 下 shell_cmd / tavily_search / sys_monitor
+# 与 market-corpus/<slug> 逐字节相同(实测 5/6/5 个文件全等),而三者在许可扫描里都落在「未声明」那一档。
+# 既然 market-corpus 因许可问题已经不进包,这三份副本没有理由继续跟着每个安装包分发。
+# 坑(issue #4):只写 `dir/**` 时 git archive 照样导出该目录内容,所以两行都要写,且属性文件必须先提交。
+packs/neko-plugin/skill/neko-plugin-dev/references/market-examples export-ignore
+packs/neko-plugin/skill/neko-plugin-dev/references/market-examples/** export-ignore

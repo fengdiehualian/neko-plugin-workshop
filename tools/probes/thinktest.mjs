@@ -15,7 +15,7 @@ function engineAuth() {
   }
 }
 const auth = engineAuth()
-const rt = "C:/Users/Administrator/AppData/Local/Programs/NEKOWorkshop/runtime"
+const rt = require("./paths.cjs").installRuntimeDir()
 const sids = JSON.parse(readFileSync(rt + "/sessions.json", "utf8")).items.map((s) => s.engineSessionId)
 
 let found = 0

@@ -1,7 +1,7 @@
 // 分析 46 个市场插件源码:能力使用统计 + 找范例
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
 
-const ROOT = "C:/Users/Administrator/dev/market-plugins"
+const ROOT = require("./paths.cjs").corpusDir()
 const out = { plugins: [] }
 
 function walk(dir, cb) {

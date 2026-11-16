@@ -1,5 +1,5 @@
 {
-  "$comment": "随包 ZCode 底座的来源与完整性登记。build_payload.py 打包时逐项比对 size 与 sha256,对不上或缺登记就拒绝出包。",
+  "$comment": "随包 ZCode 底座的来源与完整性登记。build_payload.py 打包时逐项比对 size 与 sha256,对不上或缺登记就拒绝出包;`node workbench/collect_zcode.cjs --verify` 再向官方 SHASUMS256.txt 复核 zip 级哈希。",
   "nodeVersion": "v24.14.0",
   "agentVersion": "0.13.3",
   "license": "Node.js: MIT(见 LICENSE 与 Node 官方随附第三方许可);zcode.cjs: 随 ZCode 官方发行;provider 清单: 本仓库生成",
@@ -7,10 +7,13 @@
     {
       "path": "node.exe",
       "role": "runtime",
-      "upstream": "https://nodejs.org/dist/latest-v24.x/",
-      "hash_source": "https://nodejs.org/dist/latest-v24.x/SHASUMS256.txt",
+      "upstream": "https://nodejs.org/dist/v24.14.0/",
+      "hash_source": "https://nodejs.org/dist/v24.14.0/SHASUMS256.txt",
       "size": 91380224,
-      "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+      "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088",
+      "zip_artifact": "node-v24.14.0-win-x64.zip",
+      "zip_sha256": "313fa40c0d7b18575821de8cb17483031fe07d95de5994f6f435f3b345f85c66",
+      "note": "zip_sha256 是官方 node-v24.14.0-win-x64.zip 的校验和;sha256 是解包后 node.exe 这个文件本身的哈希——两者本来就不该相等,build_payload 核后者,--verify 核前者"
     },
     {
       "path": "zcode.cjs",
@@ -29,5 +32,5 @@
       "sha256": "0e32ca6e3ec0b538252a5d68c3e621d78b25caf98d55435a0c3f4e5d3abd365b"
     }
   ],
-  "generatedAt": "2026-11-15"
+  "generatedAt": "2026-11-16"
 }

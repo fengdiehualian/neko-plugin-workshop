@@ -7,7 +7,7 @@ import { existsSync, writeFileSync } from "node:fs"
 import { setTimeout as sleep } from "node:timers/promises"
 
 const URL_TARGET = process.argv[2] || "http://127.0.0.1:5099"
-const OUT = "C:/Users/Administrator/AppData/Local/Temp"
+const OUT = require("./paths.cjs").tmpDir()
 const CDP_PORT = 9337
 
 const browser = ["C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"].find((p) => existsSync(p))

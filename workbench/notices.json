@@ -863,5 +863,89 @@
    "file": "",
    "field": ""
   }
- ]
+ ],
+ "vendored": {
+  "market_examples": [
+   {
+    "slug": "shell_cmd",
+    "files": 5,
+    "license": "未声明(没有可识别的 LICENSE)"
+   },
+   {
+    "slug": "sys_monitor",
+    "files": 5,
+    "license": "未声明(没有可识别的 LICENSE)"
+   },
+   {
+    "slug": "tavily_search",
+    "files": 6,
+    "license": "未声明(没有可识别的 LICENSE)"
+   }
+  ],
+  "experts": {
+   "upstreams": [
+    "https://github.com/msitarzewski/agency-agents",
+    "https://github.com/jnMetaCode/agency-agents-zh"
+   ],
+   "upstream_license": "MIT(2026-11-16 实测)",
+   "files": [
+    {
+     "path": "references/neko-market-patterns.md",
+     "sha256": "f33a8c716f58c87ef239dab78c62a62d9f647cb7e3be6fc4838fd2b0f415d768"
+    },
+    {
+     "path": "references/neko-sources.md",
+     "sha256": "f1141873df69bd9fdf0587fcb0ee70c00758f10e36758dd6d4cef7515c318d8c"
+    },
+    {
+     "path": "references/plugin-system-prompt-template.md",
+     "sha256": "9cac202208b9f5478e8e0c9df62f9061f6f504b57f4d41d8d41471605a87a617"
+    },
+    {
+     "path": "references/system.llm",
+     "sha256": "82e012e0c7510af66e7b690370e1c8e79ff38b0bcd892f5e5adcb199d7a6d9d1"
+    },
+    {
+     "path": "agents/neko-architect.md",
+     "sha256": "c367d8506c199c92448c40a6adf08c7ad9cf82560a049cdadb2b514436e56cbb"
+    },
+    {
+     "path": "agents/neko-planner.md",
+     "sha256": "4a87cb708e41e7a5f54fdd97d8abcb4e6838d4e3fb35019f96869f3c5fc27664"
+    },
+    {
+     "path": "agents/neko-plugin-dev.md",
+     "sha256": "c0db54c42b2c477605a21d293d3bb744c012e142964fddfa277a08271fecf34f"
+    },
+    {
+     "path": "agents/neko-plugin-ops-team-lead.md",
+     "sha256": "4458b3af1fcdb944c0ce252d7125f50c01408a90f572820a360c4705482e3951"
+    },
+    {
+     "path": "agents/neko-reliability.md",
+     "sha256": "58fdd8f5889f2f04614930bbe00ad4c7d3ed44ebaa1e9fadee93f111f1504ad3"
+    },
+    {
+     "path": "agents/neko-reviewer.md",
+     "sha256": "77b90e84aabbe1f54f848899183c9af28e1e1f62ebe0097db2afdca10dab499f"
+    },
+    {
+     "path": "agents/neko-security.md",
+     "sha256": "80a31c167b55ba0324ea643bc9ecedd1a35b5bbb0875cab1344b4f5a14251770"
+    },
+    {
+     "path": "agents/neko-simplifier.md",
+     "sha256": "9f67f564b5b9d5038bfb32345b46ae76e8db81591f53574e290689941c533e26"
+    },
+    {
+     "path": "agents/neko-skill-ops.md",
+     "sha256": "f004b13e529006f4cd0e236775471646f94e2896c4eb91ccab9f662a6e8966cb"
+    },
+    {
+     "path": "agents/neko-tdd.md",
+     "sha256": "ab9e0d088d0330aaa143403dab988e14e97e03433eab5c80c64473d1f4085473"
+    }
+   ]
+  }
+ }
 }

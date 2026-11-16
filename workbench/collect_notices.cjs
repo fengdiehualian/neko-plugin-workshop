@@ -159,17 +159,95 @@ lines.push("")
 lines.push("`_engine`(OpenCode 编译版)、`_bin`、`_py`、`_site` 自 v1.2.26 起**从不进安装包**,故不在分发清单内;")
 lines.push("官方安装器事实上只支持覆盖升级。")
 lines.push("")
-lines.push("## 4. 本仓库生成物")
+let vendored = null
+lines.push("## 4. 仓库里的第三方文本与副本(逐条实测)")
 lines.push("")
-lines.push("工坊生成的插件脚手架(`packs/neko-plugin/templates/**`)与官方文档快照")
-lines.push("(`packs/neko-plugin/skill/neko-plugin-dev/references/**`)按本仓库 MIT 许可分发;")
-lines.push("其中 references 下的官方文档属于 N.E.K.O. 项目文档,由工作台同步而来,")
-lines.push("引用时以文档站为准(见 `SKILL.md` 的「唯一事实来源」条目)。")
+lines.push("以前这一段最容易被含混过去:把 `references/**` 整片说成「本仓库文档」。这里按实测分开写。")
+lines.push("")
+{
+  const crypto = require("crypto")
+  const sha = (p) => { try { return crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex") } catch { return "" } }
+  const SKILL = path.join(ROOT, "packs/neko-plugin/skill/neko-plugin-dev/references")
+  // (a) market-examples:与 market-corpus 逐字节相同的第三方副本
+  const ME = path.join(SKILL, "market-examples")
+  let meLines = []
+  if (fs.existsSync(ME)) {
+    for (const slug of fs.readdirSync(ME).filter((d) => fs.statSync(path.join(ME, d)).isDirectory()).sort()) {
+      const src = path.join(ME, slug)
+      const files = []
+      const walk = (d, rel) => {
+        for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+          if (e.isDirectory()) { walk(path.join(d, e.name), rel ? rel + "/" + e.name : e.name); continue }
+          files.push([rel ? rel + "/" + e.name : e.name, sha(path.join(d, e.name))])
+        }
+      }
+      walk(src, "")
+      const row = rows.find((r) => r.slug === slug)
+      meLines.push([slug, files.length, (row && row.license) || "未声明(没有可识别的 LICENSE)"])
+      lines.push("- `market-examples/" + slug + "`:" + files.length + " 个文件,"
+        + "与 `market-corpus/" + slug + "` 逐字节相同,许可判定:**" + ((row && row.license) || "未声明") + "**"
+        + (row && row.file ? "(依据 `" + row.file + "`)" : "(仓库里没有 LICENSE 文件)"))
+    }
+    lines.push("")
+    lines.push("处理方式:既然 `market-corpus/**` 因许可问题已不进安装包,这三份**同内容副本**也没有理由继续随包分发。")
+    lines.push("`market-examples` 与 `market-examples/**` 都设了 `export-ignore`,`build_payload.py` 的 FORBIDDEN 与")
+    lines.push("`check_package.ps1` 的禁含清单同样拦住它;开发仓里仍保留(要读源码时它是现成的精读范例),")
+    lines.push("装机版改成本机 `node workbench/fetch_corpus.cjs` 取回后读 `market-corpus/<slug>/src`。")
+  } else {
+    lines.push("- `market-examples/` 不在工作区(新克隆未取语料),本段只作说明。")
+  }
+  lines.push("")
+  // (b) experts/neko-plugin-ops:README 自陈吸收自两个 MIT agent 集
+  const EX = path.join(ROOT, "experts/neko-plugin-ops")
+  if (fs.existsSync(EX)) {
+    const files = []
+    for (const sub of ["references", "agents"]) {
+      const d = path.join(EX, sub)
+      if (!fs.existsSync(d)) continue
+      for (const f of fs.readdirSync(d).sort()) {
+        if (fs.statSync(path.join(d, f)).isFile()) files.push([sub + "/" + f, sha(path.join(d, f))])
+      }
+    }
+    lines.push("### `experts/neko-plugin-ops/`(专家团文本)")
+    lines.push("")
+    lines.push("该团 `README.md` 自陈:多名成员的能力**吸收自**开源 agent 集合")
+    lines.push("[msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) 与其中文版")
+    lines.push("[jnMetaCode/agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh)。")
+    lines.push("两个上游 2026-11-16 实测**均存在、均为 MIT**(GitHub API license=MIT)。")
+    lines.push("所以这里是「按 MIT 分发并保留上游署名」,不是「本仓库原创」;逐文件的对应关系尚未建立,")
+    lines.push("下表先把现状哈希钉住,日后改动或补映射时能看出差异。")
+    lines.push("")
+    lines.push("| 文件 | 字节 | SHA-256(现算) |")
+    lines.push("|---|---|---|")
+    for (const [rel, h] of files) {
+      const p = path.join(EX, ...rel.split("/"))
+      lines.push("| `experts/neko-plugin-ops/" + rel + "` | " + fs.statSync(p).size + " | `" + h + "` |")
+    }
+    lines.push("")
+    vendored = {
+      market_examples: meLines.map(([slug, n, lic]) => ({ slug, files: n, license: lic })),
+      experts: {
+        upstreams: ["https://github.com/msitarzewski/agency-agents", "https://github.com/jnMetaCode/agency-agents-zh"],
+        upstream_license: "MIT(2026-11-16 实测)",
+        files: files.map(([rel, h]) => ({ path: rel, sha256: h })),
+      },
+    }
+  }
+}
+lines.push("")
+lines.push("## 5. 本仓库生成物")
+lines.push("")
+lines.push("工坊生成的插件脚手架(`packs/neko-plugin/templates/**`)与本仓库自写的官方文档快照")
+lines.push("(`packs/neko-plugin/skill/neko-plugin-dev/references/**`,**不含第 4 节所列的第三方副本与派生文本**)按本仓库 MIT 许可分发。")
+lines.push("references 下的官方文档属于 N.E.K.O. 项目文档,由工作台同步而来,引用时以文档站为准(见 `SKILL.md` 的「唯一事实来源」条目)。")
+lines.push("")
+lines.push("第 4 节那两类不归在这里:`market-examples/**` 是第三方市场插件的逐字节副本(许可未声明,已不进包),")
+lines.push("`experts/neko-plugin-ops` 的提示词文本吸收自两个 MIT 上游(保留上游署名,不是本仓库原创)。")
 lines.push("")
 lines.push("**不存在的说法**:本文件不声称「forge / 其他仓库反向引用本工程」,也不声称市场语料「改写自」本仓库任何代码——")
 lines.push("此前评审意见指出这类表述与事实不符(issue #8),现在明细以上面第 2 节的实测判定为准。")
 lines.push("")
-lines.push("## 5. 本仓库的 MIT 全文")
+lines.push("## 6. 本仓库的 MIT 全文")
 lines.push("")
 // 版权行从仓库 LICENSE 里读,别写 <年份> <持有人> 这种空模板:
 // 空模板会让人以为「还没填」,而且和 LICENSE 里的真实声明不一致(issue #6)
@@ -190,7 +268,7 @@ lines.push("生成于:" + new Date().toISOString().slice(0, 10))
 fs.writeFileSync(OUT, lines.join("\n") + "\n", "utf8")
 
 // 明细表也存一份机器可读版,给测试用
-fs.writeFileSync(path.join(ROOT, "workbench", "notices.json"), JSON.stringify({ total: rows.length, tally, unknown, rows: rows.map((r) => ({ slug: r.slug, license: r.license, file: r.licFile, field: r.meta.licenseField || "" })) }, null, 1) + "\n", "utf8")
+fs.writeFileSync(path.join(ROOT, "workbench", "notices.json"), JSON.stringify({ total: rows.length, tally, unknown, rows: rows.map((r) => ({ slug: r.slug, license: r.license, file: r.licFile, field: r.meta.licenseField || "" })), vendored }, null, 1) + "\n", "utf8")
 console.log("目录总数:" + rows.length)
 console.log("许可分布:" + JSON.stringify(tally))
 console.log("未声明清单(前 20):" + unknown.slice(0, 20).join(", "))

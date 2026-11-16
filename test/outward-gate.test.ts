@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { detectOutwardWrite, classifyPermission, classifyQuestionReply, enginePermissionConfig, resolveBashEffect } from "../wb-agent-lib.mjs"
 
 // 对应 GitHub issue #9/#10:外发写既要在事件侧被认出来,也要在引擎侧真的会被拦下来问
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const ow = (text) => detectOutwardWrite({ patterns: [text] })
 
 describe("绕过写法也要命中(issue #10:黑名单正则曾被全局选项绕过)", () => {
@@ -205,5 +209,65 @@ describe("classifyQuestionReply:外发意图的提问不许自动选第一项", 
     const r = classifyQuestionReply(q("要发布到 GitHub 吗?", []), true)
     expect(r.answers.length).toBe(1)
     expect(Array.isArray(r.answers[0])).toBe(true)
+  })
+})
+
+// issue #10 复核意见(2026-11-16)剩下的三个洞,逐条钉住:
+// 1) 判定层 HTTP_WRITE_RE 缺 `curl -d` 短写与 `wget --post-*` —— 引擎会问,但判定说「非外发」就自动回 once,没人拦
+// 2) SEGMENT_SPLIT 不拆单个 `&` —— `git status & git push` 被整段判成非外发
+// 3) `python deploy.py` 这类「脚本内部再外发」要至少按脚本名兜一层
+describe("判定层的漏口(issue #10 复核第二轮)", () => {
+  test("curl 短写 -d / wget POST:不带 -X 也算外发", () => {
+    for (const t of [
+      `curl https://hooks.example.com/notify -d '{"a":1}'`,
+      "curl -d 'x=1' https://api.example.com/v1/ingest",
+      "curl --data x=1 https://api.example.com/v1/ingest",
+      "wget --post-data='k=v' https://api.example.com/p",
+      "wget --post-file=payload.json https://api.example.com/p",
+      "wget --content-post=body.bin https://api.example.com/p",
+    ]) expect(ow(t).outward, "应判外发:" + t).toBe(true)
+  })
+  test("单个 & 分隔的复合命令也要拆开判", () => {
+    for (const t of [
+      "git status & git push origin main",
+      "npm run build & npm publish",
+      "tar -czf x.tgz . & curl -T x.tgz https://files.example.com/u",
+    ]) expect(ow(t).outward, "应判外发:" + t).toBe(true)
+  })
+  test("重定向与本地地址不许被误判成分隔/外发", () => {
+    for (const t of [
+      "python tools/static_check.py > out.log 2>&1",
+      "bun test 2>&1 | tail -20",
+      "echo a &> /dev/null",
+      "curl -s http://127.0.0.1:9/v1/models",
+      "git config user.name x && git add .",
+    ]) expect(ow(t).outward, "不该弹窗:" + t).toBe(false)
+  })
+  test("按脚本名兜住「脚本内部再外发」", () => {
+    for (const t of ["python deploy.py", "bash scripts/publish.sh", "node tools/release.js", "python build\\upload_plugin.py"]) {
+      expect(ow(t).outward, "应判外发:" + t).toBe(true)
+    }
+    // 反面:日常工具脚本不许弹窗(否则门禁会变成把人问死)
+    for (const t of ["python tools/static_check.py", "node tools/check-page.mjs", "node workbench/collect_notices.cjs"]) {
+      expect(ow(t).outward, "不该弹窗:" + t).toBe(false)
+    }
+  })
+  test("新加的判定形态在引擎规则表里也必须至少是 ask(两侧同源)", () => {
+    for (const t of [
+      "curl https://hooks.example.com/notify -d '{\"a\":1}'",
+      "wget --post-data='k=v' https://api.example.com/p",
+      "git status & git push origin main",
+      "python deploy.py",
+    ]) expect(resolveBashEffect(t), "引擎不该直接 allow:" + t).not.toBe("allow")
+  })
+  test("启动自愈要盯住通配 ask 这个不变量(不能只比规则条数)", () => {
+    // wb-studio.mjs 是服务端脚本、起进程就有副作用,单测里不能 import,只能按源码断言。
+    // 这里钉的是:upgradeEnginePermission 的 stale 条件必须包含 `bash["*"] !== "ask"`——
+    // 只比条数的旧写法会让「条数够多但通配仍是 allow」的配置永远不升级(issue #10 复核第二轮第 3 条)。
+    const src = readFileSync(join(ROOT, "wb-studio.mjs"), "utf8")
+    const i = src.indexOf("function upgradeEnginePermission")
+    expect(i, "upgradeEnginePermission 不见了").toBeGreaterThanOrEqual(0)
+    const body = src.slice(i, i + 1600)
+    expect(body, "stale 判据里没有通配 ask 检查,老配置会永不升级").toMatch(/bash\["\*"\][^]{0,40}!==\s*"ask"/)
   })
 })

@@ -62,9 +62,37 @@ describe("rules.json 编号唯一来源", () => {
     expect(agents).toMatch(/W2/)
     expect(work.join(" ")).toContain("git push")
   })
-  test("README 不再自称另一套编号(「15 条铁律」这类说法已废除)", () => {
+  test("README/SKILL/AGENTS 不再抄写条数或末号范围(issue #16/#19:抄第二遍必然过期)", () => {
     expect(readme).not.toMatch(/15 条铁律/)
-    expect(readme).toMatch(/R1[–-]R?1?8|R1–R18/)
+    for (const [name, text] of [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents],
+                                ["packs/README.md", read(join(ROOT, "packs", "neko-plugin", "README.md"))]] as const) {
+      // 允许单条引用(R14/R15 这种指向具体规则的写法),但不许再出现「R1–R18」「12 条硬规则」这类范围/计数抄写
+      const ranges = text.split(/\r?\n/).filter((l) => /R1\s*[–-]\s*R?\d+/.test(l) && !/^\s*(\/\/|#)/.test(l.trim()))
+      expect(ranges, name + " 里还写着规则范围:" + ranges.join(" | ")).toEqual([])
+      expect(text, name + " 里还写着「N 条硬规则」").not.toMatch(/\d+\s*条(硬)?规则/)
+    }
+    // 反过来:真正的事实来源仍然要有内容,测试不能靠「文档什么都不写」蒙过
+    expect(hard.length).toBeGreaterThan(10)
+  })
+  test("plugin_conformance 用 C 命名空间,与 rules.json 的 R 号互不指代(issue #19)", () => {
+    const py = read(join(ROOT, "tools", "plugin_conformance.py"))
+    const code = py.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join("\n")
+    const ids = [...code.matchAll(/\b([RC])(\d+)\b/g)]
+    const rIds = ids.filter((m) => m[1] === "R").map((m) => m[0])
+    expect(rIds, "检查项又用回 R 号了:" + rIds.join(",")).toEqual([])
+    const cIds = [...new Set(ids.filter((m) => m[1] === "C").map((m) => Number(m[2])))].sort((a, b) => a - b)
+    expect(cIds, "C 号必须从 C1 连续").toEqual(cIds.map((_, i) => i + 1))
+    expect(cIds.length).toBeGreaterThanOrEqual(10)
+    // 文档里引用它时也必须说 C 号(以前 market-catalog 写「17 条规则」,既不对也不是同一套编号)
+    const cat = read(join(SKILL_DIR, "references", "market-catalog.md"))
+    const claim = [...cat.matchAll(/C1[–\-]C(\d+)[^。\n]{0,40}?(\d+)\s*项/g)].pop()
+    if (claim) expect(Number(claim[1])).toBe(cIds.length)
+    expect(cat).toMatch(/conformance 命名空间|与 `rules\.json` 的 R 号规则不是同一套编号/)
+  })
+  test("rules.json 自己写明了命名空间约定", () => {
+    const promise = String(rules.x_rule_numbering || "")
+    expect(promise, "x_rule_numbering 没写 C 命名空间,下一个改动又会把两套编号混起来").toMatch(/C1[–\-]C14|conformance/)
+    expect(promise, "没写明「不许抄条数/页数」的约定").toMatch(/不(要|许)?抄|不写死|以 rules\.json|运行时统计/)
   })
   test("rules.json 里承诺的测试文件必须真实存在(issue #13:引用与实际文件名对不上)", () => {
     const promise = String(rules.x_rule_numbering || "")

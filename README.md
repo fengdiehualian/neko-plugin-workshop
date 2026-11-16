@@ -34,7 +34,7 @@
 ├── wb-studio.mjs         # 网页服务(对话 UI/多会话/设置/归档/主题)
 ├── wb-agent-lib.mjs      # 无人值守 Agent 驱动(v1/v2 引擎双协议)
 ├── src/index.ts          # 生成→check→build 闭环内核 + 错误解析器
-├── packs/                # 模板 + 插件规范 skill(17 页官方文档 + 市场写法分析)
+├── packs/                # 模板 + 插件规范 skill(官方文档快照 + 市场写法分析;页数由脚本运行时数,不写死)
 ├── experts/              # 配套专家团(WorkBuddy/CodeBuddy 专家包,可导入自己的 Agent 底座)
 ├── market-corpus/        # 127 个官方市场插件源码(Agent 的学习语料;本机可读源码 126 份)
 ├── test/                 # 单元测试(bun test)
@@ -46,8 +46,8 @@
 
 ## Agent 的知识体系(让它写出市场上架水准的插件)
 
-1. **官方规范写死**:规则编号唯一来源是 `packs/neko-plugin/rules.json` 的 `x_hard_rules`(R1–R18);
-   `SKILL.md` 的铁律与 `AGENTS.md` 的摘要都按同一套 R 号引用,外加 17 页官方文档。文档里没有的 API 一律不用
+1. **官方规范写死**:规则编号唯一来源是 `packs/neko-plugin/rules.json` 的 `x_hard_rules`(末号即数组最后一条);
+   `SKILL.md` 的铁律与 `AGENTS.md` 的摘要都按同一套 R 号引用,外加官方文档快照。文档里没有的 API 一律不用
 2. **市场统计分析**:`references/market-patterns.md`——126 份真实上架插件源码的能力使用率
    (llm_tool 50% / push_message 57% / store 37%…)与四大惯用法
 3. **全量插件卡片**:`references/market-catalog.md`——127 个插件的功能/接口/能力/源码索引

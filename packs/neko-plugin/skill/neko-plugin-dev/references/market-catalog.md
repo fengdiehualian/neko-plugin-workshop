@@ -431,7 +431,7 @@ async def do(self, target: str, **_):
 16. 发布前置文件齐全:`.github/workflows/verify.yml`、`.github/workflows/release.yml`、`ruff.toml`(缺了 `neko-plugin publish` 直接停止);仓库名必须是 `n.e.k.o_plugin_<id>`
 17. 插件目录自身是 git 仓库(`.git/`),版本号每发一版都要换成没用过的新号
 
-**自检工具**:`python tools/plugin_conformance.py <插件目录>`(工坊仓库内)。17 条规则一次过一遍,error 清零再交付;加 `--json` 可给自动化用。
+**自检工具**:`python tools/plugin_conformance.py <插件目录>`(工坊仓库内)。它跑的是 C1–C14 共 14 项**检查项**(conformance 命名空间,与 `rules.json` 的 R 号规则不是同一套编号),error 清零再交付;加 `--json` 可给自动化用。
 
 ---
 

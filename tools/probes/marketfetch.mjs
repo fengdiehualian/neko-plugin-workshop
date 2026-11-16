@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync, existsSync } from "node:fs"
 const items = JSON.parse(await Bun.file(process.env.TEMP + "/m_all.json").text())
 console.log("total:", items.length)
 
-const OUT = "C:/Users/Administrator/dev/market-plugins"
+const OUT = require("./paths.cjs").corpusDir()
 mkdirSync(OUT, { recursive: true })
 
 let ok = 0, fail = 0

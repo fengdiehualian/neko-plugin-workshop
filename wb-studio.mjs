@@ -541,12 +541,14 @@ function upgradeEnginePermission() {
     const perm = cfg.permission || {}
     const bash = perm.bash
     const want = enginePermissionConfig()
-    // 需要升级的形态:bash 是字符串(旧「整段 allow」)、或缺失、或规则数明显偏少(旧表)
-    const stale = typeof bash === "string" || !bash || Object.keys(bash).length < Object.keys(want.bash).length
+    // 需要升级的形态:bash 是字符串(旧「整段 allow」)、或缺失、通配不是 ask、或规则数明显偏少(旧表)。
+    // 关键改动(issue #10 复核第二轮):以前只比条数,于是「条数够多但 bash["*"] = "allow"」的配置
+    // 永远不算过期——而恰恰是那个 allow 让 permission.asked 一条都不发,门禁形同虚设。
+    const stale = typeof bash === "string" || !bash || String(bash["*"] || "").toLowerCase() !== "ask" || Object.keys(bash).length < Object.keys(want.bash).length
     if (!stale) return false
     cfg.permission = Object.assign({}, perm, want, { bash: want.bash })
     fs2.writeFileSync(ENGINE_CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf8")
-    console.log("[wb-studio] 引擎权限配置已升级为按模式细分(旧写法:" + (typeof bash === "string" ? bash : "缺失") + ")——外发写现在会先问用户")
+    console.log("[wb-studio] 引擎权限配置已升级(旧通配:" + (typeof bash === "string" ? bash : String((bash && bash["*"]) || "缺失")) + " → ask)——外发写现在会先问用户")
     return true
   } catch (e) {
     console.warn("[wb-studio] 权限配置自愈失败(不挡启动):", String((e && e.message) || e).slice(0, 120))

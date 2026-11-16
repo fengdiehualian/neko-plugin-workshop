@@ -2,7 +2,7 @@ import { readdirSync } from "node:fs"
 
 // 打印三个范例插件的结构与关键片段位置
 for (const slug of ["shell_cmd", "tavily_search", "sys_monitor"]) {
-  const dir = "C:/Users/Administrator/dev/market-plugins/" + slug + "/src"
+  const dir = require("./paths.cjs").corpusDir() + "/" + slug + "/src"
   console.log("=== " + slug + " ===")
   try {
     walk(dir, "")

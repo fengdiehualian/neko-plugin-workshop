@@ -41,11 +41,11 @@ for (const t of ["pink", "blue", "white", "black"]) {
   out[t] = r
   if (t === "black") {
     const s = await send("Page.captureScreenshot", { format: "png" })
-    writeFileSync("C:/Users/Administrator/AppData/Local/Temp/wb_bubble_black.png", Buffer.from(s.result.data, "base64"))
+    writeFileSync(require("./paths.cjs").tmpDir() + "/wb_bubble_black.png", Buffer.from(s.result.data, "base64"))
   }
   if (t === "white") {
     const s = await send("Page.captureScreenshot", { format: "png" })
-    writeFileSync("C:/Users/Administrator/AppData/Local/Temp/wb_bubble_white.png", Buffer.from(s.result.data, "base64"))
+    writeFileSync(require("./paths.cjs").tmpDir() + "/wb_bubble_white.png", Buffer.from(s.result.data, "base64"))
   }
 }
 console.log(JSON.stringify(out, null, 1))

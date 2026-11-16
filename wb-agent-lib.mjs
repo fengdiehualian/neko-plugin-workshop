@@ -307,7 +307,7 @@ export function buildWishPrompt(wish, mode, askCount = 0, memory = "", userMemor
     profile + [
       "这是一位零基础小白许的愿,请把它做成能通过校验、能实际用的 N.E.K.O. 插件:",
       "1. 模板:reminder=定时提醒 / notes=记录存储 / hello_world=其他;类名=核心功能+Plugin,PLUGIN_ID 用小写下划线英文。",
-      "2. 生成后必须让 wb-plugin verify 全绿(error 清零)再交付,最多 5 轮;遵守 SKILL.md 硬规则 R1–R15。",
+      "2. 生成后必须让 wb-plugin verify 全绿(error 清零)再交付,最多 5 轮;遵守 `packs/neko-plugin/rules.json` 的 `x_hard_rules` 全部条目(R 号与条数以该文件为准,不要在提示词里抄数字)。",
       "3. 默认直接开工:小歧义按最常见理解做,汇报时说明。",
       "4. 只有「关键信息缺失、猜错会大返工」才允许停下来问(分不清提醒还是记录、不知道触发方式、不知道要不要界面)。提问规则:",
       askCount > 0
@@ -1390,7 +1390,9 @@ const GH_WRITE_SCOPES = ["issue", "pr", "release", "repo", "workflow", "run", "a
 const GIT_GLOBAL_VALUED = ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix"]
 const GIT_GLOBAL_BARE = ["--no-pager", "--literal-pathspecs", "--no-optional-locks", "--bare", "--paginate", "-m", "-v", "-q"]
 const GH_GLOBAL_VALUED = ["-R", "--repo", "--hostname", "--json", "--jq", "--template"]
-const HTTP_WRITE_RE = /(-X\s*['"]?(POST|PUT|PATCH|DELETE)|--data\b|--data-raw\b|--data-binary\b|--json\b|--form\b|-F\s|--upload-file|-T\s|-Method\s+(Post|Put|Patch|Delete))/i
+// 写数据的形态:除显式 -X METHOD 外,还要认 curl/wget 的短写与 POST 专用参数(issue #10 复核第二轮:
+// 之前只认 --data/--json/-F,`curl https://hook -d '{...}'` 这种不带 -X 的写法被判成「非外发」自动放行)
+const HTTP_WRITE_RE = /(-X\s*['"]?(POST|PUT|PATCH|DELETE)|--data\b|--data-raw\b|--data-binary\b|--json\b|--form\b|-F\s|-d\b|--upload-file|-T\s|--post-data\b|--post-file\b|--content-post\b|--method\s*=\s*['"]?(POST|PUT|PATCH|DELETE)|-Method\s+(Post|Put|Patch|Delete))/i
 // 注意:正则里的斜杠必须转义,否则字面量被 // 提前截断(踩过)
 const LOCAL_HOST_RE = /(?:127\.0\.0\.1|localhost|\[::1\]|0:0:0:0:0:0:0:1|:\/\/(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.))/i
 const REMOTE_URL_RE = /https?:\/\/[^/"'\s]+/i
@@ -1411,11 +1413,23 @@ const OTHER_OUTWARD_RE = [
   [/\brsync\b[^\n]*?(?:::|[A-Za-z][\w.-]+:\/|[A-Za-z][\w.-]*@[\w.-]+:\/)/i, "rsync 到远端主机"],
   [/\b(aws|aliyun|ossutil|gsutil|az|b2)\b[^\n]{0,60}\b(cp|sync|upload|deploy)\b/i, "上传到对象存储"],
   [/\bhelm\s+push\b|\bargo\s+push\b/i, "推送到远端 chart/仓库"],
+  // 「脚本内部再外发」:名字暗示 deploy/publish/release/upload/ship/push 的脚本按外发对待(issue #1 第 1 条点名 python deploy.py)。
+  // 这是启发式兜底,不假装穷尽:叫 build_all.py 里塞 requests.post 仍然只能靠 W1 人工确认;
+  // 反面也要守住——日常工具脚本(static_check.py、check-page.mjs)不许弹窗,否则门禁会把人问死。
+  [/\b(?:python|py|node|bun|deno|bash|sh|zsh|pwsh|powershell)\b[^\n]{0,120}?\b[\w./\\-]*(?:deploy|publish|release|upload|ship|push)[\w.-]*\.(?:py|sh|bash|js|mjs|cjs|ps1)\b/i, "运行名字暗示要外发的脚本"],
 ]
 // 别名/配置类「绕道推送」:git -c alias.x=push、git config alias.push 'push --mirror'
 const GIT_ALIAS_RE = /\bgit\b[^\n]{0,80}\balias[.=][^\n]{0,40}\bpush\b/i
 // 复合命令分段符:引擎的 glob 不跨空格,`git add . && git push` 要拆开逐段判定(issue #1)
-const SEGMENT_SPLIT = /(?:&&|\|\||[;\n|])/
+// 单个 `&`(后台/并列,如 `git status & git push`)同样是分隔符——以前只拆 &&/||/;/|/换行,
+// 于是 `git status & git push origin main` 整段被判成非外发并自动回 once(issue #10 复核第二轮)。
+const SEGMENT_SPLIT = /(?:&&|\|\||[;\n|&])/
+// 但重定向写法里的 & 不是分隔符:`2>&1`、`>&2`、`&>`、`>>&`,遮掉后再拆,免得把日常命令读成外发
+const REDIRECT_RE = /(?:\d*\s*>+\s*&\s*\d*|&\s*>\s*\d*)/g
+function splitCommandSegments(s) {
+  // 遮掉重定向再拆;段文本本身少了 `2>&1` 之类不影响判定(那些不是外发形态)
+  return String(s || "").replace(REDIRECT_RE, " ").split(SEGMENT_SPLIT)
+}
 
 // 跳过命令行前导的全局选项,返回 { 子命令, 之后剩余部分 }
 function subcommandAfter(s, bin, valued, bare) {
@@ -1457,7 +1471,7 @@ function outwardEvidence(text) {
   if (!whole) return ""
   const byWhole = outwardEvidenceOne(whole)
   if (byWhole) return byWhole
-  for (const seg of whole.split(SEGMENT_SPLIT)) {
+  for (const seg of splitCommandSegments(whole)) {
     const why = outwardEvidenceOne(String(seg || "").trim())
     if (why) return why
   }

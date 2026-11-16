@@ -44,7 +44,7 @@ else { Write-Output "required entries present (incl _zcode)" }
 
 # 禁含条目:第三方语料、本机探针、以及本机配置都绝不能出现在安装包里
 # (wb-studio.config.json 一旦进包,覆盖安装就会把用户的端口/引擎口/模型/界面设定冲回开发机默认值)
-$forbidden = @("market-corpus/", "tools/probes/", "wb-studio.config.json")
+$forbidden = @("market-corpus/", "tools/probes/", "wb-studio.config.json", "packs/neko-plugin/skill/neko-plugin-dev/references/market-examples/")
 $bad = @()
 foreach ($f in $forbidden) {
   $hit = @($names | Where-Object { $_.StartsWith($f) })

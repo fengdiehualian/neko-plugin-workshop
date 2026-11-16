@@ -110,7 +110,8 @@ def main():
                 f"https://api.github.com/repos/{GH[0]}/{GH[1]}/releases/tags/{tag}",
                 {"authorization": "token " + cred("github.com"), "user-agent": "neko", "accept": "application/vnd.github+json"})
             gt = release_references_tag(
-                f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/tags/{tag}?access_token=" + cred("gitee.com"))
+                f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/releases/tags/{tag}",
+                {"authorization": "token " + cred("gitee.com"), "user-agent": "neko"})
             return (gh or gt), gh, gt
         except Exception as e:
             # 查不动就当作「已被引用」:宁可卡住发布,也不能悄悄挪走别人可能在用的 tag
@@ -192,13 +193,16 @@ def main():
     tok = cred("gitee.com")
 
     def gitee(path, data=None, method="GET", raw=None, ctype="application/json"):
+        # token 一律走 Authorization 头,**绝不拼进 URL**(issue #11):查询串会进访问日志、代理日志、
+        # 以及任何「把报错 URL 贴到群里」的截图;而带 body 的请求在 401/403 时也不能重试第二条 URL,
+        # 否则一次认证失败就等于把 token 抄送两份。以前那个「退回查询参数」的兜底已删——
+        # 实测码云认 `Authorization: token …`(check_release_state.py 一直这么用)。
         url = f"https://gitee.com/api/v5/repos/{GT[0]}/{GT[1]}/{path}"
         code, res = call(url, data=data, method=method, raw=raw, ctype=ctype,
                          headers={"authorization": "token " + tok})
         if code in (401, 403):
-            print("  (码云不认 Authorization 头,退回查询参数携带 token;这条 URL 请勿外贴)")
-            code, res = call(url + ("&" if "?" in url else "?") + "access_token=" + tok,
-                             data=data, method=method, raw=raw, ctype=ctype)
+            print("  !! 码云拒绝了这个 token(HTTP %s)。请检查凭据助手里的 gitee 密码或仓库权限;"
+                  "本脚本不会改用 URL 查询串重试。" % code)
         return code, res
 
     def do_gitee():

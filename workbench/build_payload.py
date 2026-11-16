@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -31,7 +32,9 @@ DEFAULT_ZCODE = os.environ.get("NEKO_ZCODE_DIR") or os.path.join(
 )
 # 载荷里**不许出现**的条目(issue #4):第三方市场语料不打包分发。
 # 光在 THIRD_PARTY_NOTICES.md 里写「不分发」不算数,必须在出包前真的拦下来。
-FORBIDDEN = ["market-corpus/", "tools/probes/"]
+FORBIDDEN = ["market-corpus/", "tools/probes/",
+               # 第三方市场插件副本(许可未声明),不随包分发;要读请本机 fetch_corpus
+               "packs/neko-plugin/skill/neko-plugin-dev/references/market-examples/"]
 # 本机配置也不许进包(v1.2.65 实测):它被仓库跟踪,覆盖安装会把用户的端口/引擎口/模型/界面设定
 # 冲回开发机默认值(隔离实例被改成真实例的 5099/4096 就是当场证据)。工作室读不到该文件会走 defaultConfig,
 # 所以「包里不带」才是对的:首启默认值,用户改过的东西随升级保留。
@@ -102,6 +105,17 @@ def add_zcode(zip_path, zcode_dir):
     no_upstream = [p for p, f in want.items() if not str(f.get("upstream") or "").strip() or not str(f.get("hash_source") or "").strip()]
     if no_upstream:
         sys.exit("zcode_bundle.json 里这些条目没有 upstream/hash_source,拒绝出包:%s" % ", ".join(no_upstream))
+    # issue #13 第 3 点:地址不能是浮动的 latest-vXX.x —— 那种地址过几天就不再包含本版本的校验和,
+    # 「可复核」会变成空话。另外 node.exe 必须同时登记官方 zip 的哈希(zip 与解包后的 exe 是两个对象)。
+    floating = [p for p, f in want.items() if re.search(r"latest-v\d+\.x", json.dumps(f))]
+    if floating:
+        sys.exit("zcode_bundle.json 里还写着浮动版本地址 latest-vXX.x,拒绝出包:%s\n  重跑:node workbench/collect_zcode.cjs" % ", ".join(floating))
+    nd = want.get("node.exe") or {}
+    if not str(nd.get("zip_sha256") or "").strip() or not str(nd.get("zip_artifact") or "").strip():
+        sys.exit("node.exe 的登记缺 zip_sha256/zip_artifact(官方 SHASUMS256.txt 里那一行的哈希),拒绝出包\n"
+                 "  补齐并复核:node workbench/collect_zcode.cjs && node workbench/collect_zcode.cjs --verify")
+    if not re.search(r"^v\d+\.\d+\.\d+$", str(prov.get("nodeVersion") or "")):
+        sys.exit("nodeVersion 不是确切版本号:%r" % (prov.get("nodeVersion"),))
     n = 0
     with zipfile.ZipFile(zip_path, "a", zipfile.ZIP_DEFLATED) as z:
         existing = set(z.namelist())

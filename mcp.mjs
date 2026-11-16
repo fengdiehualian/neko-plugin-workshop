@@ -77,6 +77,9 @@ function toolInstallSkill(args) {
   // 复制时替换 <WORKSHOP_DIR>(Issue #3):技能装到别的底座后,SKILL.md/market-catalog 里的
   // 语料路径必须指向真实工坊根;统一正斜杠,macOS/Linux 也能用
   const workshopDir = WORKSHOP_ROOT.replace(/\\/g, "/")
+  // issue #16 第 5 点/#19 第 4 点:这里以前写死「15 页」,deep-dive 之类的文件一进仓就过期。
+  // 页数改为运行时数(只数 references/ 下的文件),文档与返回值都不再抄第二个数。
+  let refCount = 0
   const walk = (rel) => {
     for (const e of readdirSync(join(SKILL_SRC, rel), { withFileTypes: true })) {
       const r = rel ? `${rel}/${e.name}` : e.name
@@ -88,6 +91,7 @@ function toolInstallSkill(args) {
         continue
       }
       const buf = readFileSync(src)
+      if (r.startsWith("references/")) refCount++
       if (buf.includes(0)) {
         writeFileSync(dst, buf) // 二进制原样(当前技能包全是文本,防御)
         continue
@@ -98,7 +102,7 @@ function toolInstallSkill(args) {
   walk("")
   return {
     installed: dest,
-    files: "SKILL.md + references/*(15 页官方插件规范 + 市场写法分析,<WORKSHOP_DIR> 已替换为 " + workshopDir + ")",
+    files: "SKILL.md + references/*(本次实际复制 " + refCount + " 个参考文件;数量由运行时统计,不再写死页数;<WORKSHOP_DIR> 已替换为 " + workshopDir + ")",
     usage: hint,
     pipeline: "让 Agent 读该 SKILL.md 后,用 wb-plugin CLI(或本 MCP 的 wb_scaffold/wb_verify)完成 生成→check→build",
   }

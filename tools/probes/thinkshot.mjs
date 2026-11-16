@@ -45,7 +45,7 @@ await evalJs(`(async () => {
 })()`)
 await sleep(500)
 const r = await send("Page.captureScreenshot", { format: "png" })
-writeFileSync("C:/Users/Administrator/AppData/Local/Temp/wb_think_black.png", Buffer.from(r.result.data, "base64"))
+writeFileSync(require("./paths.cjs").tmpDir() + "/wb_think_black.png", Buffer.from(r.result.data, "base64"))
 console.log("saved wb_think_black.png")
 ws.close()
 proc.kill()

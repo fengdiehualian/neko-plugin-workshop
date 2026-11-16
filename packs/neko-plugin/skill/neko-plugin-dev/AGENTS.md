@@ -13,7 +13,7 @@
 
 ```
 理解想法 → 制定计划(中文,给用户看)
-→ 生成/修改代码(遵守 R1–R18,编号唯一来源见下)
+→ 生成/修改代码(遵守 `rules.json` `x_hard_rules` 的全部 R 号,编号唯一来源见下)
 → 实验:在 N.E.K.O 仓库根跑 `python plugin\neko_plugin_cli\cli.py check <插件目录>`;工作台 wb-plugin scaffold 已自动跑 check+build 并输出 JSON
 → 实验失败 → 读错误 → 最小修复 → 重跑实验
 → 通过 → git commit(消息写清做了什么)→ 向用户用中文汇报结果

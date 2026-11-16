@@ -15,6 +15,7 @@
 const fs = require("fs")
 const os = require("os")
 const path = require("path")
+const crypto = require("crypto")
 const { spawnSync } = require("child_process")
 
 const REPO = path.resolve(__dirname, "..")
@@ -74,6 +75,19 @@ function extractZip(zipPath, dest) {
   return kept
 }
 
+// 出处登记(issue #21):抓的是分支 HEAD,上游一提交内容就变,重抓与哈希锚点对不上是必然的。
+// 这里把每次实际抓到的 ref、zip 哈希与时间记进 market-corpus/SOURCES.json,
+// 让「当时抓的是哪一份」至少可查;要完全可复现得钉 tag/commit(见每条 note)。
+const SOURCES = path.join(OUT, "SOURCES.json")
+function loadSources() {
+  try { return JSON.parse(fs.readFileSync(SOURCES, "utf8")) } catch { return {} }
+}
+function saveSources(obj) {
+  try { fs.writeFileSync(SOURCES, JSON.stringify(obj, null, 1) + "\n", "utf8") }
+  catch (e) { console.warn("SOURCES.json 写入失败:", String((e && e.message) || e).slice(0, 80)) }
+}
+const sha256buf = (b) => crypto.createHash("sha256").update(b).digest("hex")
+
 ;(async () => {
   const only = (arg("only", "") || "").split(",").map((x) => x.trim()).filter(Boolean)
   const limit = Number(arg("limit", "0")) || 0
@@ -83,13 +97,14 @@ function extractZip(zipPath, dest) {
   console.log("市场在架条目:" + items.length)
   if (only.length) items = items.filter((x) => only.includes(x.slug) || only.includes(x.id) || only.includes(x.name))
   if (limit) items = items.slice(0, limit)
+  const sources = loadSources()
   let ok = 0, skipped = 0, failed = []
   for (const it of items) {
     const slug = String(it.slug || it.id || "").trim()
     const repo = String(it.repo_url || it.repoUrl || it.github || "").trim()
     if (!slug || !/^https?:\/\//.test(repo)) { skipped++; continue }
     const dest = path.join(OUT, slug)
-    if (!dryRun && fs.existsSync(path.join(dest, "src"))) { skipped++; continue }
+    if (!dryRun && fs.existsSync(path.join(dest, "src"))) { if (!sources[slug]) sources[slug] = { repo: repo, note: "本机既有,本次未重抓,来源与哈希未记录" }; skipped++; continue }
     const gh = repo.replace(/\/+$/, "").match(/github\.com\/([^/]+\/[^/]+)/)
     if (!gh) { failed.push([slug, "不是 GitHub 仓库,跳过"]); continue }
     const ref = spawnSync("curl", ["-sSL", "--max-time", "25", "--ssl-no-revoke", "-o", os.devNull, "-w", "%{http_code}",
@@ -105,6 +120,7 @@ function extractZip(zipPath, dest) {
         fs.writeFileSync(zipPath, buf)
         if (dryRun) { ok++; console.log("  [dry] " + slug + " ← " + url); got = true; break }
         const kept = extractZip(zipPath, dest)
+        sources[slug] = { repo: gh[1], ref: "refs/heads/" + branch, zip_sha256: sha256buf(buf), files_kept: kept, fetchedAt: new Date().toISOString(), mirror: m, note: "抓的是分支 HEAD;要完全可复现请钉到 tag/commit" }
         fs.rmSync(zipPath, { force: true })
         console.log("  " + slug + ":保留 " + kept + " 个文件")
         ok++; got = true; break
@@ -114,6 +130,7 @@ function extractZip(zipPath, dest) {
     }
     if (!got) failed.push([slug, "三个镜像都没下到"])
   }
+  if (!dryRun) saveSources(sources)
   console.log("\n完成:拉到 " + ok + " 个,跳过 " + skipped + " 个,失败 " + failed.length + " 个")
   if (failed.length) console.log(failed.slice(0, 20).map((f) => "  ✗ " + f.join(":")).join("\n"))
   console.log("\n许可提示:这些是第三方源码,仅本机阅读参考;" +

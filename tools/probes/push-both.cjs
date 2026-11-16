@@ -38,7 +38,10 @@ delete env.GIT_SSL_NO_VERIFY // 明确不接受这个开关
 function git(args, timeout) {
   return execFileSync(GIT, [...TLS, ...args], { cwd: REPO, env, encoding: "latin1", stdio: "pipe", timeout: timeout || 600000 })
 }
-const rest = (ms) => { const t = Date.now(); while (Date.now() - t < ms) {} }
+// 原来是 while(Date.now()) 忙等:退避期间白烧一个核(issue #23)。
+// Atomics.wait 在 SharedArrayBuffer 上阻塞等待,既不 spin 也不要把脚本改成 async。
+const __sleepBuf = new Int32Array(new SharedArrayBuffer(4))
+const rest = (ms) => { try { Atomics.wait(__sleepBuf, 0, 0, ms) } catch { const t = Date.now(); while (Date.now() - t < ms) {} } }
 
 let localTag = ""
 try { localTag = git(["rev-parse", tag + "^{}"], 30000).trim() } catch {}
