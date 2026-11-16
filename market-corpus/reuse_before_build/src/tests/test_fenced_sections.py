@@ -7,6 +7,7 @@
 import importlib.util
 import os
 import unittest
+import unittest.mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -23,6 +24,35 @@ TEMPLATE_HEADINGS = (
     "## Alternatives and risks",
 )
 NEXT_SECTION = "## When not to reuse"
+
+# 不依赖 SKILL.md 当前写了什么：围栏里放一个二级标题，确认它不被当成章节边界。
+# 以后 SKILL.md 的 Step 4 模板怎么改，这条回归都还站着。
+FIXTURE_SKILL = '''# 正典
+
+## Step 1 — Discover
+step one body
+
+## Step 2 — Evaluate
+step two body
+
+## Step 3 — Contribute
+step three body
+
+## Step 4 — Deliver
+Before the fence.
+
+```markdown
+## What I found
+| Repo | Stars |
+## Why this one
+## What I will add (issue / PR plan)
+## Alternatives and risks
+Verdict: Join.
+```
+
+## When not to reuse
+after fence
+'''
 
 
 class TestFlowStepsRespectFences(unittest.TestCase):
@@ -69,6 +99,29 @@ class TestSkillSectionRespectsFences(unittest.TestCase):
             "Untrusted repository content",
         ):
             self.assertIn(f"## {heading}", rules)
+
+
+class TestFenceRegressionWithFixture(unittest.TestCase):
+    """用内联 fixture 打桩：围栏里有 `## ` 时切节不截断，不依赖 SKILL.md 当前内容。"""
+
+    def test_skill_section_ignores_fenced_heading(self):
+        with unittest.mock.patch.object(rbb_core, "skill_text", return_value=FIXTURE_SKILL):
+            block = rbb_core.skill_section("Step 4 — Deliver")
+        self.assertTrue(block.startswith("## Step 4 — Deliver"), "必须把标题拼回去")
+        self.assertIn("## What I found", block, "围栏里的标题把正文截断了")
+        self.assertIn("Verdict: Join.", block, "模板结尾丢了")
+        self.assertNotIn(NEXT_SECTION, block)
+        self.assertNotIn("after fence", block)
+
+    def test_flow_steps_ignores_fenced_heading(self):
+        with unittest.mock.patch.object(rbb_core, "skill_text", return_value=FIXTURE_SKILL):
+            steps = rbb_core.flow_steps()
+        self.assertEqual(
+            [step["title"] for step in steps],
+            ["Step 1 — Discover", "Step 2 — Evaluate", "Step 3 — Contribute", "Step 4 — Deliver"],
+        )
+        self.assertIn("Verdict: Join.", steps[3]["content"])
+        self.assertNotIn("after fence", steps[3]["content"])
 
 
 if __name__ == "__main__":
