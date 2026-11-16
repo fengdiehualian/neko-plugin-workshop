@@ -112,7 +112,9 @@ const sha256buf = (b) => crypto.createHash("sha256").update(b).digest("hex")
     const branch = (ref.stdout || "").trim() === "200" ? "main" : "master"
     let got = false
     for (const m of MIRRORS) {
-      const url = m + "https://codeload.github.com/" + gh[1] + "/archive/refs/heads/" + branch + ".zip"
+      // codeload 只认 zip/refs/heads/<branch>；archive/refs/heads/<branch>.zip 是 github.com 的路径，
+      // 拼到 codeload 域名下必然 404(上面探测那行一直是对的,只有这行混用了两种形式)
+      const url = m + "https://codeload.github.com/" + gh[1] + "/zip/refs/heads/" + branch
       const zipPath = path.join(os.tmpdir(), "wb-" + slug + ".zip")
       try {
         const buf = httpGet(url, 120000)
