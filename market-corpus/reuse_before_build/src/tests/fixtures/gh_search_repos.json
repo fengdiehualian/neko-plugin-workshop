@@ -1,0 +1,26 @@
+[
+  {
+    "url": "https://github.com/owner/autoclip",
+    "name": "autoclip",
+    "owner": {"login": "owner"},
+    "stargazersCount": 4200,
+    "pushedAt": "2026-10-20T08:12:33Z",
+    "license": {"key": "mit", "name": "MIT License", "spdxId": "MIT"},
+    "isArchived": false,
+    "language": "Python",
+    "openIssuesCount": 18,
+    "description": "Long video to short clips with silence detection"
+  },
+  {
+    "url": "https://github.com/legacy/video-slicer",
+    "name": "video-slicer",
+    "owner": {"login": "legacy"},
+    "stargazersCount": 73,
+    "pushedAt": "2024-02-01T00:00:00Z",
+    "license": null,
+    "isArchived": false,
+    "language": "C++",
+    "openIssuesCount": 5,
+    "description": "Old ffmpeg wrapper"
+  }
+]

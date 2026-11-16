@@ -36,7 +36,7 @@
 ├── src/index.ts          # 生成→check→build 闭环内核 + 错误解析器
 ├── packs/                # 模板 + 插件规范 skill(17 页官方文档 + 市场写法分析)
 ├── experts/              # 配套专家团(WorkBuddy/CodeBuddy 专家包,可导入自己的 Agent 底座)
-├── market-corpus/        # 127 个官方市场插件源码(Agent 的学习语料;本机可读源码 126 份)
+├── market-corpus/        # 127 个官方市场插件源码 + 2 份本机补采(Agent 的学习语料;本机可读源码 127 份)
 ├── test/                 # 单元测试(bun test)
 ├── workbench/            # 打包工具(make-exe.ps1 一键 SFX 安装器)
 └── 使用说明.txt           # 面向小白的完整说明
@@ -48,7 +48,7 @@
 
 1. **官方规范写死**:规则编号唯一来源是 `packs/neko-plugin/rules.json` 的 `x_hard_rules`(R1–R18);
    `SKILL.md` 的铁律与 `AGENTS.md` 的摘要都按同一套 R 号引用,外加 17 页官方文档。文档里没有的 API 一律不用
-2. **市场统计分析**:`references/market-patterns.md`——126 份真实上架插件源码的能力使用率
+2. **市场统计分析**:`references/market-patterns.md`——官方在架那批 126 份可读源码的能力使用率
    (llm_tool 50% / push_message 57% / store 37%…)与四大惯用法
 3. **全量插件卡片**:`references/market-catalog.md`——127 个插件的功能/接口/能力/源码索引
 4. **语料库**:`market-corpus/` 全部源码,按功能找同类直接读

@@ -1,0 +1,13 @@
+# 可复制的运行配置示例（只放 [plugin_runtime]；[settings] 默认值见 plugin.toml）
+# 用户配置以本文件为模板；插件代码读到的键名与这里一致。
+# 注意：本文件不能包含 [plugin] 表——清单信息只属于 plugin.toml。
+#
+# [settings] 的默认值只在 plugin.toml 里写一份（enable_github_scan / gh_binary /
+# default_stars / default_limit / updated_days / scan_timeout）。这里不再重复抄值，
+# 否则改一处漏两处；需要覆盖时在宿主配置里按同名键写，字段说明见 docs/guide.md。
+
+[plugin_runtime]
+enabled = true
+# 本插件无定时器，但 llm_tool 需要在运行中才暴露给 AI，所以随宿主启动
+auto_start = true
+timeout = 10
