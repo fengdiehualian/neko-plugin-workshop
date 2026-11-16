@@ -62,45 +62,49 @@ function listAll() {
 // 只保留代码/配置/文档,且跳过超大文件;顺带把绝对路径与密钥形态的内容原样留着但不执行
 function extractZip(zipPath, dest) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wbcorpus-"))
-  // zip 不是 tar:GNU tar 会直接拒绝(Windows/macOS 的 bsdtar 才认),按平台依次退到 unzip / python
-  const attempts = [
-    ["tar", ["-xf", zipPath, "-C", tmp]],
-    ["unzip", ["-q", zipPath, "-d", tmp]],
-    ["python", ["-m", "zipfile", "-e", zipPath, tmp]],
-  ]
-  let unpacked = false
-  let lastErr = ""
-  for (const [cmd, cmdArgs] of attempts) {
-    const r = spawnSync(cmd, cmdArgs, { encoding: "latin1" })
-    if (r.status === 0) { unpacked = true; break }
-    lastErr = String(r.stderr || (r.error && r.error.message) || "").slice(0, 160)
-  }
-  if (!unpacked) throw new Error("解压失败(tar/unzip/python 都不行):" + lastErr)
-  let kept = 0
-  const walk = (from, relTo) => {
-    for (const e of fs.readdirSync(from, { withFileTypes: true })) {
-      if (e.isDirectory() && SKIP_DIRS.has(e.name)) continue
-      const a = path.join(from, e.name)
-      if (e.isDirectory()) { walk(a, path.join(relTo, e.name)); continue }
-      const st = fs.statSync(a)
-      const name = e.name.toLowerCase()
-      const ext = path.extname(name)
-      const keep = KEEP_EXT.has(ext) || (ext === "" && KEEP_NAME.has(name))
-      if (st.size > MAX_FILE || !keep) continue
-      const target = path.join(dest, relTo, e.name)
-      fs.mkdirSync(path.dirname(target), { recursive: true })
-      fs.copyFileSync(a, target)
-      kept++
+  // 解压全失败、或 walk 中途抛错时 tmp 也要清掉,否则每失败一次就在 os.tmpdir() 留一份解包内容
+  try {
+    // zip 不是 tar:GNU tar 会直接拒绝(Windows/macOS 的 bsdtar 才认),按平台依次退到 unzip / python
+    const attempts = [
+      ["tar", ["-xf", zipPath, "-C", tmp]],
+      ["unzip", ["-q", zipPath, "-d", tmp]],
+      ["python", ["-m", "zipfile", "-e", zipPath, tmp]],
+    ]
+    let unpacked = false
+    let lastErr = ""
+    for (const [cmd, cmdArgs] of attempts) {
+      const r = spawnSync(cmd, cmdArgs, { encoding: "latin1" })
+      if (r.status === 0) { unpacked = true; break }
+      lastErr = String(r.stderr || (r.error && r.error.message) || "").slice(0, 160)
     }
+    if (!unpacked) throw new Error("解压失败(tar/unzip/python 都不行):" + lastErr)
+    let kept = 0
+    const walk = (from, relTo) => {
+      for (const e of fs.readdirSync(from, { withFileTypes: true })) {
+        if (e.isDirectory() && SKIP_DIRS.has(e.name)) continue
+        const a = path.join(from, e.name)
+        if (e.isDirectory()) { walk(a, path.join(relTo, e.name)); continue }
+        const st = fs.statSync(a)
+        const name = e.name.toLowerCase()
+        const ext = path.extname(name)
+        const keep = KEEP_EXT.has(ext) || (ext === "" && KEEP_NAME.has(name))
+        if (st.size > MAX_FILE || !keep) continue
+        const target = path.join(dest, relTo, e.name)
+        fs.mkdirSync(path.dirname(target), { recursive: true })
+        fs.copyFileSync(a, target)
+        kept++
+      }
+    }
+    // zip 顶层是 <repo>-<branch>/:先剥掉这一层,否则语料会变成 dest/<repo>-main/rbb_core.py。
+    // 剥完直接落到 dest(src),与"dest/src 存在就跳过"的判断对齐。
+    const entries = fs.readdirSync(tmp, { withFileTypes: true })
+    const topDirs = entries.filter((e) => e.isDirectory())
+    const root = topDirs.length === 1 && entries.length === 1 ? path.join(tmp, topDirs[0].name) : tmp
+    walk(root, "")
+    return kept
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
   }
-  // zip 顶层是 <repo>-<branch>/:先剥掉这一层,否则语料会变成 dest/<repo>-main/rbb_core.py。
-  // 剥完直接落到 dest(src),与第 92 行"dest/src 存在就跳过"的判断对齐。
-  const entries = fs.readdirSync(tmp, { withFileTypes: true })
-  const topDirs = entries.filter((e) => e.isDirectory())
-  const root = topDirs.length === 1 && entries.length === 1 ? path.join(tmp, topDirs[0].name) : tmp
-  walk(root, "")
-  fs.rmSync(tmp, { recursive: true, force: true })
-  return kept
 }
 
 // 出处登记(issue #21):抓的是分支 HEAD,上游一提交内容就变,重抓与哈希锚点对不上是必然的。
