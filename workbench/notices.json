@@ -1,9 +1,9 @@
 {
- "total": 128,
+ "total": 129,
  "tally": {
   "未声明(仓库里没有可识别的 LICENSE)": 84,
   "Apache-2.0": 23,
-  "MIT": 11,
+  "MIT": 12,
   "LGPL": 1,
   "AGPL": 4,
   "GPL": 5
@@ -686,6 +686,12 @@
   {
    "slug": "recall",
    "license": "Apache-2.0",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "reuse_before_build",
+   "license": "MIT",
    "file": "src/LICENSE",
    "field": ""
   },
