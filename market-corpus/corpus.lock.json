@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "algo": "tree-sha256-v0",
+  "note": "语料锁 v0：每条记上游 commit、zip 哈希与落盘树的哈希。树哈希对「过滤后实际落盘的文件」计算，过滤规则变了也会被看见。生成/更新用 node workbench/fetch_corpus.cjs --update <slug> [--ref vX]，校验用 --locked；不要手改 hash 字段。",
+  "entries": {
+    "reuse_before_build": {
+      "repo": "1-dcjiang/neko-reuse-before-build",
+      "kind": "plugin",
+      "ref": "v0.3.20",
+      "commit": "8388e27b1af2595abff780d707e560c9a3f0c7ec",
+      "version": "0.3.20",
+      "version_source": "plugin.toml",
+      "archive_sha256": "a36906e3a6801f601da47b82119068efd0bd5004e96d0c8829b1641811527d57",
+      "tree_sha256": "642ac32565ead629ac92b79ef47da746d4b56fc675e7ffaf889fa3a8ac0b074c",
+      "files": 36,
+      "anchors": [
+        {
+          "id": "plugin-manifest",
+          "file": "src/plugin.toml",
+          "all": [
+            "name = \"先搜后建\"",
+            "version = \""
+          ]
+        },
+        {
+          "id": "skill-identity",
+          "file": "src/skills/reuse-before-build/SKILL.md",
+          "all": [
+            "name: reuse-before-build"
+          ]
+        },
+        {
+          "id": "prompt-registry",
+          "file": "src/skills/reuse-before-build/prompt-digests.json",
+          "any": [
+            "\"prompts\""
+          ]
+        },
+        {
+          "id": "localization-contract",
+          "file": "src/skills/reuse-before-build/localization.contract.json",
+          "any": [
+            "rules_min"
+          ]
+        },
+        {
+          "id": "rule-numbering",
+          "file": "src/skills/reuse-before-build/scripts/verify_localized.py",
+          "all": [
+            "RULE_RE",
+            "MULTILINE"
+          ]
+        }
+      ],
+      "updated_at": "2026-11-17T15:36:52.951Z"
+    }
+  }
+}

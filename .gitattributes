@@ -9,6 +9,13 @@
 market-corpus/** export-ignore
 market-corpus export-ignore
 
+# 语料按字节算,不做换行转换(语料锁 corpus.lock.json 的 tree_sha256 就是这么来的):
+# Windows 上 core.autocrlf=true 会把检出改成 CRLF,同一份语料在 Windows 与 ubuntu
+# 算出的哈希就对不上,锁会变成"只在一台机器上成立"的东西。
+# `-text` 让检出保留 LF,两边读到的字节一致;导出包本来就不含 market-corpus。
+market-corpus/** -text
+market-corpus -text
+
 # 一次性排查脚本与临时件也不进包(装到用户机器上没用,还泄露本机路径线索)
 # 注意:目录本身与目录内容要**两行都写**,只写 `dir/**` 时 git archive 仍会带出该目录下的文件
 tools/probes export-ignore
@@ -42,3 +49,7 @@ wb-studio.config.json export-ignore
 # 坑(issue #4):只写 `dir/**` 时 git archive 照样导出该目录内容,所以两行都要写,且属性文件必须先提交。
 packs/neko-plugin/skill/neko-plugin-dev/references/market-examples export-ignore
 packs/neko-plugin/skill/neko-plugin-dev/references/market-examples/** export-ignore
+# 单测按原始字节核对「这三份是 market-corpus 的逐字节副本」,语料已是 LF;
+# 副本若在 Windows 被检出成 CRLF,这条断言就只在 ubuntu 上成立。两处一起钉成 -text。
+packs/neko-plugin/skill/neko-plugin-dev/references/market-examples/** -text
+packs/neko-plugin/skill/neko-plugin-dev/references/market-examples -text
