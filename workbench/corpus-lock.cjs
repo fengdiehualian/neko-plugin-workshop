@@ -103,6 +103,21 @@ function assertSlug(slug) {
   return slug
 }
 
+/** 一个条目里可能存在的 SKILL.md:根目录、skills/<name>/、plugins/<name>/(按字节序,可复现)。 */
+function skillMdPaths(rootDir) {
+  const out = []
+  const pushIf = (rel, abs) => { if (fs.existsSync(abs) && fs.statSync(abs).isFile()) out.push(rel) }
+  pushIf("SKILL.md", path.join(rootDir, "SKILL.md"))
+  for (const parent of ["skills", "plugins"]) {
+    const dir = path.join(rootDir, parent)
+    if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue
+    for (const name of fs.readdirSync(dir).sort()) {
+      pushIf(parent + "/" + name + "/SKILL.md", path.join(dir, name, "SKILL.md"))
+    }
+  }
+  return out
+}
+
 /** 从落盘语料里读版本号,并记下它是从哪个文件读到的。
  *  root 既可以传条目根(<slug>,含 src/),也可以传已过滤的 src 根,两种都认。 */
 function readVersion(root) {
@@ -110,8 +125,14 @@ function readVersion(root) {
   const candidates = [
     ["plugin.toml", "plugin.toml", /^\s*version\s*=\s*"([^"]+)"/m],
     ["pyproject.toml", "pyproject.toml", /^\s*version\s*=\s*"([^"]+)"/m],
-    ["skills/reuse-before-build/SKILL.md", "SKILL.md", /^\s*version:\s*([^\s]+)/m],
   ]
+  // SKILL.md 不按 slug 硬编码:skill 类条目的目录名各不相同(plugins/<name>、skills/<name>),
+  // 写死 reuse-before-build 的路径等于「换个 slug 就读不到版本」。
+  for (const base of bases) {
+    for (const rel of skillMdPaths(path.join(root, ...(base).split("/").filter(Boolean)))) {
+      candidates.push([rel, "SKILL.md", /^\s*version:\s*([^\s]+)/m])
+    }
+  }
   for (const base of bases) {
     for (const [rel, label, re] of candidates) {
       const p = path.join(root, ...(base + rel).split("/"))
@@ -123,11 +144,15 @@ function readVersion(root) {
   return { version: null, version_source: null }
 }
 
-/** 锚点:树哈希保证「没变」,锚点负责在变的时候说人话。file 相对条目根。 */
-function checkAnchors(entryRoot, anchors = []) {
+/** 锚点:树哈希保证「没变」,锚点负责在变的时候说人话。file 相对条目根。
+ *  opts.strip 用来核对「还没换到位的 staging 目录」:锁里的 file 带 `src/` 前缀,
+ *  而 staging 本身就是未来的 src,所以核对前把这个前缀摘掉。 */
+function checkAnchors(entryRoot, anchors = [], opts = {}) {
+  const strip = opts.strip ? String(opts.strip).replace(/\/+$/, "") + "/" : ""
   const missing = []
   for (const a of anchors) {
-    const p = path.join(entryRoot, ...String(a.file).split("/"))
+    const rel = strip && String(a.file).startsWith(strip) ? String(a.file).slice(strip.length) : String(a.file)
+    const p = path.join(entryRoot, ...rel.split("/"))
     if (!fs.existsSync(p)) { missing.push(a.id + "(" + a.file + " 不存在)"); continue }
     const text = fs.readFileSync(p, "utf8")
     const all = a.all || []
@@ -142,5 +167,5 @@ function checkAnchors(entryRoot, anchors = []) {
 module.exports = {
   LOCK_FILE, SCHEMA, ALGO, MAX_FILE, KEEP_EXT, KEEP_NAME, SKIP_DIRS,
   sha256buf, keepFile, listCorpusFiles, treeHash, lockPath, loadLock, saveLock,
-  assertSlug, SLUG_RE, readVersion, checkAnchors,
+  assertSlug, SLUG_RE, readVersion, skillMdPaths, checkAnchors,
 }

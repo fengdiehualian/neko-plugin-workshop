@@ -45,13 +45,28 @@ const dryRun = process.argv.includes("--dry-run")
 const lockedMode = process.argv.includes("--locked")
 const verifyOnly = process.argv.includes("--verify-only")
 const updateAll = process.argv.includes("--update-all")
+const updateMode = process.argv.includes("--update")
 const updateSlug = arg("update", "")
 const updateRef = arg("ref", "")
 
+// --ssl-no-revoke 是 Windows Schannel 专有开关:Linux/macOS 的 curl 会把它当未知参数直接失败,
+// 所以按平台给。CI/服务器上跑 --update 的时候不能靠它。
+const CURL_TLS = process.platform === "win32" ? ["--ssl-no-revoke"] : []
+/** api.github.com 未认证只有 60 次/小时;--update-all 或多条重锁会中途 403。
+ *  有 GITHUB_TOKEN 就带上,没带也照旧(只是会撞限额,错误信息里会说清)。 */
+function githubAuthArgs(url) {
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || ""
+  if (!token || !url.startsWith("https://api.github.com/")) return []
+  return ["-H", "Authorization: Bearer " + token, "-H", "Accept: application/vnd.github+json"]
+}
 function httpGet(url, timeout = 60000) {
-  const r = spawnSync("curl", ["-sSL", "--max-time", String(Math.round(timeout / 1000)), "--ssl-no-revoke", url],
+  const r = spawnSync("curl", ["-sSL", "--max-time", String(Math.round(timeout / 1000)), ...CURL_TLS, ...githubAuthArgs(url), url],
     { encoding: "buffer", maxBuffer: 1 << 28 })
-  if (r.status !== 0 || !r.stdout || !r.stdout.length) throw new Error("curl 失败 " + url + ":" + String(r.stderr || "").slice(0, 120))
+  if (r.status !== 0 || !r.stdout || !r.stdout.length) {
+    const err = String(r.stderr || "").slice(0, 120)
+    throw new Error("curl 失败 " + url + ":" + err +
+      (url.startsWith("https://api.github.com/") ? "(若是限额,设置 GITHUB_TOKEN 再跑)" : ""))
+  }
   return r.stdout
 }
 function listAll() {
@@ -268,9 +283,20 @@ function runLocked() {
 
 function runUpdate() {
   const lock = locklib.loadLock(OUT)
-  const targets = updateAll ? Object.keys(lock.entries) : [locklib.assertSlug(updateSlug)]
-  if (!targets.length || (targets.length === 1 && !targets[0])) {
+  // 用法错误必须走退出码 2:assertSlug("") 抛异常的话会掉到最外层的 catch,
+  // 变成 exit 1 的「出错」,和「校验失败」混成一个码
+  if (!updateAll && !updateSlug) {
     console.error("--update 需要 slug:node workbench/fetch_corpus.cjs --update reuse_before_build [--ref v0.3.20]")
+    return 2
+  }
+  let targets = []
+  if (updateAll) targets = Object.keys(lock.entries)
+  else {
+    try { targets = [locklib.assertSlug(updateSlug)] }
+    catch (e) { console.error(String((e && e.message) || e)); return 2 }
+  }
+  if (!targets.length) {
+    console.error("corpus.lock.json 里没有条目,没有可更新/重锁的对象")
     return 2
   }
   let failed = 0, changed = 0
@@ -289,6 +315,16 @@ function runUpdate() {
       }
       const r = installAtCommit(slug, ghRepo, commit)
       const v = locklib.readVersion(r.staging)
+      // 重锁前先按锁里的锚点核对一遍新内容:上游把 plugin.toml / SKILL.md 改名或挪走时,
+      // 树哈希照样能算、锁照样会写成功,坏掉的是下一次 --verify 的解释力
+      const anchorsMissing = locklib.checkAnchors(r.staging, entry.anchors || [], { strip: "src/" })
+      if (anchorsMissing.length) {
+        fs.rmSync(r.staging, { recursive: true, force: true })
+        failed++
+        console.error("FAIL  " + slug + "  新内容不满足锁里的锚点:" + anchorsMissing.join(", ") +
+          "。上游结构变了,先改 corpus.lock.json 的 anchors 再重锁。")
+        continue
+      }
       const dry = dryRun
       console.log((dry ? "[dry] " : "") + "UPDATE " + slug + "  " + ref + "@" + commit.slice(0, 12) +
         "\n  tree   " + String(entry.tree_sha256).slice(0, 16) + "… files=" + entry.files + "  →  " + r.measured.tree_sha256.slice(0, 16) + "… files=" + r.measured.files +
@@ -300,12 +336,13 @@ function runUpdate() {
         continue
       }
       commitInstall(slug, r.staging)
+      if (!v.version) console.warn("WARN  " + slug + "  新内容里读不到版本号,保留锁里的旧值 " + (entry.version || "?") + "(结构可能变了)")
       lock.entries[slug] = {
         ...entry,
         ref,
         commit,
-        version: v.version,
-        version_source: v.version_source,
+        version: v.version || entry.version || null,
+        version_source: v.version ? v.version_source : (entry.version_source || null),
         archive_sha256: r.archive_sha256,
         tree_sha256: r.measured.tree_sha256,
         files: r.measured.files,
@@ -323,7 +360,10 @@ function runUpdate() {
 }
 
 ;(async () => {
-  if (updateAll || updateSlug) return runUpdate()
+  // 分派必须看「有没有 --update 这个开关」,不能看 slug 是否非空:
+  // `--update` 后面忘了写 slug 时,原先会掉进 legacy 全量抓取(等于静默跑一次 129 条 HEAD),
+  // 而不是报用法错误。
+  if (updateAll || updateMode) return runUpdate()
   if (lockedMode || verifyOnly) return runLocked()
 
   const only = (arg("only", "") || "").split(",").map((x) => x.trim()).filter(Boolean)
@@ -344,7 +384,7 @@ function runUpdate() {
     if (!dryRun && fs.existsSync(path.join(dest, "src"))) { if (!sources[slug]) sources[slug] = { repo: repo, note: "本机既有,本次未重抓,来源与哈希未记录" }; skipped++; continue }
     const gh = repo.replace(/\/+$/, "").match(/github\.com\/([^/]+\/[^/]+)/)
     if (!gh) { failed.push([slug, "不是 GitHub 仓库,跳过"]); continue }
-    const ref = spawnSync("curl", ["-sSL", "--max-time", "25", "--ssl-no-revoke", "-o", os.devNull, "-w", "%{http_code}",
+    const ref = spawnSync("curl", ["-sSL", "--max-time", "25", ...CURL_TLS, "-o", os.devNull, "-w", "%{http_code}",
       "https://codeload.github.com/" + gh[1] + "/zip/refs/heads/main"], { encoding: "latin1" })
     const branch = (ref.stdout || "").trim() === "200" ? "main" : "master"
     let got = false

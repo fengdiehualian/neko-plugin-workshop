@@ -20,7 +20,7 @@
 
 格式与 `SHA256SUMS.txt` 同构,可以直接把每行的 `<hash> <path>` 导给人工核对。
 
-## 三条命令
+## 四条命令
 
 ```bash
 node workbench/fetch_corpus.cjs --locked                    # 只按锁里的 commit 抓;锁外 slug 跳过并报告
@@ -38,6 +38,22 @@ node workbench/fetch_corpus.cjs --update-all                # 过滤规则改了
 - 抓取失败、树哈希不符、锚点缺失都算失败,退出码 1。
 - `archive_sha256` 不符只警告:镜像站偶尔改压缩包封装,内容树对得上才是硬要求。
 - slug 必须匹配 `^[a-z0-9_-]+$`(目录名即 slug,不允许大小写混写或路径片段)。
+- `--update` 会先用锁里的 anchors 核对新内容:上游把 `plugin.toml` / `SKILL.md` 挪走时,
+  重锁直接失败(而不是写进一条下一次 `--verify` 解释不了的锁)。锚点过不去就先改锁里的 anchors。
+- `api.github.com` 未认证只有 60 次/小时,`--update-all` 或多条重锁请先设 `GITHUB_TOKEN`。
+
+## 已有克隆的换行提示
+
+`.gitattributes` 给 `market-corpus/**` 设了 `-text`。**已经存在的克隆**在拉下这次改动后,
+工作区里仍是旧的 CRLF 字节、索引里已是 LF,`git status` 会显示语料里上百个文件 modified ——
+这不是内容改动,是检出属性变了。按路径强制重检出即可(别用 `git stash`,语料很大):
+
+```bash
+git rm -r --cached market-corpus
+git checkout -- market-corpus
+```
+
+新克隆不受影响。
 
 ## 现状
 

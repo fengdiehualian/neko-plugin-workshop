@@ -104,6 +104,28 @@ describe("语料锁:树哈希口径", () => {
   })
 })
 
+describe("语料锁:版本与锚点口径", () => {
+  test("SKILL.md 不按 slug 硬编码:换一个 skill 目录名也能读到版本", () => {
+    withTempTree(
+      { "skills/another-skill/SKILL.md": "---\nname: another-skill\nmetadata:\n  version: 2.1.0\n---\n" },
+      (root) => expect(lock.readVersion(root)).toEqual({ version: "2.1.0", version_source: "SKILL.md" }),
+    )
+    withTempTree(
+      { "plugin.toml": "[plugin]\nversion = \"0.1.0\"\n", "skills/another-skill/SKILL.md": "---\nmetadata:\n  version: 9.9.9\n---\n" },
+      (root) => expect(lock.readVersion(root)).toEqual({ version: "0.1.0", version_source: "plugin.toml" }),
+    )
+  })
+
+  test("checkAnchors 的 strip 能把锁里的 src/ 前缀摘到 staging 上核对", () => {
+    withTempTree({ "plugin.toml": "name = \"x\"\nversion = \"1.0\"\n" }, (root) => {
+      const anchors = [{ id: "m", file: "src/plugin.toml", all: ["name = \"x\""] }]
+      expect(lock.checkAnchors(root, anchors, { strip: "src/" })).toEqual([])
+      expect(lock.checkAnchors(root, anchors).length, "不通前缀时应当报文件不存在").toBe(1)
+      expect(lock.checkAnchors(root, [{ id: "m", file: "src/plugin.toml", all: ["name = \"y\""] }], { strip: "src/" }).length).toBe(1)
+    })
+  })
+})
+
 describe("语料锁:slug 与锁结构", () => {
   test("slug 只允许 [a-z0-9_-],大写/路径穿越/空串一律拒", () => {
     expect(lock.assertSlug("reuse_before_build")).toBe("reuse_before_build")
