@@ -116,7 +116,7 @@ class ReuseBeforeBuildPlugin(NekoPluginBase):
 
     async def _probe_hash(self):
         try:
-            h, err = await asyncio.to_thread(rbb_core.canonical_hash, "", self._timeout)
+            h, err = await asyncio.to_thread(rbb_core.canonical_hash, self._timeout)
             self._rule_hash = h
             if err:
                 self.logger.warning("规则哈希计算失败：%s", err)
@@ -131,7 +131,7 @@ class ReuseBeforeBuildPlugin(NekoPluginBase):
         )
         bundle_task = asyncio.create_task(
             asyncio.to_thread(rbb_core.verify_localized, rbb_core.SKILL_MD,
-                              "", None, self._timeout)
+                              None, self._timeout)
         )
         tasks = [gh_task, bundle_task]
         if probe is not None:
@@ -381,7 +381,7 @@ class ReuseBeforeBuildPlugin(NekoPluginBase):
         target = str(path or params.get("path") or "").strip()
         if not target:
             return Err(SdkError("缺少 path（待校验副本路径）。给插件目录内的 .md 路径再调一次。"))
-        res = await asyncio.to_thread(rbb_core.verify_localized, target, "", None, self._timeout)
+        res = await asyncio.to_thread(rbb_core.verify_localized, target, None, self._timeout)
         if res["rc"] == 0:
             return Ok({"ok": True, "exit_code": 0, "output": res["out"]})
         return Ok({

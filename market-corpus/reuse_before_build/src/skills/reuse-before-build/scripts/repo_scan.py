@@ -60,7 +60,6 @@ search_args = _gh_helpers.search_args
 normalize_search_row = _gh_helpers.normalize_search_row
 unique_keywords = _gh_helpers.unique_keywords
 GH_CREATIONFLAGS = _gh_helpers.GH_CREATIONFLAGS
-PERMISSIVE = _gh_helpers.PERMISSIVE
 AUTH_HINT = _gh_helpers.AUTH_HINT
 FAIL_HINT = _gh_helpers.FAIL_HINT
 default_since = _gh_helpers.default_since
