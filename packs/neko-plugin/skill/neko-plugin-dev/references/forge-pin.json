@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "slug": "plugin-forge",
+  "kind": "forge",
+  "repo": "HorizonCloudy/plugin-forge",
+  "ref": "v2.8.0",
+  "commit": "722529a5fb439e3972a4d42f1f7b7d3ea17985ab",
+  "version": "2.8.0",
+  "note": "plugin-forge 的钉版清单。正典只有一份:锁里那一条语料(market-corpus/corpus.lock.json 的 plugin-forge)。本文件自包含 commit/哈希/文件数,安装版没有 corpus.lock 时以本文件为准。",
+  "lock": "market-corpus/corpus.lock.json",
+  "corpus_root": "market-corpus/plugin-forge/src",
+  "pull": "node workbench/pull_forge.cjs",
+  "verify": "node workbench/fetch_corpus.cjs --locked --verify-only",
+  "entry": {
+    "skill": "skills/plugin-forge/SKILL.md",
+    "workflows": "skills/plugin-forge/references/workflows.md",
+    "roster": "roster.json",
+    "agents": "agents/",
+    "references": "skills/plugin-forge/references/",
+    "contract_schema": "skills/plugin-forge/references/contract-approval.schema.json",
+    "security_checklist": "skills/plugin-forge/references/security-checklist.md",
+    "audit": "AUDIT.md"
+  },
+  "anchors": [
+    {
+      "id": "plugin-manifest",
+      "file": "src/.claude-plugin/plugin.json",
+      "all": [
+        "\"name\": \"plugin-forge\"",
+        "\"version\": \""
+      ]
+    },
+    {
+      "id": "skill-identity",
+      "file": "src/skills/plugin-forge/SKILL.md",
+      "all": [
+        "name: plugin-forge"
+      ]
+    },
+    {
+      "id": "rbb-pin",
+      "file": "src/skills/plugin-forge/references/workflows.md",
+      "any": [
+        "v0.3.22",
+        "a375629"
+      ]
+    },
+    {
+      "id": "audit-ledger",
+      "file": "src/AUDIT.md",
+      "any": [
+        "sec-declared"
+      ]
+    }
+  ],
+  "source": "git",
+  "archive_format": "tar",
+  "archive_sha256": "fbe98cd1d1f33ef407ceeaa8e4cfd7471cd2724b692a40116dc07c1677ac1501",
+  "tree_sha256": "6351f779682c72f5c6eef36ba9b0a03862c18087af561c4054fa20c9fbb14899",
+  "files": 80,
+  "version_source": "plugin.json"
+}

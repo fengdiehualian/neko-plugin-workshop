@@ -48,6 +48,26 @@ description: N.E.K.O.(猫娘计划)插件开发权威规范。写/改/修任何 
 | **`market-catalog.md`** | **社区规范(目录/配置/命名/依赖/接口)+ 127 个在架插件索引——按功能找同类参考** |
 | **`market-examples/`** | **3 个市场插件副本:shell_cmd(llm_tool 双注册)/ tavily_search(httpx 联网)/ sys_monitor(定时推送状态机)——第三方源码且许可未声明,只在开发仓里;安装包不携带,装机版改读 `market-corpus/<slug>/src`** |
 | **`reuse-before-build.md`** | **先搜后建接入线:正典只读语料那一份(`market-corpus/reuse_before_build/src/skills/`)——写新程序前先查有没有现成实现** |
+| **`forge-flow.md`** | **plugin-forge 接入线·流程:什么时候套这条线、A–H 走哪条、去哪查、交付硬格式** |
+| **`forge-roles.md`** | **plugin-forge 接入线·角色:1 主理人 + 13 专家什么时候召集谁、谁收货、什么情况打回** |
+| **`forge-contract-gate.md`** | **plugin-forge 接入线·契约门禁:写码前必须过、准奏文件形状、verify_commands 只验形状不执行** |
+| **`forge-reading-map.md`** | **plugin-forge 接入线·读文档地图:先读哪份、N.E.K.O 硬事实去哪核、常见凭记忆写错** |
+
+## 插件制造专家团(plugin-forge)接入线
+
+要**从零造 / 修 / 审**一个插件,而不是查 N.E.K.O API 细节时,套 forge 那条线。钉版 `v2.8.0` / `722529a`:
+
+| 要做 | 读 |
+|---|---|
+| 判断该不该套、走哪条工作流 | `references/forge-flow.md` |
+| 该召集哪些角色、谁收货 | `references/forge-roles.md` |
+| 写码前的契约审议怎么过 | `references/forge-contract-gate.md` |
+| 先读哪份文档、平台事实去哪核 | `references/forge-reading-map.md` |
+| 钉的是哪一份、本机语料在哪 | `references/forge-pin.json` + `node workbench/pull_forge.cjs` |
+
+正典只有一份(本机语料 `market-corpus/plugin-forge/src`),上面 4 份是接入线,不复制条文。
+语料缺失时先跑 `node workbench/pull_forge.cjs`;`--check` 只核对不联网。
+
 
 ## 常用骨架(Plugin)
 
