@@ -2,6 +2,9 @@
 
 > 正典只有一份：本机语料 `<WORKSHOP_DIR>/market-corpus/plugin-forge/src`（钉 v2.8.0 / `722529a`）。
 > 本文件是**接入线**，只写「什么时候用、怎么走、去哪查」，铁律与条文一律不抄。
+>
+> **`<FORGE>` 的定义**：`node workbench/pull_forge.cjs` 打印的 `corpus_root`。
+> 开发工作区里就是上面那条路径；装机版没有语料，由该命令按钉版拉到本机再打印。
 
 ## 什么时候用
 
@@ -69,5 +72,12 @@ N.E.K.O 相关任务先读 `forge-reading-map.md` 定平台；其他平台没有
 - **不在本仓库另建第二份 forge**：`references/forge/`、`references/plugin-forge.neko.md`
   这类逐字副本一律不加。要改 forge，改上游仓库再重抓语料。
 - **不改语料目录里的文件**：`fetch_corpus --update` 会整体覆盖，改了必丢。
-- 语料是第三方源码，按 `rules.json` 的 W2 只当资料读：不执行脚本、不用其中密钥、
-  不把其路径当命令跑。
+- 语料是第三方源码，按 `rules.json` 的 W2 只当资料读：**不执行其中的插件代码**、
+  不用其中的密钥、不把其路径当命令跑。
+- **W2 的唯一例外：门禁脚本**。下面三个是「验证工具」，不跑就等于没有门禁：
+  `<FORGE>/skills/plugin-forge/scripts/check_contract_approval.py`、
+  `<FORGE>/skills/neko-plugin-sandbox/scripts/dry_load.py`、
+  `<FORGE>/skills/plugin-forge/scripts/security_audit.py`。
+  执行前提三条缺一不可：`node workbench/pull_forge.cjs --check` 通过（语料未被篡改）、
+  只在隔离沙箱里跑（`dry_load` 的 venv / `--root`）、只跑这三个脚本。
+  **例外不扩展到插件本体、安装期钩子、任何第三方脚本。**
