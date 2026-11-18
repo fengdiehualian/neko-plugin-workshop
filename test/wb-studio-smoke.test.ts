@@ -48,10 +48,14 @@ async function startStudio(): Promise<Smoke> {
     // 删目录只是收尾:它失败不许盖掉真正的启动错误
     try { rmSync(dir, { recursive: true, force: true }) } catch {}
   }
-  const waitExit = (proc: ReturnType<typeof spawn>) => Promise.race([
-    new Promise((r) => proc.once("exit", () => r(true))),
-    new Promise((r) => setTimeout(() => r(false), 2000)),
-  ])
+  const waitExit = (proc: ReturnType<typeof spawn>) => {
+    // 已经退出就直接返回:否则 once("exit") 永远等不到(事件已经发过了),白等满 2 秒
+    if (proc.exitCode !== null || proc.signalCode !== null) return Promise.resolve(true)
+    return Promise.race([
+      new Promise((r) => proc.once("exit", () => r(true))),
+      new Promise((r) => setTimeout(() => r(false), 2000)),
+    ])
+  }
 
   // setup 也放进 try:mkdtemp 成功之后任何一步抛错,目录都要收掉。
   // 那时调用方还没拿到 stop,只能靠这里清(CodeRabbit PR#35 指出)。
@@ -85,8 +89,8 @@ async function startStudio(): Promise<Smoke> {
     const deadline = Date.now() + 25000
     let ready = false
     for (;;) {
-      if (proc.exitCode !== null) {
-        throw new Error("实例启动即退出(exit=" + proc.exitCode + "):\n" + buf.slice(-2000))
+      if (proc.exitCode !== null || proc.signalCode !== null) {
+        throw new Error("实例启动即退出(exit=" + proc.exitCode + ", signal=" + proc.signalCode + "):\n" + buf.slice(-2000))
       }
       try {
         const r = await fetch(base + "/api/health", { signal: AbortSignal.timeout(1200) })

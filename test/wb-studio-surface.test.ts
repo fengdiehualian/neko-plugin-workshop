@@ -64,7 +64,20 @@ function surfaceFiles(): { rel: string; abs: string }[] {
   return [{ rel: "wb-studio.mjs", abs: SRC_PATH }, ...rest]
 }
 
-function extractOne(src: string): FileSurface {
+/** 去掉纯注释行再提取。
+ *  否则注释里举的 `url.pathname === "/api/x"` 会被算成真路由,快照里凭空多一条,
+ *  而重构时删掉那条注释又会让快照"少一条"——两次都是假红。
+ *  行内注释(`code() // url.pathname === "/x"`)仍会被抓到,这种写法在本仓不存在,
+ *  真要全无歧义得上解析器,不值得为一个门禁脚本引依赖。 */
+function stripCommentLines(src: string): string {
+  return src.split("\n").filter((line) => {
+    const t = line.trim()
+    return !(t.startsWith("//") || t.startsWith("*") || t.startsWith("/*"))
+  }).join("\n")
+}
+
+function extractOne(raw: string): FileSurface {
+  const src = stripCommentLines(raw)
   // 出现顺序即分支判断顺序:先匹配到的路由赢,顺序变了就是行为变了
   const exact = [...src.matchAll(/url\.pathname === "([^"]+)"/g)].map((m) => m[1])
   const pattern = [...src.matchAll(/url\.pathname\.match\(\s*(\/\^[^\n]*?\/[a-z]*)\s*\)/g)]
