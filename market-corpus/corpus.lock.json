@@ -69,7 +69,6 @@
     "plugin-forge": {
       "source": "HorizonCloudy/plugin-forge",
       "kind": "forge",
-      "source_type": "git",
       "ref": "v2.8.0",
       "commit": "722529a5fb439e3972a4d42f1f7b7d3ea17985ab",
       "version": "2.8.0",
@@ -110,7 +109,8 @@
           ]
         }
       ],
-      "updated_at": "2026-11-18T08:35:07.946Z"
+      "updated_at": "2026-11-18T08:35:07.946Z",
+      "transport": "git"
     }
   }
 }

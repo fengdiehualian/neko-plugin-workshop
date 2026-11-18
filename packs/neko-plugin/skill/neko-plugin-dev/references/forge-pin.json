@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "slug": "plugin-forge",
   "kind": "forge",
   "source": "HorizonCloudy/plugin-forge",
@@ -53,10 +53,10 @@
       ]
     }
   ],
-  "source_type": "git",
   "archive_format": "tar",
   "archive_sha256": "fbe98cd1d1f33ef407ceeaa8e4cfd7471cd2724b692a40116dc07c1677ac1501",
   "computedHash": "6351f779682c72f5c6eef36ba9b0a03862c18087af561c4054fa20c9fbb14899",
   "files": 80,
-  "version_source": "plugin.json"
+  "version_source": "plugin.json",
+  "transport": "git"
 }

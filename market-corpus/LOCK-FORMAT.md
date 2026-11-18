@@ -20,7 +20,7 @@
 
 ```json
 {
-  "schema": 1,
+  "schema": 2,
   "algo": "tree-sha256-v0",
   "note": "…（说明文字，校验器忽略）",
   "entries": { "<slug>": { … } }
@@ -46,7 +46,7 @@
 |---|---|
 | **手写时必填** | `source`、`kind`、`ref`、`anchors`。`--update` 不传 `--ref` 时按锁里的 `commit` 重抓；传了才解析 ref。`anchors` 用于在写锁前核对新内容。 |
 | **`--update` 之后必填** | `commit`、`computedHash`、`files`、`archive_sha256`、`updated_at`。由工具写，不要手改。 |
-| **校验器强制**（`--locked` / `--verify-only`） | slug 走 `^[a-z0-9_-]+$`；`source` 必须 `owner/repo`；`commit` 必须 40 位十六进制；`computedHash` 必须 64 位十六进制；`files` 必须是数字；`source_type: "git"` 必须带 `ref`（用于识别 ref 被移动；抓取以 `commit` 为准）。缺任一项报「锁条目不合规」，不会抛 TypeError。 |
+| **校验器强制**（`--locked` / `--verify-only`） | slug 走 `^[a-z0-9_-]+$`；`source` 必须 `owner/repo`；`commit` 必须 40 位十六进制；`computedHash` 必须 64 位十六进制；`files` 必须是数字；`transport: "git"` 必须带 `ref`（用于识别 ref 被移动；抓取以 `commit` 为准）。缺任一项报「锁条目不合规」，不会抛 TypeError。 |
 
 | 字段 | 类型 | 含义 |
 |---|---|---|
@@ -64,8 +64,8 @@
 
 | 字段 | 类型 | 含义 |
 |---|---|---|
-| `source_type` | string | `zip`（默认，市场 codeload zip）或 `git`（工具仓）。 |
-| `archive_format` | string | `zip`（默认）或 `tar`（git 来源）。与 `source_type` 对应。 |
+| `transport` | string | `zip`（默认，市场 codeload zip）或 `git`（工具仓）。 |
+| `archive_format` | string | `zip`（默认）或 `tar`（git 来源）。与 `transport` 对应。 |
 | `version` | string \| null | 上游版本号。 |
 | `version_source` | string \| null | 版本是从哪个文件读到的：`plugin.toml` / `pyproject.toml` / `SKILL.md` / `plugin.json`。 |
 | `release` | object | 发布镜像信息（仅市场插件可能有），见 §3.3。 |
@@ -209,7 +209,7 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 "my_forge": {
   "source": "Owner/my-forge",
   "kind": "forge",
-  "source_type": "git",
+  "transport": "git",
   "archive_format": "tar",
   "ref": "v1.2.3",
   "anchors": [ … ]
@@ -247,7 +247,7 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 | v1 | v2 | 说明 |
 |---|---|---|
 | `repo` | `source` | 改名 |
-| `source`（`zip` / `git`） | `source_type` | 改名，避免与新的 `source` 撞名 |
+| `source`（`zip` / `git`） | `transport` | 改名，避免与新的 `source` 撞名 |
 | `tree_sha256` | `computedHash` | 改名，算法不变（`tree-sha256-v0`） |
 
 `schema: 1` 的锁**仍然能读**：读取器看到 `schema: 1` 时按上表把字段名迁到 v2 再返回，
@@ -255,21 +255,34 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 不能靠「字段在不在」——这是迁移逻辑唯一的坑。
 
 老条目缺字段时的默认值口径不变
-（例如没有 `source_type` 就是 `zip`，没有 `archive_format` 就是 `zip`）。
+（例如没有 `transport` 就是 `zip`，没有 `archive_format` 就是 `zip`）。
 
 ## 10. 与 vercel-labs/skills 的字段对齐
 
-字段名与 `vercel-labs/skills` 的锁条目对齐，**但算法不同，哈希值不可互认**：
+字段名与 `vercel-labs/skills` 对齐，但**同名字段不都能互认**：
 
 | vercel-labs/skills | 本锁 | 关系 |
 |---|---|---|
 | `source` | `source` | 同为仓库标识 `owner/name` |
 | `ref` | `ref` | 同名同义 |
-| `computedHash` | `computedHash` | 字段名相同，**算法不同**：本锁是「过滤后文件按路径字节序 → 每行 `sha256 + 空格 + 路径 + \n` → 整串再 sha256」，且不做 CRLF 归一 |
-| —— | `source_type` | 本锁额外区分传输方式（`zip` / `git`），那边没有这个概念 |
+| `computedHash` | `computedHash` | 同名，**值不可互认**（算法不同，见下表） |
+| `commit`（Git 来源条目） | `commit` | 同名，都是 40 位 sha |
+| `sourceType`（`'github'` 等**来源平台**） | 无 | 本锁条目全部来自 GitHub，不记平台 |
+| —— | `transport`（`zip` / `git`） | 本锁独有：决定**抓取方式**。刻意不叫 `sourceType`，避免与那边的「来源平台」同名不同义 |
 | —— | `archive_sha256` | 本锁额外记归档字节 |
 | —— | `anchors` | 本锁额外记语义锚点 |
 
-同名字段只有三个（`source` / `ref` / `computedHash`）。跨工具复用时**必须同时确认算法版本**，
-否则会出现「字段对得上、哈希对不上」的误判。`schema` 与 `algo` 两个字段就是给这件事用的：
-`algo` 不匹配时，校验器必须直接报错而不是"差不多就过"。
+同名字段四个，其中 `computedHash` 的**值不能互认**。已知差异至少三项：
+
+| 差异 | 本锁的做法 |
+|---|---|
+| 行格式 | `sha256 + 空格 + 路径 + \n`，整串再 sha256 |
+| 换行 | **按字节，不做 CRLF 归一** |
+| 符号链接与非常规文件 | 一律不进树（`lstat` 判定） |
+| 过滤范围 | 扩展名白名单 + 目录跳过 + 单文件上限（§4.1） |
+
+那边（vercel-labs/skills）的算法另含路径与长度参与、CRLF 归一、符号链接处理等；
+**具体实现以其仓库为准，本锁不试图复刻**，也没有做逐值比对验证。
+
+所以跨工具复用时**必须先对 `algo`**：`algo` 不匹配就报错，不要「差不多就过」。
+`schema` 与 `algo` 两个字段就是给这件事用的。

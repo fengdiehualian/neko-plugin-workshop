@@ -42,7 +42,7 @@ const measure = () => locklib.treeHash(src)
 /** 把 pin 折成一条锁条目。装机版没有 corpus.lock 时用它就地生成。 */
 function entryFromPin() {
   return {
-    source: pin.source, kind: pin.kind, source_type: pin.source_type, ref: pin.ref,
+    source: pin.source, kind: pin.kind, transport: pin.transport, ref: pin.ref,
     commit: pin.commit, version: pin.version, version_source: pin.version_source,
     archive_format: pin.archive_format, archive_sha256: pin.archive_sha256,
     computedHash: pin.computedHash, files: pin.files,
@@ -53,7 +53,7 @@ function entryFromPin() {
 /** pin 与锁条目的逐字段比对。只比 commit 等于放过 ref/version 漂移;
  *  anchors 也要比——两边指向不同文件时,"校验通过"的含义已经变了。 */
 function mismatch(entry) {
-  const keys = ["source", "kind", "source_type", "ref", "commit", "version",
+  const keys = ["source", "kind", "transport", "ref", "commit", "version",
     "archive_format", "computedHash", "files"]
   for (const k of keys) {
     if (String(entry[k] ?? "") !== String(pin[k] ?? "")) {

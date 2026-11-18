@@ -84,7 +84,7 @@ describe("语料锁:锁值与磁盘一致", () => {
     expect(entry, "锁里没有 plugin-forge").toBeTruthy()
     // kind 是新增值:现有代码不读它,但写清楚「这是工具仓不是市场插件」
     expect(entry.kind).toBe("forge")
-    expect(entry.source_type).toBe("git")
+    expect(entry.transport).toBe("git")
     expect(entry.ref).toBe("v2.8.0")
     expect(entry.commit).toBe("722529a5fb439e3972a4d42f1f7b7d3ea17985ab")
     expect(entry.version).toBe("2.8.0")
@@ -106,7 +106,7 @@ describe("语料锁:锁值与磁盘一致", () => {
   test("老条目没有 archive_format，按 zip 理解(向后兼容)", () => {
     const parsed = lock.loadLock(CORPUS)
     const rbb = parsed.entries.reuse_before_build
-    expect(rbb.source_type ?? "zip").toBe("zip")
+    expect(rbb.transport ?? "zip").toBe("zip")
     expect(rbb.archive_format ?? "zip").toBe("zip")
   })
 
@@ -255,12 +255,50 @@ describe("语料锁:slug 与锁结构", () => {
       const l = lock.loadLock(root)
       expect(l.schema, "读出来应升到 v2").toBe(2)
       expect(l.entries.gitOne.source).toBe("o/n")
-      expect(l.entries.gitOne.source_type).toBe("git")
+      expect(l.entries.gitOne.transport).toBe("git")
       expect(l.entries.gitOne.computedHash).toBe("a".repeat(64))
       expect(l.entries.gitOne.repo, "旧字段应被删掉").toBeUndefined()
-      // v1 没写 source 就是 zip:迁移后也不该凭空多出 source_type
+      // v1 没写 source 就是 zip:迁移后也不该凭空多出 transport
       expect(l.entries.zipOne.source).toBe("o/z")
-      expect(l.entries.zipOne.source_type).toBeUndefined()
+      expect(l.entries.zipOne.transport).toBeUndefined()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test("slug 拒绝原型污染保留字(它们也符合 [a-z0-9_-])", () => {
+    for (const bad of ["__proto__", "constructor", "prototype"]) {
+      expect(() => lock.assertSlug(bad), "放过了保留字:" + bad).toThrow()
+    }
+  })
+
+  test("旧版本机生成的 v1 锁,迁移后与 forge-pin.json 逐字段一致", () => {
+    const pin = JSON.parse(readFileSync(join(ROOT, "packs", "neko-plugin", "skill",
+      "neko-plugin-dev", "references", "forge-pin.json"), "utf8"))
+    const root = mkdtempSync(join(tmpdir(), "corpuslock-upgrade-"))
+    try {
+      // 旧版 pull_forge 生成的就是这套:repo / source(传输方式) / tree_sha256
+      writeFileSync(join(root, "corpus.lock.json"), JSON.stringify({
+        schema: 1,
+        algo: "tree-sha256-v0",
+        entries: {
+          [pin.slug]: {
+            repo: pin.source, kind: pin.kind, source: pin.transport,
+            ref: pin.ref, commit: pin.commit, version: pin.version,
+            version_source: pin.version_source, archive_format: pin.archive_format,
+            archive_sha256: pin.archive_sha256, tree_sha256: pin.computedHash,
+            files: pin.files, anchors: pin.anchors,
+          },
+        },
+      }))
+      const e = lock.loadLock(root).entries[pin.slug]
+      expect(e.source, "仓库名没迁过来").toBe(pin.source)
+      expect(e.transport, "传输方式没迁过来").toBe(pin.transport)
+      expect(e.computedHash, "哈希没迁过来").toBe(pin.computedHash)
+      expect(e.commit).toBe(pin.commit)
+      expect(e.anchors).toEqual(pin.anchors)
+      expect(e.repo, "旧字段应被删掉").toBeUndefined()
+      expect(e.tree_sha256, "旧字段应被删掉").toBeUndefined()
     } finally {
       rmSync(root, { recursive: true, force: true })
     }

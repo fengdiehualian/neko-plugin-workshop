@@ -88,13 +88,13 @@ function lockPath(corpusRoot) {
 
 /** v1 → v2 的字段迁移(只在读取时做,写回时自然变成 v2)。
  *  v1: repo=仓库, source=传输方式(zip/git), tree_sha256=哈希
- *  v2: source=仓库, source_type=传输方式, computedHash=哈希
+ *  v2: source=仓库, transport=传输方式, computedHash=哈希
  *  `source` 在两个版本里语义不同,所以只能靠 schema 判断,不能靠"字段在不在"。 */
 function migrateV1(entry) {
   const out = { ...entry }
   // 先迁传输方式:此刻 out.source 还是 "zip"/"git"(仓库名一定带斜杠,用它区分)
   if (typeof out.source === "string" && !out.source.includes("/")) {
-    out.source_type = out.source
+    out.transport = out.source
     delete out.source
   }
   if (typeof out.repo === "string") { out.source = out.repo; delete out.repo }
@@ -127,8 +127,13 @@ function saveLock(corpusRoot, lock) {
 }
 
 const SLUG_RE = /^[a-z0-9_-]+$/
+// `__proto__` / `constructor` / `prototype` 都符合 [a-z0-9_-],
+// 但拿它们当键写普通对象会改原型而不是加键(迁移时 `entries[slug] = ...` 会静默丢条目)。
+const RESERVED_SLUGS = new Set(["__proto__", "constructor", "prototype"])
+
 function assertSlug(slug) {
   if (!SLUG_RE.test(String(slug || ""))) throw new Error("slug 不合法(只允许 [a-z0-9_-]):" + JSON.stringify(slug))
+  if (RESERVED_SLUGS.has(String(slug))) throw new Error("slug 不能用保留字:" + JSON.stringify(slug))
   return slug
 }
 

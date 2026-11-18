@@ -317,11 +317,13 @@ function commitInstall(slug, staging) {
  *  这里统一拦住,让「这条不合规」而不是「程序崩了」。 */
 function entryProblem(slug, entry) {
   try { locklib.assertSlug(slug) } catch (e) { return String((e && e.message) || e) }
+  // 锁里写成 `"x": null` 时,下面每个 entry.xxx 都会抛 TypeError 把整轮扫描打断
+  if (!entry || typeof entry !== "object") return "条目不是对象:" + JSON.stringify(entry)
   if (!/^[\w.-]+\/[\w.-]+$/.test(String(entry.source || ""))) return "source 不是 owner/repo:" + entry.source
   if (!/^[0-9a-f]{40}$/.test(String(entry.commit || ""))) return "commit 不是 40 位十六进制:" + String(entry.commit || "").slice(0, 24)
   if (!/^[0-9a-f]{64}$/.test(String(entry.computedHash || ""))) return "缺 computedHash"
   if (typeof entry.files !== "number") return "缺 files"
-  if (entry.source_type === "git" && !entry.ref) return "git 来源缺 ref(用于识别 tag 被移动;抓取以 commit 为准)"
+  if (entry.transport === "git" && !entry.ref) return "git 来源缺 ref(用于识别 tag 被移动;抓取以 commit 为准)"
   return null
 }
 
@@ -362,7 +364,7 @@ function runLocked() {
     }
     // 锁里有、磁盘没有:按锁里的 commit 抓一份,再逐项核对
     try {
-      const r = entry.source_type === "git"
+      const r = entry.transport === "git"
         ? installFromGit(slug, entry.source, entry.ref || entry.commit, entry.commit)
         : installAtCommit(slug, entry.source, entry.commit)
       if (r.archive_sha256 !== entry.archive_sha256) {
@@ -443,11 +445,11 @@ function runUpdate() {
       }
       const root = path.join(OUT, slug)
       const current = locklib.treeHash(path.join(root, "src"))
-      if (current && commit === entry.commit && current.computedHash === entry.computedHash) {
+      if (current && entry.source && commit === entry.commit && current.computedHash === entry.computedHash) {
         console.log("SAME  " + slug + "  " + ref + "@" + commit.slice(0, 12) + "  已是这一份,跳过")
         continue
       }
-      const r = entry.source_type === "git"
+      const r = entry.transport === "git"
         ? installFromGit(slug, ghRepo, ref, commit)
         : installAtCommit(slug, ghRepo, commit)
       const v = locklib.readVersion(r.staging)
