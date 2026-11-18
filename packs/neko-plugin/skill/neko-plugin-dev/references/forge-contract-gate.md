@@ -19,6 +19,13 @@
 
 ## 怎么走
 
+> **`<FORGE>` 是什么**：`node workbench/pull_forge.cjs` 打印的 `corpus_root`
+> （开发工作区是 `market-corpus/plugin-forge/src`；装机版由该命令按钉版拉到本机）。
+>
+> **为什么可以执行语料里的脚本**：门禁脚本属于 W2 的唯一例外——不跑就等于没有门禁。
+> 例外范围与前提（`pull_forge --check` 通过 + 隔离沙箱 + 只限三个脚本）写在
+> `forge-flow.md` 的「红线」段，扩散到插件本体不算。
+
 1. 写方案 → 契约审议师出准奏文件 `contract-approval.json`（放工作区根）。
 2. 跑门禁：
 

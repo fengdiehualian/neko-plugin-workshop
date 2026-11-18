@@ -50,7 +50,8 @@ function entryFromPin() {
   }
 }
 
-/** pin 与锁条目的逐字段比对。只比 commit 等于放过 ref/version 漂移。 */
+/** pin 与锁条目的逐字段比对。只比 commit 等于放过 ref/version 漂移;
+ *  anchors 也要比——两边指向不同文件时,"校验通过"的含义已经变了。 */
 function mismatch(entry) {
   const keys = ["repo", "kind", "source", "ref", "commit", "version",
     "archive_format", "tree_sha256", "files"]
@@ -59,6 +60,9 @@ function mismatch(entry) {
       return k + " → 锁 " + String(entry[k]) + " / pin " + String(pin[k])
     }
   }
+  const a = JSON.stringify(entry.anchors ?? [])
+  const b = JSON.stringify(pin.anchors ?? [])
+  if (a !== b) return "anchors 不一致(锚点指向的文件或断言不同)"
   return null
 }
 
@@ -116,7 +120,10 @@ if (!fs.existsSync(lockPath)) {
       "开发工作区请用仓库里那份;生成/更新走 workbench/fetch_corpus.cjs。",
     entries: { [pin.slug]: entryFromPin() },
   }
-  fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n", "utf8")
+  // 原子写:直接覆盖时断电/被中断会留下半截 JSON,下次 --locked 连读都读不了
+  const tmpLock = lockPath + ".tmp"
+  fs.writeFileSync(tmpLock, JSON.stringify(lock, null, 2) + "\n", "utf8")
+  fs.renameSync(tmpLock, lockPath)
   console.log("本机没有 corpus.lock,已按 forge-pin.json 生成一条:" + lockPath)
 }
 
