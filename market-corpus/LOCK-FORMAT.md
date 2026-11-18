@@ -44,18 +44,18 @@
 
 | 档 | 要求 |
 |---|---|
-| **手写时必填** | `repo`、`kind`、`ref`、`anchors`。`--update` 靠 `ref` 定位，靠 `anchors` 在写锁前核对新内容。 |
-| **`--update` 之后必填** | `commit`、`tree_sha256`、`files`、`archive_sha256`、`updated_at`。由工具写，不要手改。 |
-| **校验器强制**（`--locked` / `--verify-only`） | slug 走 `^[a-z0-9_-]+$`；`repo` 必须 `owner/name`；`commit` 必须 40 位十六进制；`tree_sha256` 必须 64 位十六进制；`files` 必须是数字；`source: "git"` 必须带 `ref`。缺任一项报「锁条目不合规」，不会抛 TypeError。 |
+| **手写时必填** | `source`、`kind`、`ref`、`anchors`。`--update` 靠 `ref` 定位，靠 `anchors` 在写锁前核对新内容。 |
+| **`--update` 之后必填** | `commit`、`computedHash`、`files`、`archive_sha256`、`updated_at`。由工具写，不要手改。 |
+| **校验器强制**（`--locked` / `--verify-only`） | slug 走 `^[a-z0-9_-]+$`；`source` 必须 `owner/repo`；`commit` 必须 40 位十六进制；`computedHash` 必须 64 位十六进制；`files` 必须是数字；`source_type: "git"` 必须带 `ref`。缺任一项报「锁条目不合规」，不会抛 TypeError。 |
 
 | 字段 | 类型 | 含义 |
 |---|---|---|
-| `repo` | string | `owner/name`（GitHub）。**不带协议与 `.git`**。 |
+| `source` | string | 仓库标识 `owner/name`（GitHub）。**不带协议与 `.git`**。 |
 | `kind` | string | `plugin`（市场插件）或 `forge`（工具仓）。缺省按 `plugin` 理解。 |
 | `ref` | string | 抓取用的 ref：tag（`v0.3.22`）或分支名。**git 来源必填**，zip 来源也建议写。 |
 | `commit` | string | 40 位十六进制 commit sha。**校验以它为准。** |
 | `archive_sha256` | string | 归档文件的 sha256（64 位十六进制）。**不符只警告**，见 §6。 |
-| `tree_sha256` | string | 落盘树的 sha256（64 位十六进制）。**不符即失败。** |
+| `computedHash` | string | 落盘树的 sha256（64 位十六进制）。**不符即失败。** |
 | `files` | number | 树里的文件数。用于失败时给人看规模差异。 |
 | `anchors` | array | 语义锚点，见 §5。 |
 | `updated_at` | string | ISO 时间戳，`--update` 自动写。 |
@@ -64,8 +64,8 @@
 
 | 字段 | 类型 | 含义 |
 |---|---|---|
-| `source` | string | `zip`（默认，市场 codeload zip）或 `git`（工具仓）。 |
-| `archive_format` | string | `zip`（默认）或 `tar`（git 来源）。与 `source` 对应。 |
+| `source_type` | string | `zip`（默认，市场 codeload zip）或 `git`（工具仓）。 |
+| `archive_format` | string | `zip`（默认）或 `tar`（git 来源）。与 `source_type` 对应。 |
 | `version` | string \| null | 上游版本号。 |
 | `version_source` | string \| null | 版本是从哪个文件读到的：`plugin.toml` / `pyproject.toml` / `SKILL.md` / `plugin.json`。 |
 | `release` | object | 发布镜像信息（仅市场插件可能有），见 §3.3。 |
@@ -94,7 +94,7 @@
 2. 路径用 `/` 相对 `src/`，例如 `skills/x/SKILL.md`；
 3. 按路径的 **UTF-8 字节序**升序排序（不是 locale 排序，不是码点排序）；
 4. 每行拼 `<sha256(文件内容，小写十六进制)> + 空格 + <路径> + \n`；
-5. 把全部行拼成一个字符串，对它再算 **sha256**，即 `tree_sha256`；
+5. 把全部行拼成一个字符串，对它再算 **sha256**，即 `computedHash`；
 6. 全程**按字节读，不做 CRLF 转换**。
 
 ### 4.1 过滤规则（v0 快照）
@@ -163,7 +163,7 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 | `2` | 用法错误（没有待检查文件、slug 不合法、锁文件读不了） |
 
 `archive_sha256` **不符只警告**：镜像站偶尔改压缩包封装，内容树对得上才是硬要求。
-`tree_sha256` 不符是硬失败，报错里会同时给磁盘值与锁值。
+`computedHash` 不符是硬失败，报错里会同时给磁盘值与锁值。
 
 ### 6.1 退出码按命令分列
 
@@ -186,7 +186,7 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 
    ```json
    "my_plugin": {
-     "repo": "owner/neko-my-plugin",
+     "source": "owner/neko-my-plugin",
      "kind": "plugin",
      "ref": "main",
      "anchors": [
@@ -197,8 +197,8 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 
 2. 跑 `node workbench/fetch_corpus.cjs --update my_plugin --ref <tag 或 main>`。
    它会：解析 commit → 下 codeload zip → 过滤解压 → 算 tree → 核对旧 anchors → 写回
-   `commit` / `archive_sha256` / `tree_sha256` / `files` / `version` / `updated_at`。
-3. review diff（尤其 `tree_sha256` 与 `files` 是否合理），提交。
+   `commit` / `archive_sha256` / `computedHash` / `files` / `version` / `updated_at`。
+3. review diff（尤其 `computedHash` 与 `files` 是否合理），提交。
 4. `--locked --verify-only` 应返回 `0`。
 
 ### 7.2 工具仓（git 来源）
@@ -207,9 +207,9 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 
 ```json
 "my_forge": {
-  "repo": "Owner/my-forge",
+  "source": "Owner/my-forge",
   "kind": "forge",
-  "source": "git",
+  "source_type": "git",
   "archive_format": "tar",
   "ref": "v1.2.3",
   "anchors": [ … ]
@@ -241,19 +241,21 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 
 `schema` 是整数，只在**破坏性变更**时升（字段语义变了、算法换了）。
 新增可选字段不升 schema——老条目缺字段时按§3.2 的默认值理解即可
-（例如没有 `source` 就是 `zip`，没有 `archive_format` 就是 `zip`）。
+（例如没有 `source_type` 就是 `zip`，没有 `archive_format` 就是 `zip`）。
 
-## 10. 与 vercel-labs/skills 的字段对照（不是同一套格式）
+## 10. 与 vercel-labs/skills 的字段对齐
 
-草稿早期建议与 `vercel-labs/skills` 的锁条目对齐，现在只能部分对应。**两边不要互相读写**：
+字段名与 `vercel-labs/skills` 的锁条目对齐，**但算法不同，哈希值不可互认**：
 
-| vercel-labs/skills | 本锁 | 说明 |
+| vercel-labs/skills | 本锁 | 关系 |
 |---|---|---|
-| `source` | `repo` | 那边 `source` 是**仓库标识**；本锁的 `source` 是**传输方式**（`zip` / `git`），撞名不同义 |
+| `source` | `source` | 同为仓库标识 `owner/name` |
 | `ref` | `ref` | 同名同义 |
-| `computedHash` | `tree_sha256` | **算法不同**：本锁是「过滤后文件按路径字节序 → 每行 `sha256 + 空格 + 路径 + \n` → 整串再 sha256」，且不做 CRLF 归一；不能与那边的值互认 |
+| `computedHash` | `computedHash` | 字段名相同，**算法不同**：本锁是「过滤后文件按路径字节序 → 每行 `sha256 + 空格 + 路径 + \n` → 整串再 sha256」，且不做 CRLF 归一 |
+| —— | `source_type` | 本锁额外区分传输方式（`zip` / `git`），那边没有这个概念 |
 | —— | `archive_sha256` | 本锁额外记归档字节 |
 | —— | `anchors` | 本锁额外记语义锚点 |
 
-撞名只有一个实际风险：把两边的 `source` 当成同一个东西，就会把仓库名填进传输方式。
-将来要真正对齐，把本锁的 `source` 改名为 `source_type`（目前只有 forge 一条在用，零成本）。
+同名字段只有三个（`source` / `ref` / `computedHash`）。跨工具复用时**必须同时确认算法版本**，
+否则会出现「字段对得上、哈希对不上」的误判。`schema` 与 `algo` 两个字段就是给这件事用的：
+`algo` 不匹配时，校验器必须直接报错而不是"差不多就过"。

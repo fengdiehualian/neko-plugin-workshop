@@ -49,7 +49,7 @@ node workbench/fetch_corpus.cjs --update-all                # 过滤规则改了
 ## git 来源（工具仓）
 
 市场插件走 codeload zip；**工具仓**（如 `plugin-forge`）不是市场插件，锁条目写
-`"source": "git"`，抓取走 `git fetch` + `git archive`。两条硬约束都是实测踩出来的：
+`"source_type": "git"`，抓取走 `git fetch` + `git archive`。两条硬约束都是实测踩出来的：
 
 - **抓取次序：完整 sha 优先，失败再退 tag。** 实测 40 位 sha 的 `git fetch <url> <sha>` GitHub 接受
   （`actions/checkout` 也这么取）；**7 位缩写会 `couldn't find remote ref`**——早期用缩写测，

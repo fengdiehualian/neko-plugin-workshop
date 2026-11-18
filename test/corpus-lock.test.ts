@@ -29,7 +29,7 @@ const withTempTree = (files: Record<string, string | Buffer>, fn: (root: string)
 }
 
 describe("语料锁:锁值与磁盘一致", () => {
-  test("每条的 tree_sha256 / files 都与 market-corpus 里的实际文件对得上", () => {
+  test("每条的 computedHash / files 都与 market-corpus 里的实际文件对得上", () => {
     const parsed = lock.loadLock(CORPUS)
     const slugs = Object.keys(parsed.entries)
     expect(slugs.length, "锁里一条都没有").toBeGreaterThan(0)
@@ -38,7 +38,7 @@ describe("语料锁:锁值与磁盘一致", () => {
       const measured = lock.treeHash(join(CORPUS, slug, "src"))
       expect(measured, slug + " 的语料目录不存在").not.toBeNull()
       expect(measured.files, slug + " 的文件数与锁不符").toBe(entry.files)
-      expect(measured.tree_sha256, slug + " 的字节与锁不符(改过语料就重跑 --update)").toBe(entry.tree_sha256)
+      expect(measured.computedHash, slug + " 的字节与锁不符(改过语料就重跑 --update)").toBe(entry.computedHash)
     }
   })
 
@@ -46,10 +46,10 @@ describe("语料锁:锁值与磁盘一致", () => {
     const parsed = lock.loadLock(CORPUS)
     for (const [slug, entry] of Object.entries(parsed.entries)) {
       expect(lock.SLUG_RE.test(slug), slug + " 不是合法 slug").toBe(true)
-      expect(entry.repo, slug + " 缺 repo").toMatch(/^[\w.-]+\/[\w.-]+$/)
+      expect(entry.source, slug + " 缺 source").toMatch(/^[\w.-]+\/[\w.-]+$/)
       expect(entry.ref, slug + " 缺 ref").toBeTruthy()
       expect(entry.commit, slug + " 缺 commit").toMatch(/^[0-9a-f]{40}$/)
-      expect(entry.tree_sha256, slug + " 缺 tree_sha256").toMatch(/^[0-9a-f]{64}$/)
+      expect(entry.computedHash, slug + " 缺 computedHash").toMatch(/^[0-9a-f]{64}$/)
       expect(entry.archive_sha256, slug + " 缺 archive_sha256").toMatch(/^[0-9a-f]{64}$/)
       expect(entry.version_source, slug + " 没记版本是哪个文件读出来的").toBeTruthy()
       expect(Array.isArray(entry.anchors), slug + " 缺 anchors").toBe(true)
@@ -84,7 +84,7 @@ describe("语料锁:锁值与磁盘一致", () => {
     expect(entry, "锁里没有 plugin-forge").toBeTruthy()
     // kind 是新增值:现有代码不读它,但写清楚「这是工具仓不是市场插件」
     expect(entry.kind).toBe("forge")
-    expect(entry.source).toBe("git")
+    expect(entry.source_type).toBe("git")
     expect(entry.ref).toBe("v2.8.0")
     expect(entry.commit).toBe("722529a5fb439e3972a4d42f1f7b7d3ea17985ab")
     expect(entry.version).toBe("2.8.0")
@@ -106,7 +106,7 @@ describe("语料锁:锁值与磁盘一致", () => {
   test("老条目没有 archive_format，按 zip 理解(向后兼容)", () => {
     const parsed = lock.loadLock(CORPUS)
     const rbb = parsed.entries.reuse_before_build
-    expect(rbb.source ?? "zip").toBe("zip")
+    expect(rbb.source_type ?? "zip").toBe("zip")
     expect(rbb.archive_format ?? "zip").toBe("zip")
   })
 
@@ -123,8 +123,8 @@ describe("语料锁:树哈希口径", () => {
   test("按字节算,不做 CRLF 归一(同一份内容换行不同必须不同哈希)", () => {
     let lf = ""
     let crlf = ""
-    withTempTree({ "a.md": "x\ny\n" }, (root) => { lf = lock.treeHash(root).tree_sha256 })
-    withTempTree({ "a.md": "x\r\ny\r\n" }, (root) => { crlf = lock.treeHash(root).tree_sha256 })
+    withTempTree({ "a.md": "x\ny\n" }, (root) => { lf = lock.treeHash(root).computedHash })
+    withTempTree({ "a.md": "x\r\ny\r\n" }, (root) => { crlf = lock.treeHash(root).computedHash })
     expect(lf).not.toBe(crlf)
   })
 
@@ -225,7 +225,7 @@ describe("语料锁:公开约定文档", () => {
     for (const s of ["--update", "--update-all", "--locked", "--verify-only"]) {
       expect(doc, "文档没讲 " + s).toContain(s)
     }
-    for (const s of ["source", "archive_format", "tree_sha256", "archive_sha256", "anchors", "kind"]) {
+    for (const s of ["source", "archive_format", "computedHash", "archive_sha256", "anchors", "kind"]) {
       expect(doc, "文档没讲字段 " + s).toContain(s)
     }
     expect(doc, "文档没写 git 来源的两条硬约束").toMatch(/refs\/tags/)

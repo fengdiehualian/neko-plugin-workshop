@@ -4,14 +4,14 @@
   "note": "语料锁 v0：每条记上游 commit、zip 哈希与落盘树的哈希。树哈希对「过滤后实际落盘的文件」计算，过滤规则变了也会被看见。生成/更新用 node workbench/fetch_corpus.cjs --update <slug> [--ref vX]，校验用 --locked；不要手改 hash 字段。",
   "entries": {
     "reuse_before_build": {
-      "repo": "1-dcjiang/neko-reuse-before-build",
+      "source": "1-dcjiang/neko-reuse-before-build",
       "kind": "plugin",
       "ref": "v0.3.22",
       "commit": "a375629a9a8b96af18809107aa7202c68c1f104d",
       "version": "0.3.22",
       "version_source": "plugin.toml",
       "archive_sha256": "76a4abbda02934f7fba14c87b27fcca96c2145e36104d1b426d169f0fdd5e96e",
-      "tree_sha256": "3dd0ac682bc2c1bd417b9fe9ec8a5f1afb7fd69bdf59967143d5e007e73f4fe6",
+      "computedHash": "3dd0ac682bc2c1bd417b9fe9ec8a5f1afb7fd69bdf59967143d5e007e73f4fe6",
       "files": 37,
       "release": {
         "tag": "v0.3.22",
@@ -67,16 +67,16 @@
       "updated_at": "2026-11-18T04:54:48.227Z"
     },
     "plugin-forge": {
-      "repo": "HorizonCloudy/plugin-forge",
+      "source": "HorizonCloudy/plugin-forge",
       "kind": "forge",
-      "source": "git",
+      "source_type": "git",
       "ref": "v2.8.0",
       "commit": "722529a5fb439e3972a4d42f1f7b7d3ea17985ab",
       "version": "2.8.0",
       "version_source": "plugin.json",
       "archive_format": "tar",
       "archive_sha256": "fbe98cd1d1f33ef407ceeaa8e4cfd7471cd2724b692a40116dc07c1677ac1501",
-      "tree_sha256": "6351f779682c72f5c6eef36ba9b0a03862c18087af561c4054fa20c9fbb14899",
+      "computedHash": "6351f779682c72f5c6eef36ba9b0a03862c18087af561c4054fa20c9fbb14899",
       "files": 80,
       "anchors": [
         {

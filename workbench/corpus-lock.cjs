@@ -21,7 +21,7 @@ const SCHEMA = 1
 const ALGO = "tree-sha256-v0"
 
 // 与 fetch_corpus.cjs 的过滤口径保持一致;改这里必须同步跑 --update-all,
-// 否则锁里的 tree_sha256 会与磁盘上的语料对不上(这是有意的失败,不是噪音)。
+// 否则锁里的 computedHash 会与磁盘上的语料对不上(这是有意的失败,不是噪音)。
 const MAX_FILE = 1500 * 1024
 const KEEP_EXT = new Set([".py", ".toml", ".md", ".json", ".yaml", ".yml", ".txt", ".ts", ".tsx", ".js", ".jsx", ".css", ".html", ".sql", ".sh", ".ps1"])
 // `.github` 也跳过:发布流水线对「读上游源码」没有价值,而 workflow 里常有
@@ -75,7 +75,7 @@ function treeHash(root) {
     return sha256buf(fs.readFileSync(abs)) + " " + rel + "\n"
   })
   return {
-    tree_sha256: sha256buf(Buffer.from(lines.join(""), "utf8")),
+    computedHash: sha256buf(Buffer.from(lines.join(""), "utf8")),
     files: files.length,
     paths: files,
   }
