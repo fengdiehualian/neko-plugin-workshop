@@ -79,7 +79,9 @@ describe("wb-studio 对外面快照", () => {
       expect(actual.configKeys, `配置键 ${k} 不见了`).toContain(k)
     }
     const cfg = src.slice(src.indexOf("const defaultConfig = {"), src.indexOf("\n}", src.indexOf("const defaultConfig = {")))
-    expect(cfg, "默认端口不该在重构中变化").toContain("port: 5099")
+    // 取完整数字再比:只写 toContain("port: 5099") 时,改成 50990 也会"通过"(CodeRabbit PR#35 指出)
+    const portInit = cfg.match(/\bport:\s*(\d+)/)
+    expect(portInit?.[1], "默认端口不该在重构中变化").toBe("5099")
   })
 
   test("源码里没有残留的占位/半成品标记", () => {

@@ -68,19 +68,28 @@ async function startStudio(): Promise<Smoke> {
   child.stderr?.on("data", (b) => { buf += String(b) })
 
   const base = `http://127.0.0.1:${port}`
-  const deadline = Date.now() + 25000
-  for (;;) {
-    if (child.exitCode !== null) {
-      throw new Error("实例启动即退出(exit=" + child.exitCode + "):\n" + buf.slice(-2000))
+  try {
+    const deadline = Date.now() + 25000
+    for (;;) {
+      if (child.exitCode !== null) {
+        throw new Error("实例启动即退出(exit=" + child.exitCode + "):\n" + buf.slice(-2000))
+      }
+      try {
+        const r = await fetch(base + "/api/health", { signal: AbortSignal.timeout(1200) })
+        if (r.ok) break
+      } catch {}
+      if (Date.now() > deadline) {
+        throw new Error("25 秒内 /api/health 没有起来。输出:\n" + buf.slice(-2000))
+      }
+      await new Promise((r) => setTimeout(r, 300))
     }
-    try {
-      const r = await fetch(base + "/api/health", { signal: AbortSignal.timeout(1200) })
-      if (r.ok) break
-    } catch {}
-    if (Date.now() > deadline) {
-      throw new Error("25 秒内 /api/health 没有起来。输出:\n" + buf.slice(-2000))
-    }
-    await new Promise((r) => setTimeout(r, 300))
+  } catch (e) {
+    // 走到这里说明还没返回 stop,调用方进不了它自己的 try/finally:
+    // 子进程与临时目录必须在这里收掉,否则 CI 上会留下占端口的孤儿进程,
+    // 下一条用例换个端口照样跑,失败信息却是"起来不来",查错方向会被带偏。
+    try { child.kill("SIGKILL") } catch {}
+    rmSync(dir, { recursive: true, force: true })
+    throw e
   }
 
   const stop = async () => {
@@ -116,7 +125,10 @@ describe("wb-studio 冒烟", () => {
       const sessions = await fetch(s.base + "/api/sessions")
       expect(sessions.status).toBe(200)
       const sj = await sessions.json() as Record<string, unknown>
-      expect(Array.isArray(sj.sessions ?? sj.items ?? []), "会话列表不是数组").toBe(true)
+      // 服务端回的是 { ok, current, items }。这里不用 `?? []` 兜底:
+      // 回一个 `{}` 也能被兜成空数组,那这条回归就形同虚设(CodeRabbit PR#35 指出)。
+      expect(sj, "会话列表响应缺 items 字段").toHaveProperty("items")
+      expect(Array.isArray(sj.items), "items 应是数组").toBe(true)
 
       // 进程还活着 = 上面三次请求没有把服务打崩
       expect(s.child.exitCode).toBeNull()
