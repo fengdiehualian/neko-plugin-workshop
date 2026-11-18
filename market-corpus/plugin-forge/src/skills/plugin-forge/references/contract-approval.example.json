@@ -1,0 +1,21 @@
+{
+  "schema": "plugin-forge/contract-approval@1",
+  "task": "为 N.E.K.O 做一个每日运势播报插件（示例）",
+  "platform": "neko@0984249",
+  "decision": "approved",
+  "verdict": "裁决：准奏。定时回调=runtime 入口 [FACT] profile-neko §3；每日一次调度 [FACT] §4；LLM 播报 [FACT] §4 llm.chat。风险：宿主 0.9 前无 cron 表达式，降级为整点触发。",
+  "plan_file": "PLAN.md",
+  "plan_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "scope": [
+    "src/**",
+    "plugin.toml",
+    "tests/**"
+  ],
+  "issued_by": "plugin-forge-contract",
+  "issued_at": "2026-11-14T10:30:00+08:00",
+  "expires_at": "2026-11-28T10:30:00+08:00",
+  "verify_commands": [
+    "python skills/plugin-forge/scripts/security_audit.py . --json",
+    "python scripts/generate_roster_tables.py --check"
+  ]
+}

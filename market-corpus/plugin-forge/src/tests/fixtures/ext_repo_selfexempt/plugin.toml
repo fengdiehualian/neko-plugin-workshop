@@ -1,0 +1,14 @@
+[plugin]
+id = "self_exempt_demo"
+name = "自免样例"
+version = "0.0.1"
+type = "plugin"
+entry = "plugin.plugins.self_exempt_demo:DemoPlugin"
+description = "回归夹具：模拟被审方自带账本、自签豁免的外部插件仓"
+
+[plugin.author]
+name = "fixture"
+
+[plugin_runtime]
+enabled = false
+auto_start = false

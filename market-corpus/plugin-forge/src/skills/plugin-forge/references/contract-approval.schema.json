@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "plugin-forge/contract-approval@1",
+  "title": "plugin-forge 契约准奏记录（contract-approval.json）",
+  "description": "契约审议师裁决落盘产物，放在插件项目根目录。check_contract_approval.py 据此放行/拒绝写码：没有本文件、decision 非 approved、过期、或目标路径不在 scope，代码一律不许写。",
+  "type": "object",
+  "required": ["schema", "task", "platform", "decision", "issued_by", "issued_at",
+               "scope", "verify_commands"],
+  "properties": {
+    "schema": {
+      "const": "plugin-forge/contract-approval@1",
+      "description": "格式标识。脚本按它识别与拒绝旧格式。"
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "description": "一句话任务标识，防张冠李戴（同一项目多任务各自留档）。"
+    },
+    "platform": {
+      "type": "string",
+      "description": "目标平台与 profile 版本，如 neko@0984249。"
+    },
+    "decision": {
+      "enum": ["approved", "rejected"],
+      "description": "只有 approved 放行写码；rejected 留档即拒绝证据。"
+    },
+    "verdict": {
+      "type": "string",
+      "description": "裁决全文：准奏=逐条能力→出处；封驳=编号理由+改法。"
+    },
+    "plan_file": {
+      "type": "string",
+      "description": "被审议方案文件的相对路径。"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$",
+      "description": "方案内容摘要，方案改动后旧准奏自动失效用。填了就必须能读到 plan_file 且摘要一致；照抄示例里的摘要（空文件摘要）必被拒，落盘前按自己的方案文件重算。"
+    },
+    "scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "允许改动的路径 glob（相对项目根）：src/** 跨目录；* 不跨 /；不含 / 的模式按文件名匹配。只写方案实际要动的文件。"
+    },
+    "verify_commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "怎么证明这次交付真的能跑：验收命令数组，每条都得是能直接执行的命令。门禁逐条核：第一个词要么是工作区里真存在的脚本，要么是本机解析得到的程序（python、npx、pnpm、bun、pytest、node 一类），命令里引用的文件也必须真在。核不过就对所有目标一致拒绝。旧记录没这个字段只打 WARN，不追溯打回；重新送审时必须补上。没有它，「我测过了」这句话无法证伪。"
+    },
+    "issued_by": {
+      "const": "plugin-forge-contract",
+      "description": "准奏只能出自契约审议师；其他角色签发无效。"
+    },
+    "issued_at": {
+      "type": "string",
+      "description": "签发时间（ISO 8601，带时区）。"
+    },
+    "expires_at": {
+      "type": "string",
+      "description": "可选失效时间；缺省表示长期有效，但方案变更（plan_sha256 不匹配）应重新送审。"
+    }
+  },
+  "additionalProperties": true
+}

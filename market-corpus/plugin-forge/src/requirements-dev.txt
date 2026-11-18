@@ -1,0 +1,3 @@
+# pytest 是本仓唯一的开发依赖：产品脚本仍然零第三方依赖。
+# 装法：python -m pip install -r requirements-dev.txt
+pytest>=8,<10

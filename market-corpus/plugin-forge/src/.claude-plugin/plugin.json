@@ -1,0 +1,20 @@
+{
+  "name": "plugin-forge",
+  "version": "2.8.0",
+  "description": "插件制造专家团（唯一编制，1 主理人 + 13 专家）：契约先行 + 先搜后建 + TDD + 安全门禁 + 宿主变更影响审计 + 双风格文档门禁；N.E.K.O 平台资产（沙箱 skill、能力刷新、NEKO 笔记）作为 profile 扩展阅读内置。",
+  "author": {
+    "name": "云朵",
+    "email": "HorizonCloudy@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/HorizonCloudy/plugin-forge",
+  "repository": "https://github.com/HorizonCloudy/plugin-forge",
+  "license": "MIT",
+  "keywords": [
+    "plugins",
+    "multi-agent",
+    "contract-first",
+    "ste100",
+    "anti-slop",
+    "neko"
+  ]
+}

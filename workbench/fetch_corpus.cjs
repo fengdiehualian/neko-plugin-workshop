@@ -48,6 +48,9 @@ const updateAll = process.argv.includes("--update-all")
 const updateMode = process.argv.includes("--update")
 const updateSlug = arg("update", "")
 const updateRef = arg("ref", "")
+// tag 被移动时,--update 默认拒绝:同一个 ref 指向了新 commit,意味着「版本号没变、内容变了」。
+// 确认是上游有意重打 tag 之后再显式加这个开关。
+const acceptMoved = process.argv.includes("--accept-moved")
 
 // --ssl-no-revoke 是 Windows Schannel 专有开关:Linux/macOS 的 curl 会把它当未知参数直接失败,
 // 所以按平台给。CI/服务器上跑 --update 的时候不能靠它。
@@ -82,6 +85,33 @@ function listAll() {
   }
   return out
 }
+/** 把 from 下的文件按语料白名单复制到 dest。过滤口径只有这一处:
+ *  zip 通道与 git 通道共用,否则两条通道会各自漂出一套「什么算语料」。 */
+function copyFilteredTree(from, dest) {
+  let kept = 0
+  const walk = (srcDir, relTo) => {
+    for (const e of fs.readdirSync(srcDir, { withFileTypes: true })) {
+      if (e.isDirectory() && SKIP_DIRS.has(e.name)) continue
+      const a = path.join(srcDir, e.name)
+      if (e.isDirectory()) { walk(a, path.join(relTo, e.name)); continue }
+      // lstat 而不是 stat:stat 会跟随符号链接,把链接指向的宿主文件(比如 ~/.ssh/id_rsa)
+      // 读进语料。git 的 tar 比 zip 更容易带 symlink。设备/管道/socket 同理一律跳过。
+      const st = fs.lstatSync(a)
+      if (!st.isFile()) continue
+      const name = e.name.toLowerCase()
+      const ext = path.extname(name)
+      const keep = KEEP_EXT.has(ext) || (ext === "" && KEEP_NAME.has(name))
+      if (st.size > MAX_FILE || !keep) continue
+      const target = path.join(dest, relTo, e.name)
+      fs.mkdirSync(path.dirname(target), { recursive: true })
+      fs.copyFileSync(a, target)
+      kept++
+    }
+  }
+  walk(from, "")
+  return kept
+}
+
 // 只保留代码/配置/文档,且跳过超大文件;顺带把绝对路径与密钥形态的内容原样留着但不执行
 function extractZip(zipPath, dest) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wbcorpus-"))
@@ -101,30 +131,12 @@ function extractZip(zipPath, dest) {
       lastErr = String(r.stderr || (r.error && r.error.message) || "").slice(0, 160)
     }
     if (!unpacked) throw new Error("解压失败(tar/unzip/python 都不行):" + lastErr)
-    let kept = 0
-    const walk = (from, relTo) => {
-      for (const e of fs.readdirSync(from, { withFileTypes: true })) {
-        if (e.isDirectory() && SKIP_DIRS.has(e.name)) continue
-        const a = path.join(from, e.name)
-        if (e.isDirectory()) { walk(a, path.join(relTo, e.name)); continue }
-        const st = fs.statSync(a)
-        const name = e.name.toLowerCase()
-        const ext = path.extname(name)
-        const keep = KEEP_EXT.has(ext) || (ext === "" && KEEP_NAME.has(name))
-        if (st.size > MAX_FILE || !keep) continue
-        const target = path.join(dest, relTo, e.name)
-        fs.mkdirSync(path.dirname(target), { recursive: true })
-        fs.copyFileSync(a, target)
-        kept++
-      }
-    }
     // zip 顶层是 <repo>-<branch>/:先剥掉这一层,否则语料会变成 dest/<repo>-main/rbb_core.py。
     // 剥完直接落到 dest(src),与"dest/src 存在就跳过"的判断对齐。
     const entries = fs.readdirSync(tmp, { withFileTypes: true })
     const topDirs = entries.filter((e) => e.isDirectory())
     const root = topDirs.length === 1 && entries.length === 1 ? path.join(tmp, topDirs[0].name) : tmp
-    walk(root, "")
-    return kept
+    return copyFilteredTree(root, dest)
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
   }
@@ -189,12 +201,111 @@ function installAtCommit(slug, ghRepo, commit) {
     fs.writeFileSync(zipPath, buf)
     const kept = extractZip(zipPath, staging)
     const measured = locklib.treeHash(staging)
-    return { kept, measured, archive_sha256: sha256buf(buf), mirror, staging, zipPath }
+    return { kept, measured, archive_sha256: sha256buf(buf), mirror, staging, zipPath, archive_format: "zip" }
   } catch (e) {
     try { fs.rmSync(staging, { recursive: true, force: true }) } catch {}
     throw e
   } finally {
     try { fs.rmSync(zipPath, { force: true }) } catch {}
+  }
+}
+
+// ---- git 来源 ------------------------------------------------------------
+// 工具仓(如 plugin-forge)不是市场插件:没有市场 zip,来源是 git repo + tag/sha。
+// 两条硬约束都是实测踩出来的:
+//   1 抓取次序:**完整 40 位 sha 优先,失败再退 refs/tags|heads**。
+//      实测 40 位 sha 的 `git fetch <url> <sha>` GitHub 接受;7 位缩写会
+//      `couldn't find remote ref 722529a`(早期我用缩写测,得出过"裸 sha 不能抓"的错结论)。
+//      钉 sha 比钉 tag 稳:tag 可被删或移动,sha 不会。
+//   2 `git archive` 的输出受 core.autocrlf / core.eol 影响:同一 commit 在本地仓库与
+//      浅克隆出的 tar 字节不同(实测 1,259,520 vs 1,269,760)。不固定这两个参数的话,
+//      archive_sha256 只在一台机器上成立。
+const GIT_EOL = ["-c", "core.autocrlf=false", "-c", "core.eol=lf"]
+// 本机 Windows 的 Schannel 完成不了证书吊销检查时,git 直接报
+// CRYPT_E_NO_REVOCATION_CHECK 并拒绝访问;curl 那条路早有 `--ssl-no-revoke` 同理。
+//
+// 两个开关,免得把用户环境写死:
+//   WB_GIT_SSL_BACKEND=openssl  换后端(企业 CA 环境常用);
+//   WB_GIT_STRICT_TLS=1         完全不加这两个参数,严格按本机 git 配置走。
+// 不加 sslBackend 单独设 schannelCheckRevoke 是无效的——那个选项只属于 schannel 后端。
+const GIT_TLS = (() => {
+  if (process.platform !== "win32") return []
+  if (process.env.WB_GIT_STRICT_TLS === "1") return []
+  const backend = process.env.WB_GIT_SSL_BACKEND || "schannel"
+  return ["-c", "http.sslBackend=" + backend, "-c", "http.schannelCheckRevoke=false"]
+})()
+
+function gitRun(args, opts = {}) {
+  const r = spawnSync("git", [...GIT_TLS, ...args], {
+    encoding: "utf8",
+    maxBuffer: 1 << 28,
+    timeout: 180000,                                     // 私有仓/404 时 git 会一直等凭据,必须有上限
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },   // 不弹凭据窗口,失败信息里说清
+    ...opts,
+  })
+  if (r.error) {
+    const why = r.error.code === "ETIMEDOUT"
+      ? "超时 180s(网络不通,或在等凭据)"
+      : r.error.message
+    throw new Error("git 跑不起来(" + why + ")。这条通道需要本机装 git 且能访问 github.com")
+  }
+  if (r.status !== 0) {
+    const tail = String(r.stderr || r.stdout || "").slice(0, 200)
+    const hint = /could not read Username|terminal prompts disabled|Authentication failed/i.test(tail)
+      ? "(需要凭据:私有仓要设 GITHUB_TOKEN 或先在命令行登录)"
+      : ""
+    throw new Error("git 失败(" + args.filter((x) => !x.startsWith("-")).slice(0, 2).join(" ") + "):" + tail + hint)
+  }
+  return r.stdout
+}
+
+/** 按 commit 抓一份 git 语料,落到 <slug>/src.partial,返回与 zip 通道同形的实测值。 */
+function installFromGit(slug, ghRepo, ref, expectCommit) {
+  const dest = path.join(OUT, slug)
+  const staging = path.join(dest, "src.partial")
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wbgit-"))
+  const url = "https://github.com/" + ghRepo + ".git"
+  try {
+    gitRun(["init", "-q", tmp])
+    let sha = ""
+    let lastErr = ""
+    // 完整 sha 先试,再退 tag/分支。ref 可能是 "HEAD"(latestRef 的回退值),
+    // 那种情况下 refs/tags|heads/HEAD 都不存在,只能靠 sha 那条路。
+    const specs = []
+    if (/^[0-9a-f]{40}$/.test(String(expectCommit || ""))) specs.push(String(expectCommit))
+    if (ref) specs.push("refs/tags/" + ref, "refs/heads/" + ref)
+    for (const spec of specs) {
+      try {
+        gitRun(["-C", tmp, "fetch", "-q", "--depth", "1", "--no-tags", url, spec + ":refs/corpus-ref"])
+        sha = gitRun(["-C", tmp, "rev-parse", "refs/corpus-ref^{commit}"]).trim()
+        break
+      } catch (e) { lastErr = String((e && e.message) || e).slice(0, 180) }
+    }
+    if (!sha) throw new Error("抓不到 " + ghRepo + "@" + (expectCommit || ref) + ":" + lastErr)
+    if (expectCommit && sha !== expectCommit) {
+      throw new Error("抓到的是 " + sha.slice(0, 12) + ",锁里钉的是 " +
+        String(expectCommit).slice(0, 12) + "——ref 被移动过,先确认再改锁")
+    }
+    const tar = gitRun(["-C", tmp, ...GIT_EOL, "archive", "--format=tar", sha], { encoding: "buffer" })
+    const tarPath = path.join(tmp, "corpus.tar")
+    fs.writeFileSync(tarPath, tar)
+    const raw = path.join(tmp, "raw")
+    fs.mkdirSync(raw, { recursive: true })
+    // 用相对文件名 + cwd:Git Bash 的 GNU tar 会把 `C:\…` 的冒号当成远程主机
+    // (tar 的 host:path 语法),报 "Cannot connect to C:"。zip 通道那条一直靠
+    // unzip/python 兜底,这条没有兜底,必须一开始就用相对路径。
+    const u = spawnSync("tar", ["-xf", "corpus.tar", "-C", "raw"], { cwd: tmp, encoding: "latin1" })
+    if (u.status !== 0) throw new Error("解 tar 失败:" + String(u.stderr || "").slice(0, 160))
+    fs.rmSync(staging, { recursive: true, force: true })
+    fs.mkdirSync(staging, { recursive: true })
+    const kept = copyFilteredTree(raw, staging)
+    const measured = locklib.treeHash(staging)
+    return { kept, measured, archive_sha256: sha256buf(tar), mirror: "git", staging, commit: sha, archive_format: "tar" }
+  } catch (e) {
+    try { fs.rmSync(staging, { recursive: true, force: true }) } catch {}
+    throw e
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
   }
 }
 
@@ -208,6 +319,20 @@ function commitInstall(slug, staging) {
 
 // ---- --locked / --verify-only ---------------------------------------------
 
+/** 锁条目形状检查,返回问题描述(没问题返回 null)。
+ *  以前 runLocked 直接 `entry.tree_sha256.slice(...)` / `path.join(OUT, slug)`:
+ *  条目缺字段时抛 TypeError 整个扫描中止;slug 写 `../x` 还会越出语料目录。
+ *  这里统一拦住,让「这条不合规」而不是「程序崩了」。 */
+function entryProblem(slug, entry) {
+  try { locklib.assertSlug(slug) } catch (e) { return String((e && e.message) || e) }
+  if (!/^[\w.-]+\/[\w.-]+$/.test(String(entry.repo || ""))) return "repo 不是 owner/name:" + entry.repo
+  if (!/^[0-9a-f]{40}$/.test(String(entry.commit || ""))) return "commit 不是 40 位十六进制:" + String(entry.commit || "").slice(0, 24)
+  if (!/^[0-9a-f]{64}$/.test(String(entry.tree_sha256 || ""))) return "缺 tree_sha256"
+  if (typeof entry.files !== "number") return "缺 files"
+  if (entry.source === "git" && !entry.ref) return "git 来源缺 ref(抓取要靠它定位,sha 只用于核对)"
+  return null
+}
+
 function runLocked() {
   const lock = locklib.loadLock(OUT)
   const slugs = Object.keys(lock.entries)
@@ -215,6 +340,8 @@ function runLocked() {
   let failed = 0, passed = 0, fetched = 0
   for (const slug of slugs) {
     const entry = lock.entries[slug]
+    const bad = entryProblem(slug, entry)
+    if (bad) { failed++; console.error("FAIL  " + slug + "  锁条目不合规:" + bad); continue }
     const root = path.join(OUT, slug)
     const current = locklib.treeHash(path.join(root, "src"))
 
@@ -243,7 +370,9 @@ function runLocked() {
     }
     // 锁里有、磁盘没有:按锁里的 commit 抓一份,再逐项核对
     try {
-      const r = installAtCommit(slug, entry.repo, entry.commit)
+      const r = entry.source === "git"
+        ? installFromGit(slug, entry.repo, entry.ref || entry.commit, entry.commit)
+        : installAtCommit(slug, entry.repo, entry.commit)
       if (r.archive_sha256 !== entry.archive_sha256) {
         console.warn("WARN  " + slug + "  archive sha256 与锁不符(镜像/网络差异,只警告):" + r.archive_sha256.slice(0, 16) + "… vs " + String(entry.archive_sha256).slice(0, 16) + "…")
       }
@@ -307,13 +436,25 @@ function runUpdate() {
     const ref = updateAll ? (entry.ref || "HEAD") : (updateRef || latestRef(ghRepo))
     try {
       const commit = resolveCommit(ghRepo, ref)
+      // 同一个 ref 指向的 commit 变了 = ref 被移动。默认拒绝:
+      // --update 会把刚解析出的 commit 当成期望值传给 installFromGit,自己永远自洽,
+      // 所以这里必须先拦一道,否则「版本号没变、内容变了」会静默进锁。
+      if (!updateAll && entry.ref === ref && entry.commit && commit !== entry.commit && !acceptMoved) {
+        failed++
+        console.error("FAIL  " + slug + "  ref " + ref + " 现在指向 " + commit.slice(0, 12) +
+          ",锁里钉的是 " + entry.commit.slice(0, 12) +
+          "——ref 没变但内容变了(tag 被移动)。确认上游是有意重打后再加 --accept-moved 重跑。")
+        continue
+      }
       const root = path.join(OUT, slug)
       const current = locklib.treeHash(path.join(root, "src"))
       if (current && commit === entry.commit && current.tree_sha256 === entry.tree_sha256) {
         console.log("SAME  " + slug + "  " + ref + "@" + commit.slice(0, 12) + "  已是这一份,跳过")
         continue
       }
-      const r = installAtCommit(slug, ghRepo, commit)
+      const r = entry.source === "git"
+        ? installFromGit(slug, ghRepo, ref, commit)
+        : installAtCommit(slug, ghRepo, commit)
       const v = locklib.readVersion(r.staging)
       // 重锁前先按锁里的锚点核对一遍新内容:上游把 plugin.toml / SKILL.md 改名或挪走时,
       // 树哈希照样能算、锁照样会写成功,坏掉的是下一次 --verify 的解释力
@@ -343,6 +484,7 @@ function runUpdate() {
         commit,
         version: v.version || entry.version || null,
         version_source: v.version ? v.version_source : (entry.version_source || null),
+        archive_format: r.archive_format || entry.archive_format || "zip",
         archive_sha256: r.archive_sha256,
         tree_sha256: r.measured.tree_sha256,
         files: r.measured.files,

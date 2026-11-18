@@ -17,7 +17,19 @@ const catalog = read(join(SKILL_DIR, "references", "market-catalog.md"))
 const patterns = read(join(SKILL_DIR, "references", "market-patterns.md"))
 
 const corpusDir = join(ROOT, "market-corpus")
-const corpus = readdirSync(corpusDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)
+const allDirs = readdirSync(corpusDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)
+// plugin-forge 是工具仓(锁里 kind=forge),借 corpus.lock 上锁,但不是市场插件:
+// 它没有 plugin.toml、不在市场索引里,也不该把「市场插件语料数」抬高一。
+// 判断口径用锁里的 kind,而不是写死名单——以后再加工具仓只要 kind=forge 就自动排除。
+const lockFile = join(corpusDir, "corpus.lock.json")
+const lockKinds = (() => {
+  try {
+    const parsed = JSON.parse(readFileSync(lockFile, "utf8"))
+    return Object.fromEntries(Object.entries(parsed.entries ?? {}).map(([k, v]) => [k, (v as { kind?: string }).kind ?? "plugin"]))
+  } catch { return {} as Record<string, string> }
+})()
+const nonMarket = (slug: string) => lockKinds[slug] === "forge"
+const corpus = allDirs.filter((s) => !nonMarket(s))
 const hasToml = (slug: string) =>
   existsSync(join(corpusDir, slug, "plugin.toml")) ||
   existsSync(join(corpusDir, slug, "src", "plugin.toml")) ||

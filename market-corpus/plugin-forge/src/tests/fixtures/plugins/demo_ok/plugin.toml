@@ -1,0 +1,10 @@
+[plugin]
+id = "demo_ok"
+name = "验收样例（好）"
+version = "1.0.0"
+entry = "plugin.plugins.demo_ok:DemoOkPlugin"
+author = "plugin-forge"
+description = "dry_load 的正样例：入口用上游能装的包写法，类在 __init__.py，方法都是协程。"
+
+[plugin_runtime]
+auto_start = true

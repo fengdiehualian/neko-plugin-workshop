@@ -52,7 +52,11 @@ function listCorpusFiles(root, rel = "", out = []) {
       listCorpusFiles(root, childRel, out)
       continue
     }
-    const st = fs.statSync(path.join(root, childRel))
+    const st = fs.lstatSync(path.join(root, childRel))
+    // 只算普通文件:statSync 会跟随符号链接,把链接指向的宿主文件读进哈希;
+    // 而抓取侧(copyFilteredTree)也用 lstat 跳过,两边口径必须一致,
+    // 否则含 symlink 的上游会出现「抓下来 37 个、算哈希 38 个」。
+    if (!st.isFile()) continue
     if (!keepFile(e.name, st.size)) continue
     out.push(childRel)
   }
@@ -140,6 +144,20 @@ function readVersion(root) {
       const m = re.exec(fs.readFileSync(p, "utf8"))
       if (m) return { version: m[1], version_source: label }
     }
+  }
+  // .claude-plugin/plugin.json:Claude Code 插件清单,版本只写在这。
+  // 用 JSON.parse 而不是正则:清单里还有 sdk/keywords 之类的 "version" 字样,
+  // 正则取第一个会张冠李戴。优先级排在 plugin.toml / pyproject.toml 之后,
+  // 市场插件条目仍以宿主认的那份清单为准。
+  for (const base of bases) {
+    const p = path.join(root, ...(base + ".claude-plugin/plugin.json").split("/"))
+    if (!fs.existsSync(p)) continue
+    try {
+      const j = JSON.parse(fs.readFileSync(p, "utf8"))
+      if (j && typeof j.version === "string" && j.version) {
+        return { version: j.version, version_source: "plugin.json" }
+      }
+    } catch {}
   }
   return { version: null, version_source: null }
 }
