@@ -40,6 +40,14 @@
 
 ### 3.1 必填
 
+先分清三档，别把「手写时要给」当成「校验器会查」：
+
+| 档 | 要求 |
+|---|---|
+| **手写时必填** | `repo`、`kind`、`ref`、`anchors`。`--update` 靠 `ref` 定位，靠 `anchors` 在写锁前核对新内容。 |
+| **`--update` 之后必填** | `commit`、`tree_sha256`、`files`、`archive_sha256`、`updated_at`。由工具写，不要手改。 |
+| **校验器强制**（`--locked` / `--verify-only`） | slug 走 `^[a-z0-9_-]+$`；`repo` 必须 `owner/name`；`commit` 必须 40 位十六进制；`tree_sha256` 必须 64 位十六进制；`files` 必须是数字；`source: "git"` 必须带 `ref`。缺任一项报「锁条目不合规」，不会抛 TypeError。 |
+
 | 字段 | 类型 | 含义 |
 |---|---|---|
 | `repo` | string | `owner/name`（GitHub）。**不带协议与 `.git`**。 |
@@ -97,6 +105,14 @@
 - **目录跳过**：`.git` `.github` `node_modules` `__pycache__` `.venv` `dist` `build` `.vscode`
 - **单文件上限**：`1536000` 字节（1500 × 1024），超了不进树
 
+实现细节（不写清这几处，自己写的校验器会对不上）：
+
+- 扩展名与无扩展名文件名**先转小写再匹配**（`LICENSE`、`License` 等价）；
+- 跳过目录按**目录名精确匹配**，任意深度（`a/b/.github/` 也跳）；
+- 单文件上限是 `size <= MAX_FILE`，**等号在内**；
+- **符号链接与非常规文件一律不进树**（抓取与哈希两侧都用 `lstat`，不跟随链接）；
+- `anchors` 是**区分大小写**的子串匹配，不是正则。
+
 > 这份清单是 v0 快照。判据源在 `workbench/corpus-lock.cjs` 的 `KEEP_EXT` / `KEEP_NAME` /
 > `SKIP_DIRS` / `MAX_FILE`。**改这些常量等于改锁**：必须跑 `--update-all` 重锁，
 > 否则所有条目的树哈希都会变成"改过语料"。
@@ -149,6 +165,19 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 `archive_sha256` **不符只警告**：镜像站偶尔改压缩包封装，内容树对得上才是硬要求。
 `tree_sha256` 不符是硬失败，报错里会同时给磁盘值与锁值。
 
+### 6.1 退出码按命令分列
+
+三个入口的 `2` 含义完全不同，别混着读：
+
+| 命令 | `0` | `1` | `2` |
+|---|---|---|---|
+| `fetch_corpus --locked` / `--verify-only` | 全部通过 | 有失败：空锁、条目不合规、树哈希不符、锚点缺失、抓取失败、语料缺失（`--verify-only` 时） | ——（这条命令不返回 2） |
+| `fetch_corpus --update` / `--update-all` | 更新成功 | 有条目更新失败（含 ref 被移动、锚点不满足） | 用法错误：缺 slug、slug 非法、锁里没有可更新条目 |
+| `workbench/pull_forge.cjs` | 与钉版一致 | 语料缺失或树哈希不符 | `forge-pin.json` 与锁口径冲突（commit/ref/version 等对不上）、pin 或锁读不了 |
+
+顶层异常（JSON 坏、schema 不认识）走 `1`，与「有失败项」同码——这是已知的粗粒度，
+不影响判读：输出里有 `FAIL` 行点名原因。
+
 ## 7. 新增一条：两条路径
 
 ### 7.1 市场插件（zip 来源）
@@ -187,10 +216,13 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 }
 ```
 
-两个硬约束（都是实测踩出来的）：
+三个硬约束（都是实测踩出来的）：
 
-- **不能按裸 sha 抓**：`git fetch <url> <sha>` 在 GitHub 上直接 `couldn't find remote ref`。
-  只能按 `refs/tags/<ref>`（或 `refs/heads/<ref>`）取，再用 `rev-parse` 核对是否等于锁里的 `commit`。
+- **抓取次序：完整 sha 优先，失败再退 tag。** 40 位 sha 的 `git fetch <url> <sha>` GitHub 接受
+  （`actions/checkout` 也这么取）；**7 位缩写会 `couldn't find remote ref`**——早期用缩写测过，
+  得出了「裸 sha 不能抓」的错结论。钉 sha 比钉 tag 稳：tag 可被删或移动，sha 不会。
+- **ref 被移动时 `--update` 默认拒绝**：同一个 `ref` 指向了新 commit，意味着「版本号没变、内容变了」。
+  确认上游是有意重打之后，加 `--accept-moved` 重跑。
 - **`git archive` 必须固定换行**：抓取时用 `-c core.autocrlf=false -c core.eol=lf`。
   不固定的话同一 commit 在两台机器上导出不同字节的 tar，`archive_sha256` 只在一台机器上成立。
 
@@ -200,7 +232,7 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 |---|---|---|
 | `树哈希不符`，文件数一样 | 语料被手改，或过滤规则变了 | 确认是故意的 → `--update` 重锁 |
 | `锚点缺失`，但树哈希一致 | 上游挪了文件但内容没变 | 先改 `anchors`，再 `--update` |
-| `ref vX 现在指向 <shaA>，锁里钉的是 <shaB>` | tag 被移动过 | 确认新内容后改锁里的 `commit` |
+| `ref vX 现在指向 <shaA>，锁里钉的是 <shaB>` | ref 被移动（tag 重打过） | 确认上游有意 → `--update … --accept-moved`；否则查上游 |
 | `语料缺失 … --verify-only 不联网` | 没抓过 | 去掉 `--verify-only` 跑一次 `--locked` |
 | Windows 上 tree 与 CI 不一致 | 检出成了 CRLF | 见 §4.2 强制重检出 |
 
@@ -209,3 +241,18 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 `schema` 是整数，只在**破坏性变更**时升（字段语义变了、算法换了）。
 新增可选字段不升 schema——老条目缺字段时按§3.2 的默认值理解即可
 （例如没有 `source` 就是 `zip`，没有 `archive_format` 就是 `zip`）。
+
+## 10. 与 vercel-labs/skills 的字段对照（不是同一套格式）
+
+草稿早期建议与 `vercel-labs/skills` 的锁条目对齐，现在只能部分对应。**两边不要互相读写**：
+
+| vercel-labs/skills | 本锁 | 说明 |
+|---|---|---|
+| `source` | `repo` | 那边 `source` 是**仓库标识**；本锁的 `source` 是**传输方式**（`zip` / `git`），撞名不同义 |
+| `ref` | `ref` | 同名同义 |
+| `computedHash` | `tree_sha256` | **算法不同**：本锁是「过滤后文件按路径字节序 → 每行 `sha256 + 空格 + 路径 + \n` → 整串再 sha256」，且不做 CRLF 归一；不能与那边的值互认 |
+| —— | `archive_sha256` | 本锁额外记归档字节 |
+| —— | `anchors` | 本锁额外记语义锚点 |
+
+撞名只有一个实际风险：把两边的 `source` 当成同一个东西，就会把仓库名填进传输方式。
+将来要真正对齐，把本锁的 `source` 改名为 `source_type`（目前只有 forge 一条在用，零成本）。
