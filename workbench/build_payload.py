@@ -43,6 +43,10 @@ NOT_PACKAGED = ["wb-studio.config.json"]
 REQUIRED = [
     ("wb-studio.mjs", 100_000),
     ("wb-agent-lib.mjs", 10_000),
+    # 拆分出来的运行期模块:git archive 全量打包,这些会自动进包,
+    # 但"少了一个模块"不会让打包失败——必须在这里点名,缺了才在出厂检查时红。
+    # 每搬一块就往这里追加一条(路径与最小体积)。
+    ("src/studio/util.mjs", 500),
     ("package.json", 100),
     ("_zcode/node.exe", 50_000_000),   # 91MB:小于 50MB 就是没打进去或打了残件
     ("_zcode/zcode.cjs", 1_000_000),
