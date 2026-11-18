@@ -3,7 +3,7 @@ import { spawn } from "node:child_process"
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
-import { dirname, join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 // wb-studio.mjs 的冒烟:真的起一个实例,打三个入口,确认它能监听并回话。
@@ -42,68 +42,88 @@ type Smoke = {
 /** 在临时目录起一个实例,等到 /api/health 能回话(或超时抛错)。 */
 async function startStudio(): Promise<Smoke> {
   const dir = mkdtempSync(join(tmpdir(), "wbstudio-smoke-"))
-  // 主文件 + 唯一一个顶层静态依赖;src/experts.ts 是动态 import,缺失只会 warn
-  copyFileSync(join(ROOT, "wb-studio.mjs"), join(dir, "wb-studio.mjs"))
-  copyFileSync(join(ROOT, "wb-agent-lib.mjs"), join(dir, "wb-agent-lib.mjs"))
-  mkdirSync(join(dir, "workspace"), { recursive: true })
-
-  const port = await freePort()
-  writeFileSync(join(dir, "wb-studio.config.json"), JSON.stringify({
-    port,
-    engineMode: "cli",          // 不启引擎:ensureEngine 在 cli 模式直接返回
-    engineCmd: [],
-    openBrowser: false,
-    openMode: "browser",
-    workspace: "./workspace",
-    timeoutSec: 120,
-  }, null, 2) + "\n", "utf8")
-
-  const child = spawn(process.execPath, [join(dir, "wb-studio.mjs")], {
-    cwd: dir,
-    env: { ...process.env, WB_STUDIO_NOWINDOW: "1" },
-    stdio: ["ignore", "pipe", "pipe"],
-  })
+  let child: ReturnType<typeof spawn> | null = null
   let buf = ""
-  child.stdout?.on("data", (b) => { buf += String(b) })
-  child.stderr?.on("data", (b) => { buf += String(b) })
+  const cleanupDir = () => {
+    // 删目录只是收尾:它失败不许盖掉真正的启动错误
+    try { rmSync(dir, { recursive: true, force: true }) } catch {}
+  }
+  const waitExit = (proc: ReturnType<typeof spawn>) => Promise.race([
+    new Promise((r) => proc.once("exit", () => r(true))),
+    new Promise((r) => setTimeout(() => r(false), 2000)),
+  ])
 
-  const base = `http://127.0.0.1:${port}`
+  // setup 也放进 try:mkdtemp 成功之后任何一步抛错,目录都要收掉。
+  // 那时调用方还没拿到 stop,只能靠这里清(CodeRabbit PR#35 指出)。
   try {
+    // 主文件 + 唯一一个顶层静态依赖;src/experts.ts 是动态 import,缺失只会 warn
+    copyFileSync(join(ROOT, "wb-studio.mjs"), join(dir, "wb-studio.mjs"))
+    copyFileSync(join(ROOT, "wb-agent-lib.mjs"), join(dir, "wb-agent-lib.mjs"))
+    mkdirSync(join(dir, "workspace"), { recursive: true })
+
+    const port = await freePort()
+    writeFileSync(join(dir, "wb-studio.config.json"), JSON.stringify({
+      port,
+      engineMode: "cli",          // 不启引擎:ensureEngine 在 cli 模式直接返回
+      engineCmd: [],
+      openBrowser: false,
+      openMode: "browser",
+      workspace: "./workspace",
+      timeoutSec: 120,
+    }, null, 2) + "\n", "utf8")
+
+    const proc = spawn(process.execPath, [join(dir, "wb-studio.mjs")], {
+      cwd: dir,
+      env: { ...process.env, WB_STUDIO_NOWINDOW: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+    child = proc
+    proc.stdout?.on("data", (b) => { buf += String(b) })
+    proc.stderr?.on("data", (b) => { buf += String(b) })
+
+    const base = `http://127.0.0.1:${port}`
     const deadline = Date.now() + 25000
+    let ready = false
     for (;;) {
-      if (child.exitCode !== null) {
-        throw new Error("实例启动即退出(exit=" + child.exitCode + "):\n" + buf.slice(-2000))
+      if (proc.exitCode !== null) {
+        throw new Error("实例启动即退出(exit=" + proc.exitCode + "):\n" + buf.slice(-2000))
       }
       try {
         const r = await fetch(base + "/api/health", { signal: AbortSignal.timeout(1200) })
-        if (r.ok) break
+        if (r.ok) {
+          // freePort 释放端口到 spawn 之间,端口可能被另一个 smoke 实例抢走。
+          // 只有 workspace 指向本次临时目录,才算"这就是我起的那个"(CodeRabbit PR#35)。
+          const h = await r.json() as Record<string, unknown>
+          if (String(h.workspace || "").includes(basename(dir))) { ready = true; break }
+        }
       } catch {}
       if (Date.now() > deadline) {
-        throw new Error("25 秒内 /api/health 没有起来。输出:\n" + buf.slice(-2000))
+        throw new Error("25 秒内没等到本实例的 /api/health(端口可能被别的实例占了)。输出:\n" + buf.slice(-2000))
       }
       await new Promise((r) => setTimeout(r, 300))
     }
+    if (!ready) throw new Error("readiness 循环意外退出")
+
+    const stop = async () => {
+      try { proc.kill("SIGTERM") } catch {}
+      // 给 2 秒优雅退出,再强杀;不留下占端口的孤儿
+      if (!(await waitExit(proc))) { try { proc.kill("SIGKILL") } catch {} }
+      // 强杀后也要等它真退出:Windows 上进程还占着文件时 rm 会失败
+      await waitExit(proc)
+      cleanupDir()
+    }
+
+    return { base, child: proc, out: () => buf, stop }
   } catch (e) {
-    // 走到这里说明还没返回 stop,调用方进不了它自己的 try/finally:
-    // 子进程与临时目录必须在这里收掉,否则 CI 上会留下占端口的孤儿进程,
-    // 下一条用例换个端口照样跑,失败信息却是"起来不来",查错方向会被带偏。
-    try { child.kill("SIGKILL") } catch {}
-    rmSync(dir, { recursive: true, force: true })
+    // 还没返回 stop,调用方进不了自己的 try/finally:子进程与目录必须在这里收掉,
+    // 否则 CI 上会留下占端口的孤儿,下一条用例的失败信息会被带偏。
+    if (child) {
+      try { child.kill("SIGKILL") } catch {}
+      await waitExit(child)
+    }
+    cleanupDir()
     throw e
   }
-
-  const stop = async () => {
-    try { child.kill("SIGTERM") } catch {}
-    // 给 2 秒优雅退出,再强杀;不留下占端口的孤儿
-    const exited = await Promise.race([
-      new Promise((r) => child.once("exit", () => r(true))),
-      new Promise((r) => setTimeout(() => r(false), 2000)),
-    ])
-    if (!exited) { try { child.kill("SIGKILL") } catch {} }
-    rmSync(dir, { recursive: true, force: true })
-  }
-
-  return { base, child, out: () => buf, stop }
 }
 
 describe("wb-studio 冒烟", () => {
