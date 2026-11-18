@@ -44,9 +44,9 @@
 
 | 档 | 要求 |
 |---|---|
-| **手写时必填** | `source`、`kind`、`ref`、`anchors`。`--update` 靠 `ref` 定位，靠 `anchors` 在写锁前核对新内容。 |
+| **手写时必填** | `source`、`kind`、`ref`、`anchors`。`--update` 不传 `--ref` 时按锁里的 `commit` 重抓；传了才解析 ref。`anchors` 用于在写锁前核对新内容。 |
 | **`--update` 之后必填** | `commit`、`computedHash`、`files`、`archive_sha256`、`updated_at`。由工具写，不要手改。 |
-| **校验器强制**（`--locked` / `--verify-only`） | slug 走 `^[a-z0-9_-]+$`；`source` 必须 `owner/repo`；`commit` 必须 40 位十六进制；`computedHash` 必须 64 位十六进制；`files` 必须是数字；`source_type: "git"` 必须带 `ref`。缺任一项报「锁条目不合规」，不会抛 TypeError。 |
+| **校验器强制**（`--locked` / `--verify-only`） | slug 走 `^[a-z0-9_-]+$`；`source` 必须 `owner/repo`；`commit` 必须 40 位十六进制；`computedHash` 必须 64 位十六进制；`files` 必须是数字；`source_type: "git"` 必须带 `ref`（用于识别 ref 被移动；抓取以 `commit` 为准）。缺任一项报「锁条目不合规」，不会抛 TypeError。 |
 
 | 字段 | 类型 | 含义 |
 |---|---|---|

@@ -312,7 +312,7 @@ function commitInstall(slug, staging) {
 // ---- --locked / --verify-only ---------------------------------------------
 
 /** 锁条目形状检查,返回问题描述(没问题返回 null)。
- *  以前 runLocked 直接 `entry.computedHash.slice(...)` / `path.join(OUT, slug)`:
+ *  以前 runLocked 直接 `entry.tree_sha256.slice(...)` / `path.join(OUT, slug)`:
  *  条目缺字段时抛 TypeError 整个扫描中止;slug 写 `../x` 还会越出语料目录。
  *  这里统一拦住,让「这条不合规」而不是「程序崩了」。 */
 function entryProblem(slug, entry) {
@@ -321,7 +321,7 @@ function entryProblem(slug, entry) {
   if (!/^[0-9a-f]{40}$/.test(String(entry.commit || ""))) return "commit 不是 40 位十六进制:" + String(entry.commit || "").slice(0, 24)
   if (!/^[0-9a-f]{64}$/.test(String(entry.computedHash || ""))) return "缺 computedHash"
   if (typeof entry.files !== "number") return "缺 files"
-  if (entry.source_type === "git" && !entry.ref) return "git 来源缺 ref(抓取要靠它定位,sha 只用于核对)"
+  if (entry.source_type === "git" && !entry.ref) return "git 来源缺 ref(用于识别 tag 被移动;抓取以 commit 为准)"
   return null
 }
 
