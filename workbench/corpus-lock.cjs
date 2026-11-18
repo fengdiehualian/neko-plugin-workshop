@@ -52,7 +52,11 @@ function listCorpusFiles(root, rel = "", out = []) {
       listCorpusFiles(root, childRel, out)
       continue
     }
-    const st = fs.statSync(path.join(root, childRel))
+    const st = fs.lstatSync(path.join(root, childRel))
+    // 只算普通文件:statSync 会跟随符号链接,把链接指向的宿主文件读进哈希;
+    // 而抓取侧(copyFilteredTree)也用 lstat 跳过,两边口径必须一致,
+    // 否则含 symlink 的上游会出现「抓下来 37 个、算哈希 38 个」。
+    if (!st.isFile()) continue
     if (!keepFile(e.name, st.size)) continue
     out.push(childRel)
   }
