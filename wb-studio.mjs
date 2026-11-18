@@ -21,6 +21,8 @@ import { spawn, spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
 import { driveAgent, driveAgentCli, driveZcode, planModelRetry, formatUserMemory, buildWishPrompt, formatExpertBlock, expectedSha256, verifyUpdateIntegrity, isLocalUpdateFeed, enginePermissionConfig, cmpVersion, planUpdateTarget, verifyUpdateManifest, UPDATE_TRUST } from "./wb-agent-lib.mjs"
+// 拆分第 1 块:纯工具函数(零状态)。搬走的是定义,调用点一字未改。
+import { THINK_LEVELS, writeJsonAtomic, openaiEffort, estTokens, sessionTokens } from "./src/studio/util.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -29,19 +31,7 @@ const APP_VERSION = (() => {
   try { return JSON.parse(readFileSync(join(__dirname, "package.json"), "utf8")).version || "0.0.0" } catch { return "0.0.0" }
 })()
 
-// 统一的 JSON 原子落盘:先写临时文件再 rename。
-// 直接 writeFileSync 覆盖,遇到断电/强杀会留下半截 JSON,下次启动整份配置或会话就读废了。
-function writeJsonAtomic(file, obj) {
-  try {
-    const { mkdirSync, writeFileSync, renameSync } = require("node:fs")
-    mkdirSync(dirname(file), { recursive: true })
-    const tmp = `${file}.tmp`
-    writeFileSync(tmp, JSON.stringify(obj, null, 2), "utf8")
-    renameSync(tmp, file)
-  } catch (e) {
-    console.error(`[wb-studio] 落盘失败(${basename(file)}):`, e.message)
-  }
-}
+// writeJsonAtomic 已搬到 src/studio/util.mjs(拆分第 1 块)
 
 // 控制台输出同步落盘到 runtime\studio.log:引擎静默崩溃/任务异常时,事后有线索可查
 try {
@@ -104,11 +94,7 @@ function resolvePath(p) {
   if (/^\.\.[\/\\]|^\.[\/\\]/.test(p)) return join(__dirname, p)
   return p
 }
-const THINK_LEVELS = ["auto", "none", "low", "medium", "high", "xhigh"]
-/** 思考强度:OpenAI 系只认 minimal/low/medium/high,映射一下;none 用 minimal(最低但不报错) */
-function openaiEffort(level) {
-  return level === "none" ? "minimal" : level === "xhigh" ? "high" : level
-}
+// THINK_LEVELS / openaiEffort 已搬到 src/studio/util.mjs(拆分第 1 块)
 
 let config = defaultConfig
 try {
@@ -352,26 +338,7 @@ const COMPACT_RATIO = Math.min(0.95, Math.max(0.3, Number(process.env.WB_COMPACT
 const COMPACT_KEEP_RECENT = 4 // 最近的 N 条原文保留,不压进摘要
 const COMPACT_SUMMARY_MAX = 1800 // 摘要字符上限(约 1.2k tokens)
 
-/** 粗略 token 估算:中文按 1 字 1 token,英文数字按 3.5 字符 1 token */
-function estTokens(text) {
-  const s = String(text || "")
-  if (!s) return 0
-  const cjk = (s.match(/[\u4e00-\u9fff]/g) || []).length
-  return Math.ceil(cjk + (s.length - cjk) / 3.5)
-}
-
-/** 会话已用上下文:优先最近一轮引擎回传的 usage,否则按"压缩后真正还要带上的内容"估算 */
-function sessionTokens(s) {
-  const ms = (s && s.messages) || []
-  const from = (s && s.summarizedUpTo) || 0 // 已压进摘要的部分不再计入(引擎也不会再看到它们)
-  for (let i = ms.length - 1; i >= from; i--) {
-    const u = ms[i].usage
-    if (u && ((u.input || 0) + (u.output || 0)) > 0) return (u.input || 0) + (u.output || 0) + (u.reasoning || 0)
-  }
-  let n = s && s.summary ? estTokens(s.summary) : 0
-  for (let i = from; i < ms.length; i++) n += estTokens(ms[i].content) + 8
-  return n
-}
+// estTokens / sessionTokens 已搬到 src/studio/util.mjs(拆分第 1 块)
 
 /** 规则摘要:不依赖模型,保证"用户要过什么、做出来了什么"这类硬信息一定留下 */
 function ruleDigest(s, oldMsgs) {

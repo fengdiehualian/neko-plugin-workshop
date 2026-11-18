@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { spawn } from "node:child_process"
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -42,9 +42,12 @@ type Smoke = {
 /** 在临时目录起一个实例,等到 /api/health 能回话(或超时抛错)。 */
 async function startStudio(): Promise<Smoke> {
   const dir = mkdtempSync(join(tmpdir(), "wbstudio-smoke-"))
-  // 主文件 + 唯一一个顶层静态依赖;src/experts.ts 是动态 import,缺失只会 warn
+  // 主文件 + 唯一的顶层静态依赖;src/experts.ts 是动态 import,缺失只会 warn
   copyFileSync(join(ROOT, "wb-studio.mjs"), join(dir, "wb-studio.mjs"))
   copyFileSync(join(ROOT, "wb-agent-lib.mjs"), join(dir, "wb-agent-lib.mjs"))
+  // 拆分后主文件开始 import src/studio/*:整目录复制(源码总共几十 KB),
+  // 免得每搬一块就回来改一次这条测试。缺依赖时这条烟测会当场红——这正是它的职责。
+  cpSync(join(ROOT, "src"), join(dir, "src"), { recursive: true })
   mkdirSync(join(dir, "workspace"), { recursive: true })
 
   const port = await freePort()
