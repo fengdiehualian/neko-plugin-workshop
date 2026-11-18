@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { createRequire } from "node:module"
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -197,6 +197,39 @@ describe("语料锁:版本与锚点口径", () => {
       expect(lock.checkAnchors(root, anchors).length, "不通前缀时应当报文件不存在").toBe(1)
       expect(lock.checkAnchors(root, [{ id: "m", file: "src/plugin.toml", all: ["name = \"y\""] }], { strip: "src/" }).length).toBe(1)
     })
+  })
+})
+
+describe("语料锁:公开约定文档", () => {
+  test("LOCK-FORMAT.md 的过滤规则与代码常量一致(文档不许抄旧值)", () => {
+    const doc = readFileSync(join(CORPUS, "LOCK-FORMAT.md"), "utf8")
+    const lines = doc.split("\n")
+    const pick = (kw: string) => {
+      const l = lines.find((x) => x.includes(kw))
+      expect(l, "文档里找不到「" + kw + "」那一行").toBeTruthy()
+      return l as string
+    }
+    // 逐个比对那一行:不要求反引号写法(白名单很长,逐项加反引号反而难读),
+    // 但限定在白名单行里比,免得 `.py` 靠 `.pyc` 之类蒙混过关
+    const extLine = pick("扩展名白名单")
+    for (const ext of lock.KEEP_EXT) expect(extLine, "白名单行缺 " + ext).toContain(ext)
+    const nameLine = pick("无扩展名文件") + "\n" + (lines[lines.findIndex((x) => x.includes("无扩展名文件")) + 1] || "")
+    for (const name of lock.KEEP_NAME) expect(nameLine, "无扩展名清单缺 " + name).toContain(name)
+    const dirLine = pick("目录跳过")
+    for (const dir of lock.SKIP_DIRS) expect(dirLine, "跳过目录清单缺 " + dir).toContain(dir)
+    expect(doc, "文档里的单文件上限与 MAX_FILE 不一致").toContain(String(lock.MAX_FILE))
+  })
+
+  test("LOCK-FORMAT.md 覆盖新增条目的两条路径与全部退出码", () => {
+    const doc = readFileSync(join(CORPUS, "LOCK-FORMAT.md"), "utf8")
+    for (const s of ["--update", "--update-all", "--locked", "--verify-only"]) {
+      expect(doc, "文档没讲 " + s).toContain(s)
+    }
+    for (const s of ["source", "archive_format", "tree_sha256", "archive_sha256", "anchors", "kind"]) {
+      expect(doc, "文档没讲字段 " + s).toContain(s)
+    }
+    expect(doc, "文档没写 git 来源的两条硬约束").toMatch(/refs\/tags/)
+    expect(doc, "文档没写换行固定的原因").toMatch(/core\.autocrlf/)
   })
 })
 

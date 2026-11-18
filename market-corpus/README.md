@@ -4,6 +4,10 @@
 (理由与许可明细见仓库根 `THIRD_PARTY_NOTICES.md`;`.gitattributes` 对 `market-corpus/**`
 设了 `export-ignore`,安装载荷里没有这个目录)。
 
+> **要给一份上游语料新增锁条目**、或想在自己的工具里实现等价校验器,看
+> [`LOCK-FORMAT.md`](./LOCK-FORMAT.md):字段表、树哈希算法（含过滤规则）、
+> 两条新增路径（zip / git）、退出码与常见错误。本文只讲本仓怎么用。
+
 ## 语料锁 `corpus.lock.json`
 
 每条语料记四样东西:上游仓库、commit、压缩包哈希、**落盘树的哈希**。
