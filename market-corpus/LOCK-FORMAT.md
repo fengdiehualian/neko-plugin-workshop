@@ -218,9 +218,10 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 
 三个硬约束（都是实测踩出来的）：
 
-- **抓取次序：完整 sha 优先，失败再退 tag。** 40 位 sha 的 `git fetch <url> <sha>` GitHub 接受
-  （`actions/checkout` 也这么取）；**7 位缩写会 `couldn't find remote ref`**——早期用缩写测过，
-  得出了「裸 sha 不能抓」的错结论。钉 sha 比钉 tag 稳：tag 可被删或移动，sha 不会。
+- **抓取次序：完整 sha 优先，失败再退 `refs/tags/<ref>` 或 `refs/heads/<ref>`。**
+  40 位 sha 的 `git fetch <url> <sha>` GitHub 接受（`actions/checkout` 也这么取）；
+  **7 位缩写会 `couldn't find remote ref`**——早期用缩写测过，得出了「裸 sha 不能抓」的错结论。
+  钉 sha 比钉 tag 稳：tag 可被删或移动，sha 不会。
 - **ref 被移动时 `--update` 默认拒绝**：同一个 `ref` 指向了新 commit，意味着「版本号没变、内容变了」。
   确认上游是有意重打之后，加 `--accept-moved` 重跑。
 - **`git archive` 必须固定换行**：抓取时用 `-c core.autocrlf=false -c core.eol=lf`。
