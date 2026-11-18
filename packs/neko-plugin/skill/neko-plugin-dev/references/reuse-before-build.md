@@ -8,7 +8,7 @@
 | 项 | 值 |
 |---|---|
 | 插件 slug | `reuse_before_build` |
-| 插件版本 | `0.3.20` |
+| 插件版本 | `0.3.22` |
 | 显示名 | 先搜后建 |
 | 许可 | MIT(`market-corpus/reuse_before_build/src/LICENSE`) |
 | 上游 | https://github.com/1-dcjiang/neko-reuse-before-build |

@@ -34,6 +34,13 @@ jobs:
       - name: 单元测试(bun test)
         run: bun test
 
+      # 语料锁(corpus.lock.json):语料是第三方源码、按字节钉在锁里的 commit 上。
+      # 这一步不联网,只算磁盘上语料的树哈希与锁比对——有人手改语料或动了过滤规则就会红。
+      # 注意 checkout 必须保留 LF(`.gitattributes` 里 market-corpus/** -text),
+      # 否则 Windows 与 ubuntu 会算出两份不同的哈希。
+      - name: 语料锁校验(离线,不联网)
+        run: node workbench/fetch_corpus.cjs --locked --verify-only
+
       - name: 静态交叉检查(页面 id / fetch 路由 / 标签配对 / 面板结构)
         run: python tools/static_check.py
 

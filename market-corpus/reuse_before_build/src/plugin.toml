@@ -4,7 +4,7 @@ name = "先搜后建"
 description = "让 AI 在写任何新程序、脚本、库、插件或服务之前，先检索已有的公开实现（尤其 GitHub 仓库），优先加入上游成为贡献者，而不是从零重造。插件把规则本体、检索工具、交付物机械检查与本地化校验一起装进 N.E.K.O：规则段带 sha256 基线，删条/改号/丢门禁会被校验器当场报错。"
 short_description = "写新程序前先检索同类公开实现，按可改性与许可评估并优先贡献上游；带规则校验和只读 GitHub 检索。"
 keywords = ["先搜后建", "复用优先", "别重复造轮子", "重复造轮子", "有没有现成的", "有没有开源", "从零实现", "帮我写一个工具", "造轮子", "检索同类项目", "GitHub 搜索", "贡献上游", "向上游提 PR", "不可复用原因", "reuse before build", "reinvent the wheel", "existing implementation", "open source alternative", "from scratch", "not reusable because"]
-version = "0.3.20"
+version = "0.3.22"
 type = "plugin"
 entry = "plugin.plugins.reuse_before_build:ReuseBeforeBuildPlugin"
 
