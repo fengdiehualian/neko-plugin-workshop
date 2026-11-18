@@ -136,13 +136,12 @@ def unique_keywords(values: object) -> list[str]:
     return out
 
 
-def default_since(days: int | dt.date = 365, today: dt.date | None = None) -> str:
+def default_since(days: int = 365, today: dt.date | None = None) -> str:
     """默认时间窗用天数回退，避免闰日 2/29 的 replace(year-1) 抛 ValueError。
 
-    兼容旧 CLI 的 `default_since(today)` 与插件内核的 `default_since(days, today)`。
+    第一个参数只接受天数。旧实现遇到 ``default_since(日期, today)`` 会把 ``today``
+    静默覆盖成那个日期、丢掉第二个参数；现在传日期会在 ``int()`` 处直接报错。
     """
-    if isinstance(days, dt.date):
-        today, days = days, 365
     today = today or dt.date.today()
     return (today - dt.timedelta(days=max(1, int(days)))).isoformat()
 

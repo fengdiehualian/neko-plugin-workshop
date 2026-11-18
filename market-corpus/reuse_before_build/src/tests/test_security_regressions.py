@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import inspect
 import os
 import subprocess
 import tomllib
@@ -84,7 +85,7 @@ class TestSharedGhHelpers(unittest.TestCase):
             for name in (
                 "which_path_only", "validate_keyword", "parse_search_output", "search_args",
                 "normalize_search_row", "unique_keywords", "default_since", "activity_points",
-                "license_flags", "md_cell", "render_table", "GH_CREATIONFLAGS", "PERMISSIVE",
+                "license_flags", "md_cell", "render_table", "GH_CREATIONFLAGS",
                 "AUTH_HINT", "FAIL_HINT",
             ):
                 with self.subTest(module=module.__name__, helper=name):
@@ -93,6 +94,30 @@ class TestSharedGhHelpers(unittest.TestCase):
             os.path.realpath(rbb_core.GH_HELPERS_SCRIPT),
             os.path.realpath(os.path.join(os.path.dirname(repo_scan.__file__), "gh_helpers.py")),
         )
+
+    def test_deprecated_public_surface_stays_removed(self):
+        """0.3.22 删掉的三项公开面不许回来：包装函数、PERMISSIVE 别名、解释器注入通道。
+
+        0.3.21 把这三项标成「计划废弃」时靠的是人读 CHANGELOG；这里改成机械锁：
+        只要有人再加回 `manifest_settings` / `PERMISSIVE` 别名 / `python_exe` 形参，
+        测试当场红，不用等到下一次评审再发现。
+        """
+        self.assertFalse(
+            hasattr(rbb_core, "manifest_settings"),
+            "manifest_settings 是 load_manifest_settings 的单行别名，0.3.22 已删，别再包装一次",
+        )
+        for module in (rbb_core, repo_scan):
+            with self.subTest(module=module.__name__):
+                self.assertFalse(
+                    hasattr(module, "PERMISSIVE"),
+                    f"{module.__name__} 的 PERMISSIVE 别名 0.3.22 已删；要用就读 gh_helpers.PERMISSIVE",
+                )
+        for fn in (rbb_core.resolve_python, rbb_core.canonical_hash, rbb_core.verify_localized):
+            params = list(inspect.signature(fn).parameters)
+            self.assertNotIn(
+                "python_exe", params,
+                f"{fn.__name__} 的 python_exe 注入通道 0.3.22 已删；解释器只走 resolve_python() 自己解析",
+            )
 
     def test_keyword_and_json_contracts_hold_at_both_entry_points(self):
         for module in (rbb_core, repo_scan):

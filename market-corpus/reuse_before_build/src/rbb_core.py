@@ -106,7 +106,6 @@ search_args = _gh_helpers.search_args
 normalize_search_row = _gh_helpers.normalize_search_row
 unique_keywords = _gh_helpers.unique_keywords
 GH_CREATIONFLAGS = _gh_helpers.GH_CREATIONFLAGS
-PERMISSIVE = _gh_helpers.PERMISSIVE
 AUTH_HINT = _gh_helpers.AUTH_HINT
 FAIL_HINT = _gh_helpers.FAIL_HINT
 default_since = _gh_helpers.default_since
@@ -194,11 +193,6 @@ def load_manifest_settings(plugin_toml: str = "") -> tuple[dict[str, Any], str]:
         _logger.warning("%s；回退代码内置兜底默认值", warning)
         return {}, warning
     return section, ""
-
-
-def manifest_settings(plugin_toml: str = "") -> dict[str, Any]:
-    """读 plugin.toml 里的 [settings] 作为默认值；读不到就返回空表（不抛）。"""
-    return load_manifest_settings(plugin_toml)[0]
 
 
 def _as_bool(value: Any, default: bool) -> bool:
@@ -729,12 +723,14 @@ def skill_text(rel: str = "SKILL.md") -> str:
 
 
 def skill_section(heading: str) -> str:
-    """原样抽取正典二级章节，避免入口里的手写摘要与规则漂移。"""
-    match = re.search(
-        rf"(?ms)^##\s+{re.escape(heading)}\s*$\n(.*?)(?=^##\s+|\Z)",
-        skill_text("SKILL.md"),
-    )
-    return f"## {heading}\n{match.group(1).strip()}" if match else ""
+    """原样抽取正典二级章节，避免入口里的手写摘要与规则漂移。
+
+    切节交给随包校验器的 ``extract_section``：它用 ``_fence_mask`` 跳过围栏里的示例标题，
+    不会把 Step 4 的 Markdown 模板中 ``## What I found`` 当成章节边界。与 ``core_rules_block``
+    调用 ``extract_block`` 的口径一致。取不到时返回空串，由调用方失败关闭。
+    """
+    body = _verify_module().extract_section(skill_text("SKILL.md"), [heading]) or ""
+    return f"## {heading}\n{body}" if body else ""
 
 
 def mandatory_rules() -> str:
@@ -754,15 +750,29 @@ def mandatory_rules() -> str:
 
 
 def flow_steps() -> list[dict[str, str]]:
-    """从正典提取四步标题与正文，不维护另一份容易过期的流程。"""
+    """从正典提取四步标题与正文，不维护另一份容易过期的流程。
+
+    标题扫描与正文切分都走随包校验器：围栏里的示例标题不算章节边界。
+    四步必须齐全、每步都有正文，否则返回空列表，由调用方按“流程取不到”处理。
+    """
     text = skill_text("SKILL.md")
+    module = _verify_module()
+    lines = text.splitlines()
+    fenced = module._fence_mask(lines)
+    titles: list[str] = []
+    for index, line in enumerate(lines):
+        if fenced[index]:
+            continue
+        match = re.match(r"^##\s+(Step\s+[1-4]\s+—\s+.+?)\s*$", line)
+        if match:
+            titles.append(match.group(1).strip())
     steps = [
-        {"title": match.group(1), "content": match.group(2).strip()}
-        for match in re.finditer(
-            r"(?ms)^##\s+(Step\s+[1-4]\s+—\s+[^\n]+)\s*$\n(.*?)(?=^##\s+|\Z)", text,
-        )
+        {"title": title, "content": module.extract_section(text, [title]) or ""}
+        for title in titles
     ]
-    return steps if len(steps) == 4 else []
+    if len(steps) != 4 or any(not step["content"] for step in steps):
+        return []
+    return steps
 
 
 _VERIFY_MODULE: Any = None
@@ -796,11 +806,8 @@ def _looks_like_python(path: str) -> bool:
                 or base in {"py", "py.exe"})
 
 
-def resolve_python(python_exe: str = "") -> str:
+def resolve_python() -> str:
     """优先用真正的 Python 解释器；Windows 只有 py 启动器时也能找到。"""
-    raw = str(python_exe or "").strip()
-    if raw:
-        return raw
     if sys.executable and os.path.isfile(sys.executable) and _looks_like_python(sys.executable):
         return sys.executable
     for name in ("python", "python3", "py"):
@@ -811,9 +818,9 @@ def resolve_python(python_exe: str = "") -> str:
     return ""
 
 
-def canonical_hash(python_exe: str = "", timeout: float = 30) -> tuple[str, str]:
+def canonical_hash(timeout: float = 30) -> tuple[str, str]:
     """跑随包校验器 --print-hash，返回 (hash, 错误信息)。"""
-    py = resolve_python(python_exe)
+    py = resolve_python()
     try:
         proc = subprocess.run(
             [py, "-X", "utf8", VERIFY_SCRIPT, "--print-hash", SKILL_MD],
@@ -854,7 +861,7 @@ def resolve_localized_path(target: str) -> tuple[str, str]:
     return real, ""
 
 
-def verify_localized(target: str, python_exe: str = "",
+def verify_localized(target: str,
                      extra: list[str] | None = None, timeout: float = 30) -> dict[str, Any]:
     """校验一份本地化副本；rc=0 才算保住规则。路径、参数与输出都做收敛。
 
@@ -864,7 +871,7 @@ def verify_localized(target: str, python_exe: str = "",
     if path_err:
         return {"rc": 2, "out": "", "err": path_err[:400]}
     safe_extra = [arg for arg in (extra or []) if arg == "--quiet"]
-    py = resolve_python(python_exe)
+    py = resolve_python()
     args = [py, "-X", "utf8", VERIFY_SCRIPT, real, *safe_extra]
     try:
         proc = subprocess.run(
