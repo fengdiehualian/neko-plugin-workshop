@@ -59,10 +59,10 @@ class TestHelpers(unittest.TestCase):
 
     def test_default_since_survives_leap_day(self):
         # 2028 是闰年；旧实现 replace(year-1) 会 ValueError。减 365 天落到 2027-03-01。
-        self.assertEqual(repo_scan.default_since(dt.date(2028, 2, 29)), "2027-03-01")
+        self.assertEqual(repo_scan.default_since(365, dt.date(2028, 2, 29)), "2027-03-01")
 
     def test_default_since_normal_date(self):
-        self.assertEqual(repo_scan.default_since(dt.date(2026, 11, 9)), "2025-11-09")
+        self.assertEqual(repo_scan.default_since(365, dt.date(2026, 11, 9)), "2025-11-09")
 
     def test_render_table_escapes_every_cell(self):
         row = {

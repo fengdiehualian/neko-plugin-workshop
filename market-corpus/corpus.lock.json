@@ -6,18 +6,28 @@
     "reuse_before_build": {
       "repo": "1-dcjiang/neko-reuse-before-build",
       "kind": "plugin",
-      "ref": "v0.3.20",
-      "commit": "8388e27b1af2595abff780d707e560c9a3f0c7ec",
-      "version": "0.3.20",
+      "ref": "v0.3.22",
+      "commit": "a375629a9a8b96af18809107aa7202c68c1f104d",
+      "version": "0.3.22",
       "version_source": "plugin.toml",
-      "archive_sha256": "a36906e3a6801f601da47b82119068efd0bd5004e96d0c8829b1641811527d57",
-      "tree_sha256": "642ac32565ead629ac92b79ef47da746d4b56fc675e7ffaf889fa3a8ac0b074c",
-      "files": 36,
+      "archive_sha256": "76a4abbda02934f7fba14c87b27fcca96c2145e36104d1b426d169f0fdd5e96e",
+      "tree_sha256": "3dd0ac682bc2c1bd417b9fe9ec8a5f1afb7fd69bdf59967143d5e007e73f4fe6",
+      "files": 37,
+      "release": {
+        "tag": "v0.3.22",
+        "asset": "neko-reuse-before-build-v0.3.22-vendor.zip",
+        "asset_sha256": "ac0d31f21d95d3b12af3fb860795e8507d8f8e122e3ddfa9dbb0d71204c87310",
+        "checksums": "SHA256SUMS.txt",
+        "checksums_sha256": "06ec74ac178586572b2884424a4103b9b0b9a06c106414d8e0b82e83e801b323",
+        "tree_scope": "vendor",
+        "note": "发布镜像；语料树按 commit 的完整源码计算，不拿 vendor 树冒充源码树"
+      },
       "anchors": [
         {
           "id": "plugin-manifest",
           "file": "src/plugin.toml",
           "all": [
+            "id = \"reuse_before_build\"",
             "name = \"先搜后建\"",
             "version = \""
           ]
@@ -26,7 +36,9 @@
           "id": "skill-identity",
           "file": "src/skills/reuse-before-build/SKILL.md",
           "all": [
-            "name: reuse-before-build"
+            "name: reuse-before-build",
+            "RBB:INVARIANTS:BEGIN",
+            "RBB:INVARIANTS:END"
           ]
         },
         {
@@ -52,7 +64,7 @@
           ]
         }
       ],
-      "updated_at": "2026-11-17T15:36:52.951Z"
+      "updated_at": "2026-11-18T04:54:48.227Z"
     }
   }
 }

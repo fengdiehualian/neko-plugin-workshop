@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.3.22 — 2026-11-17
+
+把 0.3.21 标记的三项「计划废弃」公开面正式删除。0.3.21 写明「本次不删，核实无外部依赖后再删」，本轮核实完毕，改动单列在这里。
+
+- **仓外引用核查（删除前做的）**：宿主目录 `N.E.K.O` 全目录 0 匹配；workshop 的 `market-corpus/reuse_before_build/src` 只调 `resolve_settings` / `canonical_hash("")` / `verify_localized(target, "", None, timeout)` / `skill_text` / `flow_steps`，对三项废弃 API 0 命中；GitHub 全站 `gh search code "rbb_core"` / `"neko-reuse-before-build"` 的命中全是无关项目（AMZ-Driverless 的 Rosbag Bazaar、`sea_ad_jepa` 内部同名模块、WordPress 主题 `RBB_CORE_*` 常量），唯一的外部指向是 HorizonCloudy 的 `coopanion-forge` / `plugin-forge` / `cortico-bridge-*` 系列，它们的 `NOTICE` / `AUDIT.md` 明确写「本仓库**未内嵌**任何文本或代码」「只在 SKILL.md 铁律、references/workflows.md 1a 节、codex 提示词与 NOTICE 指向它」「要拿到校验能力请安装该插件」——纯文档级引用，无代码级 import 或调用。结论：仓外无代码依赖，可删。
+- **删 `rbb_core.manifest_settings()`**：`load_manifest_settings` 的单行包装（仓内唯一真实调用点走的是 `load_manifest_settings`）。`load_manifest_settings` 本体保留。
+- **删 `PERMISSIVE` 别名**：`rbb_core.py` 与 `skills/reuse-before-build/scripts/repo_scan.py` 各一处指向 `_gh_helpers.PERMISSIVE` 的转发。真定义 `gh_helpers.py:29` 与唯一使用点 `license_flags()` 保留不动，所以许可判定行为不变。
+- **删 `python_exe` 注入通道**：`resolve_python(python_exe="")` → `resolve_python()`（去掉开头的 `raw` 直通分支，现在只从 `sys.executable` / PATH 自行解析，`_looks_like_python` 判据不变）、`canonical_hash(python_exe="", timeout=30)` → `canonical_hash(timeout=30)`、`verify_localized(target, python_exe="", extra=None, timeout=30)` → `verify_localized(target, extra=None, timeout=30)`。`__init__.py` 三处调用点同步：`_probe_hash` 的 `canonical_hash, "", self._timeout` → `canonical_hash, self._timeout`，`_collect_checks` 的 `verify_localized, SKILL_MD, "", None, self._timeout` → `verify_localized, SKILL_MD, None, self._timeout`，`rbb_verify` 的 `verify_localized, target, "", None, self._timeout` → `verify_localized, target, None, self._timeout`。注意这里是**位置参数错位**，少传一个 `""` 之后 `None` 正好落到 `extra`，没有靠关键字兜底。
+- **破坏性**：外部若有私有 clone 直接 `from rbb_core import manifest_settings` 或给这三个函数传过 `python_exe` 位置参数，会在调用处报错。核查范围内没有这样的调用方；`verify_localized` 的 `extra` 仍是第二个位置参数，`canonical_hash` 的 `timeout` 改为第一个位置参数，仓外按关键字传参的写法（`extra=` / `timeout=`）不受影响。
+- **新增机械锁**：`tests/test_security_regressions.py` 的 `test_deprecated_public_surface_stays_removed` 断言 `rbb_core` 无 `manifest_settings`、`rbb_core` / `repo_scan` 无 `PERMISSIVE`、三个函数的 `inspect.signature` 里没有 `python_exe`。以前这三项只靠 CHANGELOG 一句话约束，现在加回来就当场红。同时从 `test_core_and_cli_expose_the_same_shared_helper_functions` 的名单里移除 `"PERMISSIVE"`（该项已不再是两边共有的公开面）。
+- **版本**：插件升 `0.3.22`；`verify_localized.py` 本次未改，版本保持 `1.2.15`。`skills/reuse-before-build/` 下的 skill 本体、契约与提示词登记表均未改。
+- 测试 193 passed（另有 73 个子测试），unittest 148 tests，Ruff 全绿。
+
+## 0.3.21 — 2026-11-16
+
+收口 `rbb_core.py` 自己实现的两处章节切分：围栏里的示例标题曾把正文截断。
+
+- **`skill_section` 改走 `extract_section`**：原先用 `(?ms)^##\s+<标题>\s*$\n(.*?)(?=^##\s+|\Z)` 手写切节，代码围栏里的 `## ` 行会被当成章节边界。现在交给随包校验器的 `extract_section`（用 `_fence_mask` 跳过围栏），与 `core_rules_block` 调 `extract_block` 同口径；保留「把标题拼回去」和「取不到返回空串、由调用方失败关闭」两个原有行为。
+- **`flow_steps` 同样改为围栏安全切节**：标题扫描按 `_fence_mask` 过滤，正文用 `extract_section` 抽取；四步不齐或某步正文为空仍返回空列表。
+- **实际影响**：`SKILL.md` 的 Step 4 在 ` ```markdown ` 围栏里嵌着 `## What I found` / `## Why this one` / `## What I will add (issue / PR plan)` / `## Alternatives and risks`，旧实现取到的 Step 4 正文在围栏开头就被截断，交付模板整段丢失。
+- **`default_since` 不再接受日期作第一个参数**：旧实现遇到 `default_since(日期, today)` 会把 `today` 静默覆盖成那个日期、丢掉第二个参数；现在第一个参数只收天数，传日期在 `int()` 处直接报错。闰日回退防线保留，两处调用改为双参、断言值不变（行为变更：不再兼容旧的 `default_since(today)` 写法）。
+- **新增回归**：`tests/test_fenced_sections.py` 锁定 Step 4 模板完整、不越界吞并下一节、缺章返回空串，并确认 `mandatory_rules` 仍取得到四个必需章节；另用内联 fixture（围栏里放一个 `## What I found`）直接验证切节不被围栏标题截断，不依赖 SKILL.md 当前写了什么。
+- **计划废弃（先标记，待核实仓外无引用后执行）**：`rbb_core.manifest_settings()` 包装（`load_manifest_settings` 的单行别名，仓内零业务调用）、`rbb_core` / `repo_scan` 里的 `PERMISSIVE` 别名、`resolve_python` / `canonical_hash` / `verify_localized` 的 `python_exe` 注入通道。三项都是仓外可能 import 或调用过的公开面，本次不删，核实无外部依赖后再删并单列变更。（**已执行**：见 0.3.22。）
+- **版本**：插件升 `0.3.21`；`verify_localized.py` 本次未改，版本保持 `1.2.15`。
+- 测试 192 passed（另有 73 个子测试），unittest 147 tests，Ruff 全绿。
+
 ## 0.3.20 — 2026-11-15
 
 按 `83043a9`（0.3.19）增量深审 A470 收口非基线关键章节条目的崩溃面：

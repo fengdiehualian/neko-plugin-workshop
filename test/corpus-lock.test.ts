@@ -56,6 +56,28 @@ describe("语料锁:锁值与磁盘一致", () => {
     }
   })
 
+  test("rbb 锁钉在 v0.3.22，anchors 覆盖 id / 正典块 / 规则口径", () => {
+    const parsed = lock.loadLock(CORPUS)
+    const entry = parsed.entries.reuse_before_build
+    expect(entry, "锁里没有 reuse_before_build").toBeTruthy()
+    expect(entry.ref).toBe("v0.3.22")
+    expect(entry.commit).toBe("a375629a9a8b96af18809107aa7202c68c1f104d")
+    expect(entry.version).toBe("0.3.22")
+    expect(entry.version_source).toBe("plugin.toml")
+    expect(entry.release?.asset).toBe("neko-reuse-before-build-v0.3.22-vendor.zip")
+    expect(entry.release?.asset_sha256).toBe("ac0d31f21d95d3b12af3fb860795e8507d8f8e122e3ddfa9dbb0d71204c87310")
+    expect(entry.release?.checksums_sha256).toBe("06ec74ac178586572b2884424a4103b9b0b9a06c106414d8e0b82e83e801b323")
+    expect(entry.release?.tree_scope).toBe("vendor")
+
+    const byId = Object.fromEntries(entry.anchors.map((a: { id: string }) => [a.id, a]))
+    expect(byId["plugin-manifest"].all).toContain('id = "reuse_before_build"')
+    expect(byId["skill-identity"].all).toEqual(expect.arrayContaining([
+      "RBB:INVARIANTS:BEGIN",
+      "RBB:INVARIANTS:END",
+    ]))
+    expect(byId["rule-numbering"].all).toEqual(expect.arrayContaining(["RULE_RE", "MULTILINE"]))
+  })
+
   test("锚点指向的文件都在语料里(锚点失效要当场报,不能等 --locked 才炸)", () => {
     const parsed = lock.loadLock(CORPUS)
     for (const [slug, entry] of Object.entries(parsed.entries)) {

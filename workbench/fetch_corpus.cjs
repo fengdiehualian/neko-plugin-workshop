@@ -16,7 +16,7 @@
 // 语料锁(见 market-corpus/corpus.lock.json,格式见 workbench/corpus-lock.cjs):
 //   node workbench/fetch_corpus.cjs --locked            # 只按锁里的 commit 抓,锁外 slug 跳过并报告
 //   node workbench/fetch_corpus.cjs --locked --verify-only  # 只校验磁盘上的语料,不联网(CI 用)
-//   node workbench/fetch_corpus.cjs --update reuse_before_build --ref v0.3.20
+//   node workbench/fetch_corpus.cjs --update reuse_before_build --ref v0.3.22
 //   node workbench/fetch_corpus.cjs --update-all        # 过滤规则改了之后整体重锁
 const fs = require("fs")
 const os = require("os")
@@ -286,7 +286,7 @@ function runUpdate() {
   // 用法错误必须走退出码 2:assertSlug("") 抛异常的话会掉到最外层的 catch,
   // 变成 exit 1 的「出错」,和「校验失败」混成一个码
   if (!updateAll && !updateSlug) {
-    console.error("--update 需要 slug:node workbench/fetch_corpus.cjs --update reuse_before_build [--ref v0.3.20]")
+    console.error("--update 需要 slug:node workbench/fetch_corpus.cjs --update reuse_before_build [--ref v0.3.22]")
     return 2
   }
   let targets = []
