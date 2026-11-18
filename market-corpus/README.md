@@ -68,8 +68,12 @@ Windows 上还有两个 git 参数,可用环境变量关掉,免得把用户环�
 条目的 `ref` 对 git 来源是必填的——`commit` 只用于核对，抓取要靠 `ref` 定位。
 
 ```bash
-node workbench/fetch_corpus.cjs --update plugin-forge --ref v2.8.0
+node workbench/fetch_corpus.cjs --update plugin-forge --ref v2.8.0   # 追新版本(显式给 tag 或 sha)
+node workbench/fetch_corpus.cjs --update plugin-forge                # 按锁里的 commit 重抓,不追新
 ```
+
+**不传 `--ref` 时不会去问 tag 现在指哪**：锁里的 `commit` 就是权威，重抓只用于修复磁盘上的语料。
+要换版本必须显式给 `--ref`——「自动跟随 tag」正是这套锁要避免的事。
 
 ## 已有克隆的换行提示
 

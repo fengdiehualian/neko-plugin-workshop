@@ -16,7 +16,8 @@
 // 语料锁(见 market-corpus/corpus.lock.json,格式见 workbench/corpus-lock.cjs):
 //   node workbench/fetch_corpus.cjs --locked            # 只按锁里的 commit 抓,锁外 slug 跳过并报告
 //   node workbench/fetch_corpus.cjs --locked --verify-only  # 只校验磁盘上的语料,不联网(CI 用)
-//   node workbench/fetch_corpus.cjs --update reuse_before_build --ref v0.3.22
+//   node workbench/fetch_corpus.cjs --update reuse_before_build --ref v0.3.22   # 追新版本
+//   node workbench/fetch_corpus.cjs --update reuse_before_build                   # 按锁里的 commit 重抓,不追新
 //   node workbench/fetch_corpus.cjs --update-all        # 过滤规则改了之后整体重锁
 const fs = require("fs")
 const os = require("os")
@@ -164,15 +165,6 @@ function resolveCommit(ghRepo, ref) {
   try { j = JSON.parse(raw.toString("utf8")) } catch { throw new Error("GitHub 返回不是 JSON:" + ghRepo + "@" + ref) }
   if (!j || !j.sha) throw new Error("解析不到 commit:" + ghRepo + "@" + ref)
   return j.sha
-}
-
-/** 最近一个 release/tag;没有 tag 就退回默认分支 HEAD。 */
-function latestRef(ghRepo) {
-  try {
-    const j = JSON.parse(httpGet("https://api.github.com/repos/" + ghRepo + "/releases/latest", 30000).toString("utf8"))
-    if (j && j.tag_name) return j.tag_name
-  } catch {}
-  return "HEAD"
 }
 
 /** 按 commit 抓 zip(镜像依次尝试),返回 { buf, mirror }。 */
@@ -433,13 +425,16 @@ function runUpdate() {
     const entry = lock.entries[slug]
     if (!entry) { console.error("FAIL  " + slug + "  不在锁里。新条目请先手工加一条,再 --update。"); failed++; continue }
     const ghRepo = entry.repo
-    const ref = updateAll ? (entry.ref || "HEAD") : (updateRef || latestRef(ghRepo))
+    // 钉 SHA 优先:没显式给 --ref 时,锁里的 commit 就是权威,不回头问 tag 现在指哪。
+    // 追新版本必须显式给 --ref <tag 或 sha>——"自动跟随 tag"正是要避免的那件事。
+    const explicitRef = updateRef || ""
+    const ref = explicitRef || entry.ref || ""
     try {
-      const commit = resolveCommit(ghRepo, ref)
-      // 同一个 ref 指向的 commit 变了 = ref 被移动。默认拒绝:
-      // --update 会把刚解析出的 commit 当成期望值传给 installFromGit,自己永远自洽,
-      // 所以这里必须先拦一道,否则「版本号没变、内容变了」会静默进锁。
-      if (!updateAll && entry.ref === ref && entry.commit && commit !== entry.commit && !acceptMoved) {
+      const commit = explicitRef
+        ? resolveCommit(ghRepo, explicitRef)
+        : (entry.commit || resolveCommit(ghRepo, ref || "HEAD"))
+      // 只有显式给 --ref 时才可能"ref 指向了新 commit";没给 ref 时 commit 就是锁里的值
+      if (explicitRef && entry.ref === explicitRef && entry.commit && commit !== entry.commit && !acceptMoved) {
         failed++
         console.error("FAIL  " + slug + "  ref " + ref + " 现在指向 " + commit.slice(0, 12) +
           ",锁里钉的是 " + entry.commit.slice(0, 12) +
