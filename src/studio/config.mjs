@@ -60,7 +60,9 @@ export function resolvePath(p, root) {
 /** 这些键里存的是路径,加载后要相对 root 解析。 */
 export const PATH_KEYS = ["workspace", "engineExe", "bunPath", "pythonPath", "opencodeRepo", "nekoRepo"]
 
-/** 读 <root>/wb-studio.config.json 并合并默认值,返回一份独立对象。 */
+/** 读 <root>/wb-studio.config.json 并合并默认值,返回一份独立对象。
+ *  文件不存在(=首次启动)按默认值走且**不出声**;只有文件在却读不动/JSON 坏才提示。
+ *  这是「读到坏配置必须出声」的唯一例外,故意的:首装时报错会把用户指向错误方向。 */
 export function loadConfig(root) {
   let cfg
   try {
@@ -76,5 +78,13 @@ export function loadConfig(root) {
   }
   if (!THINK_LEVELS.includes(cfg.thinkingLevel)) cfg.thinkingLevel = "auto"
   for (const k of PATH_KEYS) cfg[k] = resolvePath(cfg[k], root)
+  // 浅拷贝只隔离了第一层:数组/对象字段仍与 defaultConfig 共享引用,
+  // 任何一处 push/赋值都会污染模板,下一次 load 读到的就是被改过的默认值。
+  // 这三个是唯一可变的嵌套字段,逐个断开。
+  cfg.engineCmd = Array.isArray(cfg.engineCmd) ? [...cfg.engineCmd] : []
+  cfg.expertDisabled = Array.isArray(cfg.expertDisabled) ? [...cfg.expertDisabled] : []
+  cfg.expertModelMap = cfg.expertModelMap && typeof cfg.expertModelMap === "object"
+    ? { ...cfg.expertModelMap }
+    : {}
   return cfg
 }

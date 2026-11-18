@@ -77,6 +77,18 @@ describe("loadConfig", () => {
     })
   })
 
+  test("嵌套字段不共享引用:改 cfg 的数组/对象不污染 defaultConfig", () => {
+    withRoot(null, (root) => {
+      const c = loadConfig(root)
+      c.engineCmd.push("x")
+      c.expertDisabled.push("dev")
+      c.expertModelMap.dev = { apiId: "a", model: "m" }
+      expect(defaultConfig.engineCmd).toEqual([])
+      expect(defaultConfig.expertDisabled).toEqual([])
+      expect(defaultConfig.expertModelMap).toEqual({})
+    })
+  })
+
   test("PATH_KEYS 里的键都在默认配置里", () => {
     for (const k of PATH_KEYS) expect(defaultConfig, "缺路径键 " + k).toHaveProperty(k)
   })
