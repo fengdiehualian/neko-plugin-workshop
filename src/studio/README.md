@@ -66,6 +66,9 @@ CLI 入口  →  发布  →  校验  →  生成  →  契约  →  外部依�
 
 ## 安装版说明
 
-`src/studio/` 是运行期代码，随包分发（不像 `market-corpus/**` 是 `export-ignore`）。
-`workbench/build_payload.py` 的打包清单如果按白名单收文件，新增模块要同步加进去——
-这一条在拆到第 2 块时必须核对一次。
+`src/studio/` 是运行期代码，随包分发（`git archive` 全量打包，不在 `export-ignore` 里）。
+
+但**打包不会因为少了一个模块而失败**：`workbench/build_payload.py` 的 `REQUIRED` 是
+出厂检查的白名单，只核对点名的文件在不在、够不够大。新增模块必须同步往 `REQUIRED`
+追加一条，否则缺模块的包照样能过检查，装完启动即崩。
+`src/studio/util.mjs` 已经加进去了，后续每搬一块都要补一条。
