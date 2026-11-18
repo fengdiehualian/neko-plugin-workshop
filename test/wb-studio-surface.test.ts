@@ -51,7 +51,14 @@ describe("wb-studio 对外面快照", () => {
 
   test("快照与源码一致(拆代码前后必须相同)", () => {
     if (process.env.UPDATE_SNAPSHOT === "1") {
+      // CI 里禁止自我放行:被误设这个变量时,快照会被悄悄重写,门禁等于关掉
+      if (process.env.CI) {
+        throw new Error("CI 环境禁止 UPDATE_SNAPSHOT=1:快照只能在本地更新并 review diff")
+      }
       writeFileSync(SNAP_PATH, JSON.stringify(actual, null, 2) + "\n", "utf8")
+      // 写完就抛:否则"先写再读再比"必然通过,等于自己给自己发通行证。
+      // 让人看一遍 diff,重跑第二次才是绿。
+      throw new Error("快照已重写到 " + SNAP_PATH + ":请 review diff 后重跑 bun test")
     }
     const expected = JSON.parse(readFileSync(SNAP_PATH, "utf8")) as Surface
 
