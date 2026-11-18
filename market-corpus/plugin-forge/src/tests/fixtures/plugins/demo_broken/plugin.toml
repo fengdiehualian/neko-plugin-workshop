@@ -1,0 +1,7 @@
+[plugin]
+id = "demo_broken"
+name = "验收样例（坏）"
+version = "1.0.0"
+entry = "plugin.plugins.demo_broken:GhostPlugin"
+author = "plugin-forge"
+description = "dry_load 的反例：entry 指的符号在源码里不存在，宿主会报 Class not found。"

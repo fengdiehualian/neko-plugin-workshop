@@ -78,6 +78,38 @@ describe("语料锁:锁值与磁盘一致", () => {
     expect(byId["rule-numbering"].all).toEqual(expect.arrayContaining(["RULE_RE", "MULTILINE"]))
   })
 
+  test("forge 锁钉在 v2.8.0 / 722529a，来源是 git + tar 归档", () => {
+    const parsed = lock.loadLock(CORPUS)
+    const entry = parsed.entries["plugin-forge"]
+    expect(entry, "锁里没有 plugin-forge").toBeTruthy()
+    // kind 是新增值:现有代码不读它,但写清楚「这是工具仓不是市场插件」
+    expect(entry.kind).toBe("forge")
+    expect(entry.source).toBe("git")
+    expect(entry.ref).toBe("v2.8.0")
+    expect(entry.commit).toBe("722529a5fb439e3972a4d42f1f7b7d3ea17985ab")
+    expect(entry.version).toBe("2.8.0")
+    // forge 的版本只写在 .claude-plugin/plugin.json,读不到就会静默漂
+    expect(entry.version_source).toBe("plugin.json")
+    // git 来源记的是 tar 流哈希,不是 codeload zip:两者字节不同,不能混为一谈
+    expect(entry.archive_format).toBe("tar")
+    expect(entry.files).toBe(80)
+    // 工具仓没有市场发布镜像,release 块不该出现在这条上
+    expect(entry.release, "forge 不该有 release 镜像块").toBeUndefined()
+
+    const byId = Object.fromEntries(entry.anchors.map((a: { id: string }) => [a.id, a]))
+    expect(byId["plugin-manifest"].all).toContain('"name": "plugin-forge"')
+    expect(byId["skill-identity"].all).toContain("name: plugin-forge")
+    expect(byId["rbb-pin"].any).toContain("v0.3.22")
+    expect(byId["audit-ledger"].any).toContain("sec-declared")
+  })
+
+  test("老条目没有 archive_format，按 zip 理解(向后兼容)", () => {
+    const parsed = lock.loadLock(CORPUS)
+    const rbb = parsed.entries.reuse_before_build
+    expect(rbb.source ?? "zip").toBe("zip")
+    expect(rbb.archive_format ?? "zip").toBe("zip")
+  })
+
   test("锚点指向的文件都在语料里(锚点失效要当场报,不能等 --locked 才炸)", () => {
     const parsed = lock.loadLock(CORPUS)
     for (const [slug, entry] of Object.entries(parsed.entries)) {
@@ -135,6 +167,26 @@ describe("语料锁:版本与锚点口径", () => {
     withTempTree(
       { "plugin.toml": "[plugin]\nversion = \"0.1.0\"\n", "skills/another-skill/SKILL.md": "---\nmetadata:\n  version: 9.9.9\n---\n" },
       (root) => expect(lock.readVersion(root)).toEqual({ version: "0.1.0", version_source: "plugin.toml" }),
+    )
+  })
+
+  test("readVersion 能读 .claude-plugin/plugin.json，但让位给 plugin.toml", () => {
+    withTempTree(
+      { ".claude-plugin/plugin.json": JSON.stringify({ name: "plugin-forge", version: "2.8.0" }) + "\n" },
+      (root) => expect(lock.readVersion(root)).toEqual({ version: "2.8.0", version_source: "plugin.json" }),
+    )
+    // 市场插件的宿主清单优先:两边都写时以 plugin.toml 为准
+    withTempTree(
+      {
+        "plugin.toml": '[plugin]\nversion = "9.9.9"\n',
+        ".claude-plugin/plugin.json": JSON.stringify({ version: "1.0.0" }),
+      },
+      (root) => expect(lock.readVersion(root)).toEqual({ version: "9.9.9", version_source: "plugin.toml" }),
+    )
+    // 坏 JSON 不猜也不抛:退回到「读不到」,让调用方保留锁里的旧值并告警
+    withTempTree(
+      { ".claude-plugin/plugin.json": "{ 坏掉的 json" },
+      (root) => expect(lock.readVersion(root)).toEqual({ version: null, version_source: null }),
     )
   })
 

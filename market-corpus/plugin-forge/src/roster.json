@@ -1,0 +1,147 @@
+{
+  "schema": "plugin-forge/roster@1",
+  "source_of_truth": "本文件是团队名册与成员表的唯一来源；README、SKILL.md、lead 文档中的名册表格和人数声明由 scripts/generate_roster_tables.py 从本文件生成，不得手改。",
+  "updated": "2026-11-15",
+  "members": [
+    {
+      "agent_id": "plugin-forge-lead",
+      "file": "agents/plugin-forge-lead.md",
+      "role": "lead",
+      "name_zh": "交付总监（主理人）",
+      "name_en": "Forge Lead",
+      "duty": "编排、分拣、契约门禁把关、三段回奏汇编",
+      "when_to_dispatch": "总是（编排、分拣、汇编）",
+      "max_turns": 180
+    },
+    {
+      "agent_id": "plugin-forge-contract",
+      "file": "agents/plugin-forge-contract.md",
+      "role": "expert",
+      "name_zh": "契约审议师",
+      "name_en": "Contract Reviewer",
+      "duty": "按目标平台真实能力面审议方案，可封驳",
+      "when_to_dispatch": "方案写好之后、写码之前（**门禁**）",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-dev",
+      "file": "agents/plugin-forge-dev.md",
+      "role": "expert",
+      "name_zh": "插件开发工程师",
+      "name_en": "Plugin Dev Engineer",
+      "duty": "脚手架 / manifest / 生命周期 / 错误约定 / 修故障",
+      "when_to_dispatch": "起脚手架 / 实现 / 修故障",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-tdd",
+      "file": "agents/plugin-forge-tdd.md",
+      "role": "expert",
+      "name_zh": "测试驱动工程师",
+      "name_en": "TDD Engineer",
+      "duty": "红-绿-重构、最小可跑测试",
+      "when_to_dispatch": "实现前写最小测试、实现后转绿",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-architect",
+      "file": "agents/plugin-forge-architect.md",
+      "role": "expert",
+      "name_zh": "架构设计师",
+      "name_en": "Architecture Designer",
+      "duty": "模块接口、架构图、深化扫描",
+      "when_to_dispatch": "模块接口 / 架构图 / 深化扫描",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-simplifier",
+      "file": "agents/plugin-forge-simplifier.md",
+      "role": "expert",
+      "name_zh": "极简工程师",
+      "name_en": "Minimalist Engineer",
+      "duty": "删冗余 / 死代码 / 过度抽象",
+      "when_to_dispatch": "实现后极简化、删冗余",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-reviewer",
+      "file": "agents/plugin-forge-reviewer.md",
+      "role": "expert",
+      "name_zh": "代码审查师",
+      "name_en": "Code Reviewer",
+      "duty": "双轴审查、修法清单",
+      "when_to_dispatch": "提交前双轴审查",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-planner",
+      "file": "agents/plugin-forge-planner.md",
+      "role": "expert",
+      "name_zh": "规划问诊师",
+      "name_en": "Planning & Routing Specialist",
+      "duty": "需求 sharpen、能力路由",
+      "when_to_dispatch": "需求含糊、方案需 sharpen",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-skill-ops",
+      "file": "agents/plugin-forge-skill-ops.md",
+      "role": "expert",
+      "name_zh": "能力运营师",
+      "name_en": "Capability Ops Engineer",
+      "duty": "skill/prompt 创建、查重、审计、挂接",
+      "when_to_dispatch": "需要新 skill / 审计第三方能力",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-reliability",
+      "file": "agents/plugin-forge-reliability.md",
+      "role": "expert",
+      "name_zh": "运维可靠性工程师",
+      "name_en": "Reliability & Ops Engineer",
+      "duty": "CI/CD、发布就绪、故障响应",
+      "when_to_dispatch": "CI/CD、发布就绪、故障响应",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-security",
+      "file": "agents/plugin-forge-security.md",
+      "role": "expert",
+      "name_zh": "安全工程师",
+      "name_en": "Security Engineer",
+      "duty": "密钥 / 注入 / 依赖供应链门禁",
+      "when_to_dispatch": "交付前安全门禁（密钥 / 注入 / 依赖）",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-market-research",
+      "file": "agents/plugin-forge-market-research.md",
+      "role": "expert",
+      "name_zh": "生态调研分析师",
+      "name_en": "Ecosystem Research Analyst",
+      "duty": "平台生态调研、缺口分析",
+      "when_to_dispatch": "生态 / 市场缺口分析；Workflow A 第 1a 步（先搜后建，rbb 门禁）",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-sandbox",
+      "file": "agents/plugin-forge-sandbox.md",
+      "role": "expert",
+      "name_zh": "运行时验证工程师",
+      "name_en": "Runtime Verification Engineer",
+      "duty": "隔离运行时真实加载验证",
+      "when_to_dispatch": "\"宿主里到底跑不跑\" / 交付前真实冒烟",
+      "max_turns": 60
+    },
+    {
+      "agent_id": "plugin-forge-docs",
+      "file": "agents/plugin-forge-docs.md",
+      "role": "expert",
+      "name_zh": "文档工程师",
+      "name_en": "Docs Engineer",
+      "duty": "README / 教程 / 变更说明 / PR 文本 / 对外沟通，双风格文档门禁",
+      "when_to_dispatch": "工作流 G 主力：README / 教程 / 变更说明 / PR 文本 / 对外沟通；风格门禁见 `references/style-anti-slop.md`；外部内容入库审计",
+      "max_turns": 40
+    }
+  ]
+}

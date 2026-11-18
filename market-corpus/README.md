@@ -42,6 +42,25 @@ node workbench/fetch_corpus.cjs --update-all                # 过滤规则改了
   重锁直接失败(而不是写进一条下一次 `--verify` 解释不了的锁)。锚点过不去就先改锁里的 anchors。
 - `api.github.com` 未认证只有 60 次/小时,`--update-all` 或多条重锁请先设 `GITHUB_TOKEN`。
 
+## git 来源（工具仓）
+
+市场插件走 codeload zip；**工具仓**（如 `plugin-forge`）不是市场插件，锁条目写
+`"source": "git"`，抓取走 `git fetch` + `git archive`。两条硬约束都是实测踩出来的：
+
+- **不能用裸 sha 抓**：`git fetch <url> <commit>` 在 GitHub 上直接 `couldn't find remote ref`。
+  只能按 `refs/tags/<ref>`（或 `refs/heads/<ref>`）取，再用 `rev-parse` 核对是否等于锁里的 `commit`。
+  tag 被移动过时 `--update` 会失败，而不是把新内容写进旧标签名下。
+- **`git archive` 必须固定换行**：同一 commit，本地仓库与浅克隆导出的 tar 字节不同（CRLF 差异，
+  实测 1,259,520 vs 1,269,760）。抓取时固定 `core.autocrlf=false` 与 `core.eol=lf`，
+  `archive_sha256` 才能跨机器复现。
+
+条目里用 `archive_format` 区分两种归档：`tar`（git 来源）与 `zip`（市场来源，老条目缺省按 zip 理解）。
+条目的 `ref` 对 git 来源是必填的——`commit` 只用于核对，抓取要靠 `ref` 定位。
+
+```bash
+node workbench/fetch_corpus.cjs --update plugin-forge --ref v2.8.0
+```
+
 ## 已有克隆的换行提示
 
 `.gitattributes` 给 `market-corpus/**` 设了 `-text`。**已经存在的克隆**在拉下这次改动后,
@@ -57,6 +76,7 @@ git checkout -- market-corpus
 
 ## 现状
 
-试点阶段只有 `reuse_before_build` 一条进了锁,其余条目仍是「抓分支 HEAD + `.done`」的旧路径。
-迁移顺序:先试点(本条) → `fetch_corpus` 接 `--locked` → 其余条目 `--update-all` 补齐后删掉
+锁里现在两条：`reuse_before_build`（市场插件，codeload zip）与 `plugin-forge`（工具仓，git + tar）。
+其余条目仍是「抓分支 HEAD + `.done`」的旧路径。
+迁移顺序：先试点（rbb） → `fetch_corpus` 接 `--locked` → 工具仓走 git 来源 → 其余条目 `--update-all` 补齐后删掉
 `.done` 与 `SOURCES.json`。

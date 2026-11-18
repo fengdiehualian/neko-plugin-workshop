@@ -1,0 +1,47 @@
+Third-party attribution and credit
+==================================
+
+This product is licensed under the MIT License (see LICENSE). The entries below
+are attributions and design credits. They add no conditions to that license and
+grant no rights beyond it. LICENSE holds the MIT text plus a two-line pointer
+back to this file; the pointer adds no condition. Keeping the grant text in LICENSE
+is what lets automated license scanners recognise it.
+
+Provenance for each entry is recorded with its check date in the audit record for that
+family: AUDIT.md for this toolkit's own entries, the file-header snapshot note in
+skills/plugin-forge/references/neko/mattpocock-skills.md for that third-party skill kit,
+and skills/plugin-forge/references/neko/neko-court-source-notes.md for the NEKO court
+material. The N.E.K.O project itself is Apache-2.0 (verified against upstream metadata).
+Where an
+entry says the provenance is not established, treat it as unsettled, not as free
+to reuse.
+
+- references/style-anti-slop.md condenses rules from asd-ste100 kit (MIT, (c) woosal1337;
+  the ASD-STE100 specification itself is copyright ASD / AEEC), humanizer (MIT, (c) blader),
+  and Humanizer-zh (MIT, (c) op7418). See AUDIT.md.
+- references/neko/neko-court-*.md borrow the institutional model of cft0808/edict (MIT).
+  No source from it is copied here; see references/neko/neko-court-source-notes.md.
+- references/neko/mattpocock-skills.md and references/neko/doc-writing-playbook.md condense
+  ideas from mattpocock/skills, stop-slop and SimpleEnglish (MIT). They are summaries and
+  links, not copies.
+- references/neko/system.llm is an archived third-party system prompt kept for study. Its
+  provenance and licence are not established (see AUDIT.md). It is not policy for this team.
+  The owner decided on 2026-11-16 to keep it in the public repository with no removal deadline,
+  so this remains an open risk rather than an action item.
+- skills/plugin-forge/references/delivery-self-check.md is a third-party behaviour gate whose
+  provenance and licence are not established (see AUDIT.md). It is not enforced as policy
+  until that is settled.
+- N.E.K.O is an Apache-2.0 project. This repository cites its routes, contracts and ports as
+  verifiable facts and contains none of its source.
+- Process credit and external dependency (referenced, not vendored): 1-dcjiang/neko-reuse-before-build,
+  plugin id `reuse_before_build`, "先搜后建". Workflow A step 1a and the search-before-build iron rule
+  in SKILL.md point at it as the authority for search-before-build rules. MIT License, (c) 2026
+  1-dcjiang. This repository writes its own prose and copies no rule text or code from it; it reuses
+  only rbb's verdict vocabulary (Join / Extend / Fork / Build) and the deliverable marker
+  `不可复用原因 / Not reusable because:` so that a rbb-checked deliverable still passes here.
+  Pinned reference: v0.3.22, commit a375629, checked 2026-11-17. Install it as a N.E.K.O plugin if
+  the mechanical rule checks are wanted; plugin-forge only routes to it.
+- Design credit: jusspound-netizen/dsh-plugin-scanner (commit bb8dc7cd, 2026-11-14). Its ideas
+  of manifest-shape checks and of a fail-closed exit code for blind spots inspired
+  skills/plugin-forge/scripts/security_audit.py. That repository publishes no licence file, so
+  nothing was copied from it; the detector here is an independent implementation.

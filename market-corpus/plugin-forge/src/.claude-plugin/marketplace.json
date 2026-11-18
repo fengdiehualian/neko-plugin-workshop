@@ -1,0 +1,24 @@
+{
+  "name": "plugin-forge-suite",
+  "owner": {
+    "name": "云朵",
+    "url": "https://github.com/HorizonCloudy"
+  },
+  "description": "插件制造专家团：一个团队，一个插件。",
+  "plugins": [
+    {
+      "name": "plugin-forge",
+      "source": "./",
+      "description": "平台无关插件制造专家团，内置 N.E.K.O 平台资产。",
+      "category": "engineering",
+      "keywords": [
+        "plugins",
+        "multi-agent",
+        "contract-first",
+        "ste100",
+        "anti-slop",
+        "neko"
+      ]
+    }
+  ]
+}
