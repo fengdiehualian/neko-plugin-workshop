@@ -23,6 +23,7 @@ import { homedir } from "node:os"
 import { driveAgent, driveAgentCli, driveZcode, planModelRetry, formatUserMemory, buildWishPrompt, formatExpertBlock, expectedSha256, verifyUpdateIntegrity, isLocalUpdateFeed, enginePermissionConfig, cmpVersion, planUpdateTarget, verifyUpdateManifest, UPDATE_TRUST } from "./wb-agent-lib.mjs"
 // 拆分第 1 块:纯工具函数(零状态)。搬走的是定义,调用点一字未改。
 import { THINK_LEVELS, writeJsonAtomic, openaiEffort, estTokens, sessionTokens } from "./src/studio/util.mjs"
+import { loadConfig } from "./src/studio/config.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -51,62 +52,10 @@ try {
 } catch {}
 
 // ---------- 配置 ----------
-// 便携版:配置里以 "./" 或 ".\\" 开头的路径相对包根(即本文件所在目录)解析;
-// 开发版:仍支持绝对路径。
-const CONFIG_PATH = join(__dirname, "wb-studio.config.json")
-const defaultConfig = {
-  port: 5099,
-  server: "http://127.0.0.1:4096",
-  workspace: "./workspace",
-  model: "",
-  // 引擎模式:"exe"=编译版 opencode-cli.exe(v2 API,Basic 认证,推荐便携包用);"bun"=源码 dev serve(v1 API)
-  //            "cli"=任意 Agent CLI 底座(engineCmd/enginePreset,无 opencode 依赖,模型凭据由底座自理)
-  engineMode: "exe",
-  engineExe: "./_engine/opencode-cli.exe",
-  // cli 模式命令模板:数组里含 {text} 的元素替换为整段任务文本;优先级高于 enginePreset
-  engineCmd: [],
-  // cli 模式预设:claude|codex|omp|opencode(等价 engineCmd,见 CLI_ENGINE_PRESETS)
-  enginePreset: "",
-  opencodeRepo: join(homedir(), "dev", "opencode"),
-  bunPath: "./_bin/bun.exe",
-  // 便携 Python(空白即用系统 python);N.E.K.O CLI 依赖 pydantic/psutil,由 _site 提供见 start.cmd PYTHONPATH
-  pythonPath: "./_py/python.exe",
-  nekoRepo: "",
-  enginePort: 4096,
-  timeoutSec: 1500,
-  stallTimeoutSec: 360, // 无进展看门狗:任务连续 N 秒没有任何引擎事件就自动中止(慢中转+长思考可几分钟无事件,给足 6 分钟)
-  retryMax: 2, // 模型无响应自动重试次数(0=关闭);只在「没有任何产出」时重试
-  thinkingLevel: "auto", // 思考强度:auto/none/low/medium/high/xhigh(见 THINK_LEVELS)
-  retryDelaySec: 3, // 首次退避秒数,之后翻倍(3s → 6s → 12s,上限 30s)
-  strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告)
-  expertMode: false, // 专家团模式:把 experts/ 专家包(主理人+成员分工+执行纪律)注入任务提示词
-  expertDisabled: [], // 用户单独关闭的专家成员 id 列表(设置页可逐个开关)
-  expertModelMap: {}, // 每位专家单独指定的调用来源 { 成员id: { apiId, model } };缺省=跟随当前启用的 API/底座
-  contextLimit: 128000, // 上下文容量(tokens):模型上下文窗口大小,用于底部容量显示
-  uiFont: "default", // 界面字体预设 id(见页面 FONT_PRESETS)
-  uiFontSize: 100, // 界面字号百分比(85~130),用 CSS zoom 整体缩放
-  openBrowser: true,
-  openMode: "app", // "app"=内置窗口(Edge/Chrome --app,关窗即退出);"browser"=系统浏览器(不随窗口退出)
-  appWindow: "1200x860",
-}
-function resolvePath(p) {
-  if (!p) return p
-  if (/^\.\.[\/\\]|^\.[\/\\]/.test(p)) return join(__dirname, p)
-  return p
-}
-// THINK_LEVELS / openaiEffort 已搬到 src/studio/util.mjs(拆分第 1 块)
+// 第 2 块拆分:默认值、读取与路径解析搬到 src/studio/config.mjs。
+// config 仍是模块级单例(全文件上百处引用),但只在启动时构造一次,之后只读/只改属性。
+const config = loadConfig(__dirname)
 
-let config = defaultConfig
-try {
-  config = { ...defaultConfig, ...JSON.parse(readFileSync(CONFIG_PATH, "utf8")) }
-} catch (e) {
-  // 配置文件损坏(常见:BOM/手改语法错)时不再静默用默认值,提示出来以免"改了端口/路径却不生效"
-  console.error(`[wb-studio] ⚠ 配置文件解析失败,已用默认配置: ${e.message}`)
-}
-if (!THINK_LEVELS.includes(config.thinkingLevel)) config.thinkingLevel = "auto"
-for (const k of ["workspace", "engineExe", "bunPath", "pythonPath", "opencodeRepo", "nekoRepo"]) {
-  config[k] = resolvePath(config[k])
-}
 
 // ---------- Agent 底座:opencode(内置引擎) / zcode(外部 CLI) ----------
 // 只影响「谁来干活」;会话、上下文压缩、产物扫描、停止按钮都由上层统一处理。

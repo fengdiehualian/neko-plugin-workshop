@@ -68,9 +68,13 @@ describe("打包口径:.gitattributes 的 export-ignore", () => {
     expect(cp, "包级复核没查这项,装完也发现不了").toMatch(/\$forbidden\s*=\s*@\([^\)]*wb-studio\.config\.json/)
   })
   test("前提核对:工作室缺配置时有默认值兜底(不然就不该 export-ignore)", () => {
-    const studio = read(join(ROOT, "wb-studio.mjs"))
-    expect(studio).toMatch(/const defaultConfig\s*=\s*\{/)
-    expect(studio, "配置合并方式变了,缺文件时可能起不来——先确认再打包").toMatch(/\{\s*\.\.\.defaultConfig,\s*\.\.\.JSON\.parse/)
+    // 第 2 块拆分后,默认值与合并逻辑搬到了 src/studio/config.mjs:两处合起来看
+    const sources = [
+      read(join(ROOT, "wb-studio.mjs")),
+      read(join(ROOT, "src", "studio", "config.mjs")),
+    ].join("\n")
+    expect(sources).toMatch(/defaultConfig\s*=\s*\{/)
+    expect(sources, "配置合并方式变了,缺文件时可能起不来——先确认再打包").toMatch(/\{\s*\.\.\.defaultConfig,\s*\.\.\.JSON\.parse/)
   })
 })
 

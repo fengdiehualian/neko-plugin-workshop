@@ -21,7 +21,7 @@ CLI 入口  →  发布  →  校验  →  生成  →  契约  →  外部依�
 
 | 块 | 管什么 | 现状 |
 |---|---|---|
-| **契约** | `defaultConfig`、`loadUserSettings`、后端选择、API token、权限升级 | 未拆 |
+| **契约** | `defaultConfig`、`loadUserSettings`、后端选择、API token、权限升级 | **部分**：`config.mjs` 已搬默认值/读取/路径解析；settings、backend、token 未搬 |
 | **生成** | 会话、提示词拼装、专家团注入、上下文压缩 | 未拆 |
 | **校验** | `/api/test`、`neko_plugin_cli check` 调用、结构化 issues | 未拆 |
 | **发布** | `update` 检查、`build_payload`、`verifyUpdateManifest` | 未拆 |
@@ -55,9 +55,9 @@ CLI 入口  →  发布  →  校验  →  生成  →  契约  →  外部依�
 ## 后续顺序（建议）
 
 1. **纯工具**（已完成）：`util.mjs`
-2. **契约**：`config.mjs` —— 把 `defaultConfig` / `loadUserSettings` / `BACKEND_*` 收进去，
-   导出 `loadConfig(root)` 而不是模块级 `let config`（这一步开始会有真正的接口改动，
-   需要单独一个 PR 并更新快照里的配置键断言）。
+2. **契约（进行中）**：`config.mjs` 已搬 `defaultConfig` / `loadConfig(root)` / `resolvePath`。
+   剩下 `loadUserSettings` / `saveUserSettings`、`BACKEND_*` 的读写、token 发布。
+   下一步搬 settings 时同样要给函数加显式参数，不再依赖模块级单例。
 3. **外部依赖**：`engine.mjs` —— `findChromium` / `detectZcode` / `ensureEngine` / `zcodeRuntimeEnv`。
 4. **校验**：`check.mjs`。
 5. **发布**：`update.mjs`。
