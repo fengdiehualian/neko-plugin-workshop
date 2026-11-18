@@ -25,6 +25,14 @@ const MIRRORS = ["https://ghfast.top/", "https://gh-proxy.com/", ""]
 const MAX_FILE = 1500 * 1024          // 单个文件上限:二进制/大资产不进语料
 const KEEP_EXT = new Set([".py", ".toml", ".md", ".json", ".yaml", ".yml", ".txt", ".ts", ".tsx", ".js", ".jsx", ".css", ".html", ".sql", ".sh", ".ps1"])
 const SKIP_DIRS = new Set([".git", "node_modules", "__pycache__", ".venv", "dist", "build", ".vscode"])
+// 许可/说明类文件没有扩展名,按 KEEP_EXT 会被整类丢掉;语料里少了 LICENSE,
+// THIRD_PARTY_NOTICES 与各接入线文档就指向不存在的路径。
+// 带连字符的变体(LICENSE-MIT / LICENSE-APACHE / UNLICENSE)是 collect_notices.cjs
+// 的 LIC_NAMES 明确要认的名字,漏了会把它报成「未声明 license」
+const KEEP_NAME = new Set([
+  "license", "licence", "copying", "notice", "readme",
+  "license-mit", "licence-mit", "license-apache", "unlicense",
+])
 
 function arg(name, d) {
   const i = process.argv.indexOf("--" + name)
@@ -54,25 +62,49 @@ function listAll() {
 // 只保留代码/配置/文档,且跳过超大文件;顺带把绝对路径与密钥形态的内容原样留着但不执行
 function extractZip(zipPath, dest) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wbcorpus-"))
-  const r = spawnSync("tar", ["-xf", zipPath, "-C", tmp], { encoding: "latin1" })
-  if (r.status !== 0) throw new Error("解压失败:" + (r.stderr || "").slice(0, 160))
-  let kept = 0
-  const walk = (from, relTo) => {
-    for (const e of fs.readdirSync(from, { withFileTypes: true })) {
-      if (e.isDirectory() && SKIP_DIRS.has(e.name)) continue
-      const a = path.join(from, e.name)
-      if (e.isDirectory()) { walk(a, path.join(relTo, e.name)); continue }
-      const st = fs.statSync(a)
-      if (st.size > MAX_FILE || !KEEP_EXT.has(path.extname(e.name).toLowerCase())) continue
-      const target = path.join(dest, relTo, e.name)
-      fs.mkdirSync(path.dirname(target), { recursive: true })
-      fs.copyFileSync(a, target)
-      kept++
+  // 解压全失败、或 walk 中途抛错时 tmp 也要清掉,否则每失败一次就在 os.tmpdir() 留一份解包内容
+  try {
+    // zip 不是 tar:GNU tar 会直接拒绝(Windows/macOS 的 bsdtar 才认),按平台依次退到 unzip / python
+    const attempts = [
+      ["tar", ["-xf", zipPath, "-C", tmp]],
+      ["unzip", ["-q", zipPath, "-d", tmp]],
+      ["python", ["-m", "zipfile", "-e", zipPath, tmp]],
+    ]
+    let unpacked = false
+    let lastErr = ""
+    for (const [cmd, cmdArgs] of attempts) {
+      const r = spawnSync(cmd, cmdArgs, { encoding: "latin1" })
+      if (r.status === 0) { unpacked = true; break }
+      lastErr = String(r.stderr || (r.error && r.error.message) || "").slice(0, 160)
     }
+    if (!unpacked) throw new Error("解压失败(tar/unzip/python 都不行):" + lastErr)
+    let kept = 0
+    const walk = (from, relTo) => {
+      for (const e of fs.readdirSync(from, { withFileTypes: true })) {
+        if (e.isDirectory() && SKIP_DIRS.has(e.name)) continue
+        const a = path.join(from, e.name)
+        if (e.isDirectory()) { walk(a, path.join(relTo, e.name)); continue }
+        const st = fs.statSync(a)
+        const name = e.name.toLowerCase()
+        const ext = path.extname(name)
+        const keep = KEEP_EXT.has(ext) || (ext === "" && KEEP_NAME.has(name))
+        if (st.size > MAX_FILE || !keep) continue
+        const target = path.join(dest, relTo, e.name)
+        fs.mkdirSync(path.dirname(target), { recursive: true })
+        fs.copyFileSync(a, target)
+        kept++
+      }
+    }
+    // zip 顶层是 <repo>-<branch>/:先剥掉这一层,否则语料会变成 dest/<repo>-main/rbb_core.py。
+    // 剥完直接落到 dest(src),与"dest/src 存在就跳过"的判断对齐。
+    const entries = fs.readdirSync(tmp, { withFileTypes: true })
+    const topDirs = entries.filter((e) => e.isDirectory())
+    const root = topDirs.length === 1 && entries.length === 1 ? path.join(tmp, topDirs[0].name) : tmp
+    walk(root, "")
+    return kept
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
   }
-  walk(tmp, "")
-  fs.rmSync(tmp, { recursive: true, force: true })
-  return kept
 }
 
 // 出处登记(issue #21):抓的是分支 HEAD,上游一提交内容就变,重抓与哈希锚点对不上是必然的。
@@ -112,20 +144,29 @@ const sha256buf = (b) => crypto.createHash("sha256").update(b).digest("hex")
     const branch = (ref.stdout || "").trim() === "200" ? "main" : "master"
     let got = false
     for (const m of MIRRORS) {
-      const url = m + "https://codeload.github.com/" + gh[1] + "/archive/refs/heads/" + branch + ".zip"
+      // codeload 只认 zip/refs/heads/<branch>；archive/refs/heads/<branch>.zip 是 github.com 的路径，
+      // 拼到 codeload 域名下必然 404(上面探测那行一直是对的,只有这行混用了两种形式)
+      const url = m + "https://codeload.github.com/" + gh[1] + "/zip/refs/heads/" + branch
       const zipPath = path.join(os.tmpdir(), "wb-" + slug + ".zip")
+      // 先写进 src.partial,成功后再改名成 src:否则 ENOSPC 之类中途失败会留下半成品,
+      // 而"dest/src 存在就跳过"会把半成品当成抓完了,之后再也补不上
+      const staging = path.join(dest, "src.partial")
       try {
         const buf = httpGet(url, 120000)
         if (buf.length < 1000) throw new Error("内容太小,疑似不是压缩包")
         fs.writeFileSync(zipPath, buf)
         if (dryRun) { ok++; console.log("  [dry] " + slug + " ← " + url); got = true; break }
-        const kept = extractZip(zipPath, dest)
+        fs.rmSync(staging, { recursive: true, force: true })
+        fs.mkdirSync(staging, { recursive: true })
+        const kept = extractZip(zipPath, staging)
+        fs.renameSync(staging, path.join(dest, "src"))
         sources[slug] = { repo: gh[1], ref: "refs/heads/" + branch, zip_sha256: sha256buf(buf), files_kept: kept, fetchedAt: new Date().toISOString(), mirror: m, note: "抓的是分支 HEAD;要完全可复现请钉到 tag/commit" }
         fs.rmSync(zipPath, { force: true })
         console.log("  " + slug + ":保留 " + kept + " 个文件")
         ok++; got = true; break
       } catch (e) {
         try { fs.rmSync(zipPath, { force: true }) } catch {}
+        try { fs.rmSync(staging, { recursive: true, force: true }) } catch {}
       }
     }
     if (!got) failed.push([slug, "三个镜像都没下到"])
