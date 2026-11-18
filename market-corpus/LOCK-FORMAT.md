@@ -29,7 +29,7 @@
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `schema` | number | **必须是 1**。不认识的值直接报错，不猜。 |
+| `schema` | number | **当前是 2**。读取器必须同时接受 1（读时迁移字段名）与 2；其他值直接报错，不猜。 |
 | `algo` | string | **必须是 `tree-sha256-v0`**。不认识直接报错。 |
 | `entries` | object | 键是 slug，值是条目。 |
 | `note` | string | 可选，人类可读。 |
@@ -240,7 +240,21 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 ## 9. 版本演进
 
 `schema` 是整数，只在**破坏性变更**时升（字段语义变了、算法换了）。
-新增可选字段不升 schema——老条目缺字段时按§3.2 的默认值理解即可
+新增可选字段不升 schema——老条目缺字段时按§3.2 的默认值理解即可。
+
+### 9.1 v1 → v2：字段改名（当前版本）
+
+| v1 | v2 | 说明 |
+|---|---|---|
+| `repo` | `source` | 改名 |
+| `source`（`zip` / `git`） | `source_type` | 改名，避免与新的 `source` 撞名 |
+| `tree_sha256` | `computedHash` | 改名，算法不变（`tree-sha256-v0`） |
+
+`schema: 1` 的锁**仍然能读**：读取器看到 `schema: 1` 时按上表把字段名迁到 v2 再返回，
+写回时自然变成 `schema: 2`。`source` 在两版里语义不同，所以只能靠 `schema` 判断，
+不能靠「字段在不在」——这是迁移逻辑唯一的坑。
+
+老条目缺字段时的默认值口径不变
 （例如没有 `source_type` 就是 `zip`，没有 `archive_format` 就是 `zip`）。
 
 ## 10. 与 vercel-labs/skills 的字段对齐

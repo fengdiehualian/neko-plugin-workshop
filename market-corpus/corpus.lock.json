@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "algo": "tree-sha256-v0",
   "note": "语料锁 v0：每条记上游 commit、zip 哈希与落盘树的哈希。树哈希对「过滤后实际落盘的文件」计算，过滤规则变了也会被看见。生成/更新用 node workbench/fetch_corpus.cjs --update <slug> [--ref vX]，校验用 --locked；不要手改 hash 字段。",
   "entries": {

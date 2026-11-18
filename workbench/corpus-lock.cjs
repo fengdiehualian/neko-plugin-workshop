@@ -17,7 +17,8 @@ const path = require("path")
 const crypto = require("crypto")
 
 const LOCK_FILE = "corpus.lock.json"
-const SCHEMA = 1
+const SCHEMA = 2
+const SCHEMA_V1 = 1
 const ALGO = "tree-sha256-v0"
 
 // 与 fetch_corpus.cjs 的过滤口径保持一致;改这里必须同步跑 --update-all,
@@ -85,13 +86,37 @@ function lockPath(corpusRoot) {
   return path.join(corpusRoot, LOCK_FILE)
 }
 
+/** v1 → v2 的字段迁移(只在读取时做,写回时自然变成 v2)。
+ *  v1: repo=仓库, source=传输方式(zip/git), tree_sha256=哈希
+ *  v2: source=仓库, source_type=传输方式, computedHash=哈希
+ *  `source` 在两个版本里语义不同,所以只能靠 schema 判断,不能靠"字段在不在"。 */
+function migrateV1(entry) {
+  const out = { ...entry }
+  // 先迁传输方式:此刻 out.source 还是 "zip"/"git"(仓库名一定带斜杠,用它区分)
+  if (typeof out.source === "string" && !out.source.includes("/")) {
+    out.source_type = out.source
+    delete out.source
+  }
+  if (typeof out.repo === "string") { out.source = out.repo; delete out.repo }
+  if (typeof out.tree_sha256 === "string") { out.computedHash = out.tree_sha256; delete out.tree_sha256 }
+  return out
+}
+
 function loadLock(corpusRoot) {
   const p = lockPath(corpusRoot)
   if (!fs.existsSync(p)) return { schema: SCHEMA, algo: ALGO, entries: {} }
   const raw = JSON.parse(fs.readFileSync(p, "utf8"))
-  if (raw.schema !== SCHEMA) throw new Error("corpus.lock.json schema 版本不认识:" + raw.schema)
+  if (raw.schema !== SCHEMA && raw.schema !== SCHEMA_V1) {
+    throw new Error("corpus.lock.json schema 版本不认识:" + raw.schema +
+      "(本脚本认 " + SCHEMA_V1 + "(读时迁移)与 " + SCHEMA + ")")
+  }
   if (raw.algo !== ALGO) throw new Error("corpus.lock.json 的 algo 不认识:" + raw.algo + "(本脚本只认 " + ALGO + ")")
   if (!raw.entries || typeof raw.entries !== "object") throw new Error("corpus.lock.json 缺少 entries")
+  if (raw.schema === SCHEMA_V1) {
+    const entries = {}
+    for (const [slug, entry] of Object.entries(raw.entries)) entries[slug] = migrateV1(entry)
+    return { ...raw, schema: SCHEMA, entries }
+  }
   return raw
 }
 

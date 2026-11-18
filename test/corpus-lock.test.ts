@@ -241,6 +241,31 @@ describe("语料锁:slug 与锁结构", () => {
     }
   })
 
+  test("v1 锁读取时迁移成 v2 字段(改名字不破老锁)", () => {
+    const root = mkdtempSync(join(tmpdir(), "corpuslock-v1-"))
+    try {
+      writeFileSync(join(root, "corpus.lock.json"), JSON.stringify({
+        schema: 1,
+        algo: "tree-sha256-v0",
+        entries: {
+          gitOne: { repo: "o/n", source: "git", tree_sha256: "a".repeat(64), commit: "b".repeat(40), ref: "v1", files: 1, anchors: [] },
+          zipOne: { repo: "o/z", tree_sha256: "c".repeat(64), commit: "d".repeat(40), ref: "v1", files: 2, anchors: [] },
+        },
+      }))
+      const l = lock.loadLock(root)
+      expect(l.schema, "读出来应升到 v2").toBe(2)
+      expect(l.entries.gitOne.source).toBe("o/n")
+      expect(l.entries.gitOne.source_type).toBe("git")
+      expect(l.entries.gitOne.computedHash).toBe("a".repeat(64))
+      expect(l.entries.gitOne.repo, "旧字段应被删掉").toBeUndefined()
+      // v1 没写 source 就是 zip:迁移后也不该凭空多出 source_type
+      expect(l.entries.zipOne.source).toBe("o/z")
+      expect(l.entries.zipOne.source_type).toBeUndefined()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   test("schema / algo 不认识时不猜,直接抛", () => {
     const root = mkdtempSync(join(tmpdir(), "corpuslock-lock-"))
     try {

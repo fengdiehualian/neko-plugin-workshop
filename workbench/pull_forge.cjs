@@ -114,7 +114,7 @@ if (checkOnly) {
 if (!fs.existsSync(lockPath)) {
   fs.mkdirSync(CORPUS, { recursive: true })
   const lock = {
-    schema: 1,
+    schema: 2,
     algo: "tree-sha256-v0",
     note: "本机生成:安装包不含 corpus.lock,按 forge-pin.json 落一条。" +
       "开发工作区请用仓库里那份;生成/更新走 workbench/fetch_corpus.cjs。",
