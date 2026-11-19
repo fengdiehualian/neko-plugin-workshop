@@ -317,11 +317,13 @@ function commitInstall(slug, staging) {
  *  这里统一拦住,让「这条不合规」而不是「程序崩了」。 */
 function entryProblem(slug, entry) {
   try { locklib.assertSlug(slug) } catch (e) { return String((e && e.message) || e) }
-  if (!/^[\w.-]+\/[\w.-]+$/.test(String(entry.repo || ""))) return "repo 不是 owner/name:" + entry.repo
+  // 锁里写成 `"x": null` 时,下面每个 entry.xxx 都会抛 TypeError 把整轮扫描打断
+  if (!entry || typeof entry !== "object") return "条目不是对象:" + JSON.stringify(entry)
+  if (!/^[\w.-]+\/[\w.-]+$/.test(String(entry.source || ""))) return "source 不是 owner/repo:" + entry.source
   if (!/^[0-9a-f]{40}$/.test(String(entry.commit || ""))) return "commit 不是 40 位十六进制:" + String(entry.commit || "").slice(0, 24)
-  if (!/^[0-9a-f]{64}$/.test(String(entry.tree_sha256 || ""))) return "缺 tree_sha256"
+  if (!/^[0-9a-f]{64}$/.test(String(entry.computedHash || ""))) return "缺 computedHash"
   if (typeof entry.files !== "number") return "缺 files"
-  if (entry.source === "git" && !entry.ref) return "git 来源缺 ref(抓取要靠它定位,sha 只用于核对)"
+  if (entry.transport === "git" && !entry.ref) return "git 来源缺 ref(用于识别 tag 被移动;抓取以 commit 为准)"
   return null
 }
 
@@ -337,21 +339,21 @@ function runLocked() {
     const root = path.join(OUT, slug)
     const current = locklib.treeHash(path.join(root, "src"))
 
-    if (current && current.tree_sha256 === entry.tree_sha256) {
+    if (current && current.computedHash === entry.computedHash) {
       const missing = locklib.checkAnchors(root, entry.anchors)
       if (missing.length) {
         failed++
         console.error("FAIL  " + slug + "  树哈希一致但锚点缺失:" + missing.join(", "))
       } else {
         passed++
-        console.log("PASS  " + slug + "  tree=" + current.tree_sha256.slice(0, 16) + "… files=" + current.files + "  (已落盘,未联网)")
+        console.log("PASS  " + slug + "  tree=" + current.computedHash.slice(0, 16) + "… files=" + current.files + "  (已落盘,未联网)")
       }
       continue
     }
     if (current) {
       failed++
-      console.error("FAIL  " + slug + "  树哈希不符:磁盘 " + current.tree_sha256.slice(0, 16) + "… files=" + current.files +
-        " vs 锁 " + entry.tree_sha256.slice(0, 16) + "… files=" + entry.files +
+      console.error("FAIL  " + slug + "  树哈希不符:磁盘 " + current.computedHash.slice(0, 16) + "… files=" + current.files +
+        " vs 锁 " + entry.computedHash.slice(0, 16) + "… files=" + entry.files +
         "。要么语料被改过,要么过滤规则变了 —— 确认是故意的之后跑 --update-all 重锁。")
       continue
     }
@@ -362,17 +364,17 @@ function runLocked() {
     }
     // 锁里有、磁盘没有:按锁里的 commit 抓一份,再逐项核对
     try {
-      const r = entry.source === "git"
-        ? installFromGit(slug, entry.repo, entry.ref || entry.commit, entry.commit)
-        : installAtCommit(slug, entry.repo, entry.commit)
+      const r = entry.transport === "git"
+        ? installFromGit(slug, entry.source, entry.ref || entry.commit, entry.commit)
+        : installAtCommit(slug, entry.source, entry.commit)
       if (r.archive_sha256 !== entry.archive_sha256) {
         console.warn("WARN  " + slug + "  archive sha256 与锁不符(镜像/网络差异,只警告):" + r.archive_sha256.slice(0, 16) + "… vs " + String(entry.archive_sha256).slice(0, 16) + "…")
       }
-      if (r.measured.tree_sha256 !== entry.tree_sha256) {
+      if (r.measured.computedHash !== entry.computedHash) {
         fs.rmSync(r.staging, { recursive: true, force: true })
         failed++
         console.error("FAIL  " + slug + "  抓下来的树与锁不符(commit " + entry.commit.slice(0, 12) + "):" +
-          "实测 " + r.measured.tree_sha256.slice(0, 16) + "… files=" + r.measured.files + " vs 锁 " + entry.tree_sha256.slice(0, 16) + "… files=" + entry.files)
+          "实测 " + r.measured.computedHash.slice(0, 16) + "… files=" + r.measured.files + " vs 锁 " + entry.computedHash.slice(0, 16) + "… files=" + entry.files)
         continue
       }
       commitInstall(slug, r.staging)
@@ -382,7 +384,7 @@ function runLocked() {
         console.error("FAIL  " + slug + "  已落盘但锚点缺失:" + missing.join(", "))
       } else {
         fetched++
-        console.log("FETCH " + slug + "  ← " + entry.repo + "@" + entry.commit.slice(0, 12) + "  tree=" + r.measured.tree_sha256.slice(0, 16) + "… files=" + r.measured.files)
+        console.log("FETCH " + slug + "  ← " + entry.source + "@" + entry.commit.slice(0, 12) + "  tree=" + r.measured.computedHash.slice(0, 16) + "… files=" + r.measured.files)
       }
     } catch (e) {
       failed++
@@ -424,7 +426,7 @@ function runUpdate() {
   for (const slug of targets) {
     const entry = lock.entries[slug]
     if (!entry) { console.error("FAIL  " + slug + "  不在锁里。新条目请先手工加一条,再 --update。"); failed++; continue }
-    const ghRepo = entry.repo
+    const ghRepo = entry.source
     // 钉 SHA 优先:没显式给 --ref 时,锁里的 commit 就是权威,不回头问 tag 现在指哪。
     // 追新版本必须显式给 --ref <tag 或 sha>——"自动跟随 tag"正是要避免的那件事。
     const explicitRef = updateRef || ""
@@ -443,11 +445,11 @@ function runUpdate() {
       }
       const root = path.join(OUT, slug)
       const current = locklib.treeHash(path.join(root, "src"))
-      if (current && commit === entry.commit && current.tree_sha256 === entry.tree_sha256) {
+      if (current && entry.source && commit === entry.commit && current.computedHash === entry.computedHash) {
         console.log("SAME  " + slug + "  " + ref + "@" + commit.slice(0, 12) + "  已是这一份,跳过")
         continue
       }
-      const r = entry.source === "git"
+      const r = entry.transport === "git"
         ? installFromGit(slug, ghRepo, ref, commit)
         : installAtCommit(slug, ghRepo, commit)
       const v = locklib.readVersion(r.staging)
@@ -463,7 +465,7 @@ function runUpdate() {
       }
       const dry = dryRun
       console.log((dry ? "[dry] " : "") + "UPDATE " + slug + "  " + ref + "@" + commit.slice(0, 12) +
-        "\n  tree   " + String(entry.tree_sha256).slice(0, 16) + "… files=" + entry.files + "  →  " + r.measured.tree_sha256.slice(0, 16) + "… files=" + r.measured.files +
+        "\n  tree   " + String(entry.computedHash).slice(0, 16) + "… files=" + entry.files + "  →  " + r.measured.computedHash.slice(0, 16) + "… files=" + r.measured.files +
         "\n  archive " + String(entry.archive_sha256).slice(0, 16) + "…  →  " + r.archive_sha256.slice(0, 16) + "…" +
         "\n  version " + (entry.version || "?") + " (" + (entry.version_source || "?") + ")  →  " + (v.version || "?") + " (" + (v.version_source || "?") + ")" +
         "\n  mirror  " + (r.mirror || "直连"))
@@ -481,7 +483,7 @@ function runUpdate() {
         version_source: v.version ? v.version_source : (entry.version_source || null),
         archive_format: r.archive_format || entry.archive_format || "zip",
         archive_sha256: r.archive_sha256,
-        tree_sha256: r.measured.tree_sha256,
+        computedHash: r.measured.computedHash,
         files: r.measured.files,
         updated_at: new Date().toISOString(),
       }

@@ -42,10 +42,10 @@ const measure = () => locklib.treeHash(src)
 /** 把 pin 折成一条锁条目。装机版没有 corpus.lock 时用它就地生成。 */
 function entryFromPin() {
   return {
-    repo: pin.repo, kind: pin.kind, source: pin.source, ref: pin.ref,
+    source: pin.source, kind: pin.kind, transport: pin.transport, ref: pin.ref,
     commit: pin.commit, version: pin.version, version_source: pin.version_source,
     archive_format: pin.archive_format, archive_sha256: pin.archive_sha256,
-    tree_sha256: pin.tree_sha256, files: pin.files,
+    computedHash: pin.computedHash, files: pin.files,
     anchors: pin.anchors, updated_at: new Date().toISOString(),
   }
 }
@@ -53,8 +53,8 @@ function entryFromPin() {
 /** pin 与锁条目的逐字段比对。只比 commit 等于放过 ref/version 漂移;
  *  anchors 也要比——两边指向不同文件时,"校验通过"的含义已经变了。 */
 function mismatch(entry) {
-  const keys = ["repo", "kind", "source", "ref", "commit", "version",
-    "archive_format", "tree_sha256", "files"]
+  const keys = ["source", "kind", "transport", "ref", "commit", "version",
+    "archive_format", "computedHash", "files"]
   for (const k of keys) {
     if (String(entry[k] ?? "") !== String(pin[k] ?? "")) {
       return k + " → 锁 " + String(entry[k]) + " / pin " + String(pin[k])
@@ -75,7 +75,7 @@ function report(prefix) {
     const p = path.join(src, ...String(rel).split("/"))
     console.log("  " + k + "=" + p + (fs.existsSync(p) ? "" : "  (缺)"))
   }
-  if (m) console.log("tree=" + m.tree_sha256.slice(0, 16) + "…  files=" + m.files)
+  if (m) console.log("tree=" + m.computedHash.slice(0, 16) + "…  files=" + m.files)
   return m
 }
 
@@ -95,7 +95,7 @@ if (fs.existsSync(lockPath)) {
 
 // ---- 2. 量磁盘 ----
 const now = measure()
-if (now && now.tree_sha256 === pin.tree_sha256) {
+if (now && now.computedHash === pin.computedHash) {
   report("OK    ")
   if (!fs.existsSync(lockPath)) {
     console.log("提示:本机没有 corpus.lock(装机版正常现象),本次只按 forge-pin.json 核对。")
@@ -106,7 +106,7 @@ if (now && now.tree_sha256 === pin.tree_sha256) {
 if (checkOnly) {
   report("BAD   ")
   fail(now
-    ? "树哈希与钉版不符:磁盘 " + now.tree_sha256.slice(0, 16) + "… vs pin " + pin.tree_sha256.slice(0, 16) + "…"
+    ? "树哈希与钉版不符:磁盘 " + now.computedHash.slice(0, 16) + "… vs pin " + pin.computedHash.slice(0, 16) + "…"
     : "语料不存在:" + src + "(用 node workbench/pull_forge.cjs 拉取)", 1)
 }
 
@@ -114,7 +114,7 @@ if (checkOnly) {
 if (!fs.existsSync(lockPath)) {
   fs.mkdirSync(CORPUS, { recursive: true })
   const lock = {
-    schema: 1,
+    schema: 2,
     algo: "tree-sha256-v0",
     note: "本机生成:安装包不含 corpus.lock,按 forge-pin.json 落一条。" +
       "开发工作区请用仓库里那份;生成/更新走 workbench/fetch_corpus.cjs。",
@@ -132,8 +132,8 @@ const r = spawnSync(process.execPath, [path.join(__dirname, "fetch_corpus.cjs"),
 if (r.status !== 0) fail("fetch_corpus --locked 失败(退出码 " + r.status + ")", r.status || 1)
 
 const after = measure()
-if (!after || after.tree_sha256 !== pin.tree_sha256) {
-  fail("拉完仍与钉版不符:磁盘 " + (after ? after.tree_sha256.slice(0, 16) + "…" : "(无)") +
-    " vs pin " + pin.tree_sha256.slice(0, 16) + "…")
+if (!after || after.computedHash !== pin.computedHash) {
+  fail("拉完仍与钉版不符:磁盘 " + (after ? after.computedHash.slice(0, 16) + "…" : "(无)") +
+    " vs pin " + pin.computedHash.slice(0, 16) + "…")
 }
 report("OK    ")

@@ -9,7 +9,7 @@
 market-corpus/** export-ignore
 market-corpus export-ignore
 
-# 语料按字节算,不做换行转换(语料锁 corpus.lock.json 的 tree_sha256 就是这么来的):
+# 语料按字节算,不做换行转换(语料锁 corpus.lock.json 的 computedHash 就是这么来的):
 # Windows 上 core.autocrlf=true 会把检出改成 CRLF,同一份语料在 Windows 与 ubuntu
 # 算出的哈希就对不上,锁会变成"只在一台机器上成立"的东西。
 # `-text` 让检出保留 LF,两边读到的字节一致;导出包本来就不含 market-corpus。
