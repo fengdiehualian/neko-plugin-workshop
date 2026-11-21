@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { createRequire } from "node:module"
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -440,6 +440,66 @@ describe("按需条目:缺失与异常的区分", () => {
     const r = runWith({ on_demand: onDemand }, ["--only", "nope"], () => {})
     expect(r.status).toBe(2)
     expect(r.stderr).toContain("--only 指定的条目不在锁里")
+  })
+
+  // lstat 能看见、stat 跟随失败:链接在但指向的东西不在。existsSync 对这种也返回 false,
+  // 若拿它当「没有」,悬空链接会被永远当成「还没拉过」。
+  //
+  // Windows 上普通符号链接要管理员/开发者模式,但目录 junction 不需要——所以先试默认
+  // (Linux 走这条),失败再试 junction。两种都建不出来才跳过,不假装通过。
+  const makeLink = (target: string, link: string): boolean => {
+    for (const type of [undefined, "junction", "dir"] as const) {
+      try { symlinkSync(target, link, type); return true } catch { /* 换一种 */ }
+    }
+    return false
+  }
+  const canSymlink = (() => {
+    const d = mkdtempSync(join(tmpdir(), "sym-probe-"))
+    try { return makeLink(join(d, "nope"), join(d, "l")) } finally {
+      rmSync(d, { recursive: true, force: true })
+    }
+  })()
+
+  test.skipIf(!canSymlink)("src 是悬空符号链接 → 判失败,不能算「没拉过」", () => {
+    const root = mkdtempSync(join(tmpdir(), "ondemand-dangling-"))
+    try {
+      writeFileSync(join(root, "corpus.lock.json"), JSON.stringify({
+        schema: 2, algo: "tree-sha256-v0", entries: { on_demand: onDemand },
+      }))
+      mkdirSync(join(root, "on_demand"), { recursive: true })
+      makeLink(join(root, "on_demand", "not-there"), join(root, "on_demand", "src"))
+      const r = spawnSync(process.execPath, [FETCH, "--locked", "--verify-only"], {
+        encoding: "utf8", env: { ...process.env, NEKO_CORPUS_DIR: root },
+      })
+      expect(r.status, "悬空链接时应退 1").toBe(1)
+      expect(r.stderr).toContain("悬空符号链接")
+      expect(r.stderr).not.toContain("SKIP")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  // 指向真实目录的链接是正常用法(语料放别处软链进来),必须照常按目录处理。
+  test.skipIf(!canSymlink)("src 是指向真实目录的链接 → 当目录正常用,不误判", () => {
+    const root = mkdtempSync(join(tmpdir(), "ondemand-link-"))
+    try {
+      mkdirSync(join(root, "real-src"), { recursive: true })
+      writeFileSync(join(root, "real-src", "a.md"), "x\n")
+      writeFileSync(join(root, "corpus.lock.json"), JSON.stringify({
+        schema: 2, algo: "tree-sha256-v0", entries: { on_demand: onDemand },
+      }))
+      mkdirSync(join(root, "on_demand"), { recursive: true })
+      makeLink(join(root, "real-src"), join(root, "on_demand", "src"))
+      const r = spawnSync(process.execPath, [FETCH, "--locked", "--verify-only"], {
+        encoding: "utf8", env: { ...process.env, NEKO_CORPUS_DIR: root },
+      })
+      // 树哈希对不上是预期的(锁里是假哈希),关键是它走到了「比对哈希」而不是「当成没拉过」
+      expect(r.stderr).toContain("树哈希不符")
+      expect(r.stderr).not.toContain("语料缺失")
+      expect(r.stderr).not.toContain("悬空符号链接")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   // 给了 --only 却解析不出条目,若退化成「全量」,用户以为只拉了一条,实际把锁里所有

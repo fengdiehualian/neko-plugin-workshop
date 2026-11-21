@@ -65,6 +65,37 @@ function listCorpusFiles(root, rel = "", out = []) {
 }
 
 /**
+ * 判断一个路径的实际形态。
+ *
+ * 为什么不用 existsSync:`fs.existsSync()` 对「悬空符号链接」和「权限不足」也返回 false。
+ * 拿它当「东西不在」用,就会把「配置坏了 / 读不了」当成「还没拉过」,于是按需条目永久
+ * 静默跳过——正是这个函数要堵的漏。lstat 不去解链接,能把三种情况分开:
+ *
+ *   "missing"          确实没有(ENOENT / 父级不是目录)
+ *   "dir" / "file" / "other"  存在
+ *   "dangling-symlink" 链接在,但指向的东西不在
+ *   "error:<code>"     存在性查不出来(EPERM/EACCES/ELOOP…)
+ */
+function pathKind(p) {
+  let st
+  try {
+    st = fs.lstatSync(p)
+  } catch (e) {
+    const code = (e && e.code) || ""
+    if (code === "ENOENT" || code === "ENOTDIR") return "missing"
+    return "error:" + (code || "unknown")
+  }
+  if (st.isSymbolicLink()) {
+    // 链接本身看得见,再看它指向的东西还在不在(statSync 会跟随)
+    try { fs.statSync(p) } catch { return "dangling-symlink" }
+    return "link"
+  }
+  if (st.isDirectory()) return "dir"
+  if (st.isFile()) return "file"
+  return "other"
+}
+
+/**
  * 计算树哈希。目录不存在返回 null(调用方据此区分「没抓过」与「抓过但对不上」)。
  * 空目录返回空串的哈希 —— 语料条目为空本身就是异常,交给上层判失败。
  */
@@ -218,6 +249,6 @@ function checkAnchors(entryRoot, anchors = [], opts = {}) {
 
 module.exports = {
   LOCK_FILE, SCHEMA, ALGO, MAX_FILE, KEEP_EXT, KEEP_NAME, SKIP_DIRS,
-  sha256buf, keepFile, listCorpusFiles, treeHash, lockPath, loadLock, saveLock,
+  sha256buf, keepFile, listCorpusFiles, treeHash, pathKind, lockPath, loadLock, saveLock,
   assertSlug, SLUG_RE, readVersion, skillMdPaths, checkAnchors,
 }

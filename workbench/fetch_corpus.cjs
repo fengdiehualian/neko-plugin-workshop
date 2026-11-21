@@ -388,17 +388,22 @@ function runLocked() {
     if (verifyOnly) {
       const srcPath = path.join(root, "src")
       // treeHash 在「路径存在但不是目录」时同样返回 null。那种情况不是「没拉过」,
-      // 而是 src 被写成了普通文件/别的形态,必须判失败——不能顶着按需条目的名义放过。
-      if (onDemand && !fs.existsSync(srcPath)) {
+      // 而是 src 被写成了普通文件 / 悬空链接 / 读不了,必须判失败——不能顶着按需条目的
+      // 名义放过。existsSync 对后两种也返回 false,所以这里按 lstat 的实际形态分流。
+      const kind = locklib.pathKind(srcPath)
+      if (onDemand && kind === "missing") {
         skipped++
         console.log("SKIP  " + slug + "  按需条目(vendored:false),仓库里不存正文;" +
           "离线不判失败,联网校验用 --locked,取用入口见对应 *-pin.json")
         continue
       }
       failed++
-      console.error("FAIL  " + slug + "  " +
-        (fs.existsSync(srcPath) ? "语料路径不是目录(" + srcPath + ")" : "语料缺失(" + srcPath + " 不存在)") +
-        ",--verify-only 不联网")
+      const why =
+        kind === "missing" ? "语料缺失(" + srcPath + " 不存在)"
+          : kind === "dangling-symlink" ? "语料路径是悬空符号链接(" + srcPath + " 指向的东西不在)"
+            : kind.startsWith("error:") ? "语料路径查不出来(" + kind.slice(6) + ":" + srcPath + ")"
+              : "语料路径不是目录(" + srcPath + ",实际是 " + kind + ")"
+      console.error("FAIL  " + slug + "  " + why + ",--verify-only 不联网")
       continue
     }
     // 锁里有、磁盘没有:按锁里的 commit 抓一份,再逐项核对
