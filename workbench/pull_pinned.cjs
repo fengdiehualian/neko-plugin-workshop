@@ -100,9 +100,17 @@ function run(pinPath, command) {
       // 仓库里的锁缺条目才是真问题(补锁时漏了),那种情况仍然拒绝。
       const localLock = /本机生成/.test(String(lock.note || ""))
       if (!localLock) fail("锁里没有 " + pin.slug + ",而 " + path.basename(pinPath) + " 有;先补锁条目再拉", 2)
-      lock.entries[pin.slug] = entryFromPin()
-      locklib.saveLock(CORPUS, lock)
-      console.log("本机生成的锁里没有 " + pin.slug + ",已按 " + path.basename(pinPath) + " 追加一条")
+      if (checkOnly) {
+        // --check 是只读的,按约定不写任何文件。这里若照常 saveLock,会出现两种坏结果:
+        // 锁文件只读时 saveLock 先抛错,语料明明对得上却报未捕获异常;锁可写时,--check
+        // 报的树哈希不符,却又把条目留在了磁盘上——「检查」把状态改了,后面的人读到的是假象。
+        // 真正的注册留给会落盘的那条路径(下面第 3 步),这里只说明缺这一条。
+        console.log("提示:本机生成的锁里没有 " + pin.slug + ",--check 不改文件;拉取时会自动补上")
+      } else {
+        lock.entries[pin.slug] = entryFromPin()
+        locklib.saveLock(CORPUS, lock)
+        console.log("本机生成的锁里没有 " + pin.slug + ",已按 " + path.basename(pinPath) + " 追加一条")
+      }
     } else {
       const bad = mismatch(lockEntry)
       if (bad) fail("锁与 pin 对不上(" + bad + ")。两处都写着钉版,先统一再拉", 2)

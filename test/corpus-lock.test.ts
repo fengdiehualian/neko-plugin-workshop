@@ -441,4 +441,15 @@ describe("按需条目:缺失与异常的区分", () => {
     expect(r.status).toBe(2)
     expect(r.stderr).toContain("--only 指定的条目不在锁里")
   })
+
+  // 给了 --only 却解析不出条目,若退化成「全量」,用户以为只拉了一条,实际把锁里所有
+  // 缺失语料都拖了下来——而且没有任何提示。空串和只有逗号都必须当场拒绝。
+  test("--only 给了却没有条目 → 退 2,不许退化成全量", () => {
+    for (const bad of ["", ",", " , "]) {
+      const r = runWith({ on_demand: onDemand, other: vendored }, ["--only", bad], () => {})
+      expect(r.status, "--only " + JSON.stringify(bad) + " 应退 2").toBe(2)
+      expect(r.stderr).toContain("--only 后面没有条目")
+      expect(r.stdout, "不该处理任何条目").not.toContain("按需跳过")
+    }
+  })
 })

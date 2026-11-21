@@ -337,7 +337,16 @@ function runLocked() {
   if (!slugs.length) { console.error("FAIL  corpus.lock.json 里没有任何条目"); return 1 }
   // --only 在锁定模式里收窄范围(逗号分隔),让「拉某一个 pin」不会顺手把别的语料也拖下来。
   // 装机版有两个 pin 时,用户只想取其中一个,不该逼他连另一个一起下载。
+  //
+  // 但「给了 --only 却解析不出条目」必须报错而不是当没给:`--only ""` / `--only ,` 若退化成
+  // 全量,用户以为只拉了一条,实际把锁里所有缺失语料都拖了下来——反向操作,且没有提示。
+  // arg() 在「参数缺失」和「参数是空串」两种情况下都返回默认值,所以只能另查 argv。
+  const onlyGiven = process.argv.includes("--only")
   const only = String(arg("only", "")).split(",").map((s) => s.trim()).filter(Boolean)
+  if (onlyGiven && !only.length) {
+    console.error("FAIL  --only 后面没有条目(空串或只有逗号);要处理全部条目请去掉 --only")
+    return 2
+  }
   if (only.length) {
     const unknown = only.filter((s) => !slugs.includes(s))
     if (unknown.length) {

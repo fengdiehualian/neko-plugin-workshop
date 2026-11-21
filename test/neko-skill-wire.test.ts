@@ -108,7 +108,7 @@ describe("neko-plugin-dev 接入线:文档与许可", () => {
 // 装机版没有仓库里那份 corpus.lock:第一个 pin 拉完会就地生成一条,
 // 第二个 pin 再来时锁里自然没有自己。这不该被当成「口径冲突」而拒绝,
 // 但仓库里那份锁缺条目仍然是真问题(补锁漏了),必须继续拒绝。
-describe("装机版:本机生成的锁可以追加第二个 pin", () => {
+describe("装机版:两个 pin 共用一份本机锁", () => {
   const PULL = join(ROOT, "workbench", "pull_skill_docs.cjs")
   const entryForge = {
     source: "HorizonCloudy/plugin-forge", kind: "forge", ref: "v2.8.0", commit: "7".repeat(40),
@@ -127,17 +127,34 @@ describe("装机版:本机生成的锁可以追加第二个 pin", () => {
       encoding: "utf8", env: { ...process.env, NEKO_CORPUS_DIR: root },
     })
 
-  test("本机生成的锁缺本条目 → 追加,不报「锁里没有」", () => {
+  // --check 的约定是「只看不写」。它若顺手把条目补进锁里,会出两种坏结果:锁文件只读时
+  // 先进 saveLock 抛错,语料明明对得上却报未捕获异常;锁可写时,报着「树哈希不符」却把
+  // 状态改了,后面的人读到的锁已经不是他以为的那份。
+  test("本机生成的锁缺本条目 → --check 不报「锁里没有」,也不改文件", () => {
     const root = makeRoot("本机生成:安装包不含 corpus.lock,按 pin 落一条。")
     try {
+      const before = readFileSync(join(root, "corpus.lock.json"), "utf8")
       const r = runCheck(root)
+      // 没有语料,所以是退 1(语料不存在),而不是退 2(口径冲突)——说明它没被「锁里没有」挡住
       expect(r.status, "没有语料时 --check 应退 1").toBe(1)
       expect(r.stderr, "不该报「锁里没有」").not.toContain("锁里没有")
       expect(r.stderr).toContain("语料不存在")
-      const now = JSON.parse(readFileSync(join(root, "corpus.lock.json"), "utf8"))
-      expect(now.entries[pin.slug], "没把条目追加进本机锁").toBeTruthy()
-      expect(now.entries[pin.slug].commit).toBe(pin.commit)
-      expect(now.entries["plugin-forge"], "追加时不该动别的条目").toBeTruthy()
+      const after = readFileSync(join(root, "corpus.lock.json"), "utf8")
+      expect(after, "--check 改了锁文件").toBe(before)
+      expect(JSON.parse(after).entries[pin.slug], "--check 不该补条目").toBeFalsy()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test("--check 连跑两次结果一致(只读,不是一次性假象)", () => {
+    const root = makeRoot("本机生成:安装包不含 corpus.lock,按 pin 落一条。")
+    try {
+      const a = runCheck(root)
+      const snap = readFileSync(join(root, "corpus.lock.json"), "utf8")
+      const b = runCheck(root)
+      expect(b.status).toBe(a.status)
+      expect(readFileSync(join(root, "corpus.lock.json"), "utf8")).toBe(snap)
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -149,6 +166,28 @@ describe("装机版:本机生成的锁可以追加第二个 pin", () => {
       const r = runCheck(root)
       expect(r.status).toBe(2)
       expect(r.stderr).toContain("锁里没有")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  // 真正会写锁的是拉取路径。它要联网,但补条目发生在 spawn fetch_corpus 之前,
+  // 所以把 PATH 清掉让 curl 直接 ENOENT 就能在不联网的前提下确定性地走到那条分支:
+  // 拉取必然失败,但锁该被改的已经改了。这样门禁既不看 GitHub 的脸色,也仍然守得住。
+  test("拉取路径才补条目(即使抓取失败,注册也要先落盘)", () => {
+    const root = makeRoot("本机生成:安装包不含 corpus.lock,按 pin 落一条。")
+    try {
+      const r = spawnSync(process.execPath, [PULL], {
+        encoding: "utf8",
+        env: { ...process.env, NEKO_CORPUS_DIR: root, PATH: "" },
+      })
+      expect(r.status, "抓不到的时候应当失败,而不是静默成功").not.toBe(0)
+      expect(r.stdout).toContain("已按")
+      const now = JSON.parse(readFileSync(join(root, "corpus.lock.json"), "utf8"))
+      expect(now.entries[pin.slug], "拉取路径没把条目补进本机锁").toBeTruthy()
+      expect(now.entries[pin.slug].commit).toBe(pin.commit)
+      expect(now.entries[pin.slug].vendored, "按需条目要带 vendored:false,否则离线校验会要求正文").toBe(false)
+      expect(now.entries["plugin-forge"], "补条目时不该动别的条目").toBeTruthy()
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
