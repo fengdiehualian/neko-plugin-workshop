@@ -14,7 +14,8 @@ reviews:
     enabled: true
     drafts: false
   path_filters:
-    - "!market-corpus/**"
+    # 只排除语料正文;corpus.lock.json 必须留在审查范围内(它是钉版的唯一事实来源)
+    - "!market-corpus/*/src/**"
     - "!node_modules/**"
     - "!**/__pycache__/**"
   path_instructions:

@@ -94,9 +94,19 @@ function run(pinPath, command) {
       fail("corpus.lock.json 读不了:" + String((e && e.message) || e), 2)
     }
     const lockEntry = lock.entries[pin.slug]
-    if (!lockEntry) fail("锁里没有 " + pin.slug + ",而 " + path.basename(pinPath) + " 有;先补锁条目再拉", 2)
-    const bad = mismatch(lockEntry)
-    if (bad) fail("锁与 pin 对不上(" + bad + ")。两处都写着钉版,先统一再拉", 2)
+    if (!lockEntry) {
+      // 装机版没有仓库里那份锁:第一个 pin 拉的会就地生成一条,第二个 pin 再来时
+      // 锁里自然没有自己。这不是「口径冲突」,而是本机锁需要追加一条。
+      // 仓库里的锁缺条目才是真问题(补锁时漏了),那种情况仍然拒绝。
+      const localLock = /本机生成/.test(String(lock.note || ""))
+      if (!localLock) fail("锁里没有 " + pin.slug + ",而 " + path.basename(pinPath) + " 有;先补锁条目再拉", 2)
+      lock.entries[pin.slug] = entryFromPin()
+      locklib.saveLock(CORPUS, lock)
+      console.log("本机生成的锁里没有 " + pin.slug + ",已按 " + path.basename(pinPath) + " 追加一条")
+    } else {
+      const bad = mismatch(lockEntry)
+      if (bad) fail("锁与 pin 对不上(" + bad + ")。两处都写着钉版,先统一再拉", 2)
+    }
   }
 
   // ---- 2. 量磁盘 ----
@@ -134,7 +144,8 @@ function run(pinPath, command) {
   }
 
   console.log("语料缺失或与钉版不符,按 --locked 拉取…")
-  const r = spawnSync(process.execPath, [path.join(__dirname, "fetch_corpus.cjs"), "--locked"], { stdio: "inherit" })
+  const r = spawnSync(process.execPath, [path.join(__dirname, "fetch_corpus.cjs"),
+    "--locked", "--only", pin.slug], { stdio: "inherit" })
   if (r.status !== 0) fail("fetch_corpus --locked 失败(退出码 " + r.status + ")", r.status || 1)
 
   const after = measure()

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import { existsSync, readFileSync } from "node:fs"
+import { spawnSync } from "node:child_process"
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -100,5 +102,55 @@ describe("neko-plugin-dev 接入线:文档与许可", () => {
     expect(notices).toContain(pin.commit)
     expect(notices).toContain(pin.version)
     expect(notices, "要写明不随包分发").toMatch(/不随包|不进安装包|不打包/)
+  })
+})
+
+// 装机版没有仓库里那份 corpus.lock:第一个 pin 拉完会就地生成一条,
+// 第二个 pin 再来时锁里自然没有自己。这不该被当成「口径冲突」而拒绝,
+// 但仓库里那份锁缺条目仍然是真问题(补锁漏了),必须继续拒绝。
+describe("装机版:本机生成的锁可以追加第二个 pin", () => {
+  const PULL = join(ROOT, "workbench", "pull_skill_docs.cjs")
+  const entryForge = {
+    source: "HorizonCloudy/plugin-forge", kind: "forge", ref: "v2.8.0", commit: "7".repeat(40),
+    version: "2.8.0", version_source: "plugin.json", transport: "git",
+    computedHash: "8".repeat(64), files: 1, anchors: [],
+  }
+  const makeRoot = (note: string) => {
+    const root = mkdtempSync(join(tmpdir(), "pin-append-"))
+    writeFileSync(join(root, "corpus.lock.json"), JSON.stringify({
+      schema: 2, algo: "tree-sha256-v0", note, entries: { "plugin-forge": entryForge },
+    }))
+    return root
+  }
+  const runCheck = (root: string) =>
+    spawnSync(process.execPath, [PULL, "--check"], {
+      encoding: "utf8", env: { ...process.env, NEKO_CORPUS_DIR: root },
+    })
+
+  test("本机生成的锁缺本条目 → 追加,不报「锁里没有」", () => {
+    const root = makeRoot("本机生成:安装包不含 corpus.lock,按 pin 落一条。")
+    try {
+      const r = runCheck(root)
+      expect(r.status, "没有语料时 --check 应退 1").toBe(1)
+      expect(r.stderr, "不该报「锁里没有」").not.toContain("锁里没有")
+      expect(r.stderr).toContain("语料不存在")
+      const now = JSON.parse(readFileSync(join(root, "corpus.lock.json"), "utf8"))
+      expect(now.entries[pin.slug], "没把条目追加进本机锁").toBeTruthy()
+      expect(now.entries[pin.slug].commit).toBe(pin.commit)
+      expect(now.entries["plugin-forge"], "追加时不该动别的条目").toBeTruthy()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test("仓库里那份锁缺条目 → 仍然拒绝", () => {
+    const root = makeRoot("语料锁 v0:每条记上游 commit、zip 哈希与落盘树的哈希。")
+    try {
+      const r = runCheck(root)
+      expect(r.status).toBe(2)
+      expect(r.stderr).toContain("锁里没有")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })

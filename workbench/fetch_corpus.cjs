@@ -19,6 +19,7 @@
 //                                                           # 条目标了 vendored:false 时离线跳过(不判失败),
 //                                                           # 因为这类正文按设计不进仓库,用时才按 commit 拉
 //   node workbench/fetch_corpus.cjs --locked            # 联网:缺的按 commit 抓,已落盘的逐字节校验
+//   node workbench/fetch_corpus.cjs --locked --only neko-plugin-skill   # 只处理指定条目(逗号分隔)
 //   node workbench/fetch_corpus.cjs --update reuse_before_build --ref v0.3.22   # 追新版本
 //   node workbench/fetch_corpus.cjs --update reuse_before_build                   # 按锁里的 commit 重抓,不追新
 //   node workbench/fetch_corpus.cjs --update-all        # 过滤规则改了之后整体重锁
@@ -332,8 +333,19 @@ function entryProblem(slug, entry) {
 
 function runLocked() {
   const lock = locklib.loadLock(OUT)
-  const slugs = Object.keys(lock.entries)
+  let slugs = Object.keys(lock.entries)
   if (!slugs.length) { console.error("FAIL  corpus.lock.json 里没有任何条目"); return 1 }
+  // --only 在锁定模式里收窄范围(逗号分隔),让「拉某一个 pin」不会顺手把别的语料也拖下来。
+  // 装机版有两个 pin 时,用户只想取其中一个,不该逼他连另一个一起下载。
+  const only = String(arg("only", "")).split(",").map((s) => s.trim()).filter(Boolean)
+  if (only.length) {
+    const unknown = only.filter((s) => !slugs.includes(s))
+    if (unknown.length) {
+      console.error("FAIL  --only 指定的条目不在锁里:" + unknown.join(", "))
+      return 2
+    }
+    slugs = slugs.filter((s) => only.includes(s))
+  }
   let failed = 0, passed = 0, fetched = 0, skipped = 0
   for (const slug of slugs) {
     const entry = lock.entries[slug]
@@ -365,14 +377,19 @@ function runLocked() {
       continue
     }
     if (verifyOnly) {
-      if (onDemand) {
+      const srcPath = path.join(root, "src")
+      // treeHash 在「路径存在但不是目录」时同样返回 null。那种情况不是「没拉过」,
+      // 而是 src 被写成了普通文件/别的形态,必须判失败——不能顶着按需条目的名义放过。
+      if (onDemand && !fs.existsSync(srcPath)) {
         skipped++
         console.log("SKIP  " + slug + "  按需条目(vendored:false),仓库里不存正文;" +
           "离线不判失败,联网校验用 --locked,取用入口见对应 *-pin.json")
         continue
       }
       failed++
-      console.error("FAIL  " + slug + "  语料缺失(" + path.join(root, "src") + " 不存在),--verify-only 不联网")
+      console.error("FAIL  " + slug + "  " +
+        (fs.existsSync(srcPath) ? "语料路径不是目录(" + srcPath + ")" : "语料缺失(" + srcPath + " 不存在)") +
+        ",--verify-only 不联网")
       continue
     }
     // 锁里有、磁盘没有:按锁里的 commit 抓一份,再逐项核对

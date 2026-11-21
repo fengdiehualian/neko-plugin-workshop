@@ -381,3 +381,64 @@ describe("按需条目(vendored:false)的离线校验", () => {
     })
   })
 })
+
+// 审查反馈补的两条边界:两者都属于「看起来是缺失,其实是异常」——
+// 把 src 写成普通文件、以及用 --only 拉一个条目却被别的条目拖失败。
+describe("按需条目:缺失与异常的区分", () => {
+  const FETCH = join(ROOT, "workbench", "fetch_corpus.cjs")
+  const onDemand = {
+    source: "o/r", kind: "skill", vendored: false,
+    ref: "a".repeat(40), commit: "a".repeat(40),
+    version: "1.0.0", version_source: "VERSION.txt", transport: "zip", archive_format: "zip",
+    archive_sha256: "c".repeat(64), computedHash: "d".repeat(64), files: 1, anchors: [],
+  }
+  const vendored = { ...onDemand, vendored: true, source: "o/v", commit: "e".repeat(40), ref: "e".repeat(40) }
+
+  const runWith = (entries: Record<string, unknown>, extra: string[], body: (root: string) => void) => {
+    const root = mkdtempSync(join(tmpdir(), "ondemand-edge-"))
+    try {
+      writeFileSync(join(root, "corpus.lock.json"), JSON.stringify({
+        schema: 2, algo: "tree-sha256-v0", entries,
+      }))
+      const r = spawnSync(process.execPath, [FETCH, "--locked", "--verify-only", ...extra], {
+        encoding: "utf8", env: { ...process.env, NEKO_CORPUS_DIR: root },
+      })
+      body(root)
+      return r
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+
+  test("src 存在但不是目录 → 判失败,不能算「没拉过」", () => {
+    const root = mkdtempSync(join(tmpdir(), "ondemand-file-"))
+    try {
+      writeFileSync(join(root, "corpus.lock.json"), JSON.stringify({
+        schema: 2, algo: "tree-sha256-v0", entries: { on_demand: onDemand },
+      }))
+      mkdirSync(join(root, "on_demand"), { recursive: true })
+      writeFileSync(join(root, "on_demand", "src"), "这不是目录\n")
+      const r = spawnSync(process.execPath, [FETCH, "--locked", "--verify-only"], {
+        encoding: "utf8", env: { ...process.env, NEKO_CORPUS_DIR: root },
+      })
+      expect(r.status, "src 是文件时应退 1").toBe(1)
+      expect(r.stderr).toContain("不是目录")
+      expect(r.stderr).not.toContain("SKIP")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test("--only 只处理指定条目,不被别的缺失条目拖失败", () => {
+    const r = runWith({ on_demand: onDemand, other: vendored }, ["--only", "on_demand"], () => {})
+    expect(r.status, "只拉按需条目应退 0,实际 stderr=" + r.stderr).toBe(0)
+    expect(r.stdout).toContain("按需跳过 1 个")
+    expect(r.stderr, "不该去校验 other").not.toContain("other")
+  })
+
+  test("--only 指向锁里没有的条目 → 用法错误退 2", () => {
+    const r = runWith({ on_demand: onDemand }, ["--only", "nope"], () => {})
+    expect(r.status).toBe(2)
+    expect(r.stderr).toContain("--only 指定的条目不在锁里")
+  })
+})
