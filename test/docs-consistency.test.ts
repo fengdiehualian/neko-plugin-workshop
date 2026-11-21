@@ -18,9 +18,8 @@ const patterns = read(join(SKILL_DIR, "references", "market-patterns.md"))
 
 const corpusDir = join(ROOT, "market-corpus")
 const allDirs = readdirSync(corpusDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)
-// plugin-forge 是工具仓(锁里 kind=forge),借 corpus.lock 上锁,但不是市场插件:
-// 它没有 plugin.toml、不在市场索引里,也不该把「市场插件语料数」抬高一。
-// 判断口径用锁里的 kind,而不是写死名单——以后再加工具仓只要 kind=forge 就自动排除。
+// plugin-forge(工具仓)与 neko-plugin-skill(按需文档)都借 corpus.lock 上锁,但不是市场插件:
+// 它们没有 plugin.toml、也不在市场索引里,不该把「市场插件语料数」抬高一。
 const lockFile = join(corpusDir, "corpus.lock.json")
 const lockKinds = (() => {
   try {
@@ -28,7 +27,13 @@ const lockKinds = (() => {
     return Object.fromEntries(Object.entries(parsed.entries ?? {}).map(([k, v]) => [k, (v as { kind?: string }).kind ?? "plugin"]))
   } catch { return {} as Record<string, string> }
 })()
-const nonMarket = (slug: string) => lockKinds[slug] === "forge"
+// 非市场插件按锁里的 kind 判断,不写死名单:forge(工具仓)、skill(按需拉取的文档包)
+// 都没有 plugin.toml、也不在市场索引里,不该把「市场插件语料数」抬高一。
+// 以后再加别的工具仓/文档仓,只要 kind 不是 plugin 就自动排除。
+const nonMarket = (slug: string) => {
+  const kind = lockKinds[slug]
+  return kind !== undefined && kind !== "plugin"
+}
 const corpus = allDirs.filter((s) => !nonMarket(s))
 const hasToml = (slug: string) =>
   existsSync(join(corpusDir, slug, "plugin.toml")) ||
@@ -95,9 +100,25 @@ describe("语料数量:以 market-corpus 真实目录为准", () => {
       expect(text, name + " 里还留着「46 个」旧数量").not.toMatch(/46 个(官方|真实|在架|插件|市场)/)
     }
   })
-  test("README/SKILL/AGENTS/patterns 提到的在架数量必须等于索引条数", () => {
+  test("文档里的在架数量必须等于索引条数(references/ 递归,不只那四个文件)", () => {
     const n = indexed(catalog).length
-    const claims: [string, string][] = [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents], ["market-patterns.md", patterns]]
+    // references/ 下的文档同样会被模型整篇读进去,数量写错一样误导——不能只管那四个文件。
+    // 递归而不是点名目录:issue #19 的遗留待办就是「等 forge/、deep-dive/ 进仓再把扫描加进去」,
+    // 那种写法每加一个子目录都要改一次测试,漏一次就是永久空档。
+    // market-catalog 不并进来:它有自己的断言(「N 个目录」「N 份带 plugin.toml」),
+    // 里面的 109/126/127 是分组统计,和在架插件数不是同一个量。
+    const refDir = join(SKILL_DIR, "references")
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((d) =>
+        d.isDirectory() ? walk(join(dir, d.name)) : d.name.endsWith(".md") ? [join(dir, d.name)] : [])
+    // 按完整路径排除,不用 endsWith:references/xxx/market-patterns.md 是另一个文件,
+    // 它没有单独的断言兜着;endsWith 会把它和 other-market-catalog.md 一起误排除,
+    // 结果就是「以为扫了,其实跳过了」。这两个名字只该排除根目录那两份。
+    const skip = new Set([join(refDir, "market-catalog.md"), join(refDir, "market-patterns.md")])
+    const refDocs: [string, string][] = walk(refDir)
+      .filter((f) => !skip.has(f))
+      .map((f) => [f.slice(ROOT.length + 1).replace(/\\/g, "/"), read(f)])
+    const claims: [string, string][] = [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents], ["market-patterns.md", patterns], ...refDocs]
     for (const [name, text] of claims) {
       for (const m of text.matchAll(/(\d{2,3})\s*(?:个|份)\s*(?:官方|在架|真实上架|社区)?\s*插件/g)) {
         const val = Number(m[1])
