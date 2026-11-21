@@ -36,6 +36,8 @@ jobs:
 
       # 语料锁(corpus.lock.json):语料是第三方源码、按字节钉在锁里的 commit 上。
       # 这一步不联网,只算磁盘上语料的树哈希与锁比对——有人手改语料或动了过滤规则就会红。
+      # 条目标了 vendored:false(如 neko-plugin-skill 的深度专题)时离线跳过:正文按设计不进仓库,
+      # 它的字节级校验要联网(`fetch_corpus --locked`),不在 PR 门禁里做,避免网络抖动把人挡在门外。
       # 注意 checkout 必须保留 LF(`.gitattributes` 里 market-corpus/** -text),
       # 否则 Windows 与 ubuntu 会算出两份不同的哈希。
       - name: 语料锁校验(离线,不联网)

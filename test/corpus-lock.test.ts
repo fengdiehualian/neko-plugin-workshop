@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { spawnSync } from "node:child_process"
 import { createRequire } from "node:module"
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -31,7 +32,9 @@ const withTempTree = (files: Record<string, string | Buffer>, fn: (root: string)
 describe("语料锁:锁值与磁盘一致", () => {
   test("每条的 computedHash / files 都与 market-corpus 里的实际文件对得上", () => {
     const parsed = lock.loadLock(CORPUS)
-    const slugs = Object.keys(parsed.entries)
+    // vendored:false 是按需条目(正文不进仓库),磁盘上没有副本属正常;
+    // 它一旦被拉到本地,下面的「落盘副本」用例会照样逐字节校验。
+    const slugs = Object.keys(parsed.entries).filter((s) => parsed.entries[s].vendored !== false)
     expect(slugs.length, "锁里一条都没有").toBeGreaterThan(0)
     for (const slug of slugs) {
       const entry = parsed.entries[slug]
@@ -39,6 +42,17 @@ describe("语料锁:锁值与磁盘一致", () => {
       expect(measured, slug + " 的语料目录不存在").not.toBeNull()
       expect(measured.files, slug + " 的文件数与锁不符").toBe(entry.files)
       expect(measured.computedHash, slug + " 的字节与锁不符(改过语料就重跑 --update)").toBe(entry.computedHash)
+    }
+  })
+
+  test("按需条目声明了 vendored:false,且不会顶替仓库内副本", () => {
+    const parsed = lock.loadLock(CORPUS)
+    const on_demand = Object.entries(parsed.entries).filter(([, e]) => (e as { vendored?: boolean }).vendored === false)
+    for (const [slug, entry] of on_demand) {
+      expect(entry.kind, slug + " 是按需条目,应写明 kind(如 skill),别混进市场插件计数").toBeTruthy()
+      expect(entry.kind).not.toBe("plugin")
+      expect(entry.source, slug + " 缺 source").toMatch(/^[\w.-]+\/[\w.-]+$/)
+      expect(entry.commit, slug + " 必须钉完整 SHA").toMatch(/^[0-9a-f]{40}$/)
     }
   })
 
@@ -113,6 +127,9 @@ describe("语料锁:锁值与磁盘一致", () => {
   test("锚点指向的文件都在语料里(锚点失效要当场报,不能等 --locked 才炸)", () => {
     const parsed = lock.loadLock(CORPUS)
     for (const [slug, entry] of Object.entries(parsed.entries)) {
+      // 按需条目的正文不在仓库里,没有可核的对象;它的锚点在 --locked 抓取后校验。
+      // 这里跳过是「没有副本」,不是「核过了」——磁盘上有副本时下面的用例仍会逐字节比对。
+      if ((entry as { vendored?: boolean }).vendored === false) continue
       const missing = lock.checkAnchors(join(CORPUS, slug), entry.anchors)
       expect(missing, slug + " 锚点缺失:" + missing.join(", ")).toEqual([])
     }
@@ -314,5 +331,53 @@ describe("语料锁:slug 与锁结构", () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
+  })
+})
+
+// 按需条目(vendored:false):仓库里只留钉版,正文用时再拉。
+// 两条边界必须同时成立——离线时「没有」不算故障,但本地一旦有副本就必须逐字节对得上;
+// 否则一份被改过的副本可以长期顶着「按需条目」的名义不被发现。
+describe("按需条目(vendored:false)的离线校验", () => {
+  const FETCH = join(ROOT, "workbench", "fetch_corpus.cjs")
+  const ENTRY = {
+    source: "o/r", kind: "skill", vendored: false,
+    ref: "a".repeat(40), commit: "a".repeat(40),
+    version: "1.0.0", version_source: "VERSION.txt", transport: "zip", archive_format: "zip",
+    archive_sha256: "c".repeat(64), computedHash: "d".repeat(64), files: 1, anchors: [],
+  }
+  const runVerify = (root: string) =>
+    spawnSync(process.execPath, [FETCH, "--locked", "--verify-only"], {
+      encoding: "utf8",
+      env: { ...process.env, NEKO_CORPUS_DIR: root },
+    })
+  const withLock = (body: (root: string) => void) => {
+    const root = mkdtempSync(join(tmpdir(), "ondemand-"))
+    try {
+      writeFileSync(join(root, "corpus.lock.json"), JSON.stringify({
+        schema: 2, algo: "tree-sha256-v0", entries: { on_demand: ENTRY },
+      }))
+      body(root)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+
+  test("仓库里没有正文时离线跳过,不判失败", () => {
+    withLock((root) => {
+      const r = runVerify(root)
+      expect(r.status, "离线校验应退 0,实际 stderr=" + r.stderr).toBe(0)
+      expect(r.stdout).toContain("SKIP  on_demand")
+      expect(r.stdout).toContain("按需跳过 1 个")
+    })
+  })
+
+  test("本地一旦有副本,就必须与锁逐字节一致", () => {
+    withLock((root) => {
+      mkdirSync(join(root, "on_demand", "src"), { recursive: true })
+      writeFileSync(join(root, "on_demand", "src", "README.md"), "被改过的一份\n")
+      const r = runVerify(root)
+      expect(r.status, "副本与锁不符应退 1").toBe(1)
+      expect(r.stderr).toContain("树哈希不符")
+    })
   })
 })

@@ -159,6 +159,10 @@ function readVersion(root) {
   const candidates = [
     ["plugin.toml", "plugin.toml", /^\s*version\s*=\s*"([^"]+)"/m],
     ["pyproject.toml", "pyproject.toml", /^\s*version\s*=\s*"([^"]+)"/m],
+    // 纯文档/技能类语料没有 plugin.toml,版本只写在一个单行 VERSION.txt 里。
+    // 用 VERSION.txt(而非无扩展名的 VERSION)是为了同时被语料过滤的 .txt 白名单收下,
+    // 否则文件抓下来就被过滤掉,版本永远读不到。
+    ["VERSION.txt", "VERSION.txt", /^\s*v?([0-9][^\s]*)\s*$/m],
   ]
   // SKILL.md 不按 slug 硬编码:skill 类条目的目录名各不相同(plugins/<name>、skills/<name>),
   // 写死 reuse-before-build 的路径等于「换个 slug 就读不到版本」。

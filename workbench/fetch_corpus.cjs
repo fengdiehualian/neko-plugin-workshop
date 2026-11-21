@@ -16,6 +16,9 @@
 // 语料锁(见 market-corpus/corpus.lock.json,格式见 workbench/corpus-lock.cjs):
 //   node workbench/fetch_corpus.cjs --locked            # 只按锁里的 commit 抓,锁外 slug 跳过并报告
 //   node workbench/fetch_corpus.cjs --locked --verify-only  # 只校验磁盘上的语料,不联网(CI 用)
+//                                                           # 条目标了 vendored:false 时离线跳过(不判失败),
+//                                                           # 因为这类正文按设计不进仓库,用时才按 commit 拉
+//   node workbench/fetch_corpus.cjs --locked            # 联网:缺的按 commit 抓,已落盘的逐字节校验
 //   node workbench/fetch_corpus.cjs --update reuse_before_build --ref v0.3.22   # 追新版本
 //   node workbench/fetch_corpus.cjs --update reuse_before_build                   # 按锁里的 commit 重抓,不追新
 //   node workbench/fetch_corpus.cjs --update-all        # 过滤规则改了之后整体重锁
@@ -331,11 +334,15 @@ function runLocked() {
   const lock = locklib.loadLock(OUT)
   const slugs = Object.keys(lock.entries)
   if (!slugs.length) { console.error("FAIL  corpus.lock.json 里没有任何条目"); return 1 }
-  let failed = 0, passed = 0, fetched = 0
+  let failed = 0, passed = 0, fetched = 0, skipped = 0
   for (const slug of slugs) {
     const entry = lock.entries[slug]
     const bad = entryProblem(slug, entry)
     if (bad) { failed++; console.error("FAIL  " + slug + "  锁条目不合规:" + bad); continue }
+    // vendored:false = 仓库里只存钉版,不存正文(文档/技能类语料)。
+    // 离线时它必然「缺失」,这是设计而非故障;但**一旦磁盘上有副本,照样逐字节校验**,
+    // 否则本地一份被改过的副本会顶着「按需条目」的名义长期不被发现。
+    const onDemand = entry.vendored === false
     const root = path.join(OUT, slug)
     const current = locklib.treeHash(path.join(root, "src"))
 
@@ -358,6 +365,12 @@ function runLocked() {
       continue
     }
     if (verifyOnly) {
+      if (onDemand) {
+        skipped++
+        console.log("SKIP  " + slug + "  按需条目(vendored:false),仓库里不存正文;" +
+          "离线不判失败,联网校验用 --locked,取用入口见对应 *-pin.json")
+        continue
+      }
       failed++
       console.error("FAIL  " + slug + "  语料缺失(" + path.join(root, "src") + " 不存在),--verify-only 不联网")
       continue
@@ -398,7 +411,8 @@ function runLocked() {
   if (unlocked.length) {
     console.log("\n跳过锁外条目 " + unlocked.length + " 个(未在锁里登记,本次不抓):" + unlocked.slice(0, 8).join(", ") + (unlocked.length > 8 ? " …" : ""))
   }
-  console.log("\n锁校验:通过 " + passed + " 个,新抓 " + fetched + " 个,失败 " + failed + " 个")
+  console.log("\n锁校验:通过 " + passed + " 个,新抓 " + fetched + " 个,失败 " + failed + " 个" +
+    (skipped ? ",按需跳过 " + skipped + " 个(vendored:false,离线不判失败)" : ""))
   return failed ? 1 : 0
 }
 
