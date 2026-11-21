@@ -161,8 +161,11 @@ function saveLock(corpusRoot, lock) {
   // 原子写:先写同目录临时文件,再 rename 覆盖。
   //
   // 直接 writeFileSync 会先截断再写,中途盘满 / 断电 / Ctrl-C 就留下半截 JSON;
-  // 之后连 `--check` 都读不了锁,连本来没动过的条目一起废掉。临时文件放在同一目录是为了
-  // 让 rename 不跨设备(跨设备 rename 会退化成 copy+unlink,又不原子了)。
+  // 之后连 `--check` 都读不了锁,连本来没动过的条目一起废掉。
+  //
+  // 临时文件必须放在同一目录:POSIX 的 rename 跨设备会直接 EXDEV 失败,并不是
+  // 「慢一点、退化成 copy+unlink」——放 /tmp 之类的另一个文件系统上会当场报错,
+  // 而不是悄悄失去原子性。
   const tmp = p + "." + process.pid + ".tmp"
   try {
     fs.writeFileSync(tmp, body, "utf8")
