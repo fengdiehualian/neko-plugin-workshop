@@ -51,7 +51,7 @@
 | 字段 | 类型 | 含义 |
 |---|---|---|
 | `source` | string | 仓库标识 `owner/name`（GitHub）。**不带协议与 `.git`**。 |
-| `kind` | string | `plugin`（市场插件）或 `forge`（工具仓）。缺省按 `plugin` 理解。 |
+| `kind` | string | `plugin`（市场插件）、`forge`（工具仓）或 `skill`（按需拉取的文档包）。缺省按 `plugin` 理解；**非 `plugin` 的条目不计入市场插件数**。 |
 | `ref` | string | 抓取用的 ref：tag（`v0.3.22`）或分支名。**git 来源必填**，zip 来源也建议写。 |
 | `commit` | string | 40 位十六进制 commit sha。**校验以它为准。** |
 | `archive_sha256` | string | 归档文件的 sha256（64 位十六进制）。**不符只警告**，见 §6。 |
@@ -67,7 +67,8 @@
 | `transport` | string | `zip`（默认，市场 codeload zip）或 `git`（工具仓）。 |
 | `archive_format` | string | `zip`（默认）或 `tar`（git 来源）。与 `transport` 对应。 |
 | `version` | string \| null | 上游版本号。 |
-| `version_source` | string \| null | 版本是从哪个文件读到的：`plugin.toml` / `pyproject.toml` / `SKILL.md` / `plugin.json`。 |
+| `version_source` | string \| null | 版本是从哪个文件读到的：`plugin.toml` / `pyproject.toml` / `SKILL.md` / `plugin.json` / `VERSION.txt`。 |
+| `vendored` | boolean | 仅按需条目有，固定 `false`：**仓库只存钉版，不存正文**。它改变 `--verify-only` 的判定，见 §6.2。仓库里没有对应目录是设计而非故障。 |
 | `release` | object | 发布镜像信息（仅市场插件可能有），见 §3.3。 |
 
 ### 3.3 `release` 块（可选）
@@ -158,22 +159,41 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 
 | 退出码 | 含义 |
 |---|---|
-| `0` | 全部通过 |
+| `0` | 全部通过（含 `vendored:false` 的条目在离线下被跳过，见 6.2） |
 | `1` | 有失败项（树哈希不符 / 锚点缺失 / 抓取失败 / 语料缺失且 `--verify-only`） |
-| `2` | 用法错误（没有待检查文件、slug 不合法、锁文件读不了） |
+| `2` | 用法错误（没有待检查文件、slug 不合法、锁文件读不了、`--only` 给空或给了锁里没有的 slug） |
 
 `archive_sha256` **不符只警告**：镜像站偶尔改压缩包封装，内容树对得上才是硬要求。
 `computedHash` 不符是硬失败，报错里会同时给磁盘值与锁值。
 
 ### 6.1 退出码按命令分列
 
-三个入口的 `2` 含义完全不同，别混着读：
+四个入口的 `2` 含义完全不同，别混着读：
 
 | 命令 | `0` | `1` | `2` |
 |---|---|---|---|
-| `fetch_corpus --locked` / `--verify-only` | 全部通过 | 有失败：空锁、条目不合规、树哈希不符、锚点缺失、抓取失败、语料缺失（`--verify-only` 时） | ——（这条命令不返回 2） |
+| `fetch_corpus --locked` / `--verify-only` | 全部通过（按需条目可 SKIP） | 有失败：空锁、条目不合规、树哈希不符、锚点缺失、抓取失败、语料缺失（`--verify-only` 时） | 用法错误：`--only` 给了但解析不出条目（空串 / 只有逗号）、`--only` 指定的 slug 不在锁里 |
 | `fetch_corpus --update` / `--update-all` | 更新成功 | 有条目更新失败（含 ref 被移动、锚点不满足） | 用法错误：缺 slug、slug 非法、锁里没有可更新条目 |
 | `workbench/pull_forge.cjs` | 与钉版一致 | 语料缺失或树哈希不符 | `forge-pin.json` 与锁口径冲突（commit/ref/version 等对不上）、pin 或锁读不了 |
+| `workbench/pull_skill_docs.cjs` | 与钉版一致 | 语料缺失或树哈希不符 | `neko-plugin-dev-pin.json` 与锁口径冲突、pin 或锁读不了 |
+
+两个 `pull_*.cjs` 共用同一份实现（`workbench/pull_pinned.cjs`），行为一致：
+本机生成的锁（`note` 含「本机生成」）缺条目时自动追加、条目与 pin 对不上时**以 pin 为准覆盖**；
+仓库里那份锁缺条目或对不上仍然退 `2`，因为那需要人判断是改 pin 还是改锁。
+
+### 6.2 `vendored:false`：只钉版本、不存正文
+
+`entries` 里某条带 `"vendored": false` 时，表示**仓库只存钉版信息，不存正文**
+（`neko-plugin-skill` 这类文档/技能语料）。它改变了 `--verify-only` 的判定：
+
+| 磁盘状态 | 判定 |
+|---|---|
+| 条目目录和 `src` 都不存在 | `SKIP`，计入「按需跳过」，**不算失败**，整体退 `0` |
+| `src` 存在且树哈希与锁一致 | `PASS`（照常逐字节校验，不因为「按需」就放过） |
+| `src` 存在但哈希不符 | `FAIL`——本地副本被改过 |
+| `src` 是普通文件 / 悬空符号链接 / 条目目录本身不是目录 | `FAIL`——环境坏了，不能当成「还没拉过」 |
+
+取用入口见 `packs/neko-plugin/skill/neko-plugin-dev/references/neko-plugin-dev-pin.json`。
 
 顶层异常（JSON 坏、schema 不认识）走 `1`，与「有失败项」同码——这是已知的粗粒度，
 不影响判读：输出里有 `FAIL` 行点名原因。

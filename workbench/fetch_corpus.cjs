@@ -333,7 +333,11 @@ function entryProblem(slug, entry) {
 
 function runLocked() {
   const lock = locklib.loadLock(OUT)
-  let slugs = Object.keys(lock.entries)
+  // allSlugs 是锁里的全集,--only 只收窄本次要处理的范围。
+  // 「锁外条目」是拿磁盘目录跟**全集**比,不能用收窄后的 slugs——否则 --only 拉一条时,
+  // 锁里其余条目会被一路报成「未在锁里登记」,每次拉取都刷一遍假警告。
+  const allSlugs = Object.keys(lock.entries)
+  let slugs = allSlugs
   if (!slugs.length) { console.error("FAIL  corpus.lock.json 里没有任何条目"); return 1 }
   // --only 在锁定模式里收窄范围(逗号分隔),让「拉某一个 pin」不会顺手把别的语料也拖下来。
   // 装机版有两个 pin 时,用户只想取其中一个,不该逼他连另一个一起下载。
@@ -441,7 +445,7 @@ function runLocked() {
 
   // 锁外条目:明确报告,不静默抓 HEAD(那会让"锁里的语料"和"没锁的语料"混成一份说不清的目录)
   const onDisk = fs.readdirSync(OUT, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
-  const unlocked = onDisk.filter((s) => !slugs.includes(s) && fs.existsSync(path.join(OUT, s, "src")))
+  const unlocked = onDisk.filter((s) => !allSlugs.includes(s) && fs.existsSync(path.join(OUT, s, "src")))
   if (unlocked.length) {
     console.log("\n跳过锁外条目 " + unlocked.length + " 个(未在锁里登记,本次不抓):" + unlocked.slice(0, 8).join(", ") + (unlocked.length > 8 ? " …" : ""))
   }

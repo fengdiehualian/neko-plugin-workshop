@@ -113,7 +113,29 @@ function run(pinPath, command) {
       }
     } else {
       const bad = mismatch(lockEntry)
-      if (bad) fail("锁与 pin 对不上(" + bad + ")。两处都写着钉版,先统一再拉", 2)
+      if (bad) {
+        // 仓库里的锁与 pin 对不上是真问题(有人只改了一边),必须停下来让人统一。
+        // 但本机生成的锁不是:装机版没有 git,用户既改不了 pin 也改不了锁,
+        // 上游一升版就会永远卡在「两处都写着钉版,先统一再拉」——他手上根本没有「两处」。
+        // 本机锁只是上一次拉取的产物,所以这里以 pin 为准覆盖。
+        const localLock = /本机生成/.test(String(lock.note || ""))
+        if (!localLock) fail("锁与 pin 对不上(" + bad + ")。两处都写着钉版,先统一再拉", 2)
+        if (checkOnly) {
+          console.log("提示:本机锁里的 " + pin.slug + " 与 pin 不一致(" + bad + "),--check 不改文件;拉取时按 pin 覆盖")
+        } else {
+          lock.entries[pin.slug] = entryFromPin()
+          locklib.saveLock(CORPUS, lock)
+          console.log("本机锁里的 " + pin.slug + " 与 pin 不一致(" + bad + "),已按 pin 覆盖(pin 是唯一来源)")
+          // 旧语料留着没有好处:fetch_corpus --locked 看到「磁盘有副本但哈希不符」会直接判失败
+          // 并提示跑 --update-all —— 那是开发者的说法,装机版没有这条路。
+          // 它已确认与新钉版不符,属于可重新获取的缓存,清掉再拉。
+          const stale = measure()
+          if (stale && stale.computedHash !== pin.computedHash) {
+            fs.rmSync(src, { recursive: true, force: true })
+            console.log("旧语料与新钉版不符(tree=" + stale.computedHash.slice(0, 12) + "…),已清除,重新拉取")
+          }
+        }
+      }
     }
   }
 

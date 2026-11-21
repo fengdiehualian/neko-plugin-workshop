@@ -209,8 +209,12 @@ function readVersion(root) {
   const candidates = [
     ["plugin.toml", "plugin.toml", /^\s*version\s*=\s*"([^"]+)"/m],
     ["pyproject.toml", "pyproject.toml", /^\s*version\s*=\s*"([^"]+)"/m],
-    // 纯文档/技能类语料没有 plugin.toml,版本只写在一个单行 VERSION.txt 里。
-    // 用 VERSION.txt(而非无扩展名的 VERSION)是为了同时被语料过滤的 .txt 白名单收下,
+    // 纯文档/技能类语料常常没有 plugin.toml,版本写在一个单行的 VERSION.txt 里。
+    // 它排在 plugin.toml / pyproject.toml 之后,但**排在 SKILL.md 与 plugin.json 之前**:
+    // 三者都在时以 VERSION.txt 为准——专门声明版本的文件比 frontmatter 里顺手写的 version
+    // 更明确。代价是:某个本来只靠 SKILL.md 读版本的条目,上游补了 VERSION.txt 之后,
+    // version_source 会从 SKILL.md 变成 VERSION.txt(版本号本身通常不变)。
+    // 用 VERSION.txt 而不是无扩展名的 VERSION,是为了被语料过滤的 .txt 白名单收下;
     // 否则文件抓下来就被过滤掉,版本永远读不到。
     ["VERSION.txt", "VERSION.txt", /^\s*v?([0-9][^\s]*)\s*$/m],
   ]

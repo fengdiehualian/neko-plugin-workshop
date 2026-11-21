@@ -18,6 +18,7 @@
   "corpus_root": "market-corpus/neko-plugin-skill/src",
   "pull": "node workbench/pull_skill_docs.cjs",
   "verify": "node workbench/fetch_corpus.cjs --locked",
+  "verify_note": "已落盘时它只算本地树哈希、不联网:能证明「本地副本等于锁」,不能证明「锁等于上游」。要验上游就先删掉 market-corpus/neko-plugin-skill/src 再跑同一条命令。",
   "entry": {
     "skill": "neko-plugin-dev/SKILL.md",
     "references": "neko-plugin-dev/references/",

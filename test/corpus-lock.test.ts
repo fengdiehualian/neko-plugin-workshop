@@ -187,6 +187,29 @@ describe("语料锁:版本与锚点口径", () => {
     )
   })
 
+  // 纯文档/技能语料没有 plugin.toml,版本写在一个单行 VERSION.txt 里。
+  // 它排 SKILL.md 之前是有意的:显式声明版本的文件比 frontmatter 里顺手写的 version 更明确。
+  // 这条用例把取舍钉住——否则下次调整候选顺序,没人知道原来依赖这个优先级。
+  test("readVersion 读 VERSION.txt,且优先于 SKILL.md", () => {
+    withTempTree(
+      { "VERSION.txt": "4.3.1\n" },
+      (root) => expect(lock.readVersion(root)).toEqual({ version: "4.3.1", version_source: "VERSION.txt" }),
+    )
+    withTempTree(
+      { "VERSION.txt": "v1.2.3\n" },
+      (root) => expect(lock.readVersion(root)).toEqual({ version: "1.2.3", version_source: "VERSION.txt" }),
+    )
+    withTempTree(
+      { "VERSION.txt": "4.3.1\n", "skills/x/SKILL.md": "---\nmetadata:\n  version: 4.2.0\n---\n" },
+      (root) => expect(lock.readVersion(root)).toEqual({ version: "4.3.1", version_source: "VERSION.txt" }),
+    )
+    // 但让位给 plugin.toml:市场插件仍以宿主认的那份清单为准
+    withTempTree(
+      { "VERSION.txt": "4.3.1\n", "plugin.toml": '[plugin]\nversion = "0.1.0"\n' },
+      (root) => expect(lock.readVersion(root)).toEqual({ version: "0.1.0", version_source: "plugin.toml" }),
+    )
+  })
+
   test("readVersion 能读 .claude-plugin/plugin.json，但让位给 plugin.toml", () => {
     withTempTree(
       { ".claude-plugin/plugin.json": JSON.stringify({ name: "plugin-forge", version: "2.8.0" }) + "\n" },
@@ -454,6 +477,35 @@ describe("按需条目:缺失与异常的区分", () => {
     const r = runWith({ on_demand: onDemand }, ["--only", "nope"], () => {})
     expect(r.status).toBe(2)
     expect(r.stderr).toContain("--only 指定的条目不在锁里")
+  })
+
+  // --only 收窄的是「本次处理哪些」,不能拿收窄后的名单去判断「哪些是锁外的」。
+  // 否则锁里明明登记过的条目会被报成「未在锁里登记」,每次按需拉取都刷一遍假警告——
+  // 假警告多了,真警告就没人看了。
+  test("--only 收窄时不把锁里其它条目误报成「锁外」", () => {
+    const root = mkdtempSync(join(tmpdir(), "only-unlocked-"))
+    try {
+      writeFileSync(join(root, "corpus.lock.json"), JSON.stringify({
+        schema: 2, algo: "tree-sha256-v0", entries: { on_demand: onDemand, kept: vendored },
+      }))
+      // kept 在锁里、磁盘上也有副本:它是「锁内」,不该出现在锁外提示里
+      mkdirSync(join(root, "kept", "src"), { recursive: true })
+      writeFileSync(join(root, "kept", "src", "a.md"), "x\n")
+      const run = () => spawnSync(process.execPath,
+        [FETCH, "--locked", "--verify-only", "--only", "on_demand"], {
+          encoding: "utf8", env: { ...process.env, NEKO_CORPUS_DIR: root },
+        })
+      const r = run()
+      expect(r.stdout, "kept 在锁里,不该被报成锁外:" + r.stdout).not.toContain("锁外条目")
+
+      // 反面:真没登记过的目录仍要报,别把修误报变成把提示删了
+      mkdirSync(join(root, "not_locked", "src"), { recursive: true })
+      const r2 = run()
+      expect(r2.stdout, "真锁外的目录还是要报").toContain("锁外条目")
+      expect(r2.stdout).toContain("not_locked")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   // lstat 能看见、stat 跟随失败:链接在但指向的东西不在。existsSync 对这种也返回 false,

@@ -63,9 +63,11 @@ description: N.E.K.O.(猫娘计划)插件开发权威规范。写/改/修任何 
 |---|---|
 | 拉取 / 补齐(缺就拉,已有只核对) | `node workbench/pull_skill_docs.cjs` |
 | 只核对,不联网 | `node workbench/pull_skill_docs.cjs --check` |
-| 字节级校验(按锁里的 commit 抓一份再比) | `node workbench/fetch_corpus.cjs --locked` |
+| 核对本地副本是否等于锁(已落盘时不联网) | `node workbench/fetch_corpus.cjs --locked` |
 
-拉到 `market-corpus/neko-plugin-skill/src`(该目录不进安装包)。**规则编号仍以 `rules.json` 为唯一来源**
+拉到 `market-corpus/neko-plugin-skill/src`(该目录不进安装包,已在 `.gitignore` 里)。
+注意 `--locked` 的含义:磁盘上已有 `src` 时它**只算本地树哈希**,不会重新下载,输出「已落盘,未联网」。
+它能证明的是「本地副本等于锁里的哈希」,不能证明「锁等于上游」——要验上游,先删掉 `src` 再跑同一条命令。**规则编号仍以 `rules.json` 为唯一来源**
 (只追加、不复用、不重排):深度专题是背景与实现细节,不另立编号,也不得替代 `rules.json` 里的规则;
 两处冲突时以本仓库 `rules.json` + 官方源码为准。
 
