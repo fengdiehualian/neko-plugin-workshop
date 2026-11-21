@@ -38,6 +38,13 @@ function run(pinPath, command) {
   } catch (e) {
     fail("读不到 " + path.relative(ROOT, pinPath) + "(" + pinPath + "):" + String((e && e.message) || e), 2)
   }
+  // pin 是仓库内文件,风险很低;但它是先于 fetch_corpus 的 slug 校验被拿去拼路径的
+  // (path.join(CORPUS, pin.slug, "src")),一句断言的成本远低于事后排查。
+  try {
+    locklib.assertSlug(pin.slug)
+  } catch (e) {
+    fail(path.basename(pinPath) + " 的 slug 不合法:" + String((e && e.message) || e), 2)
+  }
 
   const lockPath = path.join(CORPUS, "corpus.lock.json")
   const src = path.join(CORPUS, pin.slug, "src")

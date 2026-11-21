@@ -56,6 +56,22 @@ describe("语料锁:锁值与磁盘一致", () => {
     }
   })
 
+  /**
+   * vendored:false 会把离线校验从「必须存在」放宽成「不存在就 SKIP」。
+   * 不给白名单的话,只要把一个条目的这个字段改掉、再删掉语料,CI 依然全绿——
+   * 用一个布尔值就能把整条语料的正文校验关掉,而没有任何地方会吭声。
+   * 新增按需条目要走一次显式改动,不能顺手改字段。
+   */
+  test("vendored:false 只给按需文档条目用,且名单是写死的", () => {
+    const ALLOWED = ["neko-plugin-skill"]
+    const parsed = lock.loadLock(CORPUS)
+    const got = Object.entries(parsed.entries)
+      .filter(([, e]) => (e as { vendored?: boolean }).vendored === false)
+      .map(([s]) => s)
+    expect(got.sort(), "这两边不一致:要么漏了新增的按需条目,要么有人把普通条目的正文校验关掉了")
+      .toEqual([...ALLOWED].sort())
+  })
+
   test("每条都记了 repo / commit / ref / tree / 版本来源", () => {
     const parsed = lock.loadLock(CORPUS)
     for (const [slug, entry] of Object.entries(parsed.entries)) {

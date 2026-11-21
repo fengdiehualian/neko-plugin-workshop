@@ -28,7 +28,7 @@ reviews:
         - 手改 computedHash 视为错误:只能由 workbench/fetch_corpus.cjs --update 重算。
     - path: "packs/neko-plugin/skill/**"
       instructions: |
-        - 规则编号只能来自 packs/neko-plugin/rules.json(R1–R18 / W1–W3);不得另立编号。
+        - 规则编号只能来自 packs/neko-plugin/rules.json 的 x_hard_rules / x_workflow_rules;不得另立编号,也不要在文档里抄编号范围(会过期)。
         - 文档里的条数/页数不要写死,以 rules.json 与运行时统计为准。
         - 深度专题正文不在这里:只应出现钉版引用(neko-plugin-dev-pin.json)与拉取命令。
     - path: "workbench/**"

@@ -384,9 +384,13 @@ function runLocked() {
     }
     if (current) {
       failed++
+      // 按需条目的正文是可重新获取的缓存,哈希不符只可能是手改或下载坏了。
+      // 这时建议 --update-all 是错的:它会把被改过的树写回锁,等于认可篡改。
+      const fix = onDemand
+        ? "按需条目的正文不进仓库,属于可重拉的缓存:删掉 " + path.join(root, "src") + " 后用对应 pull_*.cjs 重拉。"
+        : "要么语料被改过,要么过滤规则变了 —— 确认是故意的之后跑 --update-all 重锁。"
       console.error("FAIL  " + slug + "  树哈希不符:磁盘 " + current.computedHash.slice(0, 16) + "… files=" + current.files +
-        " vs 锁 " + entry.computedHash.slice(0, 16) + "… files=" + entry.files +
-        "。要么语料被改过,要么过滤规则变了 —— 确认是故意的之后跑 --update-all 重锁。")
+        " vs 锁 " + entry.computedHash.slice(0, 16) + "… files=" + entry.files + "。 " + fix)
       continue
     }
     if (verifyOnly) {
@@ -451,6 +455,11 @@ function runLocked() {
   }
   console.log("\n锁校验:通过 " + passed + " 个,新抓 " + fetched + " 个,失败 " + failed + " 个" +
     (skipped ? ",按需跳过 " + skipped + " 个(vendored:false,离线不判失败)" : ""))
+  // 全部条目都被跳过时,「通过 0 个 / 失败 0 个 / 退 0」读起来像「都过了」。
+  // 说清楚这次什么都没校验,免得拿一次空跑当成证据。
+  if (!passed && !fetched && !failed && skipped) {
+    console.log("注意:本次没有任何条目被实际校验(全部是按需条目且未落盘),这次运行不能当作「校验通过」的证据。")
+  }
   return failed ? 1 : 0
 }
 
