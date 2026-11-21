@@ -60,25 +60,28 @@ describe("neko-plugin-dev 接入线:锁与 pin 一致", () => {
 
   // 只查一个目录名是不够的:把 52 篇平铺成 references/30-xxx.md 一样是回迁,而且更难发现
   // ——目录没了,看上去只是「多了几篇参考文档」。所以按两条线索查:
-  //   1. 深度专题的命名形态 NN-xxx.md(本仓库自己的参考页不带数字前缀);
+  //   1. 深度专题的命名形态 NN-xxx.md,在 **packs/ 全域**找,不只 references/ 顶层
+  //      ——塞进 references/archive/ 或换个目录都能抓到(本仓库自己的参考页不带数字前缀);
   //   2. pin 的 anchors 里 references/ 下的文件名,在 packs/ 下递归找同名文件。
-  //     换子目录、改前缀名都能抓到,清单从 pin 来,不用另外维护。
-  test("正文没有被回迁进 references/(只该留钉版)", () => {
+  //     这条兜住「改了名、没改形态」的情况,清单从 pin 来,不用另外维护。
+  test("正文没有被回迁进 packs/(只该留钉版)", () => {
     const GENERIC = new Set(["SKILL.md", "README.md", "index.md", "VERSION.txt"])
     const walk = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((d) =>
         d.isDirectory() ? walk(join(dir, d.name)) : [join(dir, d.name)])
+    const base = (p: string) => p.split(/[\\/]/).pop() as string
 
     expect(existsSync(join(REF, "deep-dive")), "references/deep-dive/ 又出现了:只该留钉版").toBe(false)
-    const numbered = readdirSync(REF).filter((f) => /^\d{2}-.+\.md$/.test(f))
-    expect(numbered, "references/ 下出现深度专题形态的文件(回迁):" + numbered.join(", ")).toEqual([])
+
+    const numbered = walk(join(ROOT, "packs")).filter((p) => /^\d{2}-.+\.md$/.test(base(p)))
+    expect(numbered, "packs/ 下出现深度专题形态的文件(回迁):" + numbered.join(", ")).toEqual([])
 
     const names = (pin.anchors as { file: string }[])
       .filter((a) => a.file.includes("/references/"))
       .map((a) => a.file.split("/").pop() as string)
       .filter((n) => n && !GENERIC.has(n))
     expect(names.length, "pin 的 anchors 里应当有 references 下的文件").toBeGreaterThan(0)
-    const hits = walk(join(ROOT, "packs")).filter((p) => names.includes(p.split(/[\\/]/).pop() as string))
+    const hits = walk(join(ROOT, "packs")).filter((p) => names.includes(base(p)))
     expect(hits, "这些深度专题又在 packs/ 里出现了:" + hits.join(", ")).toEqual([])
   })
 

@@ -2,7 +2,8 @@ import { readdirSync } from "node:fs"
 import { join } from "node:path"
 
 /**
- * 递归列出 dir 下的 .md 文件(绝对路径),跳过 skipDirs 里的一级子目录名。
+ * 递归列出 dir 下的 .md 文件(绝对路径),跳过名字在 skipDirs 里的子目录。
+ * 注意是**任意层级**都跳过:同名的第三方目录不会只在顶层出现,只跳一层挡不住。
  *
  * 为什么不点名具体目录再逐个加进检查:`references/` 下会不断长出新子目录
  * (deep-dive 进过又出过、现在是 market-examples),按目录名白名单写的检查

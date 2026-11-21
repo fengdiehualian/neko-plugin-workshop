@@ -72,6 +72,18 @@ describe("语料锁:锁值与磁盘一致", () => {
       .toEqual([...ALLOWED].sort())
   })
 
+  /**
+   * `pull_pinned` 用「note 里含『本机生成』」来区分「装机版就地生成的锁」和「仓库里那份锁」。
+   * 前者允许覆盖条目,后者必须退 2 让人去统一——否则「有人只改了一边」会被当成正常现象放过。
+   * 这个判据是字符串约定,所以得有一条测试盯着仓库锁别沾上这四个字:改文案时顺手把
+   * 仓库锁写成「本机生成」,覆盖逻辑就会在 CI 和评审眼皮底下生效,而且没人看得出来。
+   */
+  test("仓库里那份锁的 note 不能含「本机生成」", () => {
+    const parsed = lock.loadLock(CORPUS)
+    expect(String(parsed.note || ""), "仓库锁的 note 含「本机生成」,会让覆盖逻辑在仓库里生效")
+      .not.toContain("本机生成")
+  })
+
   test("每条都记了 repo / commit / ref / tree / 版本来源", () => {
     const parsed = lock.loadLock(CORPUS)
     for (const [slug, entry] of Object.entries(parsed.entries)) {
