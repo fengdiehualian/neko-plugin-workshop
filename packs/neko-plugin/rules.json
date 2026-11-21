@@ -22,7 +22,7 @@
   },
   "required": ["plugin_id", "name", "version", "entry_class"],
 
-  "x_rule_numbering": "本数组是规则编号的唯一事实来源(single source)。SKILL.md 的铁律、AGENTS.md 的硬规则、任务书里的引用都必须用这里的 R 号,不得另立编号;新增规则只往后追加,已发布的编号不复用、不重排。命名空间约定:R/W 只属于本文件(工坊规则);`tools/plugin_conformance.py` 的检查项一律用 C1–C14(conformance),不得再用 R 号——两套编号同名不同义时,评审与用户都会被绕进去。另外:文档与提示词里不许抄条数/末号/页数,一律写「以 rules.json / 运行时统计为准」,由测试对着磁盘实际文件校验。 校验由 test/rules-numbering.test.ts 强制(数量口径另由 test/docs-consistency.test.ts 校验):两份测试都递归扫 references/ 下所有 md(公共实现在 test/refs.ts),新增子目录不必改测试,也不许用「点名目录」把范围缩小——按目录名白名单写的检查,漏列一个就是永久空档。只排除两类:第三方逐字节副本(market-examples/,内容由上游决定,改不了也不该要求它符合本仓库编号),以及各有独立断言的根文件 market-catalog.md 与 market-patterns.md。",
+  "x_rule_numbering": "本数组是规则编号的唯一事实来源(single source)。SKILL.md 的铁律、AGENTS.md 的硬规则、任务书里的引用都必须用这里的 R 号,不得另立编号;新增规则只往后追加,已发布的编号不复用、不重排。命名空间约定:R/W 只属于本文件(工坊规则);`tools/plugin_conformance.py` 的检查项一律用 C1–C14(conformance),不得再用 R 号——两套编号同名不同义时,评审与用户都会被绕进去。另外:文档与提示词里不许抄条数/末号/页数,一律写「以 rules.json / 运行时统计为准」,由测试对着磁盘实际文件校验。 校验由 test/rules-numbering.test.ts 强制(数量口径另由 test/docs-consistency.test.ts 校验):两份测试都递归扫 references/ 下所有 md(公共实现在 test/refs.ts),并都排除第三方逐字节副本(market-examples/,内容由上游决定,改不了也不该要求它符合本仓库编号);docs-consistency 另外排除 market-catalog.md 与 market-patterns.md(它们各有独立断言,rules-numbering 对这两份照扫)。新增子目录不必改测试,也不许用「点名目录」把范围缩小——按目录名白名单写的检查,漏列一个就是永久空档。",
   "x_hard_rules": [
     "R1 plugin.toml 必填:id/name/version/entry(type=plugin 可省略,默认 plugin);id 小写字母开头 ^[a-z][a-z0-9_]*$,与目录同名,发布后不可更改",
     "R2 entry 格式必须为 module.path:ClassName,且解析到 NekoPluginBase 子类(不能拿 PluginRouter 当加载入口);类名 = 需求名 + Plugin 单后缀,禁止 XxxPluginPlugin,且与 entry 里的类名完全一致",
