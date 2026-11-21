@@ -89,6 +89,29 @@ describe("rules.json 编号唯一来源", () => {
     if (claim) expect(Number(claim[1])).toBe(cIds.length)
     expect(cat).toMatch(/conformance 命名空间|与 `rules\.json` 的 R 号规则不是同一套编号/)
   })
+  // issue #19 的待办是「等 forge/、deep-dive/ 进仓时把扫描目录加进去」。按目录名点名,
+  // 每加一个子目录就得改一次测试,漏一次就是永久空档——#19 关不掉正是因为这个。
+  // 改成递归扫 references/ 下所有 md:以后谁再往里放子目录都不用动测试。
+  test("references 下所有文档引用的 R/W 号都真实存在(issue #19:范围不能只盯着 SKILL/AGENTS)", () => {
+    const refDir = join(SKILL_DIR, "references")
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((d) =>
+        d.isDirectory() ? walk(join(dir, d.name)) : d.name.endsWith(".md") ? [join(dir, d.name)] : [])
+    const files = walk(refDir)
+    expect(files.length, "references/ 一个 md 都没扫到,路径写错了").toBeGreaterThan(10)
+    const known = new Set([...hard, ...work].map(idOf).filter(Boolean))
+    for (const f of files) {
+      const rel = f.slice(ROOT.length + 1).replace(/\\/g, "/")
+      const text = read(f)
+      for (const m of text.matchAll(/\b(R\d+|W\d+)\b/g)) {
+        expect(known.has(m[1]), rel + " 引用了不存在的规则号 " + m[1]).toBe(true)
+      }
+      const ranges = text.split(/\r?\n/).filter((l) => /R1\s*[–-]\s*R?\d+/.test(l))
+      expect(ranges, rel + " 里还写着规则范围:" + ranges.join(" | ")).toEqual([])
+      expect(text, rel + " 里还写着「N 条硬规则」").not.toMatch(/\d+\s*条(硬)?规则/)
+    }
+  })
+
   test("rules.json 自己写明了命名空间约定", () => {
     const promise = String(rules.x_rule_numbering || "")
     expect(promise, "x_rule_numbering 没写 C 命名空间,下一个改动又会把两套编号混起来").toMatch(/C1[–\-]C14|conformance/)
