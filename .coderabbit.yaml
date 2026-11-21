@@ -1,0 +1,45 @@
+# CodeRabbit 配置(v2)。与 issue #8/#16/#19 的口径一致:
+#   - 规则编号唯一来源是 packs/neko-plugin/rules.json,任何「铁律 #N / F1–F9」都不得替代 R 号;
+#   - 语料正文不在仓库里(market-corpus/**),按 vendored:false 的锁条目用时再拉,不要要求把正文补进来;
+#   - 锁与 pin 是同一份钉版信息的两处写法,改一处必须同步另一处。
+language: zh-CN
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    # 只排除语料正文;corpus.lock.json 必须留在审查范围内(它是钉版的唯一事实来源)
+    - "!market-corpus/*/src/**"
+    - "!node_modules/**"
+    - "!**/__pycache__/**"
+  path_instructions:
+    - path: "market-corpus/corpus.lock.json"
+      instructions: |
+        这是语料锁,不是普通 JSON。
+        - 每个条目必须有 source(owner/repo)、40 位完整 commit、computedHash(64 位)、archive_sha256。
+        - 不要把 ref 改成 tag:tag 可被移动,钉版本只认 commit。
+        - vendored:false 表示正文不进仓库;不要建议把正文补进来。
+        - 手改 computedHash 视为错误:只能由 workbench/fetch_corpus.cjs --update 重算。
+    - path: "packs/neko-plugin/skill/**"
+      instructions: |
+        - 规则编号只能来自 packs/neko-plugin/rules.json(R1–R18 / W1–W3);不得另立编号。
+        - 文档里的条数/页数不要写死,以 rules.json 与运行时统计为准。
+        - 深度专题正文不在这里:只应出现钉版引用(neko-plugin-dev-pin.json)与拉取命令。
+    - path: "workbench/**"
+      instructions: |
+        - 语料拉取/校验收紧时不能静默跳过:跳过必须打印 SKIP 并说明原因。
+        - 任何「按需条目」一旦在磁盘上有副本,都必须逐字节校验。
+        - 不写死本机绝对路径;跨平台路径用 path.join。
+    - path: "test/**"
+      instructions: |
+        - 测试要能在「没有第三方语料」的 checkout 上通过(CI 有语料,装机版没有)。
+        - 涉及语料缺失的分支要显式断言,不要把「没校验」写成「通过」。
+
+chat:
+  auto_reply: true

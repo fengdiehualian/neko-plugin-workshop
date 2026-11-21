@@ -53,6 +53,22 @@ description: N.E.K.O.(猫娘计划)插件开发权威规范。写/改/修任何 
 | **`forge-contract-gate.md`** | **plugin-forge 接入线·契约门禁:写码前必须过、准奏文件形状、verify_commands 只验形状不执行** |
 | **`forge-reading-map.md`** | **plugin-forge 接入线·读文档地图:先读哪份、N.E.K.O 硬事实去哪核、常见凭记忆写错** |
 
+## 深度专题(neko-plugin-dev,按需拉取)
+
+52 篇深度专题 + 官方 `init` 示例**不进本仓库**,只钉版本:正典在上游 `HMUG12/Project_Neko-plugin_skill`,
+本仓库留 `references/neko-plugin-dev-pin.json` 与 `market-corpus/corpus.lock.json` 里那一条 `neko-plugin-skill`
+(`vendored:false`,只存 source / 完整 commit SHA / 树哈希)。检索 API 契约、构建发布、Market 审核细节时再拉:
+
+| 要做 | 命令 |
+|---|---|
+| 拉取 / 补齐(缺就拉,已有只核对) | `node workbench/pull_skill_docs.cjs` |
+| 只核对,不联网 | `node workbench/pull_skill_docs.cjs --check` |
+| 字节级校验(按锁里的 commit 抓一份再比) | `node workbench/fetch_corpus.cjs --locked` |
+
+拉到 `market-corpus/neko-plugin-skill/src`(该目录不进安装包)。**规则编号仍以 `rules.json` 为唯一来源**
+(只追加、不复用、不重排):深度专题是背景与实现细节,不另立编号,也不得替代 `rules.json` 里的规则;
+两处冲突时以本仓库 `rules.json` + 官方源码为准。
+
 ## 插件制造专家团(plugin-forge)接入线
 
 要**从零造 / 修 / 审**一个插件,而不是查 N.E.K.O API 细节时,套 forge 那条线。钉版 `v2.8.0` / `722529a`:

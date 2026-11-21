@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "slug": "neko-plugin-skill",
+  "kind": "skill",
+  "vendored": false,
+  "source": "HMUG12/Project_Neko-plugin_skill",
+  "ref": "7f653518c911482fdd533a758c0fd4814ab23ebe",
+  "commit": "7f653518c911482fdd533a758c0fd4814ab23ebe",
+  "version": "4.3.1",
+  "version_source": "VERSION.txt",
+  "transport": "zip",
+  "archive_format": "zip",
+  "archive_sha256": "64ec2dedcd47dd25d84ecacb440fcf3fd5eebc48b2c81ac2970e74b62b1db460",
+  "computedHash": "a758ac4542d067e0a3f6098a12bc1cc149b148f6edf0b8d8f30d9f33d68bee30",
+  "files": 75,
+  "note": "neko-plugin-dev 深度专题(52 篇 references + 官方 init 示例)的钉版清单。正典只有上游那一份:本仓库不存正文,只在 market-corpus/corpus.lock.json 留 source/ref/commit/树哈希;安装版没有 corpus.lock 时,由 pull_skill_docs.cjs 以本文件为准就地生成一条。许可 MIT(版权人 未知之致),引用时保留署名,见 THIRD_PARTY_NOTICES.md。",
+  "lock": "market-corpus/corpus.lock.json",
+  "corpus_root": "market-corpus/neko-plugin-skill/src",
+  "pull": "node workbench/pull_skill_docs.cjs",
+  "verify": "node workbench/fetch_corpus.cjs --locked",
+  "entry": {
+    "skill": "neko-plugin-dev/SKILL.md",
+    "references": "neko-plugin-dev/references/",
+    "example": "neko-plugin-dev/examples/minimal_plugin/",
+    "changelog": "CHANGELOG.md",
+    "version": "VERSION.txt"
+  },
+  "anchors": [
+    {
+      "id": "skill-identity",
+      "file": "src/neko-plugin-dev/SKILL.md",
+      "all": [
+        "name: \"neko-plugin-dev\""
+      ]
+    },
+    {
+      "id": "single-baseline",
+      "file": "src/neko-plugin-dev/SKILL.md",
+      "all": [
+        "acfbdbc",
+        "唯一基线"
+      ]
+    },
+    {
+      "id": "push-message-contract",
+      "file": "src/neko-plugin-dev/references/30-push-message-internals.md",
+      "all": [
+        "PushMessageResult"
+      ]
+    },
+    {
+      "id": "zmq-ormsgpack-uplink",
+      "file": "src/neko-plugin-dev/references/37-zmq-transport-internals.md",
+      "all": [
+        "ormsgpack"
+      ]
+    },
+    {
+      "id": "version-marker",
+      "file": "src/VERSION.txt",
+      "all": [
+        "4.3.1"
+      ]
+    }
+  ]
+}
