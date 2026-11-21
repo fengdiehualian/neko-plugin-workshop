@@ -66,8 +66,11 @@ describe("rules.json 编号唯一来源", () => {
     expect(readme).not.toMatch(/15 条铁律/)
     for (const [name, text] of [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents],
                                 ["packs/README.md", read(join(ROOT, "packs", "neko-plugin", "README.md"))]] as const) {
-      // 允许单条引用(R14/R15 这种指向具体规则的写法),但不许再出现「R1–R18」「12 条硬规则」这类范围/计数抄写
-      const ranges = text.split(/\r?\n/).filter((l) => /R1\s*[–-]\s*R?\d+/.test(l) && !/^\s*(\/\/|#)/.test(l.trim()))
+      // 判据是「用连字符把两个编号连起来」,不是「从 R1 开始」。
+      // 原来只写 R1[–-]R?\d+,于是 R2–R3 和所有 W 范围都漏了;
+      // 而且这里照抄了代码里的注释过滤(排除 # 开头行),可被测的都是 markdown——
+      // `## 对外动作与外部内容(工坊硬规则 W1–W3)` 这种标题行被当成注释跳过了整整一版。
+      const ranges = text.split(/\r?\n/).filter((l) => /\b[RW]\d+\s*[–—\-]\s*[RW]?\d+/.test(l))
       expect(ranges, name + " 里还写着规则范围:" + ranges.join(" | ")).toEqual([])
       expect(text, name + " 里还写着「N 条硬规则」").not.toMatch(/\d+\s*条(硬)?规则/)
     }
@@ -106,7 +109,9 @@ describe("rules.json 编号唯一来源", () => {
       for (const m of text.matchAll(/\b(R\d+|W\d+)\b/g)) {
         expect(known.has(m[1]), rel + " 引用了不存在的规则号 " + m[1]).toBe(true)
       }
-      const ranges = text.split(/\r?\n/).filter((l) => /R1\s*[–-]\s*R?\d+/.test(l))
+      // 范围写法一律禁止。别只在 R1 上判:R2–R3 同样是把编号固化成范围,
+      // W 范围也是——判据是「有没有用连字符把两个编号连起来」,不是从哪个号开始。
+      const ranges = text.split(/\r?\n/).filter((l) => /\b[RW]\d+\s*[–—\-]\s*[RW]?\d+/.test(l))
       expect(ranges, rel + " 里还写着规则范围:" + ranges.join(" | ")).toEqual([])
       expect(text, rel + " 里还写着「N 条硬规则」").not.toMatch(/\d+\s*条(硬)?规则/)
     }

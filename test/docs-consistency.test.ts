@@ -111,8 +111,12 @@ describe("语料数量:以 market-corpus 真实目录为准", () => {
     const walk = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((d) =>
         d.isDirectory() ? walk(join(dir, d.name)) : d.name.endsWith(".md") ? [join(dir, d.name)] : [])
+    // 按完整路径排除,不用 endsWith:references/xxx/market-patterns.md 是另一个文件,
+    // 它没有单独的断言兜着;endsWith 会把它和 other-market-catalog.md 一起误排除,
+    // 结果就是「以为扫了,其实跳过了」。这两个名字只该排除根目录那两份。
+    const skip = new Set([join(refDir, "market-catalog.md"), join(refDir, "market-patterns.md")])
     const refDocs: [string, string][] = walk(refDir)
-      .filter((f) => !f.endsWith("market-catalog.md") && !f.endsWith("market-patterns.md"))
+      .filter((f) => !skip.has(f))
       .map((f) => [f.slice(ROOT.length + 1).replace(/\\/g, "/"), read(f)])
     const claims: [string, string][] = [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents], ["market-patterns.md", patterns], ...refDocs]
     for (const [name, text] of claims) {
