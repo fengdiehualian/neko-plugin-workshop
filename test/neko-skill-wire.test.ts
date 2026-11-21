@@ -172,14 +172,19 @@ describe("装机版:两个 pin 共用一份本机锁", () => {
   })
 
   // 真正会写锁的是拉取路径。它要联网,但补条目发生在 spawn fetch_corpus 之前,
-  // 所以把 PATH 清掉让 curl 直接 ENOENT 就能在不联网的前提下确定性地走到那条分支:
-  // 拉取必然失败,但锁该被改的已经改了。这样门禁既不看 GitHub 的脸色,也仍然守得住。
+  // 所以把 PATH 指向一个空目录让 curl 直接 ENOENT,就能在不联网的前提下确定性地
+  // 走到那条分支:拉取必然失败,但锁该改的已经改了。这样门禁既不看 GitHub 的脸色,
+  // 也仍然守得住。
+  //
+  // 注意不能用 PATH="":Linux 上 execvp 看到「存在的空串」会回退到 confstr 默认路径
+  // (/usr/bin:/bin),curl 反而又被找到了——本地过、CI 红就是这么来的。
   test("拉取路径才补条目(即使抓取失败,注册也要先落盘)", () => {
     const root = makeRoot("本机生成:安装包不含 corpus.lock,按 pin 落一条。")
+    const emptyBin = mkdtempSync(join(tmpdir(), "no-curl-"))
     try {
       const r = spawnSync(process.execPath, [PULL], {
         encoding: "utf8",
-        env: { ...process.env, NEKO_CORPUS_DIR: root, PATH: "" },
+        env: { ...process.env, NEKO_CORPUS_DIR: root, PATH: emptyBin },
       })
       expect(r.status, "抓不到的时候应当失败,而不是静默成功").not.toBe(0)
       expect(r.stdout).toContain("已按")
@@ -190,6 +195,7 @@ describe("装机版:两个 pin 共用一份本机锁", () => {
       expect(now.entries["plugin-forge"], "补条目时不该动别的条目").toBeTruthy()
     } finally {
       rmSync(root, { recursive: true, force: true })
+      rmSync(emptyBin, { recursive: true, force: true })
     }
-  })
+  }, 30000)
 })
