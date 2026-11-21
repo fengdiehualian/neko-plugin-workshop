@@ -105,6 +105,10 @@ describe("neko-plugin-dev 接入线:锁与 pin 一致", () => {
     }
     expect(pin.pull).toContain("pull_skill_docs.cjs")
     expect(pin.verify).toContain("--locked")
+    // 不带 --only 的 --locked 会处理锁里所有条目:别的语料缺了就去下载,
+    // 于是「只核对这一条」变成「顺手把别的也拉了」,「不联网」也不成立了。
+    expect(pin.verify, "verify 必须限定到本条目").toContain("--only")
+    expect(pin.verify, "核对不该联网").toContain("--verify-only")
   })
 })
 

@@ -130,17 +130,19 @@ function run(pinPath, command) {
         if (checkOnly) {
           console.log("提示:本机锁里的 " + pin.slug + " 与 pin 不一致(" + bad + "),--check 不改文件;拉取时按 pin 覆盖")
         } else {
-          lock.entries[pin.slug] = entryFromPin()
-          locklib.saveLock(CORPUS, lock)
-          console.log("本机锁里的 " + pin.slug + " 与 pin 不一致(" + bad + "),已按 pin 覆盖(pin 是唯一来源)")
-          // 旧语料留着没有好处:fetch_corpus --locked 看到「磁盘有副本但哈希不符」会直接判失败
-          // 并提示跑 --update-all —— 那是开发者的说法,装机版没有这条路。
-          // 它已确认与新钉版不符,属于可重新获取的缓存,清掉再拉。
+          // 顺序要紧:先清旧语料,再写锁。
+          // 反过来(先 saveLock)如果中途失败,锁已经等于 pin,下次进来 mismatch() 不再报,
+          // 而磁盘上那份旧 src 还在——于是直接走到 fetch_corpus 判「哈希不符」拒拉,
+          // 每次重试都失败,只能手删 src。先删再写,即使中途崩掉也只留下「锁仍是旧的」,
+          // 下次重进还能认出不一致、再清一次。
           const stale = measure()
           if (stale && stale.computedHash !== pin.computedHash) {
             fs.rmSync(src, { recursive: true, force: true })
             console.log("旧语料与新钉版不符(tree=" + stale.computedHash.slice(0, 12) + "…),已清除,重新拉取")
           }
+          lock.entries[pin.slug] = entryFromPin()
+          locklib.saveLock(CORPUS, lock)
+          console.log("本机锁里的 " + pin.slug + " 与 pin 不一致(" + bad + "),已按 pin 覆盖(pin 是唯一来源)")
         }
       }
     }

@@ -17,8 +17,8 @@
   "lock": "market-corpus/corpus.lock.json",
   "corpus_root": "market-corpus/neko-plugin-skill/src",
   "pull": "node workbench/pull_skill_docs.cjs",
-  "verify": "node workbench/fetch_corpus.cjs --locked",
-  "verify_note": "已落盘时它只算本地树哈希、不联网:能证明「本地副本等于锁」,不能证明「锁等于上游」。要验上游就先删掉 market-corpus/neko-plugin-skill/src 再跑同一条命令。",
+  "verify": "node workbench/fetch_corpus.cjs --locked --only neko-plugin-skill --verify-only",
+  "verify_note": "带 --only 才是真离线:不加它会处理锁里所有条目,别的语料缺了就会去下载。已落盘时它只算本地树哈希,证明「本地副本等于锁」,不证明「锁等于上游」;要验上游先删 src 再跑(去掉 --verify-only)。另外树哈希只覆盖白名单内的文件(扩展名白名单、单文件 ≤ 1.5MB、跳过 .git 等目录)。",
   "entry": {
     "skill": "neko-plugin-dev/SKILL.md",
     "references": "neko-plugin-dev/references/",
