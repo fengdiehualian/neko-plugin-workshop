@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync, existsSync, readdirSync } from "node:fs"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
+import { walkMarkdown, THIRD_PARTY_DIRS } from "./refs"
 
 // 规则编号的唯一事实来源是 packs/neko-plugin/rules.json(issue #8)。
 // 本文件只管「编号」这一件事(语料数量口径在 docs-consistency.test.ts)。
@@ -94,13 +95,10 @@ describe("rules.json 编号唯一来源", () => {
   })
   // issue #19 的待办是「等 forge/、deep-dive/ 进仓时把扫描目录加进去」。按目录名点名,
   // 每加一个子目录就得改一次测试,漏一次就是永久空档——#19 关不掉正是因为这个。
-  // 改成递归扫 references/ 下所有 md:以后谁再往里放子目录都不用动测试。
+  // 改成递归扫 references/ 下所有 md(公共实现在 test/refs.ts):
+  // 以后谁再往里放子目录都不用动测试。第三方逐字节副本除外,那份我们改不了。
   test("references 下所有文档引用的 R/W 号都真实存在(issue #19:范围不能只盯着 SKILL/AGENTS)", () => {
-    const refDir = join(SKILL_DIR, "references")
-    const walk = (dir: string): string[] =>
-      readdirSync(dir, { withFileTypes: true }).flatMap((d) =>
-        d.isDirectory() ? walk(join(dir, d.name)) : d.name.endsWith(".md") ? [join(dir, d.name)] : [])
-    const files = walk(refDir)
+    const files = walkMarkdown(join(SKILL_DIR, "references"), THIRD_PARTY_DIRS)
     expect(files.length, "references/ 一个 md 都没扫到,路径写错了").toBeGreaterThan(10)
     const known = new Set([...hard, ...work].map(idOf).filter(Boolean))
     for (const f of files) {
@@ -126,7 +124,9 @@ describe("rules.json 编号唯一来源", () => {
     const promise = String(rules.x_rule_numbering || "")
     const names = [...promise.matchAll(/test\/([A-Za-z0-9_.-]+\.ts)/g)].map((m) => m[1])
     expect(names.length).toBeGreaterThan(0)
-    const have = readdirSync(join(ROOT, "test")).filter((f) => f.endsWith(".test.ts"))
+    // 只认 .test.ts 会把 helper 判成缺失:rules.json 现在既提测试文件,也提
+    // test/refs.ts(公共 walk)。承诺的对象是「这个文件真的在」,不是「它必须是测试」。
+    const have = readdirSync(join(ROOT, "test"))
     for (const n of names) {
       expect(have.includes(n), "rules.json 说由 test/" + n + " 校验,但该文件不存在").toBe(true)
       expect(existsSync(join(ROOT, "test", n))).toBe(true)
