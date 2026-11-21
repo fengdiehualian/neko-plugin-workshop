@@ -111,6 +111,59 @@
       ],
       "updated_at": "2026-11-18T08:35:07.946Z",
       "transport": "git"
+    },
+    "neko-plugin-skill": {
+      "source": "HMUG12/Project_Neko-plugin_skill",
+      "kind": "skill",
+      "vendored": false,
+      "ref": "7f653518c911482fdd533a758c0fd4814ab23ebe",
+      "commit": "7f653518c911482fdd533a758c0fd4814ab23ebe",
+      "version": "4.3.1",
+      "version_source": "VERSION.txt",
+      "transport": "zip",
+      "archive_format": "zip",
+      "archive_sha256": "64ec2dedcd47dd25d84ecacb440fcf3fd5eebc48b2c81ac2970e74b62b1db460",
+      "computedHash": "a758ac4542d067e0a3f6098a12bc1cc149b148f6edf0b8d8f30d9f33d68bee30",
+      "files": 75,
+      "anchors": [
+        {
+          "id": "skill-identity",
+          "file": "src/neko-plugin-dev/SKILL.md",
+          "all": [
+            "name: \"neko-plugin-dev\""
+          ]
+        },
+        {
+          "id": "single-baseline",
+          "file": "src/neko-plugin-dev/SKILL.md",
+          "all": [
+            "acfbdbc",
+            "唯一基线"
+          ]
+        },
+        {
+          "id": "push-message-contract",
+          "file": "src/neko-plugin-dev/references/30-push-message-internals.md",
+          "all": [
+            "PushMessageResult"
+          ]
+        },
+        {
+          "id": "zmq-ormsgpack-uplink",
+          "file": "src/neko-plugin-dev/references/37-zmq-transport-internals.md",
+          "all": [
+            "ormsgpack"
+          ]
+        },
+        {
+          "id": "version-marker",
+          "file": "src/VERSION.txt",
+          "all": [
+            "4.3.1"
+          ]
+        }
+      ],
+      "updated_at": "2026-11-21T03:58:51.080Z"
     }
   }
 }

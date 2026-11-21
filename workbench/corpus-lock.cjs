@@ -65,6 +65,40 @@ function listCorpusFiles(root, rel = "", out = []) {
 }
 
 /**
+ * 判断一个路径的实际形态。
+ *
+ * 为什么不用 existsSync:`fs.existsSync()` 对「悬空符号链接」和「权限不足」也返回 false。
+ * 拿它当「东西不在」用,就会把「配置坏了 / 读不了」当成「还没拉过」,于是按需条目永久
+ * 静默跳过——正是这个函数要堵的漏。lstat 不去解链接,能把三种情况分开:
+ *
+ *   "missing"          确实没有(仅 ENOENT)
+ *   "dir" / "file" / "other"  存在
+ *   "dangling-symlink" 链接在,但指向的东西不在
+ *   "error:<code>"     存在性查不出来(EPERM/EACCES/ELOOP/ENOTDIR…)
+ */
+function pathKind(p) {
+  let st
+  try {
+    st = fs.lstatSync(p)
+  } catch (e) {
+    const code = (e && e.code) || ""
+    // 只有 ENOENT 才是「真的没有」。ENOTDIR 意思是「路径上某一级存在但不是目录」
+    // (比如 OUT/on_demand 是个普通文件),那是环境坏了,不是没拉过——归到 error 里去,
+    // 否则按需条目又能靠它静默跳过。
+    if (code === "ENOENT") return "missing"
+    return "error:" + (code || "unknown")
+  }
+  if (st.isSymbolicLink()) {
+    // 链接本身看得见,再看它指向的东西还在不在(statSync 会跟随)
+    try { fs.statSync(p) } catch { return "dangling-symlink" }
+    return "link"
+  }
+  if (st.isDirectory()) return "dir"
+  if (st.isFile()) return "file"
+  return "other"
+}
+
+/**
  * 计算树哈希。目录不存在返回 null(调用方据此区分「没抓过」与「抓过但对不上」)。
  * 空目录返回空串的哈希 —— 语料条目为空本身就是异常,交给上层判失败。
  */
@@ -123,7 +157,23 @@ function loadLock(corpusRoot) {
 /** 稳定写回:2 空格缩进、键按写入顺序、末尾一个换行。 */
 function saveLock(corpusRoot, lock) {
   const p = lockPath(corpusRoot)
-  fs.writeFileSync(p, JSON.stringify(lock, null, 2) + "\n", "utf8")
+  const body = JSON.stringify(lock, null, 2) + "\n"
+  // 原子写:先写同目录临时文件,再 rename 覆盖。
+  //
+  // 直接 writeFileSync 会先截断再写,中途盘满 / 断电 / Ctrl-C 就留下半截 JSON;
+  // 之后连 `--check` 都读不了锁,连本来没动过的条目一起废掉。
+  //
+  // 临时文件必须放在同一目录:POSIX 的 rename 跨设备会直接 EXDEV 失败,并不是
+  // 「慢一点、退化成 copy+unlink」——放 /tmp 之类的另一个文件系统上会当场报错,
+  // 而不是悄悄失去原子性。
+  const tmp = p + "." + process.pid + ".tmp"
+  try {
+    fs.writeFileSync(tmp, body, "utf8")
+    fs.renameSync(tmp, p)
+  } catch (e) {
+    try { fs.unlinkSync(tmp) } catch { /* 临时文件可能压根没建出来 */ }
+    throw e
+  }
 }
 
 const SLUG_RE = /^[a-z0-9_-]+$/
@@ -159,6 +209,14 @@ function readVersion(root) {
   const candidates = [
     ["plugin.toml", "plugin.toml", /^\s*version\s*=\s*"([^"]+)"/m],
     ["pyproject.toml", "pyproject.toml", /^\s*version\s*=\s*"([^"]+)"/m],
+    // 纯文档/技能类语料常常没有 plugin.toml,版本写在一个单行的 VERSION.txt 里。
+    // 它排在 plugin.toml / pyproject.toml 之后,但**排在 SKILL.md 与 plugin.json 之前**:
+    // 三者都在时以 VERSION.txt 为准——专门声明版本的文件比 frontmatter 里顺手写的 version
+    // 更明确。代价是:某个本来只靠 SKILL.md 读版本的条目,上游补了 VERSION.txt 之后,
+    // version_source 会从 SKILL.md 变成 VERSION.txt(版本号本身通常不变)。
+    // 用 VERSION.txt 而不是无扩展名的 VERSION,是为了被语料过滤的 .txt 白名单收下;
+    // 否则文件抓下来就被过滤掉,版本永远读不到。
+    ["VERSION.txt", "VERSION.txt", /^\s*v?([0-9][^\s]*)\s*$/m],
   ]
   // SKILL.md 不按 slug 硬编码:skill 类条目的目录名各不相同(plugins/<name>、skills/<name>),
   // 写死 reuse-before-build 的路径等于「换个 slug 就读不到版本」。
@@ -214,6 +272,6 @@ function checkAnchors(entryRoot, anchors = [], opts = {}) {
 
 module.exports = {
   LOCK_FILE, SCHEMA, ALGO, MAX_FILE, KEEP_EXT, KEEP_NAME, SKIP_DIRS,
-  sha256buf, keepFile, listCorpusFiles, treeHash, lockPath, loadLock, saveLock,
+  sha256buf, keepFile, listCorpusFiles, treeHash, pathKind, lockPath, loadLock, saveLock,
   assertSlug, SLUG_RE, readVersion, skillMdPaths, checkAnchors,
 }

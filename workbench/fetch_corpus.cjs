@@ -16,6 +16,10 @@
 // 语料锁(见 market-corpus/corpus.lock.json,格式见 workbench/corpus-lock.cjs):
 //   node workbench/fetch_corpus.cjs --locked            # 只按锁里的 commit 抓,锁外 slug 跳过并报告
 //   node workbench/fetch_corpus.cjs --locked --verify-only  # 只校验磁盘上的语料,不联网(CI 用)
+//                                                           # 条目标了 vendored:false 时离线跳过(不判失败),
+//                                                           # 因为这类正文按设计不进仓库,用时才按 commit 拉
+//   node workbench/fetch_corpus.cjs --locked            # 联网:缺的按 commit 抓,已落盘的逐字节校验
+//   node workbench/fetch_corpus.cjs --locked --only neko-plugin-skill   # 只处理指定条目(逗号分隔)
 //   node workbench/fetch_corpus.cjs --update reuse_before_build --ref v0.3.22   # 追新版本
 //   node workbench/fetch_corpus.cjs --update reuse_before_build                   # 按锁里的 commit 重抓,不追新
 //   node workbench/fetch_corpus.cjs --update-all        # 过滤规则改了之后整体重锁
@@ -329,13 +333,41 @@ function entryProblem(slug, entry) {
 
 function runLocked() {
   const lock = locklib.loadLock(OUT)
-  const slugs = Object.keys(lock.entries)
+  // allSlugs 是锁里的全集,--only 只收窄本次要处理的范围。
+  // 「锁外条目」是拿磁盘目录跟**全集**比,不能用收窄后的 slugs——否则 --only 拉一条时,
+  // 锁里其余条目会被一路报成「未在锁里登记」,每次拉取都刷一遍假警告。
+  const allSlugs = Object.keys(lock.entries)
+  let slugs = allSlugs
   if (!slugs.length) { console.error("FAIL  corpus.lock.json 里没有任何条目"); return 1 }
-  let failed = 0, passed = 0, fetched = 0
+  // --only 在锁定模式里收窄范围(逗号分隔),让「拉某一个 pin」不会顺手把别的语料也拖下来。
+  // 装机版有两个 pin 时,用户只想取其中一个,不该逼他连另一个一起下载。
+  //
+  // 但「给了 --only 却解析不出条目」必须报错而不是当没给:`--only ""` / `--only ,` 若退化成
+  // 全量,用户以为只拉了一条,实际把锁里所有缺失语料都拖了下来——反向操作,且没有提示。
+  // arg() 在「参数缺失」和「参数是空串」两种情况下都返回默认值,所以只能另查 argv。
+  const onlyGiven = process.argv.includes("--only")
+  const only = String(arg("only", "")).split(",").map((s) => s.trim()).filter(Boolean)
+  if (onlyGiven && !only.length) {
+    console.error("FAIL  --only 后面没有条目(空串或只有逗号);要处理全部条目请去掉 --only")
+    return 2
+  }
+  if (only.length) {
+    const unknown = only.filter((s) => !slugs.includes(s))
+    if (unknown.length) {
+      console.error("FAIL  --only 指定的条目不在锁里:" + unknown.join(", "))
+      return 2
+    }
+    slugs = slugs.filter((s) => only.includes(s))
+  }
+  let failed = 0, passed = 0, fetched = 0, skipped = 0
   for (const slug of slugs) {
     const entry = lock.entries[slug]
     const bad = entryProblem(slug, entry)
     if (bad) { failed++; console.error("FAIL  " + slug + "  锁条目不合规:" + bad); continue }
+    // vendored:false = 仓库里只存钉版,不存正文(文档/技能类语料)。
+    // 离线时它必然「缺失」,这是设计而非故障;但**一旦磁盘上有副本,照样逐字节校验**,
+    // 否则本地一份被改过的副本会顶着「按需条目」的名义长期不被发现。
+    const onDemand = entry.vendored === false
     const root = path.join(OUT, slug)
     const current = locklib.treeHash(path.join(root, "src"))
 
@@ -352,14 +384,37 @@ function runLocked() {
     }
     if (current) {
       failed++
+      // 按需条目的正文是可重新获取的缓存,哈希不符只可能是手改或下载坏了。
+      // 这时建议 --update-all 是错的:它会把被改过的树写回锁,等于认可篡改。
+      const fix = onDemand
+        ? "按需条目的正文不进仓库,属于可重拉的缓存:删掉 " + path.join(root, "src") + " 后用对应 pull_*.cjs 重拉。"
+        : "要么语料被改过,要么过滤规则变了 —— 确认是故意的之后跑 --update-all 重锁。"
       console.error("FAIL  " + slug + "  树哈希不符:磁盘 " + current.computedHash.slice(0, 16) + "… files=" + current.files +
-        " vs 锁 " + entry.computedHash.slice(0, 16) + "… files=" + entry.files +
-        "。要么语料被改过,要么过滤规则变了 —— 确认是故意的之后跑 --update-all 重锁。")
+        " vs 锁 " + entry.computedHash.slice(0, 16) + "… files=" + entry.files + "。 " + fix)
       continue
     }
     if (verifyOnly) {
+      const srcPath = path.join(root, "src")
+      const kind = locklib.pathKind(srcPath)
+      // 条目目录自身坏了(被写成普通文件之类)时,下层的 src 只会报 ENOENT / ENOTDIR,
+      // 看起来和「还没拉过」一模一样。而且 Windows 上 libuv 把 ERROR_PATH_NOT_FOUND
+      // 也映射成 ENOENT,光看 src 的错误码分不出来——所以先看条目目录本身。
+      const rootKind = locklib.pathKind(root)
+      const rootBroken = rootKind !== "missing" && rootKind !== "dir" && rootKind !== "link"
+      if (onDemand && kind === "missing" && !rootBroken) {
+        skipped++
+        console.log("SKIP  " + slug + "  按需条目(vendored:false),仓库里不存正文;" +
+          "离线不判失败,联网校验用 --locked,取用入口见对应 *-pin.json")
+        continue
+      }
       failed++
-      console.error("FAIL  " + slug + "  语料缺失(" + path.join(root, "src") + " 不存在),--verify-only 不联网")
+      const why = rootBroken
+        ? "条目目录不是目录(" + root + ",实际是 " + rootKind + ")"
+        : kind === "missing" ? "语料缺失(" + srcPath + " 不存在)"
+          : kind === "dangling-symlink" ? "语料路径是悬空符号链接(" + srcPath + " 指向的东西不在)"
+            : kind.startsWith("error:") ? "语料路径查不出来(" + kind.slice(6) + ":" + srcPath + ")"
+              : "语料路径不是目录(" + srcPath + ",实际是 " + kind + ")"
+      console.error("FAIL  " + slug + "  " + why + ",--verify-only 不联网")
       continue
     }
     // 锁里有、磁盘没有:按锁里的 commit 抓一份,再逐项核对
@@ -394,11 +449,17 @@ function runLocked() {
 
   // 锁外条目:明确报告,不静默抓 HEAD(那会让"锁里的语料"和"没锁的语料"混成一份说不清的目录)
   const onDisk = fs.readdirSync(OUT, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
-  const unlocked = onDisk.filter((s) => !slugs.includes(s) && fs.existsSync(path.join(OUT, s, "src")))
+  const unlocked = onDisk.filter((s) => !allSlugs.includes(s) && fs.existsSync(path.join(OUT, s, "src")))
   if (unlocked.length) {
     console.log("\n跳过锁外条目 " + unlocked.length + " 个(未在锁里登记,本次不抓):" + unlocked.slice(0, 8).join(", ") + (unlocked.length > 8 ? " …" : ""))
   }
-  console.log("\n锁校验:通过 " + passed + " 个,新抓 " + fetched + " 个,失败 " + failed + " 个")
+  console.log("\n锁校验:通过 " + passed + " 个,新抓 " + fetched + " 个,失败 " + failed + " 个" +
+    (skipped ? ",按需跳过 " + skipped + " 个(vendored:false,离线不判失败)" : ""))
+  // 全部条目都被跳过时,「通过 0 个 / 失败 0 个 / 退 0」读起来像「都过了」。
+  // 说清楚这次什么都没校验,免得拿一次空跑当成证据。
+  if (!passed && !fetched && !failed && skipped) {
+    console.log("注意:本次没有任何条目被实际校验(全部是按需条目且未落盘),这次运行不能当作「校验通过」的证据。")
+  }
   return failed ? 1 : 0
 }
 

@@ -283,6 +283,18 @@
 `check_package.ps1` 的禁含清单同样拦住它;开发仓里仍保留(要读源码时它是现成的精读范例),
 装机版改成本机 `node workbench/fetch_corpus.cjs` 取回后读 `market-corpus/<slug>/src`。
 
+### `neko-plugin-dev` 深度专题(`HMUG12/Project_Neko-plugin_skill`)
+
+- 上游:`HMUG12/Project_Neko-plugin_skill`,**MIT**,版权人 `未知之致`(上游 `LICENSE`)。2026-11-21 核对。
+- 引用范围:52 篇 `references/*.md` 与 `examples/minimal_plugin/`(官方 `init` 生成物)。
+- **正文不进本仓库**:上游 commit `7f653518c911482fdd533a758c0fd4814ab23ebe`(版本 `4.3.1`)钉在
+  `market-corpus/corpus.lock.json` 的 `neko-plugin-skill` 条目(`vendored:false`,只记 source / 完整 SHA / 树哈希),
+  用时 `node workbench/pull_skill_docs.cjs` 拉到 `market-corpus/neko-plugin-skill/src`。钉版详情见
+  `packs/neko-plugin/skill/neko-plugin-dev/references/neko-plugin-dev-pin.json`。
+- 分发口径:**不随包分发**。正文不在仓库里,`market-corpus/**` 也已 `export-ignore`,安装包与 `payload.zip` 都不含这批文字;
+  引用方若要把正文随包带上,必须自行补上游 MIT 全文与版权声明。
+- 与第 5 节的关系:这批是上游版权文本,不属于「本仓库生成物」,不适用本仓库 MIT。
+
 ### `experts/neko-plugin-ops/`(专家团文本)
 
 该团 `README.md` 自陈:多名成员的能力**吸收自**开源 agent 集合

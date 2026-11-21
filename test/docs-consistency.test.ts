@@ -18,9 +18,8 @@ const patterns = read(join(SKILL_DIR, "references", "market-patterns.md"))
 
 const corpusDir = join(ROOT, "market-corpus")
 const allDirs = readdirSync(corpusDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)
-// plugin-forge 是工具仓(锁里 kind=forge),借 corpus.lock 上锁,但不是市场插件:
-// 它没有 plugin.toml、不在市场索引里,也不该把「市场插件语料数」抬高一。
-// 判断口径用锁里的 kind,而不是写死名单——以后再加工具仓只要 kind=forge 就自动排除。
+// plugin-forge(工具仓)与 neko-plugin-skill(按需文档)都借 corpus.lock 上锁,但不是市场插件:
+// 它们没有 plugin.toml、也不在市场索引里,不该把「市场插件语料数」抬高一。
 const lockFile = join(corpusDir, "corpus.lock.json")
 const lockKinds = (() => {
   try {
@@ -28,7 +27,13 @@ const lockKinds = (() => {
     return Object.fromEntries(Object.entries(parsed.entries ?? {}).map(([k, v]) => [k, (v as { kind?: string }).kind ?? "plugin"]))
   } catch { return {} as Record<string, string> }
 })()
-const nonMarket = (slug: string) => lockKinds[slug] === "forge"
+// 非市场插件按锁里的 kind 判断,不写死名单:forge(工具仓)、skill(按需拉取的文档包)
+// 都没有 plugin.toml、也不在市场索引里,不该把「市场插件语料数」抬高一。
+// 以后再加别的工具仓/文档仓,只要 kind 不是 plugin 就自动排除。
+const nonMarket = (slug: string) => {
+  const kind = lockKinds[slug]
+  return kind !== undefined && kind !== "plugin"
+}
 const corpus = allDirs.filter((s) => !nonMarket(s))
 const hasToml = (slug: string) =>
   existsSync(join(corpusDir, slug, "plugin.toml")) ||
