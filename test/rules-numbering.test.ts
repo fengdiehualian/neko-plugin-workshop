@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync, existsSync, readdirSync } from "node:fs"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
+import { walkMarkdown, THIRD_PARTY_DIRS } from "./refs"
 
 // 规则编号的唯一事实来源是 packs/neko-plugin/rules.json(issue #8)。
 // 本文件只管「编号」这一件事(语料数量口径在 docs-consistency.test.ts)。
@@ -66,8 +67,11 @@ describe("rules.json 编号唯一来源", () => {
     expect(readme).not.toMatch(/15 条铁律/)
     for (const [name, text] of [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents],
                                 ["packs/README.md", read(join(ROOT, "packs", "neko-plugin", "README.md"))]] as const) {
-      // 允许单条引用(R14/R15 这种指向具体规则的写法),但不许再出现「R1–R18」「12 条硬规则」这类范围/计数抄写
-      const ranges = text.split(/\r?\n/).filter((l) => /R1\s*[–-]\s*R?\d+/.test(l) && !/^\s*(\/\/|#)/.test(l.trim()))
+      // 判据是「用连字符把两个编号连起来」,不是「从 R1 开始」。
+      // 原来只写 R1[–-]R?\d+,于是 R2–R3 和所有 W 范围都漏了;
+      // 而且这里照抄了代码里的注释过滤(排除 # 开头行),可被测的都是 markdown——
+      // `## 对外动作与外部内容(工坊硬规则 W1–W3)` 这种标题行被当成注释跳过了整整一版。
+      const ranges = text.split(/\r?\n/).filter((l) => /\b[RW]\d+\s*[–—\-]\s*[RW]?\d+/.test(l))
       expect(ranges, name + " 里还写着规则范围:" + ranges.join(" | ")).toEqual([])
       expect(text, name + " 里还写着「N 条硬规则」").not.toMatch(/\d+\s*条(硬)?规则/)
     }
@@ -89,6 +93,28 @@ describe("rules.json 编号唯一来源", () => {
     if (claim) expect(Number(claim[1])).toBe(cIds.length)
     expect(cat).toMatch(/conformance 命名空间|与 `rules\.json` 的 R 号规则不是同一套编号/)
   })
+  // issue #19 的待办是「等 forge/、deep-dive/ 进仓时把扫描目录加进去」。按目录名点名,
+  // 每加一个子目录就得改一次测试,漏一次就是永久空档——#19 关不掉正是因为这个。
+  // 改成递归扫 references/ 下所有 md(公共实现在 test/refs.ts):
+  // 以后谁再往里放子目录都不用动测试。第三方逐字节副本除外,那份我们改不了。
+  test("references 下所有文档引用的 R/W 号都真实存在(issue #19:范围不能只盯着 SKILL/AGENTS)", () => {
+    const files = walkMarkdown(join(SKILL_DIR, "references"), THIRD_PARTY_DIRS)
+    expect(files.length, "references/ 一个 md 都没扫到,路径写错了").toBeGreaterThan(10)
+    const known = new Set([...hard, ...work].map(idOf).filter(Boolean))
+    for (const f of files) {
+      const rel = f.slice(ROOT.length + 1).replace(/\\/g, "/")
+      const text = read(f)
+      for (const m of text.matchAll(/\b(R\d+|W\d+)\b/g)) {
+        expect(known.has(m[1]), rel + " 引用了不存在的规则号 " + m[1]).toBe(true)
+      }
+      // 范围写法一律禁止。别只在 R1 上判:R2–R3 同样是把编号固化成范围,
+      // W 范围也是——判据是「有没有用连字符把两个编号连起来」,不是从哪个号开始。
+      const ranges = text.split(/\r?\n/).filter((l) => /\b[RW]\d+\s*[–—\-]\s*[RW]?\d+/.test(l))
+      expect(ranges, rel + " 里还写着规则范围:" + ranges.join(" | ")).toEqual([])
+      expect(text, rel + " 里还写着「N 条硬规则」").not.toMatch(/\d+\s*条(硬)?规则/)
+    }
+  })
+
   test("rules.json 自己写明了命名空间约定", () => {
     const promise = String(rules.x_rule_numbering || "")
     expect(promise, "x_rule_numbering 没写 C 命名空间,下一个改动又会把两套编号混起来").toMatch(/C1[–\-]C14|conformance/)
@@ -98,7 +124,9 @@ describe("rules.json 编号唯一来源", () => {
     const promise = String(rules.x_rule_numbering || "")
     const names = [...promise.matchAll(/test\/([A-Za-z0-9_.-]+\.ts)/g)].map((m) => m[1])
     expect(names.length).toBeGreaterThan(0)
-    const have = readdirSync(join(ROOT, "test")).filter((f) => f.endsWith(".test.ts"))
+    // 只认 .test.ts 会把 helper 判成缺失:rules.json 现在既提测试文件,也提
+    // test/refs.ts(公共 walk)。承诺的对象是「这个文件真的在」,不是「它必须是测试」。
+    const have = readdirSync(join(ROOT, "test"))
     for (const n of names) {
       expect(have.includes(n), "rules.json 说由 test/" + n + " 校验,但该文件不存在").toBe(true)
       expect(existsSync(join(ROOT, "test", n))).toBe(true)

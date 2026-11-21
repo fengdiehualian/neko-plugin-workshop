@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync, readdirSync, existsSync } from "node:fs"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
+import { walkMarkdown, THIRD_PARTY_DIRS } from "./refs"
 
 // 对应 GitHub issue #8:语料数量在多处各写一套,互相打脸。
 // 规则编号的一致性在 test/rules-numbering.test.ts;本文件只管「数量口径」:
@@ -100,9 +101,21 @@ describe("语料数量:以 market-corpus 真实目录为准", () => {
       expect(text, name + " 里还留着「46 个」旧数量").not.toMatch(/46 个(官方|真实|在架|插件|市场)/)
     }
   })
-  test("README/SKILL/AGENTS/patterns 提到的在架数量必须等于索引条数", () => {
+  test("文档里的在架数量必须等于索引条数(references/ 递归,不只那四个文件)", () => {
     const n = indexed(catalog).length
-    const claims: [string, string][] = [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents], ["market-patterns.md", patterns]]
+    // references/ 下的文档同样会被模型整篇读进去,数量写错一样误导——不能只管那四个文件。
+    // 递归(公共实现在 test/refs.ts)而不是点名目录:issue #19 的遗留待办就是
+    // 「等 forge/、deep-dive/ 进仓再把扫描加进去」,那种写法每加一个子目录都要改一次测试。
+    // 排除两类:① 第三方逐字节副本(改不了,也不该要求它符合本仓库口径);
+    // ② 根目录的 catalog 与 patterns——它们各有独立断言,catalog 里的 109/126/127
+    // 是分组统计,和在架插件数不是同一个量,混进来会误报。
+    // 排除用完整路径比较,不用 endsWith:references/xxx/market-patterns.md 是另一个文件。
+    const refDir = join(SKILL_DIR, "references")
+    const skip = new Set([join(refDir, "market-catalog.md"), join(refDir, "market-patterns.md")])
+    const refDocs: [string, string][] = walkMarkdown(refDir, THIRD_PARTY_DIRS)
+      .filter((f) => !skip.has(f))
+      .map((f) => [f.slice(ROOT.length + 1).replace(/\\/g, "/"), read(f)])
+    const claims: [string, string][] = [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents], ["market-patterns.md", patterns], ...refDocs]
     for (const [name, text] of claims) {
       for (const m of text.matchAll(/(\d{2,3})\s*(?:个|份)\s*(?:官方|在架|真实上架|社区)?\s*插件/g)) {
         const val = Number(m[1])
