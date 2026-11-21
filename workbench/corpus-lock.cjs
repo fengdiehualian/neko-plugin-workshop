@@ -71,10 +71,10 @@ function listCorpusFiles(root, rel = "", out = []) {
  * 拿它当「东西不在」用,就会把「配置坏了 / 读不了」当成「还没拉过」,于是按需条目永久
  * 静默跳过——正是这个函数要堵的漏。lstat 不去解链接,能把三种情况分开:
  *
- *   "missing"          确实没有(ENOENT / 父级不是目录)
+ *   "missing"          确实没有(仅 ENOENT)
  *   "dir" / "file" / "other"  存在
  *   "dangling-symlink" 链接在,但指向的东西不在
- *   "error:<code>"     存在性查不出来(EPERM/EACCES/ELOOP…)
+ *   "error:<code>"     存在性查不出来(EPERM/EACCES/ELOOP/ENOTDIR…)
  */
 function pathKind(p) {
   let st
@@ -82,7 +82,10 @@ function pathKind(p) {
     st = fs.lstatSync(p)
   } catch (e) {
     const code = (e && e.code) || ""
-    if (code === "ENOENT" || code === "ENOTDIR") return "missing"
+    // 只有 ENOENT 才是「真的没有」。ENOTDIR 意思是「路径上某一级存在但不是目录」
+    // (比如 OUT/on_demand 是个普通文件),那是环境坏了,不是没拉过——归到 error 里去,
+    // 否则按需条目又能靠它静默跳过。
+    if (code === "ENOENT") return "missing"
     return "error:" + (code || "unknown")
   }
   if (st.isSymbolicLink()) {
@@ -154,7 +157,20 @@ function loadLock(corpusRoot) {
 /** 稳定写回:2 空格缩进、键按写入顺序、末尾一个换行。 */
 function saveLock(corpusRoot, lock) {
   const p = lockPath(corpusRoot)
-  fs.writeFileSync(p, JSON.stringify(lock, null, 2) + "\n", "utf8")
+  const body = JSON.stringify(lock, null, 2) + "\n"
+  // 原子写:先写同目录临时文件,再 rename 覆盖。
+  //
+  // 直接 writeFileSync 会先截断再写,中途盘满 / 断电 / Ctrl-C 就留下半截 JSON;
+  // 之后连 `--check` 都读不了锁,连本来没动过的条目一起废掉。临时文件放在同一目录是为了
+  // 让 rename 不跨设备(跨设备 rename 会退化成 copy+unlink,又不原子了)。
+  const tmp = p + "." + process.pid + ".tmp"
+  try {
+    fs.writeFileSync(tmp, body, "utf8")
+    fs.renameSync(tmp, p)
+  } catch (e) {
+    try { fs.unlinkSync(tmp) } catch { /* 临时文件可能压根没建出来 */ }
+    throw e
+  }
 }
 
 const SLUG_RE = /^[a-z0-9_-]+$/

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { createRequire } from "node:module"
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -321,6 +321,20 @@ describe("语料锁:slug 与锁结构", () => {
     }
   })
 
+  // 直接 writeFileSync 会先截断再写:中途盘满 / 断电 / Ctrl-C 就留下半截 JSON,
+  // 之后连 --check 都读不了锁,连没动过的条目一起废掉。saveLock 必须是「写临时文件 +
+  // rename」,而且失败时不能把临时文件留在目录里。
+  test("saveLock 走临时文件替换,写完不留 .tmp", () => {
+    const root = mkdtempSync(join(tmpdir(), "corpuslock-save-"))
+    try {
+      lock.saveLock(root, { schema: 2, algo: "tree-sha256-v0", entries: {} })
+      expect(readdirSync(root), "写完只该有锁文件本身").toEqual(["corpus.lock.json"])
+      expect(lock.loadLock(root).entries).toEqual({})
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   test("schema / algo 不认识时不猜,直接抛", () => {
     const root = mkdtempSync(join(tmpdir(), "corpuslock-lock-"))
     try {
@@ -459,6 +473,28 @@ describe("按需条目:缺失与异常的区分", () => {
       rmSync(d, { recursive: true, force: true })
     }
   })()
+
+  // ENOTDIR 的语义是「路径上某一级存在但不是目录」,比如 OUT/on_demand 是个普通文件。
+  // 那不是「没拉过」,是环境坏了;归成 missing 就等于给按需条目又开了一个静默跳过的入口。
+  test("src 的父级是普通文件(ENOTDIR) → 判失败,不能算「没拉过」", () => {
+    const root = mkdtempSync(join(tmpdir(), "ondemand-enotdir-"))
+    try {
+      writeFileSync(join(root, "corpus.lock.json"), JSON.stringify({
+        schema: 2, algo: "tree-sha256-v0", entries: { on_demand: onDemand },
+      }))
+      writeFileSync(join(root, "on_demand"), "这不是目录\n")
+      const r = spawnSync(process.execPath, [FETCH, "--locked", "--verify-only"], {
+        encoding: "utf8", env: { ...process.env, NEKO_CORPUS_DIR: root },
+      })
+      expect(r.status, "父级坏掉时应退 1").toBe(1)
+      // Linux 报 ENOTDIR,Windows 上 libuv 把它并进 ENOENT,所以这里落到「条目目录不是
+      // 目录」那句上。两边都要求「说得出到底哪里不对」,而不是一句「缺失」了事。
+      expect(r.stderr, "要指出坏在哪,不能只说「缺失」").toMatch(/不是目录|ENOTDIR/)
+      expect(r.stderr).not.toContain("SKIP")
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
 
   test.skipIf(!canSymlink)("src 是悬空符号链接 → 判失败,不能算「没拉过」", () => {
     const root = mkdtempSync(join(tmpdir(), "ondemand-dangling-"))

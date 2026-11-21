@@ -387,19 +387,22 @@ function runLocked() {
     }
     if (verifyOnly) {
       const srcPath = path.join(root, "src")
-      // treeHash 在「路径存在但不是目录」时同样返回 null。那种情况不是「没拉过」,
-      // 而是 src 被写成了普通文件 / 悬空链接 / 读不了,必须判失败——不能顶着按需条目的
-      // 名义放过。existsSync 对后两种也返回 false,所以这里按 lstat 的实际形态分流。
       const kind = locklib.pathKind(srcPath)
-      if (onDemand && kind === "missing") {
+      // 条目目录自身坏了(被写成普通文件之类)时,下层的 src 只会报 ENOENT / ENOTDIR,
+      // 看起来和「还没拉过」一模一样。而且 Windows 上 libuv 把 ERROR_PATH_NOT_FOUND
+      // 也映射成 ENOENT,光看 src 的错误码分不出来——所以先看条目目录本身。
+      const rootKind = locklib.pathKind(root)
+      const rootBroken = rootKind !== "missing" && rootKind !== "dir" && rootKind !== "link"
+      if (onDemand && kind === "missing" && !rootBroken) {
         skipped++
         console.log("SKIP  " + slug + "  按需条目(vendored:false),仓库里不存正文;" +
           "离线不判失败,联网校验用 --locked,取用入口见对应 *-pin.json")
         continue
       }
       failed++
-      const why =
-        kind === "missing" ? "语料缺失(" + srcPath + " 不存在)"
+      const why = rootBroken
+        ? "条目目录不是目录(" + root + ",实际是 " + rootKind + ")"
+        : kind === "missing" ? "语料缺失(" + srcPath + " 不存在)"
           : kind === "dangling-symlink" ? "语料路径是悬空符号链接(" + srcPath + " 指向的东西不在)"
             : kind.startsWith("error:") ? "语料路径查不出来(" + kind.slice(6) + ":" + srcPath + ")"
               : "语料路径不是目录(" + srcPath + ",实际是 " + kind + ")"

@@ -144,10 +144,8 @@ function run(pinPath, command) {
         "开发工作区请用仓库里那份;生成/更新走 workbench/fetch_corpus.cjs。",
       entries: { [pin.slug]: entryFromPin() },
     }
-    // 原子写:直接覆盖时断电/被中断会留下半截 JSON,下次 --locked 连读都读不了
-    const tmpLock = lockPath + ".tmp"
-    fs.writeFileSync(tmpLock, JSON.stringify(lock, null, 2) + "\n", "utf8")
-    fs.renameSync(tmpLock, lockPath)
+    // 走 saveLock(原子写):断电/被中断不会留下半截 JSON,否则下次 --locked 连读都读不了
+    locklib.saveLock(CORPUS, lock)
     console.log("本机没有 corpus.lock,已按 " + path.basename(pinPath) + " 生成一条:" + lockPath)
   }
 
