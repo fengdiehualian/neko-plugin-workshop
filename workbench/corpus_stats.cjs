@@ -21,6 +21,20 @@ function hasPluginToml(corpusDir, slug) {
 }
 
 function computeStats(corpusDir = corpusRoot()) {
+  if (!fs.existsSync(corpusDir)) {
+    return {
+      corpus_dir: corpusDir,
+      dirs: 0,
+      withPluginToml: 0,
+      onDemand: [],
+      nonPluginKind: [],
+      missing: true,
+      note: "本机尚无语料目录。先运行 node workbench/fetch_corpus.cjs 拉取官方语料。",
+    }
+  }
+  if (!fs.statSync(corpusDir).isDirectory()) {
+    throw new Error("语料路径不是目录: " + corpusDir)
+  }
   const lock = locklib.loadLock(corpusDir)
   const entries = lock.entries || {}
   const onDemand = Object.entries(entries)
