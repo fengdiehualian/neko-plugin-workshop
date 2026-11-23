@@ -174,6 +174,7 @@ def verify(zip_path):
         "THIRD_PARTY_NOTICES.md", "LICENSE", "BUILD_INFO.json",
         "workbench/fetch_corpus.cjs", "workbench/corpus-lock.cjs",
         "workbench/pull_forge.cjs", "workbench/pull_pinned.cjs", "workbench/pull_skill_docs.cjs",
+        "workbench/pull_rbb.cjs", "workbench/corpus_stats.cjs",
     )
     # 目录条目("packs/" 这类)是结构不是内容,只审文件
     outside = sorted({n for n in names if not n.endswith("/") and not n.startswith(allow_prefix)})
