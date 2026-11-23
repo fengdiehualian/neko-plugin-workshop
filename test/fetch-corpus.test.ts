@@ -35,11 +35,6 @@ describe("fetch_corpus:legacy 全量路径的健壮性", () => {
     expect(fc).toMatch(/downloadAtCommit\(ghRepo,\s*commit,\s*expectedArchive\)/)
     expect(fc).toMatch(/installAtCommit\(slug,\s*entry\.source,\s*entry\.commit,\s*entry\.archive_sha256\)/)
   })
-
-  test("成功落盘与既有副本都会清掉旧 .done(锁模式已不用它续跑)", () => {
-    const clear = fc.match(/fs\.rmSync\(path\.join\(dest,\s*"\.done"\),\s*\{\s*force:\s*true\s*\}\)/g) || []
-    expect(clear.length, "应在「既有副本跳过」和「成功落盘」两处都清理 .done").toBeGreaterThanOrEqual(2)
-  })
 })
 
 describe("fetch_corpus:坏锁条目不拖垮整轮", () => {

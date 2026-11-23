@@ -322,8 +322,6 @@ function commitInstall(slug, staging) {
   const dest = path.join(OUT, slug)
   fs.rmSync(path.join(dest, "src"), { recursive: true, force: true })
   fs.renameSync(staging, path.join(dest, "src"))
-  // 锁取代 .done:同一目录两套"抓完了"的判断标准,迟早会有一个说谎
-  fs.rmSync(path.join(dest, ".done"), { force: true })
 }
 
 // ---- --locked / --verify-only ---------------------------------------------
@@ -616,9 +614,6 @@ function runUpdate() {
     const dest = path.join(OUT, slug)
     if (!dryRun && fs.existsSync(path.join(dest, "src"))) {
       if (!sources[slug]) sources[slug] = { repo: repo, note: "本机既有,本次未重抓,来源与哈希未记录" }
-      // 旧版用 <slug>/.done 判断续跑,锁模式已改用树哈希。留着它只会让下一个人
-      // 以为「这个标记还在生效」;直接清掉,免得两套判断标准并存。
-      try { fs.rmSync(path.join(dest, ".done"), { force: true }) } catch { /* 只读目录就算了 */ }
       skipped++
       continue
     }
@@ -645,9 +640,6 @@ function runUpdate() {
         fs.mkdirSync(staging, { recursive: true })
         const kept = extractZip(zipPath, staging)
         fs.renameSync(staging, path.join(dest, "src"))
-        // 旧标记在成功落盘后就没用了;不删掉的话,下一轮看到 .done 会误以为
-        // 「这套目录还在用标记续跑」,而实际判断已经改成树哈希。
-        fs.rmSync(path.join(dest, ".done"), { force: true })
         sources[slug] = { repo: gh[1], ref: "refs/heads/" + branch, zip_sha256: sha256buf(buf), files_kept: kept, fetchedAt: new Date().toISOString(), mirror: m, note: "抓的是分支 HEAD;要完全可复现请钉到 tag/commit" }
         fs.rmSync(zipPath, { force: true })
         console.log("  " + slug + ":保留 " + kept + " 个文件")
