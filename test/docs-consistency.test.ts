@@ -120,6 +120,10 @@ describe("语料数量:以 market-corpus 真实目录为准", () => {
     expect(s.note).toContain("fetch_corpus.cjs")
   })
 
+  test("语料路径是普通文件时统计器要报错,不能当成未拉取", () => {
+    expect(() => computeStats(join(ROOT, "README.md"))).toThrow("不是目录")
+  })
+
   test("README 与 SKILL 不再写历史 46 个的口径", () => {
     for (const [name, text] of [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents]] as const) {
       expect(text, name + " 里还留着「46 个」旧数量").not.toMatch(/46 个(官方|真实|在架|插件|市场)/)

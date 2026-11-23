@@ -21,18 +21,25 @@ function hasPluginToml(corpusDir, slug) {
 }
 
 function computeStats(corpusDir = corpusRoot()) {
-  if (!fs.existsSync(corpusDir)) {
-    return {
-      corpus_dir: corpusDir,
-      dirs: 0,
-      withPluginToml: 0,
-      onDemand: [],
-      nonPluginKind: [],
-      missing: true,
-      note: "本机尚无语料目录。先运行 node workbench/fetch_corpus.cjs 拉取官方语料。",
+  let st
+  try {
+    st = fs.statSync(corpusDir)
+  } catch (e) {
+    // 只有真正不存在才是「本机还没拉语料」;ENOTDIR/EACCES 是路径坏了,必须炸。
+    if ((e).code === "ENOENT") {
+      return {
+        corpus_dir: corpusDir,
+        dirs: 0,
+        withPluginToml: 0,
+        onDemand: [],
+        nonPluginKind: [],
+        missing: true,
+        note: "本机尚无语料目录。先运行 node workbench/fetch_corpus.cjs 拉取官方语料。",
+      }
     }
+    throw e
   }
-  if (!fs.statSync(corpusDir).isDirectory()) {
+  if (!st.isDirectory()) {
     throw new Error("语料路径不是目录: " + corpusDir)
   }
   const lock = locklib.loadLock(corpusDir)
