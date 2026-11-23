@@ -53,3 +53,38 @@ packs/neko-plugin/skill/neko-plugin-dev/references/market-examples/** export-ign
 # 副本若在 Windows 被检出成 CRLF,这条断言就只在 ubuntu 上成立。两处一起钉成 -text。
 packs/neko-plugin/skill/neko-plugin-dev/references/market-examples/** -text
 packs/neko-plugin/skill/neko-plugin-dev/references/market-examples -text
+
+# 测试与 CI 配置是开发件(issue #18/#30):夹具里还有签名测试钥匙,更不该随包
+test export-ignore
+test/** export-ignore
+.github export-ignore
+.github/** export-ignore
+.coderabbit.yaml export-ignore
+bunfig.toml export-ignore
+
+# tools 根下的页面体检/确认队列探针是纯开发件(issue #18 补充)
+tools/approvals-probe.js export-ignore
+tools/update-modal-probe.js export-ignore
+tools/check-page.mjs export-ignore
+
+# workbench 除「装机版要用的拉取工具」外一律不进包:
+#   保留 fetch_corpus.cjs + corpus-lock.cjs(装机版取语料)与 pull_forge/pull_pinned/pull_skill_docs
+#   (SKILL/pin 的「按需拉取」入口,装机版没有仓库,没它们就拉不了 deep-dive/forge);
+#   release_tls/sfx-installer/pull_*/collect_zcode 是发布机专用,notices.json/zcode_bundle.json 是登记副本
+workbench/release_tls.py export-ignore
+workbench/sfx-installer.cs export-ignore
+workbench/collect_zcode.cjs export-ignore
+workbench/notices.json export-ignore
+workbench/zcode_bundle.json export-ignore
+workbench/workspace export-ignore
+workbench/workspace/** export-ignore
+
+# tools/ 整目录都是开发门禁与一次性工具(static_check/syntax_check/tsx_check/
+# verify-security/plugin_conformance/render-template…),装机版没有也不需要仓库;
+# 文档里引用它们的地方都写了「工坊仓库内」——引用在,文件不随包,口径如实。
+tools export-ignore
+tools/** export-ignore
+
+# 元数据文件:装到用户机器上没有任何用途(属性文件只对 git archive/checkout 有意义)
+.gitattributes export-ignore
+.gitignore export-ignore

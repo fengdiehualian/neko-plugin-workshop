@@ -74,6 +74,29 @@ describe("脚本可换机器跑(issue #13):不写死本机路径", () => {
     }
     expect(hard, "写死了本机路径(换机器就废):\n  " + hard.join("\n  ")).toEqual([])
   })
+  test("打包口径是「默认排除 + 白名单」(issue #30/#18 拍板)", () => {
+    const attrs = read(".gitattributes")
+    // 开发件必须排除:test/(夹具里有签名测试钥匙)、CI 配置、纯探针
+    for (const line of ["test export-ignore", "test/** export-ignore",
+                        ".github export-ignore", ".github/** export-ignore",
+                        ".coderabbit.yaml export-ignore", "bunfig.toml export-ignore",
+                        "tools/check-page.mjs export-ignore",
+                        "workbench/release_tls.py export-ignore",
+                        "workbench/zcode_bundle.json export-ignore",
+                        "workbench/notices.json export-ignore"]) {
+      expect(attrs.includes(line), ".gitattributes 缺排除行:" + line).toBe(true)
+    }
+    // build_payload 必须有白名单闸:名单外条目直接拒出包,而不是靠逐个枚举禁含
+    const bp = read("workbench/build_payload.py")
+    expect(bp, "build_payload 缺 allow_prefix 白名单闸").toMatch(/allow_prefix = \(/)
+    expect(bp, "白名单必须包含运行时入口").toMatch(/"wb-studio\.mjs"/)
+    expect(bp, "白名单必须包含 src/studio 拆分模块").toContain('"src/",')
+    expect(bp, "白名单必须包含运行时库").toContain('"wb-agent-lib.mjs"')
+    expect(bp, "白名单必须包含按需拉取器").toContain('"workbench/pull_skill_docs.cjs"')
+    // check_package 的禁含与 build_payload 同步(两端都要拦)
+    const cp = read("workbench/check_package.ps1")
+    expect(cp).toMatch(/\$forbidden\s*=\s*@\([^)]*"test\//)
+  })
   test("_zcode 的 node 来源要钉在具体版本目录,不能用 latest-vXX.x", () => {
     const zb = JSON.parse(read("workbench/zcode_bundle.json"))
     const items = JSON.stringify(zb)

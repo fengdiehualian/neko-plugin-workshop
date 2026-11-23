@@ -33,6 +33,11 @@ DEFAULT_ZCODE = os.environ.get("NEKO_ZCODE_DIR") or os.path.join(
 # 载荷里**不许出现**的条目(issue #4):第三方市场语料不打包分发。
 # 光在 THIRD_PARTY_NOTICES.md 里写「不分发」不算数,必须在出包前真的拦下来。
 FORBIDDEN = ["market-corpus/", "tools/probes/",
+               "test/", ".github/", ".coderabbit.yaml", "bunfig.toml",
+               "workbench/release_tls.py", "workbench/sfx-installer.cs",
+                              "workbench/collect_zcode.cjs", "workbench/notices.json", "workbench/zcode_bundle.json",
+               "workbench/workspace/",
+               "tools/approvals-probe.js", "tools/update-modal-probe.js", "tools/check-page.mjs",
                # 第三方市场插件副本(许可未声明),不随包分发;要读请本机 fetch_corpus
                "packs/neko-plugin/skill/neko-plugin-dev/references/market-examples/"]
 # 本机配置也不许进包(v1.2.65 实测):它被仓库跟踪,覆盖安装会把用户的端口/引擎口/模型/界面设定
@@ -159,7 +164,20 @@ def verify(zip_path):
     # 语料/探针混进包里 = 分发口径出错(许可问题)或本机路径泄露,一律不出包
     leaked = [p for p in FORBIDDEN for n in names if n.startswith(p) or n == p.rstrip("/")]
     clobber = [p for p in NOT_PACKAGED if p in names]
-    return count, missing, small, leaked, clobber
+    # 白名单闸(issue #30/#18 拍板「默认排除 + 白名单出包」):
+    # 名单外出现在载荷里就是错——比起逐个枚举禁含,这能兜住「忘了排除的新开发件」。
+    # 名单 = 运行时与 Agent 面的目录/文件;新增运行时文件时**必须**同时来这里登记,等于强制过一遍打包口径。
+    allow_prefix = (
+        "packs/", "experts/", "src/", "_zcode/",
+        "wb-studio.mjs", "wb-agent-lib.mjs", "wb-agent.mjs", "cli.mjs", "mcp.mjs",
+        "start.cmd", "package.json", "README.md", "使用说明.txt",
+        "THIRD_PARTY_NOTICES.md", "LICENSE", "BUILD_INFO.json",
+        "workbench/fetch_corpus.cjs", "workbench/corpus-lock.cjs",
+        "workbench/pull_forge.cjs", "workbench/pull_pinned.cjs", "workbench/pull_skill_docs.cjs",
+    )
+    # 目录条目("packs/" 这类)是结构不是内容,只审文件
+    outside = sorted({n for n in names if not n.endswith("/") and not n.startswith(allow_prefix)})
+    return count, missing, small, leaked, clobber, outside
 
 
 def main():
@@ -204,7 +222,14 @@ def main():
     with zipfile.ZipFile(a.out, "a", zipfile.ZIP_DEFLATED) as z:
         z.writestr("BUILD_INFO.json", json.dumps(info, ensure_ascii=False, indent=1) + "\n")
 
-    count, missing, small, leaked, clobber = verify(a.out)
+    count, missing, small, leaked, clobber, outside = verify(a.out)
+    if outside:
+        sys.exit(
+            "载荷里出现白名单之外的条目,拒绝出包(%d 条):\n  %s\n"
+            "  修:给 .gitattributes 加 export-ignore(改完先提交),或确认它属于运行时\n"
+            "  并把前缀登记进 build_payload.py 的 allow_prefix(登记动作本身就是过一遍打包口径)。"
+            % (len(outside), "\n  ".join(outside[:12]))
+        )
     if missing or small:
         sys.exit(
             "载荷不完整,拒绝出包!\n  缺条目:%s\n  体积异常:%s\n  (历史上就因缺 _zcode 少打 30MB,别放过)"

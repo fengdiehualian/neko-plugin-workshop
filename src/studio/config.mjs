@@ -38,7 +38,7 @@ export const defaultConfig = {
   retryMax: 2, // 模型无响应自动重试次数(0=关闭);只在「没有任何产出」时重试
   thinkingLevel: "auto", // 思考强度:auto/none/low/medium/high/xhigh(见 THINK_LEVELS)
   retryDelaySec: 3, // 首次退避秒数,之后翻倍(3s → 6s → 12s,上限 30s)
-  strictVerify: false, // 严格校验:warning 一律视为失败(wb.cmd 自动加 --strict,须修到零警告)
+  strictVerify: false, // 严格校验:warning 一律视为失败(开启后注入 WB_STRICT,插件 CLI 自动加 --strict,须修到零警告)
   expertMode: false, // 专家团模式:把 experts/ 专家包(主理人+成员分工+执行纪律)注入任务提示词
   expertDisabled: [], // 用户单独关闭的专家成员 id 列表(设置页可逐个开关)
   expertModelMap: {}, // 每位专家单独指定的调用来源 { 成员id: { apiId, model } };缺省=跟随当前启用的 API/底座

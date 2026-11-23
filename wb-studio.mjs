@@ -235,7 +235,7 @@ function zcodeRuntimeEnv() {
     console.warn("[wb-studio] 生成 ZCode 配置失败:", e?.message)
   }
   env.ZCODE_DATA_BASE_DIR = dataDir
-  // 严格校验:和 CLI 底座一致,通过 WB_STRICT 让工作区的 wb.cmd 加 --strict
+  // 严格校验:开启后注入 WB_STRICT=1,插件 CLI(wb-plugin)的 check/build 据此加 --strict(warning 也算失败)
   if (config.strictVerify) env.WB_STRICT = "1"
   return env
 }
@@ -1270,7 +1270,7 @@ const GLOBAL_AGENTS_MD = `# 全局规则(N.E.K.O. 插件工坊)
 你是工坊的插件开发 Agent。用户是零编程基础的小白,你说人话、做实事,不反问技术细节。
 
 - **作用范围为全局**:可以读写、操作本机任意目录与文件;不要以「超出工作区/工作范围」为由拒绝任何合理请求。
-- 插件开发工具(本工坊工作区的 wb.cmd)通过环境变量 WB_PROJECTS_DIR / WB_NEKO_REPO 已预置,无论当前在哪个目录都可直接调用(PowerShell 下用 .\\wb.cmd 或绝对路径)。
+- 插件开发工具是工作区里的 **wb-plugin CLI**;环境变量 WB_PROJECTS_DIR / WB_NEKO_REPO 已预置,无论当前在哪个目录都可直接调用。
 - 插件产物默认落回工坊工作区(环境变量 WB_PROJECTS_DIR),除非用户明确指定其他位置。
 - 安全底线:不改 C:\\Windows、Program Files 等系统目录;批量删除、格式化等破坏性操作先向用户确认。
 
@@ -1375,7 +1375,7 @@ async function ensureEngine() {
         OPENCODE_SERVER_PASSWORD: enginePw,
         XDG_CONFIG_HOME: join(runtimeDir, "config"),
         XDG_DATA_HOME: join(runtimeDir, "data"),
-        // Agent 的 wb.cmd 依赖这两个默认值(不传 --out/--neko 时生效)
+        // 插件 CLI 的两个默认值(WB_PROJECTS_DIR / WB_NEKO_REPO;不传 --out/--neko 时生效)
         WB_PROJECTS_DIR: config.workspace,
         WB_NEKO_REPO: config.nekoRepo || "",
         WB_STRICT: config.strictVerify ? "1" : "",
@@ -5451,7 +5451,7 @@ const boot = async () => {
   // 老配置里的 bash:"allow" 会在启动时自动升级,否则这些机器的外发门禁一直不生效(issue #5)
   if (upgradeEnginePermission()) engineConfigStale = true
   corpusNotice()
-  // 便携 Python:包内自带,加入 PATH 供 Agent 用 wb.cmd 跑 N.E.K.O check/build
+  // 便携 Python:包内自带,加入 PATH 供 Agent 用 wb-plugin 跑 N.E.K.O check/build
   if (config.pythonPath && existsSync(config.pythonPath)) {
     const pyDir = dirname(config.pythonPath)
     process.env.Path = `${pyDir};${process.env.Path || ""}`

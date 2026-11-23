@@ -23,7 +23,7 @@ describe("第三方副本的打包口径(issue #16/#18)", () => {
   })
   test("出包脚本与包级复核都把它当禁含项(光靠注释不算闸)", () => {
     const bp = read("workbench/build_payload.py")
-    expect(bp, "build_payload 的 FORBIDDEN 里没有 market-examples").toMatch(/FORBIDDEN\s*=\s*\[[\s\S]{0,300}market-examples\//)
+    expect(bp, "build_payload 的 FORBIDDEN 里没有 market-examples").toMatch(/FORBIDDEN\s*=\s*\[[\s\S]{0,1200}market-examples\//)
     const cp = read("workbench/check_package.ps1")
     expect(cp, "check_package 的 $forbidden 里没有 market-examples").toMatch(/\$forbidden\s*=\s*@\([^\)]*market-examples\//)
   })

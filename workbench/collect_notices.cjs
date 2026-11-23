@@ -156,11 +156,31 @@ lines.push("| `_zcode/node.exe` | 跑 ZCode 底座的 Node 运行时 | Node.js �
 lines.push("| `_zcode/zcode.cjs` | ZCode CLI 主体 | 随 ZCode 官方发布分发(第三方,版本见 agentVersion);工坊不修改其内容,仅随包放置 |")
 lines.push("| `_zcode/provider/zcode-builtin.json` | 工坊内置 provider 清单 | 本仓库生成,随本仓库许可 |")
 lines.push("")
-lines.push("`_engine`(OpenCode 编译版)、`_bin`、`_py`、`_site` 自 v1.2.26 起**从不进安装包**,故不在分发清单内;")
-lines.push("官方安装器事实上只支持覆盖升级。")
+lines.push("`_engine`(OpenCode 编译版)、`_bin`、`_py`、`_site` 自 v1.2.26 起**从不进安装包**;因此**本安装包仅支持覆盖升级**——")
+lines.push("首次安装请使用完整便携包。包内 `start.cmd` 是启动入口,引擎缺失时会明确报错停住")
+lines.push("(issue #30 拍板:start.cmd 留包、依赖目录不进包,check_package 必查与 NOTICES 两条口径就此对齐)。")
 lines.push("")
 let vendored = null
 lines.push("## 4. 仓库里的第三方文本与副本(逐条实测)")
+lines.push("")
+{
+  // deep-dive(neko-plugin-dev 深度专题)走「钉版 + 按需拉取」:仓库里不存正文,
+  // 钉版清单是 references/neko-plugin-dev-pin.json —— 署名段必须**无条件输出**,
+  // 不能因为本机没拉过目录就让声明丢掉这一节(issue #16 的教训:声明与事实不符)。
+  const pinPath = path.join(ROOT, "packs/neko-plugin/skill/neko-plugin-dev/references/neko-plugin-dev-pin.json")
+  if (fs.existsSync(pinPath)) {
+    let pin = null
+    try { pin = JSON.parse(fs.readFileSync(pinPath, "utf8")) } catch {}
+    if (pin && pin.source) {
+      lines.push("### deep-dive(neko-plugin-dev 深度专题):钉版 + 按需拉取,仓库不存正文")
+      lines.push("")
+      lines.push("- 上游仓库:" + pin.source + "(MIT;版权人见其 LICENSE。PR #14 评审后按「文档出库」口径落地)")
+      lines.push("- 钉版:版本 `" + (pin.version || "?") + "` / commit `" + (pin.commit || "?") + "`;`archive_sha256` `" + (pin.archive_sha256 || "?") + "`;树哈希 `computedHash` `" + (pin.computedHash || "?") + "`")
+      lines.push("- 拉取入口:`node workbench/pull_skill_docs.cjs`(以本钉版为准);**正文不随安装包分发**,装机版按需自取")
+      lines.push("")
+    }
+  }
+}
 lines.push("")
 lines.push("以前这一段最容易被含混过去:把 `references/**` 整片说成「本仓库文档」。这里按实测分开写。")
 lines.push("")

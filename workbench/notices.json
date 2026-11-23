@@ -1,9 +1,9 @@
 {
- "total": 129,
+ "total": 130,
  "tally": {
   "未声明(仓库里没有可识别的 LICENSE)": 84,
   "Apache-2.0": 23,
-  "MIT": 12,
+  "MIT": 13,
   "LGPL": 1,
   "AGPL": 4,
   "GPL": 5
@@ -632,6 +632,12 @@
   {
    "slug": "phone_workflows",
    "license": "AGPL",
+   "file": "src/LICENSE",
+   "field": ""
+  },
+  {
+   "slug": "plugin-forge",
+   "license": "MIT",
    "file": "src/LICENSE",
    "field": ""
   },

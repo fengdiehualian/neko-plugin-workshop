@@ -15,14 +15,14 @@
 
 ## 1. 市场语料 `market-corpus/` 的许可判定
 
-共 **129 个插件源码目录**,取自官方市场接口(2026-10-26 抓取)。
+共 **130 个插件源码目录**,取自官方市场接口(2026-10-26 抓取)。
 判定顺序:仓库里的 LICENSE/COPYING 正文(含 `src/` 层级与大小写变体)→ `plugin.toml` 的 license 字段。
 
 | 判定结果 | 目录数 |
 |---|---|
 | 未声明(仓库里没有可识别的 LICENSE) | 84 |
 | Apache-2.0 | 23 |
-| MIT | 12 |
+| MIT | 13 |
 | GPL | 5 |
 | AGPL | 4 |
 | LGPL | 1 |
@@ -220,6 +220,7 @@
 | `plugin_database` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `plugin_knowledge_base` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `plugin_skill_manager` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
+| `plugin-forge` | MIT | `src/LICENSE` | — |
 | `proactive_recommender` | Apache-2.0 | `src/LICENSE` | — |
 | `pvz_agent` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `qq_auto_reply` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
@@ -267,10 +268,18 @@
 | `_zcode/zcode.cjs` | ZCode CLI 主体 | 随 ZCode 官方发布分发(第三方,版本见 agentVersion);工坊不修改其内容,仅随包放置 |
 | `_zcode/provider/zcode-builtin.json` | 工坊内置 provider 清单 | 本仓库生成,随本仓库许可 |
 
-`_engine`(OpenCode 编译版)、`_bin`、`_py`、`_site` 自 v1.2.26 起**从不进安装包**,故不在分发清单内;
-官方安装器事实上只支持覆盖升级。
+`_engine`(OpenCode 编译版)、`_bin`、`_py`、`_site` 自 v1.2.26 起**从不进安装包**;因此**本安装包仅支持覆盖升级**——
+首次安装请使用完整便携包。包内 `start.cmd` 是启动入口,引擎缺失时会明确报错停住
+(issue #30 拍板:start.cmd 留包、依赖目录不进包,check_package 必查与 NOTICES 两条口径就此对齐)。
 
 ## 4. 仓库里的第三方文本与副本(逐条实测)
+
+### deep-dive(neko-plugin-dev 深度专题):钉版 + 按需拉取,仓库不存正文
+
+- 上游仓库:HMUG12/Project_Neko-plugin_skill(MIT;版权人见其 LICENSE。PR #14 评审后按「文档出库」口径落地)
+- 钉版:版本 `4.3.1` / commit `7f653518c911482fdd533a758c0fd4814ab23ebe`;`archive_sha256` `64ec2dedcd47dd25d84ecacb440fcf3fd5eebc48b2c81ac2970e74b62b1db460`;树哈希 `computedHash` `a758ac4542d067e0a3f6098a12bc1cc149b148f6edf0b8d8f30d9f33d68bee30`
+- 拉取入口:`node workbench/pull_skill_docs.cjs`(以本钉版为准);**正文不随安装包分发**,装机版按需自取
+
 
 以前这一段最容易被含混过去:把 `references/**` 整片说成「本仓库文档」。这里按实测分开写。
 
@@ -282,18 +291,6 @@
 `market-examples` 与 `market-examples/**` 都设了 `export-ignore`,`build_payload.py` 的 FORBIDDEN 与
 `check_package.ps1` 的禁含清单同样拦住它;开发仓里仍保留(要读源码时它是现成的精读范例),
 装机版改成本机 `node workbench/fetch_corpus.cjs` 取回后读 `market-corpus/<slug>/src`。
-
-### `neko-plugin-dev` 深度专题(`HMUG12/Project_Neko-plugin_skill`)
-
-- 上游:`HMUG12/Project_Neko-plugin_skill`,**MIT**,版权人 `未知之致`(上游 `LICENSE`)。2026-11-21 核对。
-- 引用范围:52 篇 `references/*.md` 与 `examples/minimal_plugin/`(官方 `init` 生成物)。
-- **正文不进本仓库**:上游 commit `7f653518c911482fdd533a758c0fd4814ab23ebe`(版本 `4.3.1`)钉在
-  `market-corpus/corpus.lock.json` 的 `neko-plugin-skill` 条目(`vendored:false`,只记 source / 完整 SHA / 树哈希),
-  用时 `node workbench/pull_skill_docs.cjs` 拉到 `market-corpus/neko-plugin-skill/src`。钉版详情见
-  `packs/neko-plugin/skill/neko-plugin-dev/references/neko-plugin-dev-pin.json`。
-- 分发口径:**不随包分发**。正文不在仓库里,`market-corpus/**` 也已 `export-ignore`,安装包与 `payload.zip` 都不含这批文字;
-  引用方若要把正文随包带上,必须自行补上游 MIT 全文与版权声明。
-- 与第 5 节的关系:这批是上游版权文本,不属于「本仓库生成物」,不适用本仓库 MIT。
 
 ### `experts/neko-plugin-ops/`(专家团文本)
 
@@ -360,4 +357,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-生成于:2026-11-16
+生成于:2026-11-23
