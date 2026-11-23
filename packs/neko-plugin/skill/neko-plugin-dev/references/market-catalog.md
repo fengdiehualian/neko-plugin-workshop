@@ -453,4 +453,4 @@ async def do(self, target: str, **_):
 - 瘦身:剔除图片/音频/模型/可执行文件与 >1.5MB 资产,只留代码、配置、文档;总体积约 125MB
 - 统计口径:`market-patterns.md` 的能力使用率按「官方在架且带 `plugin.toml` 的源码」算(补采项不计入使用率);上面第 6 章的索引表按官方在架清单列,补采项单列在本节
 - `reuse_before_build` 自 v1.2.66 起不再随仓库保留正文,改为按需条目(`vendored:false`),用 `node workbench/pull_rbb.cjs` 拉取,不计入上面的本机目录数
-- **数字口径统一**:各处需要「在架多少 / 源码多少」时运行 `node workbench/corpus_stats.cjs`,不在文档里维护固定数字;`test/docs-consistency.test.ts` 拿真实目录校验索引与补采清单。
+- **数字口径统一**:本机目录数/带清单数用 `node workbench/corpus_stats.cjs` 统计;官方在架数按第 6 章索引清单单独统计,不拿本机目录数冒充;补采项单列,不计入官方在架数。`test/docs-consistency.test.ts` 用真实目录校验索引与补采清单。
