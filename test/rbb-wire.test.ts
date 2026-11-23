@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { createRequire } from "node:module"
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, lstatSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url"
 //
 // 这条测试守的是四件容易悄悄坏掉的事:
 //   1. 锁与 rbb-pin 各写一遍钉版信息,漂了就等于「校验通过」指向了另一个 commit;
-//   2. 有人把 37 个文件又复制回 market-corpus/reuse_before_build/src/,
+//   2. 有人把上游正文又复制回 market-corpus/reuse_before_build/src/,
 //      从此仓库里多一份会各自漂移的正文;
 //   3. 接入线文档还指着旧的本地正典路径,装机版照着读必然读不到;
 //   4. 许可声明漏了上游,而引用/分发时又需要保留 MIT 署名。
@@ -28,7 +28,17 @@ const ignore = readFileSync(join(ROOT, ".gitignore"), "utf8")
 
 /** 语料是否已经拉到本地(开发工作区可能拉过,CI/装机版通常没有)。 */
 const corpusRoot = join(CORPUS, pin.slug, "src")
-const hasCorpus = existsSync(corpusRoot)
+const hasCorpus = (() => {
+  try {
+    lstatSync(corpusRoot)
+    return true
+  } catch (e) {
+    // 只有真正不存在才是「未拉取」;路径被文件占住(ENOTDIR)、无权限(EACCES)
+    // 都属于仓库/工作区坏了,必须让测试失败,不能静默跳过正文校验。
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return false
+    throw e
+  }
+})()
 
 describe("先搜后建接入线:锁与 pin 一致", () => {
   test("锁里有这条,且钉的是完整 SHA", () => {
@@ -124,6 +134,6 @@ describe("先搜后建接入线:已被拉到本地时的核对", () => {
     }
     expect(locklib.checkAnchors(join(CORPUS, pin.slug), pin.anchors)).toEqual([])
     const measured = locklib.treeHash(corpusRoot)
-    expect(measured.computedHash, "本地语料与钉版不符,用 " + pin.pull + " 重拉").toBe(pin.computedHash)
+    expect(measured.computedHash, "本地语料与钉版不符。先删除 market-corpus/" + pin.slug + "/src,再用 " + pin.pull + " 重拉").toBe(pin.computedHash)
   })
 })

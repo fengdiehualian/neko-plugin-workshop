@@ -36,7 +36,7 @@
 ├── src/index.ts          # 生成→check→build 闭环内核 + 错误解析器
 ├── packs/                # 模板 + 插件规范 skill(官方文档快照 + 市场写法分析;页数由脚本运行时数,不写死)
 ├── experts/              # 配套专家团(WorkBuddy/CodeBuddy 专家包,可导入自己的 Agent 底座)
-├── market-corpus/        # 127 个官方市场插件源码 + 1 份本机补采(Agent 的学习语料;本机可读源码 126 份)
+├── market-corpus/        # 官方市场插件源码 + 本机补采(Agent 的学习语料;数量运行 `node workbench/corpus_stats.cjs`)
 ├── test/                 # 单元测试(bun test)
 ├── workbench/            # 打包工具(make-exe.ps1 一键 SFX 安装器)
 └── 使用说明.txt           # 面向小白的完整说明
@@ -50,7 +50,7 @@
    `SKILL.md` 的铁律与 `AGENTS.md` 的摘要都按同一套 R 号引用,外加官方文档快照。文档里没有的 API 一律不用
 2. **市场统计分析**:`references/market-patterns.md`——官方在架那批可读源码的能力使用率(份数以磁盘为准)
    (llm_tool 50% / push_message 57% / store 37%…)与四大惯用法
-3. **全量插件卡片**:`references/market-catalog.md`——127 个插件的功能/接口/能力/源码索引
+3. **全量插件卡片**:`references/market-catalog.md`——全部在架插件的功能/接口/能力/源码索引
 4. **语料库**:`market-corpus/` 全部源码,按功能找同类直接读
 
 ## 配套专家团(可选)

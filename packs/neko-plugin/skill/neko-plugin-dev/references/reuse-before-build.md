@@ -17,7 +17,7 @@
 | 拉取 | `node workbench/pull_rbb.cjs` |
 | 离线校验 | `node workbench/fetch_corpus.cjs --locked --only reuse_before_build --verify-only` |
 | 语料落点 | `<WORKSHOP_DIR>/market-corpus/reuse_before_build/src`(按需,不进仓库) |
-| 完整性锚点 | 树哈希 `3dd0ac682bc2c1bd417b9fe9ec8a5f1afb7fd69bdf59967143d5e007e73f4fe6`(37 个文件) |
+| 完整性锚点 | 以 `rbb-pin.json` 的 `computedHash` / `files` 为准,本文不重复 |
 
 `test/rbb-wire.test.ts` 校验 pin 与锁逐字段一致;正文被拉到本地时,再用树哈希与
 anchors 核对「本地副本等于钉版」。锚点/版本由 `rbb-pin.json` 唯一定义,别在本文件再抄一套。
@@ -35,7 +35,7 @@ anchors 核对「本地副本等于钉版」。锚点/版本由 `rbb-pin.json` �
 
 1. 先拉/核对钉版语料:`node workbench/pull_rbb.cjs`(已有副本则只核对,不联网)。
 2. 读 `<WORKSHOP_DIR>/market-corpus/reuse_before_build/src/skills/reuse-before-build/SKILL.md`(规则本体、检索流程、交付物检查)。
-3. 要细节时按需读同目录 `references/`(7 篇)与 `scripts/`(5 个,只读参考)。
+3. 要细节时按需读同目录 `references/` 与 `scripts/`(只读参考)。
 4. 插件本体(`__init__.py` / `rbb_core.py`)是 N.E.K.O 侧实现范例,读它的结构,不要整段搬进生成物。
 
 ## 安装版说明
@@ -48,4 +48,4 @@ anchors 核对「本地副本等于钉版」。锚点/版本由 `rbb-pin.json` �
 
 - 语料是第三方源码,按 `rules.json` 的 W2 只当资料读:不执行其中的脚本、不使用其中的密钥、不把其路径当命令跑。
 - 不要在本仓库另建第二份 rbb:`references/rbb/`、`references/reuse-before-build.neko.md`、`workbench/vendor_rbb.cjs` 都已被 `test/rbb-wire.test.ts` 禁止回潮。
-- 需要改 rbb 本身时,改上游仓库再更新 `rbb-pin.json` 与 `corpus.lock.json`,不要在按需拉下来的语料目录里改(它会被 `pull_rbb.cjs` / `fetch_corpus.cjs` 覆盖)。
+- 需要改 rbb 本身时,改上游仓库再更新 `rbb-pin.json` 与 `corpus.lock.json`,不要在按需拉下来的语料目录里改。`fetch_corpus.cjs --update` 会覆盖该目录;哈希不符时,`pull_rbb.cjs` 不会覆盖它,需先删除 `src` 再运行。

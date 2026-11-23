@@ -1,8 +1,8 @@
 # 猫娘插件社区规范与全量索引
 
 > **数据来源**:https://market.project-neko.cn/#/plugins 官方接口 `/api/v1/plugins`(2026-10-26 抓取)
-> **覆盖**:官方在架 **127 个插件**(第 6 章索引)+ 本机补采 **1 个**(见文末「本机补采」);
-> 本机 `market-corpus\` 共 128 个目录,其中 **126 份带 `plugin.toml` 的可读源码**。口径以文末抓取说明为准,别处不许另写数字。
+> **覆盖**:官方在架插件(第 6 章索引)+ 本机补采(见文末「本机补采」);
+> 目录数与可读源码数随语料增减,**本文不写死**;运行 `node workbench/corpus_stats.cjs` 取当前统计。口径以文末抓取说明为准。
 > **源码位置**:`<WORKSHOP_DIR>\market-corpus\<slug>\src`(只保留代码/配置/文档,二进制资产已剔除,总体积 ~125MB)
 > **怎么用**:写插件前先读第 1–5 章的规范,再去第 6 章找同类插件抄结构;需要深度 API 细节时查同目录 `sdk-reference.md` / `decorators.md` / `hosted-ui.md`。
 >
@@ -12,7 +12,7 @@
 
 ## 1. 目录结构:社区实际在用的四种形态
 
-**所有插件都是"一个目录 = 一个插件",`plugin.toml` 在插件根目录。** 语料中 125/126 个插件的 `id` 与目录名完全一致——这是硬约定。
+**所有插件都是"一个目录 = 一个插件",`plugin.toml` 在插件根目录。** 带 `plugin.toml` 的插件里,`id` 与目录名几乎完全一致(少数只有文档/库文件的上游除外)——这是硬约定。
 
 ### A. 最小可用(后台逻辑,无界面)
 
@@ -121,7 +121,7 @@ allow_dangerous = false
 
 | 字段 | 必填 | 规则 | 语料实测 |
 |---|---|---|---|
-| `plugin.id` | ✅ | 小写 + 下划线,与目录名、Python 包名一致 | 125/126 一致 |
+| `plugin.id` | ✅ | 小写 + 下划线,与目录名、Python 包名一致 | 带清单的插件中绝大多数一致 |
 | `plugin.entry` | ✅ | `<模块>:<类名>`。**118 个用裸 id,只有 8 个老包写 `plugins.<id>:...`** | 以裸 id 为准 |
 | `plugin.name` | ✅ | 中文产品名,不要写技术名 | 全部中文 |
 | `plugin.description` | ✅ | 写清"能做什么 + 什么时候用",Agent 靠它选插件 | 越长越具体越好 |
@@ -147,7 +147,7 @@ allow_dangerous = false
 
 | 对象 | 约定 | 示例 | 依据 |
 |---|---|---|---|
-| 目录 / `id` / 包名 | `snake_case`,单词间下划线 | `neko_diary` | 125/126 一致 |
+| 目录 / `id` / 包名 | `snake_case`,单词间下划线 | `neko_diary` | 带清单的插件中绝大多数一致 |
 | 插件类 | `XxxPlugin`,PascalCase | `NekoDiaryPlugin` | 102/124 以 Plugin 结尾 |
 | 文件名 | `snake_case.py`;大型插件按域拆 `core/`、`services/` | `shell_core.py` | 语料惯例 |
 | 入口 id(`@plugin_entry`) | `snake_case`,动词开头 | `write`、`get_summary`、`mark_all_read` | 109 个插件用 |
@@ -233,7 +233,7 @@ async def do(self, target: str, **_):
 
 ---
 
-## 6. 全量插件索引(127 个)
+## 6. 全量插件索引(全部在架)
 
 > 入口数 = `@plugin_entry` 数量;工具数 = `@llm_tool` 数量;"源码"列 ✓ 表示本机有完整 `src/plugin.toml`。
 > 下载量/作者等元数据见市场页面;这里只做**功能定位**用。
@@ -435,7 +435,7 @@ async def do(self, target: str, **_):
 
 ---
 
-### 本机补采(官方在架清单之外,1 个)
+### 本机补采(官方在架清单之外)
 
 接口清单没列但本机有完整源码,同样可以照着抄结构;引用时注意它不在官方索引计数里。
 
@@ -447,10 +447,10 @@ async def do(self, target: str, **_):
 
 ### 附:本次抓取说明
 
-- 接口:`GET https://market.project-neko.cn/api/v1/plugins?page=N&page_size=100`(共 127 条,2 页)
+- 接口:`GET https://market.project-neko.cn/api/v1/plugins?page=N&page_size=100`(分页拉全量)
 - 下载:按 `repo_url` 取 GitHub `archive/refs/heads/{main,master}.zip`,镜像 `ghfast.top` 优先
-- 落盘:官方 127 个全部建了目录,其中 **125 份有可读源码**(`better_txt_output`、`shale_core_lib` 仓库里没有 `plugin.toml`,只有文档/库文件);另补采 `qqbot_bridge` 1 份 → 本机 `market-corpus\` 共 128 个目录、**126 份带 `plugin.toml` 的源码**
+- 落盘:官方在架目录全部建了;少数仓库没有 `plugin.toml`,只有文档/库文件(`better_txt_output`、`shale_core_lib`);另补采 `qqbot_bridge`。当前目录数/带清单数用 `node workbench/corpus_stats.cjs` 统计,不在文档里写死
 - 瘦身:剔除图片/音频/模型/可执行文件与 >1.5MB 资产,只留代码、配置、文档;总体积约 125MB
-- 统计口径:`market-patterns.md` 的能力使用率按「官方在架那批带 `plugin.toml` 的 126 份」算(补采项不计入使用率);上面第 6 章的索引表按「官方在架 127 个」列,补采的 1 个单列在本节
+- 统计口径:`market-patterns.md` 的能力使用率按「官方在架且带 `plugin.toml` 的源码」算(补采项不计入使用率);上面第 6 章的索引表按官方在架清单列,补采项单列在本节
 - `reuse_before_build` 自 v1.2.66 起不再随仓库保留正文,改为按需条目(`vendored:false`),用 `node workbench/pull_rbb.cjs` 拉取,不计入上面的本机目录数
-- **数字口径统一**:各处提到「在架多少 / 源码多少」必须以本节为准(README、SKILL.md、AGENTS.md、market-patterns.md 都不许另写一套),`test/docs-consistency.test.ts` 会拿 `market-corpus\` 的真实目录数校验这些声明
+- **数字口径统一**:各处需要「在架多少 / 源码多少」时运行 `node workbench/corpus_stats.cjs`,不在文档里维护固定数字;`test/docs-consistency.test.ts` 拿真实目录校验索引与补采清单。

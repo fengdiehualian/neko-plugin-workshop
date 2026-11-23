@@ -1,15 +1,19 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync, readdirSync, existsSync } from "node:fs"
 import { join, dirname } from "node:path"
+import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
 import { walkMarkdown, THIRD_PARTY_DIRS } from "./refs"
 
 // 对应 GitHub issue #8:语料数量在多处各写一套,互相打脸。
 // 规则编号的一致性在 test/rules-numbering.test.ts;本文件只管「数量口径」:
-// 一切以 market-corpus/ 的真实目录与索引表为准,文档里写的数字必须等于事实。
+// 一切以 market-corpus/ 的真实目录与索引表为准;数量由 corpus_stats.cjs 运行时统计,
+// 文档不写死,避免语料增减后过时。
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const SKILL_DIR = join(ROOT, "packs", "neko-plugin", "skill", "neko-plugin-dev")
 const read = (p: string) => readFileSync(p, "utf8")
+const requireCjs = createRequire(import.meta.url)
+const { computeStats } = requireCjs(join(ROOT, "workbench", "corpus_stats.cjs"))
 const rules = JSON.parse(read(join(ROOT, "packs", "neko-plugin", "rules.json")))
 const skill = read(join(SKILL_DIR, "SKILL.md"))
 const agents = read(join(SKILL_DIR, "AGENTS.md"))
@@ -102,9 +106,12 @@ describe("语料数量:以 market-corpus 真实目录为准", () => {
     for (const slug of idx) expect(corpus.includes(slug), "索引里有目录不存在:" + slug).toBe(true)
     for (const slug of supplemented) expect(corpus.includes(slug), "补采项不存在:" + slug).toBe(true)
   })
-  test("目录里带 plugin.toml 的份数与抓取说明一致", () => {
-    expect(catalog).toContain(`${withToml.length} 份带 \`plugin.toml\``)
-    expect(catalog).toContain(`${corpus.length} 个目录`)
+  test("文档不写死语料数量,指向运行时统计", () => {
+    expect(catalog).toContain("corpus_stats.cjs")
+    expect(read(join(ROOT, "README.md"))).toContain("corpus_stats.cjs")
+    const s = computeStats(corpusDir)
+    expect(s.dirs, "统计脚本的目录数与真实语料不一致").toBe(corpus.length)
+    expect(s.withPluginToml, "统计脚本的带清单份数与真实语料不一致").toBe(withToml.length)
   })
   test("README 与 SKILL 不再写历史 46 个的口径", () => {
     for (const [name, text] of [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents]] as const) {
@@ -117,8 +124,8 @@ describe("语料数量:以 market-corpus 真实目录为准", () => {
     // 递归(公共实现在 test/refs.ts)而不是点名目录:issue #19 的遗留待办就是
     // 「等 forge/、deep-dive/ 进仓再把扫描加进去」,那种写法每加一个子目录都要改一次测试。
     // 排除两类:① 第三方逐字节副本(改不了,也不该要求它符合本仓库口径);
-    // ② 根目录的 catalog 与 patterns——它们各有独立断言,catalog 里的 109/126/127
-    // 是分组统计,和在架插件数不是同一个量,混进来会误报。
+    // ② 根目录的 catalog 与 patterns——它们各有独立断言,catalog 里的分组统计
+    // 和在架插件数不是同一个量,混进来会误报。
     // 排除用完整路径比较,不用 endsWith:references/xxx/market-patterns.md 是另一个文件。
     const refDir = join(SKILL_DIR, "references")
     const skip = new Set([join(refDir, "market-catalog.md"), join(refDir, "market-patterns.md")])
