@@ -299,7 +299,8 @@
   `market-corpus/corpus.lock.json` 的 `reuse_before_build` 条目(`vendored:false`,只记 source / 完整 SHA / 树哈希),
   用时 `node workbench/pull_rbb.cjs` 拉到 `market-corpus/reuse_before_build/src`。钉版详情见
   `packs/neko-plugin/skill/neko-plugin-dev/references/rbb-pin.json`。
-- 分发口径:**不随包分发**。正文不在仓库里,`market-corpus/**` 也已 `export-ignore`,安装包与 `payload.zip` 都不含这份源码;
+- 分发口径:**不随包分发**。正文不在仓库里,`market-corpus/**` 已 `export-ignore`;`build_payload.py` 经 `git archive` 生成的安装包不含这份源码,
+  但 `make-exe.ps1 -Stage` 按工作树压缩,不遵守 `export-ignore`——若 `$Stage` 里已有拉取的正文,先删除 `market-corpus/reuse_before_build` 再打包,或改用 `build_payload.py`。
   引用方若要把正文随包带上,必须自行补上游 MIT 全文与版权声明。
 - 与第 5 节的关系:这批是上游版权文本,不属于「本仓库生成物」,不适用本仓库 MIT。
 
