@@ -49,8 +49,10 @@ describe("语料锁:锁值与磁盘一致", () => {
     const parsed = lock.loadLock(CORPUS)
     const on_demand = Object.entries(parsed.entries).filter(([, e]) => (e as { vendored?: boolean }).vendored === false)
     for (const [slug, entry] of on_demand) {
-      expect(entry.kind, slug + " 是按需条目,应写明 kind(如 skill),别混进市场插件计数").toBeTruthy()
-      expect(entry.kind).not.toBe("plugin")
+      expect(entry.kind, slug + " 是按需条目,应写明 kind").toBeTruthy()
+      // 按需条目不一定是文档:rbb 本身就是市场插件,只是正文不进仓库。
+      // 市场插件计数由 docs-consistency 按 vendored:false 排除,不靠 kind 猜。
+      expect(["plugin", "skill", "forge"], slug + " 的 kind 不认识").toContain(entry.kind)
       expect(entry.source, slug + " 缺 source").toMatch(/^[\w.-]+\/[\w.-]+$/)
       expect(entry.commit, slug + " 必须钉完整 SHA").toMatch(/^[0-9a-f]{40}$/)
     }
@@ -63,7 +65,7 @@ describe("语料锁:锁值与磁盘一致", () => {
    * 新增按需条目要走一次显式改动,不能顺手改字段。
    */
   test("vendored:false 只给按需文档条目用,且名单是写死的", () => {
-    const ALLOWED = ["neko-plugin-skill"]
+    const ALLOWED = ["neko-plugin-skill", "reuse_before_build"]
     const parsed = lock.loadLock(CORPUS)
     const got = Object.entries(parsed.entries)
       .filter(([, e]) => (e as { vendored?: boolean }).vendored === false)

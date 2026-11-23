@@ -156,7 +156,7 @@ describe("neko-plugin-dev 接入线:文档与许可", () => {
 // 装机版没有仓库里那份 corpus.lock:第一个 pin 拉完会就地生成一条,
 // 第二个 pin 再来时锁里自然没有自己。这不该被当成「口径冲突」而拒绝,
 // 但仓库里那份锁缺条目仍然是真问题(补锁漏了),必须继续拒绝。
-describe("装机版:两个 pin 共用一份本机锁", () => {
+describe("装机版:多个 pin 共用一份本机锁", () => {
   const PULL = join(ROOT, "workbench", "pull_skill_docs.cjs")
   const FORGE = join(ROOT, "workbench", "pull_forge.cjs")
   const entryForge = {

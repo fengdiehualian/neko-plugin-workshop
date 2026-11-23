@@ -36,7 +36,7 @@
 ├── src/index.ts          # 生成→check→build 闭环内核 + 错误解析器
 ├── packs/                # 模板 + 插件规范 skill(官方文档快照 + 市场写法分析;页数由脚本运行时数,不写死)
 ├── experts/              # 配套专家团(WorkBuddy/CodeBuddy 专家包,可导入自己的 Agent 底座)
-├── market-corpus/        # 127 个官方市场插件源码 + 2 份本机补采(Agent 的学习语料;本机可读源码 127 份)
+├── market-corpus/        # 127 个官方市场插件源码 + 1 份本机补采(Agent 的学习语料;本机可读源码 126 份)
 ├── test/                 # 单元测试(bun test)
 ├── workbench/            # 打包工具(make-exe.ps1 一键 SFX 安装器)
 └── 使用说明.txt           # 面向小白的完整说明

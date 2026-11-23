@@ -15,14 +15,14 @@
 
 ## 1. 市场语料 `market-corpus/` 的许可判定
 
-共 **130 个插件源码目录**,取自官方市场接口(2026-10-26 抓取)。
+共 **129 个插件源码目录**,取自官方市场接口(2026-10-26 抓取)。
 判定顺序:仓库里的 LICENSE/COPYING 正文(含 `src/` 层级与大小写变体)→ `plugin.toml` 的 license 字段。
 
 | 判定结果 | 目录数 |
 |---|---|
 | 未声明(仓库里没有可识别的 LICENSE) | 84 |
 | Apache-2.0 | 23 |
-| MIT | 13 |
+| MIT | 12 |
 | GPL | 5 |
 | AGPL | 4 |
 | LGPL | 1 |
@@ -227,7 +227,6 @@
 | `qqbot_bridge` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `quote_extract` | MIT | `src/LICENSE` | — |
 | `recall` | Apache-2.0 | `src/LICENSE` | — |
-| `reuse_before_build` | MIT | `src/LICENSE` | — |
 | `screen_reader` | 未声明(仓库里没有可识别的 LICENSE) | 无 LICENSE 文件 | — |
 | `selfie` | Apache-2.0 | `src/LICENSE` | — |
 | `sfs_bridge` | GPL | `src/LICENSE` | — |
@@ -291,6 +290,18 @@
 `market-examples` 与 `market-examples/**` 都设了 `export-ignore`,`build_payload.py` 的 FORBIDDEN 与
 `check_package.ps1` 的禁含清单同样拦住它;开发仓里仍保留(要读源码时它是现成的精读范例),
 装机版改成本机 `node workbench/fetch_corpus.cjs` 取回后读 `market-corpus/<slug>/src`。
+
+### `reuse_before_build`(先搜后建,`1-dcjiang/neko-reuse-before-build`)
+
+- 上游:`1-dcjiang/neko-reuse-before-build`,**MIT**,版权人 `1-dcjiang`(上游 `src/LICENSE`)。2026-11-18 核对。
+- 引用范围:37 个文件(插件源码、`skills/reuse-before-build/` 正典与 references/scripts)。
+- **正文不进本仓库**:上游 commit `a375629a9a8b96af18809107aa7202c68c1f104d`(版本 `0.3.22`)钉在
+  `market-corpus/corpus.lock.json` 的 `reuse_before_build` 条目(`vendored:false`,只记 source / 完整 SHA / 树哈希),
+  用时 `node workbench/pull_rbb.cjs` 拉到 `market-corpus/reuse_before_build/src`。钉版详情见
+  `packs/neko-plugin/skill/neko-plugin-dev/references/rbb-pin.json`。
+- 分发口径:**不随包分发**。正文不在仓库里,`market-corpus/**` 也已 `export-ignore`,安装包与 `payload.zip` 都不含这份源码;
+  引用方若要把正文随包带上,必须自行补上游 MIT 全文与版权声明。
+- 与第 5 节的关系:这批是上游版权文本,不属于「本仓库生成物」,不适用本仓库 MIT。
 
 ### `experts/neko-plugin-ops/`(专家团文本)
 

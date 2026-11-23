@@ -1,7 +1,0 @@
-[project]
-name = "reuse_before_build"
-version = "0.3.22"
-dependencies = []
-
-[tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]

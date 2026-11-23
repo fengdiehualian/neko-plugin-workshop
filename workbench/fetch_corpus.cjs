@@ -171,25 +171,37 @@ function resolveCommit(ghRepo, ref) {
   return j.sha
 }
 
-/** 按 commit 抓 zip(镜像依次尝试),返回 { buf, mirror }。 */
-function downloadAtCommit(ghRepo, commit) {
+/** 按 commit 抓 zip(镜像依次尝试),返回 { buf, mirror, archive_sha256 }。
+ *
+ * expectedArchive 是锁里的 archive_sha256。镜像站只是代理,同一个 commit 的
+ * codeload zip 字节应当完全一致;不符说明这一路返回的不是锁里那份(缓存串了、
+ * 被替换、或代理改了封装)。这时继续试下一个镜像,而不是把第一个「能下到」的
+ * 内容直接落盘——树哈希只覆盖白名单里的文件,压缩包里夹带的其它东西看不见。
+ */
+function downloadAtCommit(ghRepo, commit, expectedArchive) {
   let lastErr = ""
   for (const m of MIRRORS) {
     const url = m + "https://codeload.github.com/" + ghRepo + "/zip/" + commit
     try {
       const buf = httpGet(url, 120000)
       if (buf.length < 1000) throw new Error("内容太小,疑似不是压缩包")
-      return { buf, mirror: m }
-    } catch (e) { lastErr = String((e && e.message) || e).slice(0, 160) }
+      const got = sha256buf(buf)
+      if (expectedArchive && got !== expectedArchive) {
+        throw new Error("归档哈希与锁不符:实测 " + got.slice(0, 16) + "… vs 锁 " +
+          String(expectedArchive).slice(0, 16) + "…")
+      }
+      return { buf, mirror: m, archive_sha256: got }
+    } catch (e) { lastErr = String((e && e.message) || e).slice(0, 200) }
   }
-  throw new Error("三个镜像都没下到 " + ghRepo + "@" + commit + ":" + lastErr)
+  throw new Error("三个镜像都没下到 " + (expectedArchive ? "与锁一致的 " : "") +
+    ghRepo + "@" + commit + ":" + lastErr)
 }
 
 /** 抓一份语料落到 <slug>/src(先写 src.partial,校验通过再换),返回树的实测值。 */
-function installAtCommit(slug, ghRepo, commit) {
+function installAtCommit(slug, ghRepo, commit, expectedArchive) {
   const dest = path.join(OUT, slug)
   const staging = path.join(dest, "src.partial")
-  const { buf, mirror } = downloadAtCommit(ghRepo, commit)
+  const { buf, mirror, archive_sha256 } = downloadAtCommit(ghRepo, commit, expectedArchive)
   fs.rmSync(staging, { recursive: true, force: true })
   fs.mkdirSync(staging, { recursive: true })
   const zipPath = path.join(os.tmpdir(), "wb-" + slug + ".zip")
@@ -197,7 +209,7 @@ function installAtCommit(slug, ghRepo, commit) {
     fs.writeFileSync(zipPath, buf)
     const kept = extractZip(zipPath, staging)
     const measured = locklib.treeHash(staging)
-    return { kept, measured, archive_sha256: sha256buf(buf), mirror, staging, zipPath, archive_format: "zip" }
+    return { kept, measured, archive_sha256, mirror, staging, zipPath, archive_format: "zip" }
   } catch (e) {
     try { fs.rmSync(staging, { recursive: true, force: true }) } catch {}
     throw e
@@ -283,6 +295,7 @@ function installFromGit(slug, ghRepo, ref, expectCommit) {
         String(expectCommit).slice(0, 12) + "——ref 被移动过,先确认再改锁")
     }
     const tar = gitRun(["-C", tmp, ...GIT_EOL, "archive", "--format=tar", sha], { encoding: "buffer" })
+    const archive_sha256 = sha256buf(tar)
     const tarPath = path.join(tmp, "corpus.tar")
     fs.writeFileSync(tarPath, tar)
     const raw = path.join(tmp, "raw")
@@ -296,7 +309,7 @@ function installFromGit(slug, ghRepo, ref, expectCommit) {
     fs.mkdirSync(staging, { recursive: true })
     const kept = copyFilteredTree(raw, staging)
     const measured = locklib.treeHash(staging)
-    return { kept, measured, archive_sha256: sha256buf(tar), mirror: "git", staging, commit: sha, archive_format: "tar" }
+    return { kept, measured, archive_sha256, mirror: "git", staging, commit: sha, archive_format: "tar" }
   } catch (e) {
     try { fs.rmSync(staging, { recursive: true, force: true }) } catch {}
     throw e
@@ -326,6 +339,9 @@ function entryProblem(slug, entry) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(String(entry.source || ""))) return "source 不是 owner/repo:" + entry.source
   if (!/^[0-9a-f]{40}$/.test(String(entry.commit || ""))) return "commit 不是 40 位十六进制:" + String(entry.commit || "").slice(0, 24)
   if (!/^[0-9a-f]{64}$/.test(String(entry.computedHash || ""))) return "缺 computedHash"
+  if (entry.archive_sha256 !== undefined && !/^[0-9a-f]{64}$/.test(String(entry.archive_sha256 || ""))) {
+    return "archive_sha256 不是 64 位十六进制:" + String(entry.archive_sha256 || "").slice(0, 24)
+  }
   if (typeof entry.files !== "number") return "缺 files"
   if (entry.transport === "git" && !entry.ref) return "git 来源缺 ref(用于识别 tag 被移动;抓取以 commit 为准)"
   return null
@@ -421,9 +437,16 @@ function runLocked() {
     try {
       const r = entry.transport === "git"
         ? installFromGit(slug, entry.source, entry.ref || entry.commit, entry.commit)
-        : installAtCommit(slug, entry.source, entry.commit)
-      if (r.archive_sha256 !== entry.archive_sha256) {
-        console.warn("WARN  " + slug + "  archive sha256 与锁不符(镜像/网络差异,只警告):" + r.archive_sha256.slice(0, 16) + "… vs " + String(entry.archive_sha256).slice(0, 16) + "…")
+        : installAtCommit(slug, entry.source, entry.commit, entry.archive_sha256)
+      if (entry.archive_sha256 && r.archive_format === "zip" && r.archive_sha256 !== entry.archive_sha256) {
+        // 正常路径下 downloadAtCommit 已经按 expectedArchive 拦过;这里再核对一次,
+        // 防止以后有人新增抓取通道却漏掉归档哈希。git 来源的 tar 只作记录:
+        // 不同 git 版本打出来的 tar 头可能不同,内容树哈希才是硬要求。
+        fs.rmSync(r.staging, { recursive: true, force: true })
+        failed++
+        console.error("FAIL  " + slug + "  归档字节与锁不符:实测 " + r.archive_sha256.slice(0, 16) +
+          "… vs 锁 " + String(entry.archive_sha256).slice(0, 16) + "…")
+        continue
       }
       if (r.measured.computedHash !== entry.computedHash) {
         fs.rmSync(r.staging, { recursive: true, force: true })
@@ -577,11 +600,28 @@ function runUpdate() {
   const sources = loadSources()
   let ok = 0, skipped = 0, failed = []
   for (const it of items) {
-    const slug = String(it.slug || it.id || "").trim()
+    const rawSlug = String(it.slug || it.id || "").trim()
+    let slug
+    try {
+      // 市场接口的 slug 直接拿来拼目录和临时 zip 名:未校验时 `../x` 能越出 OUT,
+      // 大写/空格会在 Windows 大小写不敏感的文件系统上撞上别的条目。
+      // 先断言,非法条目记失败并继续,不让一条脏数据把整轮抓取带偏。
+      slug = locklib.assertSlug(rawSlug)
+    } catch (e) {
+      failed.push([rawSlug || "(空 slug)", "slug 不合法:" + String((e && e.message) || e).slice(0, 100)])
+      continue
+    }
     const repo = String(it.repo_url || it.repoUrl || it.github || "").trim()
-    if (!slug || !/^https?:\/\//.test(repo)) { skipped++; continue }
+    if (!/^https?:\/\//.test(repo)) { skipped++; continue }
     const dest = path.join(OUT, slug)
-    if (!dryRun && fs.existsSync(path.join(dest, "src"))) { if (!sources[slug]) sources[slug] = { repo: repo, note: "本机既有,本次未重抓,来源与哈希未记录" }; skipped++; continue }
+    if (!dryRun && fs.existsSync(path.join(dest, "src"))) {
+      if (!sources[slug]) sources[slug] = { repo: repo, note: "本机既有,本次未重抓,来源与哈希未记录" }
+      // 旧版用 <slug>/.done 判断续跑,锁模式已改用树哈希。留着它只会让下一个人
+      // 以为「这个标记还在生效」;直接清掉,免得两套判断标准并存。
+      try { fs.rmSync(path.join(dest, ".done"), { force: true }) } catch { /* 只读目录就算了 */ }
+      skipped++
+      continue
+    }
     const gh = repo.replace(/\/+$/, "").match(/github\.com\/([^/]+\/[^/]+)/)
     if (!gh) { failed.push([slug, "不是 GitHub 仓库,跳过"]); continue }
     const ref = spawnSync("curl", ["-sSL", "--max-time", "25", ...CURL_TLS, "-o", os.devNull, "-w", "%{http_code}",
@@ -605,6 +645,9 @@ function runUpdate() {
         fs.mkdirSync(staging, { recursive: true })
         const kept = extractZip(zipPath, staging)
         fs.renameSync(staging, path.join(dest, "src"))
+        // 旧标记在成功落盘后就没用了;不删掉的话,下一轮看到 .done 会误以为
+        // 「这套目录还在用标记续跑」,而实际判断已经改成树哈希。
+        fs.rmSync(path.join(dest, ".done"), { force: true })
         sources[slug] = { repo: gh[1], ref: "refs/heads/" + branch, zip_sha256: sha256buf(buf), files_kept: kept, fetchedAt: new Date().toISOString(), mirror: m, note: "抓的是分支 HEAD;要完全可复现请钉到 tag/commit" }
         fs.rmSync(zipPath, { force: true })
         console.log("  " + slug + ":保留 " + kept + " 个文件")
@@ -621,7 +664,9 @@ function runUpdate() {
   if (failed.length) console.log(failed.slice(0, 20).map((f) => "  ✗ " + f.join(":")).join("\n"))
   console.log("\n许可提示:这些是第三方源码,仅本机阅读参考;" +
     "不许复制其代码进生成物,也不打包分发(详见 THIRD_PARTY_NOTICES.md)。")
-  return (failed.length && !ok) ? 1 : 0
+  // 部分成功不是成功:一批里拉了大部分、少数 404,退 0 会让脚本和 CI 都以为
+  // 这一轮完整跑过了。只要 failed 非空就退 1,调用方才能重试或人工看失败清单。
+  return failed.length ? 1 : 0
 })().then((code) => process.exit(code || 0)).catch((e) => {
   console.log("出错:" + ((e && e.message) || e))
   process.exit(1)

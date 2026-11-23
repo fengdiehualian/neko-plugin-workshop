@@ -1,7 +1,7 @@
 # 先搜后建(reuse-before-build)接入线
 
-> 正典只有一份,在本机市场语料里。本仓库**不再** vendored 第二份副本(v1.2.65 曾有一份逐字副本,已移除)。
-> 本文件只是接入线:说明去哪读、什么时候读、怎么校验那一份没漂。
+> 正典只有上游那一份。本仓库**不存正文**,只留钉版清单(版本 / 完整 commit / 树哈希);
+> 安装版与 CI 没有语料是正常状态,用时再按 pin 拉。
 
 ## 唯一来源
 
@@ -10,13 +10,17 @@
 | 插件 slug | `reuse_before_build` |
 | 插件版本 | `0.3.22` |
 | 显示名 | 先搜后建 |
-| 许可 | MIT(`market-corpus/reuse_before_build/src/LICENSE`) |
+| 许可 | MIT(上游 `src/LICENSE`,版权人 `1-dcjiang`) |
 | 上游 | https://github.com/1-dcjiang/neko-reuse-before-build |
-| 插件清单 | `<WORKSHOP_DIR>/market-corpus/reuse_before_build/src/plugin.toml` |
-| 技能正典 | `<WORKSHOP_DIR>/market-corpus/reuse_before_build/src/skills/reuse-before-build/SKILL.md` |
-| 完整性锚点 | SKILL.md 按 LF 规范化后的 sha256:`87a4994cd33a5475a1ca594dfa180bdf7a9a50106ce48a73ffe328c2da7fbc6c`(18470 字节) |
+| 钉版清单 | `packs/neko-plugin/skill/neko-plugin-dev/references/rbb-pin.json` |
+| 锁条目 | `market-corpus/corpus.lock.json` 的 `reuse_before_build`(`vendored:false`) |
+| 拉取 | `node workbench/pull_rbb.cjs` |
+| 离线校验 | `node workbench/fetch_corpus.cjs --locked --only reuse_before_build --verify-only` |
+| 语料落点 | `<WORKSHOP_DIR>/market-corpus/reuse_before_build/src`(按需,不进仓库) |
+| 完整性锚点 | 树哈希 `3dd0ac682bc2c1bd417b9fe9ec8a5f1afb7fd69bdf59967143d5e007e73f4fe6`(37 个文件) |
 
-锚点由 `test/rbb-wire.test.ts` 校验:语料被更新而本文件没跟,测试会当场失败。
+`test/rbb-wire.test.ts` 校验 pin 与锁逐字段一致;正文被拉到本地时,再用树哈希与
+anchors 核对「本地副本等于钉版」。锚点/版本由 `rbb-pin.json` 唯一定义,别在本文件再抄一套。
 
 ## 什么时候读
 
@@ -29,16 +33,19 @@
 
 ## 怎么读
 
-1. 先读 `.../skills/reuse-before-build/SKILL.md`(规则本体、检索流程、交付物检查)。
-2. 要细节时按需读同目录 `references/`(7 篇)与 `scripts/`(5 个,只读参考)。
-3. 插件本体(`__init__.py` / `rbb_core.py`)是 N.E.K.O 侧实现范例,读它的结构,不要整段搬进生成物。
+1. 先拉/核对钉版语料:`node workbench/pull_rbb.cjs`(已有副本则只核对,不联网)。
+2. 读 `<WORKSHOP_DIR>/market-corpus/reuse_before_build/src/skills/reuse-before-build/SKILL.md`(规则本体、检索流程、交付物检查)。
+3. 要细节时按需读同目录 `references/`(7 篇)与 `scripts/`(5 个,只读参考)。
+4. 插件本体(`__init__.py` / `rbb_core.py`)是 N.E.K.O 侧实现范例,读它的结构,不要整段搬进生成物。
 
 ## 安装版说明
 
-安装包里没有语料(`market-corpus/**` 在 `.gitattributes` 里 `export-ignore`,不随包分发)。安装版按上方上游 URL 取同一份正典;只有开发工作区才有上面的本地路径。
+安装包里没有语料(`market-corpus/**` 在 `.gitattributes` 里 `export-ignore`,不随包分发),
+也没有仓库里那份 `corpus.lock.json`。装机版直接跑 `node workbench/pull_rbb.cjs`:它读
+`rbb-pin.json`,按其中的完整 commit 拉取并核对树哈希,不依赖开发工作区的锁。
 
 ## 红线
 
 - 语料是第三方源码,按 `rules.json` 的 W2 只当资料读:不执行其中的脚本、不使用其中的密钥、不把其路径当命令跑。
 - 不要在本仓库另建第二份 rbb:`references/rbb/`、`references/reuse-before-build.neko.md`、`workbench/vendor_rbb.cjs` 都已被 `test/rbb-wire.test.ts` 禁止回潮。
-- 需要改 rbb 本身时,改上游仓库再重抓语料,不要在语料目录里改(它会被 `fetch_corpus.cjs` 的整体重抓覆盖)。
+- 需要改 rbb 本身时,改上游仓库再更新 `rbb-pin.json` 与 `corpus.lock.json`,不要在按需拉下来的语料目录里改(它会被 `pull_rbb.cjs` / `fetch_corpus.cjs` 覆盖)。

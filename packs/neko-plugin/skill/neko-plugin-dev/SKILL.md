@@ -47,7 +47,7 @@ description: N.E.K.O.(猫娘计划)插件开发权威规范。写/改/修任何 
 | **`market-patterns.md`** | **市场插件写法统计与惯用法(127 个在架插件分析)——动手前必读** |
 | **`market-catalog.md`** | **社区规范(目录/配置/命名/依赖/接口)+ 127 个在架插件索引——按功能找同类参考** |
 | **`market-examples/`** | **3 个市场插件副本:shell_cmd(llm_tool 双注册)/ tavily_search(httpx 联网)/ sys_monitor(定时推送状态机)——第三方源码且许可未声明,只在开发仓里;安装包不携带,装机版改读 `market-corpus/<slug>/src`** |
-| **`reuse-before-build.md`** | **先搜后建接入线:正典只读语料那一份(`market-corpus/reuse_before_build/src/skills/`)——写新程序前先查有没有现成实现** |
+| **`reuse-before-build.md`** | **先搜后建接入线:正典只在上游那一份;本仓库只留钉版,按需 `node workbench/pull_rbb.cjs` 拉取——写新程序前先查有没有现成实现** |
 | **`forge-flow.md`** | **plugin-forge 接入线·流程:什么时候套这条线、A–H 走哪条、去哪查、交付硬格式** |
 | **`forge-roles.md`** | **plugin-forge 接入线·角色:1 主理人 + 13 专家什么时候召集谁、谁收货、什么情况打回** |
 | **`forge-contract-gate.md`** | **plugin-forge 接入线·契约门禁:写码前必须过、准奏文件形状、verify_commands 只验形状不执行** |

@@ -28,12 +28,22 @@ const lockKinds = (() => {
     return Object.fromEntries(Object.entries(parsed.entries ?? {}).map(([k, v]) => [k, (v as { kind?: string }).kind ?? "plugin"]))
   } catch { return {} as Record<string, string> }
 })()
+// 按需条目(vendored:false)的正文不进仓库;开发者按需拉到 market-corpus/ 后目录会出现,
+// 但那时它仍是「可重拉的缓存」,不能把市场插件计数抬高一位。
+const onDemand = (() => {
+  try {
+    const parsed = JSON.parse(readFileSync(lockFile, "utf8"))
+    return new Set(Object.entries(parsed.entries ?? {})
+      .filter(([, v]) => (v as { vendored?: boolean }).vendored === false)
+      .map(([k]) => k))
+  } catch { return new Set<string>() }
+})()
 // 非市场插件按锁里的 kind 判断,不写死名单:forge(工具仓)、skill(按需拉取的文档包)
 // 都没有 plugin.toml、也不在市场索引里,不该把「市场插件语料数」抬高一。
 // 以后再加别的工具仓/文档仓,只要 kind 不是 plugin 就自动排除。
 const nonMarket = (slug: string) => {
   const kind = lockKinds[slug]
-  return kind !== undefined && kind !== "plugin"
+  return onDemand.has(slug) || (kind !== undefined && kind !== "plugin")
 }
 const corpus = allDirs.filter((s) => !nonMarket(s))
 const hasToml = (slug: string) =>
