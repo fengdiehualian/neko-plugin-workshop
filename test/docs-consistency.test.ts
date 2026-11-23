@@ -113,6 +113,13 @@ describe("语料数量:以 market-corpus 真实目录为准", () => {
     expect(s.dirs, "统计脚本的目录数与真实语料不一致").toBe(corpus.length)
     expect(s.withPluginToml, "统计脚本的带清单份数与真实语料不一致").toBe(withToml.length)
   })
+  test("本机没有语料时统计器给出提示而不是抛 ENOENT", () => {
+    const s = computeStats(join(ROOT, "__no_such_corpus__"))
+    expect(s.missing).toBe(true)
+    expect(s.dirs).toBe(0)
+    expect(s.note).toContain("fetch_corpus.cjs")
+  })
+
   test("README 与 SKILL 不再写历史 46 个的口径", () => {
     for (const [name, text] of [["README.md", readme], ["SKILL.md", skill], ["AGENTS.md", agents]] as const) {
       expect(text, name + " 里还留着「46 个」旧数量").not.toMatch(/46 个(官方|真实|在架|插件|市场)/)
