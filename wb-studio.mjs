@@ -1910,7 +1910,8 @@ const PAGE = `<!doctype html>
       <div class="frow"><label>备注名</label><input id="apiName" placeholder="例如:主力号 / 备用号"></div>
       <div class="frow"><label>Base URL</label><input id="apiURL" placeholder="https://…/v1"></div>
       <div class="frow"><label>API Key *</label><input id="apiKey" type="password" placeholder="粘贴密钥"></div>
-      <div class="frow"><label>模型名称 *</label><span style="display:flex;gap:8px;flex:1"><input id="apiModel" placeholder="填模型名,点「＋ 添加」可加多个"><button type="button" id="apiModelAdd" style="border:1px solid var(--border-soft);background:var(--tint);color:var(--pink-d);border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">＋ 添加</button></span></div>
+      <div class="frow"><label>模型名称 *</label><span style="display:flex;gap:8px;flex:1"><input id="apiModel" placeholder="填模型名,点「＋ 添加」可加多个;或点「探测」自动获取"><button type="button" id="apiProbeBtn" class="ghost" style="white-space:nowrap;flex-shrink:0">🔍 探测可用模型</button><button type="button" id="apiModelAdd" style="border:1px solid var(--border-soft);background:var(--tint);color:var(--pink-d);border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">＋ 添加</button></span></div>
+      <div class="frow" id="apiModelSelRow" style="display:none"><label></label><select id="apiModelSelect" style="flex:1"></select></div>
       <div class="frow" style="align-items:flex-start"><label style="padding-top:6px">已加模型</label><div id="apiModelList" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;min-height:24px"></div></div>
       <div class="frow"><label>上下文窗口</label><input id="apiCtx" type="number" min="1" step="1" placeholder="留空 = 跟随全局;填 K 数,如 128"></div>
       <div class="frow2">
@@ -3198,6 +3199,7 @@ async function saveApi(enable){
       else {
         apiModels=[];apiModelSel=0;renderModelChips();
         document.getElementById('apiName').value=document.getElementById('apiURL').value=document.getElementById('apiKey').value=document.getElementById('apiModel').value=document.getElementById('apiCtx').value='';
+        document.getElementById('apiModelSelRow').style.display='none';
       }
       loadApis();loadCtxLimit();
     }
@@ -3233,10 +3235,39 @@ function exitEditApi(){
   document.getElementById('apiKey').placeholder='粘贴密钥';
   apiModels=[];apiModelSel=0;renderModelChips();
   document.getElementById('apiName').value=document.getElementById('apiURL').value=document.getElementById('apiKey').value=document.getElementById('apiModel').value=document.getElementById('apiCtx').value='';
+  document.getElementById('apiModelSelRow').style.display='none';
 }
 document.getElementById('apiSave').onclick=()=>saveApi(true);
 document.getElementById('apiSaveOnly').onclick=()=>saveApi(false);
 document.getElementById('apiCancelEdit').onclick=()=>{exitEditApi();const m=document.getElementById('apiMsg');m.className='';m.textContent='已取消编辑';};
+// 探测可用模型(引导页同款,补到主设置表单):填完地址+密钥后列出该服务实际可用的模型
+document.getElementById('apiProbeBtn').onclick=async()=>{
+  const btn=document.getElementById('apiProbeBtn'),msg=document.getElementById('apiMsg');
+  const u=(document.getElementById('apiURL').value||'').trim();
+  const k=(document.getElementById('apiKey').value||'').trim();
+  const p=document.getElementById('apiProto').value;
+  const selRow=document.getElementById('apiModelSelRow'),sel=document.getElementById('apiModelSelect');
+  if(!u){msg.className='bad';msg.textContent='先填 Base URL 再探测';return}
+  if(!k){msg.className='bad';msg.textContent='探测需要 API Key;编辑已有 API 时密钥留空=不修改,想探测请先粘贴密钥';return}
+  const old=btn.textContent;btn.disabled=true;btn.textContent='⏳ 探测中…';
+  try{
+    const r=await fetch('/api/probe_models',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({baseURL:u,apiKey:k,protocol:p})});
+    const j=await r.json();
+    const mi=document.getElementById('apiModel');
+    if(j.ok&&j.models&&j.models.length){
+      sel.innerHTML='';
+      j.models.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o)});
+      if(mi.value&&j.models.includes(mi.value))sel.value=mi.value;
+      sel.onchange=()=>{document.getElementById('apiModel').value=sel.value;};
+      selRow.style.display='';
+      msg.className='';msg.textContent='✅ 探测到 '+j.models.length+' 个可用模型,下拉框选一个再保存(或点「＋ 添加」加多个)';
+    }else{
+      selRow.style.display='none';
+      msg.className='bad';msg.textContent='探测未获取到模型列表'+(j.error?':'+j.error:'')+';仍可手动填写';
+    }
+  }catch(e){msg.className='bad';msg.textContent='探测出错:'+e}
+  btn.disabled=false;btn.textContent='🔍 重新探测';
+};
 // 主动测试:只测不存,填完可以先确认这一套能不能连上
 document.getElementById('apiTest').onclick=async()=>{
   const btn=document.getElementById('apiTest'),msg=document.getElementById('apiMsg');
