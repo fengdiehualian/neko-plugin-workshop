@@ -1516,8 +1516,12 @@ const SETUP_PAGE = `<!doctype html>
   <input id="k" type="password" placeholder="粘贴你的密钥" autocomplete="off">
   <div class="tip">在你的模型服务商控制台创建,一般以 sk- 开头</div>
   <label>模型名称(Model ID)<span style="color:#e2517f"> *必填</span></label>
-  <input id="m" placeholder="例如 gpt-4o / deepseek-chat / kimi-k3 等" autocomplete="off">
-  <div class="tip">按你的服务商提供的模型名称填写</div>
+  <div style="display:flex;gap:6px;align-items:center">
+    <input id="m" placeholder="例如 gpt-4o / deepseek-chat / kimi-k3 等" autocomplete="off" style="flex:1;min-width:0">
+    <button id="probeBtn" class="ghost" style="white-space:nowrap;flex-shrink:0">🔍 探测可用模型</button>
+  </div>
+  <select id="modelSelect" style="display:none;width:100%;margin-top:4px"></select>
+  <div class="tip">按你的服务商提供的模型名称填写,或点「探测可用模型」自动获取</div>
   <button id="go">保存并进入工坊 →</button>
   <button id="try" class="ghost">🔌 先测一下能不能连上</button>
   <div id="msg" class="msg"></div>
@@ -1590,6 +1594,35 @@ $('try').onclick=async()=>{
     else{msg.textContent='😢 没连上:'+(j.error||'未知原因');msg.className='msg bad';}
   }catch(e){msg.textContent='😢 连接出错:'+e;msg.className='msg bad';}
   btn.disabled=false;btn.textContent=old;
+};
+// 探测可用模型:填完地址+密钥后自动调 /api/probe_models 列出可用模型供用户选(issue #49 配套)
+$('probeBtn').onclick=async()=>{
+  const btn=$('probeBtn'),tip=$('probeTip'),old=btn.textContent;btn.disabled=true;
+  const u=$('u').value.trim(),k=$('k').value.trim(),p=$('proto').value;
+  if(!u||!k){tip.style.display='block';tip.style.color='#e2517f';tip.textContent='先填好 Base URL 和 API Key 再探测';btn.disabled=false;btn.textContent=old;return}
+  btn.textContent='⏳ 探测中…';
+  tip.style.display='block';tip.style.color='var(--muted-2)';tip.textContent='正在获取可用模型列表…';
+  try{
+    const r=await fetch('/api/probe_models',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({baseURL:u,apiKey:k,protocol:p})});
+    const j=await r.json();
+    const sel=document.getElementById('modelSelect'),mi=document.getElementById('m');
+    if(j.ok&&j.models.length){
+      sel.innerHTML='';
+      j.models.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o)});
+      sel.style.display='block';mi.style.display='none';
+      sel.onchange=()=>{mi.value=sel.value;mi.dispatchEvent(new Event('input'))};
+      if(mi.value&&j.models.includes(mi.value))sel.value=mi.value;else mi.value=j.models[0];
+      tip.style.display='block';tip.style.color='var(--green,#4caf50)';tip.textContent='探测到 '+j.models.length+' 个可用模型,下拉框选择即可';
+    }else{
+      sel.style.display='none';mi.style.display='block';
+      tip.style.display='block';tip.style.color='#e2517f';
+      tip.textContent='探测未获取到模型列表'+(j.error?':'+j.error:'')+';仍可手动填写模型名称';
+    }
+  }catch(e){
+    tip.style.display='block';tip.style.color='#e2517f';
+    tip.textContent='探测出错:'+e+';仍可手动填写模型名称';
+  }
+  btn.disabled=false;btn.textContent='🔍 重新探测';
 };
 </script>
 </body></html>`
@@ -3634,6 +3667,49 @@ const srv = createServer(async (req, res) => {
         model: test.model || null,
         hardFail: !test.ok && isHardTestFail(test),
       }))
+      return
+    }
+    // ---------- 探测可用模型列表(issue #49 配套:填完地址+密钥后,自动列出可用的模型供用户选) ----------
+    if (req.method === "POST" && url.pathname === "/api/probe_models") {
+      const body = await readBody(req)
+      let b = {}
+      try { b = JSON.parse(body) } catch {}
+      const baseURL = String(b.baseURL || "").trim().replace(/\/+$/, "")
+      const apiKey = String(b.apiKey || "").trim()
+      const protocol = String(b.protocol || "openai").trim()
+      const bad = (msg) => {
+        res.writeHead(400, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: msg, models: [] }))
+      }
+      if (!baseURL) return bad("请先填服务地址(Base URL)")
+      if (!apiKey) return bad("请先填 API 密钥")
+      if (!/^https?:\/\//.test(baseURL)) return bad("API 地址要以 http(s):// 开头")
+      // 调 GET {baseURL}/models 拿可用模型列表;Gemini 走专用端点
+      const modelsUrl = protocol === "google"
+        ? baseURL.replace(/\/v1beta\/?$/, "") + "/v1beta/models?key=" + encodeURIComponent(apiKey)
+        : baseURL + "/models"
+      const headers = { Authorization: "Bearer " + apiKey }
+      if (protocol === "anthropic") { headers["x-api-key"] = apiKey; headers["anthropic-version"] = "2023-06-01" }
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 15_000)
+      try {
+        const r2 = await fetch(modelsUrl, { headers, signal: ctrl.signal })
+        clearTimeout(timer)
+        if (!r2.ok) {
+          res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+          res.end(JSON.stringify({ ok: false, error: "HTTP " + r2.status, models: [] }))
+          return
+        }
+        const j = await r2.json()
+        const raw = j.data || j.models || []
+        const models = raw.map((x) => String(x.id || x.name || "").replace(/^models\//, "")).filter(Boolean).sort()
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: true, models }))
+      } catch (e) {
+        clearTimeout(timer)
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 200), models: [] }))
+      }
       return
     }
     // ---------- Agent 底座:读取 / 切换(opencode ↔ zcode),切换即刻生效,不需要重启 ----------
