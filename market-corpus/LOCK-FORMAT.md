@@ -54,7 +54,7 @@
 | `kind` | string | `plugin`（市场插件）、`forge`（工具仓）或 `skill`（按需拉取的文档包）。缺省按 `plugin` 理解；**非 `plugin` 的条目不计入市场插件数**。 |
 | `ref` | string | 抓取用的 ref：tag（`v0.3.22`）或分支名。**git 来源必填**，zip 来源也建议写。 |
 | `commit` | string | 40 位十六进制 commit sha。**校验以它为准。** |
-| `archive_sha256` | string | 归档文件的 sha256（64 位十六进制）。**不符只警告**，见 §6。 |
+| `archive_sha256` | string | 归档文件的 sha256（64 位十六进制）。**zip 来源不符即失败**，git 来源只作记录，见 §6。 |
 | `computedHash` | string | 落盘树的 sha256（64 位十六进制）。**不符即失败。** |
 | `files` | number | 树里的文件数。用于失败时给人看规模差异。 |
 | `anchors` | array | 语义锚点，见 §5。 |
@@ -163,8 +163,10 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 | `1` | 有失败项（树哈希不符 / 锚点缺失 / 抓取失败 / 语料缺失且 `--verify-only`） |
 | `2` | 用法错误（没有待检查文件、slug 不合法、锁文件读不了、`--only` 给空或给了锁里没有的 slug） |
 
-`archive_sha256` **不符只警告**：镜像站偶尔改压缩包封装，内容树对得上才是硬要求。
-`computedHash` 不符是硬失败，报错里会同时给磁盘值与锁值。
+`archive_sha256` **zip 来源不符即失败**:镜像站只是代理,同一个 commit 的 codeload zip
+字节应当一致;先按归档哈希排除「下到的不是锁里那份」,再计算树哈希。git 来源(`transport:"git"`)
+的 tar 只作记录,不同 git 版本打出来的 tar 头可能不同,以内容树哈希为准。`computedHash` 不符
+同样是硬失败,报错里会同时给磁盘值与锁值。
 
 ### 6.1 退出码按命令分列
 
@@ -176,15 +178,16 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 | `fetch_corpus --update` / `--update-all` | 更新成功 | 有条目更新失败（含 ref 被移动、锚点不满足） | 用法错误：缺 slug、slug 非法、锁里没有可更新条目 |
 | `workbench/pull_forge.cjs` | 与钉版一致 | 语料缺失或树哈希不符 | `forge-pin.json` 与锁口径冲突（commit/ref/version 等对不上）、pin 或锁读不了 |
 | `workbench/pull_skill_docs.cjs` | 与钉版一致 | 语料缺失或树哈希不符 | `neko-plugin-dev-pin.json` 与锁口径冲突、pin 或锁读不了 |
+| `workbench/pull_rbb.cjs` | 与钉版一致 | 语料缺失或树哈希不符 | `rbb-pin.json` 与锁口径冲突、pin 或锁读不了 |
 
-两个 `pull_*.cjs` 共用同一份实现（`workbench/pull_pinned.cjs`），行为一致：
+三个 `pull_*.cjs` 共用同一份实现（`workbench/pull_pinned.cjs`），行为一致：
 本机生成的锁（`note` 含「本机生成」）缺条目时自动追加、条目与 pin 对不上时**以 pin 为准覆盖**；
 仓库里那份锁缺条目或对不上仍然退 `2`，因为那需要人判断是改 pin 还是改锁。
 
 ### 6.2 `vendored:false`：只钉版本、不存正文
 
 `entries` 里某条带 `"vendored": false` 时，表示**仓库只存钉版信息，不存正文**
-（`neko-plugin-skill` 这类文档/技能语料）。它改变了 `--verify-only` 的判定：
+（`reuse_before_build`、`neko-plugin-skill` 这类按需语料）。它改变了 `--verify-only` 的判定：
 
 | 磁盘状态 | 判定 |
 |---|---|
@@ -193,7 +196,8 @@ node workbench/fetch_corpus.cjs --update-all             # 过滤规则改了之
 | `src` 存在但哈希不符 | `FAIL`——本地副本被改过 |
 | `src` 是普通文件 / 悬空符号链接 / 条目目录本身不是目录 | `FAIL`——环境坏了，不能当成「还没拉过」 |
 
-取用入口见 `packs/neko-plugin/skill/neko-plugin-dev/references/neko-plugin-dev-pin.json`。
+取用入口见 `packs/neko-plugin/skill/neko-plugin-dev/references/neko-plugin-dev-pin.json`
+与 `rbb-pin.json`。
 
 顶层异常（JSON 坏、schema 不认识）走 `1`，与「有失败项」同码——这是已知的粗粒度，
 不影响判读：输出里有 `FAIL` 行点名原因。

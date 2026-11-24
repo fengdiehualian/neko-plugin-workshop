@@ -217,6 +217,27 @@ lines.push("")
     lines.push("- `market-examples/` 不在工作区(新克隆未取语料),本段只作说明。")
   }
   lines.push("")
+  // (a2) rbb:同样是钉版 + 按需拉取,正文不在仓库里。署名段也不能因目录缺失而消失。
+  const RBB_PIN = path.join(SKILL, "rbb-pin.json")
+  if (fs.existsSync(RBB_PIN)) {
+    let pin = null
+    try { pin = JSON.parse(fs.readFileSync(RBB_PIN, "utf8")) } catch {}
+    if (pin && pin.source) {
+      lines.push("### `reuse_before_build`(先搜后建,`" + pin.source + "`)")
+      lines.push("")
+      lines.push("- 上游:`" + pin.source + "`,**MIT**,版权人 `1-dcjiang`(上游 `src/LICENSE`)。")
+      lines.push("- 引用范围:" + (pin.files || "?") + " 个文件(插件源码、`skills/reuse-before-build/` 正典与 references/scripts)。")
+      lines.push("- **正文不进本仓库**:上游 commit `" + (pin.commit || "?") + "`(版本 `" + (pin.version || "?") + "`)钉在")
+      lines.push("  `market-corpus/corpus.lock.json` 的 `" + (pin.slug || "reuse_before_build") + "` 条目(`vendored:false`,只记 source / 完整 SHA / 树哈希),")
+      lines.push("  用时 `" + (pin.pull || "node workbench/pull_rbb.cjs") + "` 拉到 `" + (pin.corpus_root || "market-corpus/reuse_before_build/src") + "`。钉版详情见")
+      lines.push("  `packs/neko-plugin/skill/neko-plugin-dev/references/rbb-pin.json`。")
+      lines.push("- 分发口径:**不随包分发**。正文不在仓库里,`market-corpus/**` 已 `export-ignore`;`build_payload.py` 经 `git archive` 生成的安装包不含这份源码,")
+      lines.push("  但 `make-exe.ps1 -Stage` 按工作树压缩,不遵守 `export-ignore`——若 `$Stage` 里已有拉取的正文,先删除 `market-corpus/reuse_before_build` 再打包,或改用 `build_payload.py`。")
+      lines.push("  引用方若要把正文随包带上,必须自行补上游 MIT 全文与版权声明。")
+      lines.push("- 与第 5 节的关系:这批是上游版权文本,不属于「本仓库生成物」,不适用本仓库 MIT。")
+      lines.push("")
+    }
+  }
   // (b) experts/neko-plugin-ops:README 自陈吸收自两个 MIT agent 集
   const EX = path.join(ROOT, "experts/neko-plugin-ops")
   if (fs.existsSync(EX)) {

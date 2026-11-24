@@ -93,6 +93,8 @@ describe("脚本可换机器跑(issue #13):不写死本机路径", () => {
     expect(bp, "白名单必须包含 src/studio 拆分模块").toContain('"src/",')
     expect(bp, "白名单必须包含运行时库").toContain('"wb-agent-lib.mjs"')
     expect(bp, "白名单必须包含按需拉取器").toContain('"workbench/pull_skill_docs.cjs"')
+    expect(bp, "白名单必须包含 rbb 按需拉取器").toContain('"workbench/pull_rbb.cjs"')
+    expect(bp, "白名单必须包含本机语料统计器").toContain('"workbench/corpus_stats.cjs"')
     // check_package 的禁含与 build_payload 同步(两端都要拦)
     const cp = read("workbench/check_package.ps1")
     expect(cp).toMatch(/\$forbidden\s*=\s*@\([^)]*"test\//)

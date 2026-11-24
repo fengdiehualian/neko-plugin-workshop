@@ -13,9 +13,13 @@ _iss_new.txt
 # 页面自检产物(报告/截图),别被 git add -A 顺手带进包
 check-report.txt
 
-# 按需拉取的语料正文:仓库里只留钉版(commit + 树哈希),正文用
-# workbench/pull_skill_docs.cjs 拉到这个目录,不进版本库。
-# 漏了这条,开发者跑一次拉取就得到 75 个未跟踪文件,`git add -A` 顺手就把
+# 按需拉取的语料正文:仓库里只留钉版(commit + 树哈希),正文用对应的
+# workbench/pull_*.cjs 拉到这个目录,不进版本库。
+# 漏了这条,开发者跑一次拉取就得到一堆未跟踪文件,`git add -A` 顺手就把
 # 「不进仓库」的正文提交了——回迁是悄悄发生的,没有任何提示。
-# 新增按需条目(vendored:false)时同步加一行;test/neko-skill-wire.test.ts 会盯这件事。
+# 新增按需条目(vendored:false)时同步加一行;test/neko-skill-wire.test.ts 与
+# test/rbb-wire.test.ts 会盯这件事。
 market-corpus/neko-plugin-skill/
+market-corpus/reuse_before_build/
+# 旧版续跑标记已废弃:锁模式只看树哈希,任何 .done 都不该再进仓库
+market-corpus/**/.done

@@ -6,10 +6,13 @@
     "reuse_before_build": {
       "source": "1-dcjiang/neko-reuse-before-build",
       "kind": "plugin",
+      "vendored": false,
+      "transport": "zip",
       "ref": "v0.3.22",
       "commit": "a375629a9a8b96af18809107aa7202c68c1f104d",
       "version": "0.3.22",
       "version_source": "plugin.toml",
+      "archive_format": "zip",
       "archive_sha256": "76a4abbda02934f7fba14c87b27fcca96c2145e36104d1b426d169f0fdd5e96e",
       "computedHash": "3dd0ac682bc2c1bd417b9fe9ec8a5f1afb7fd69bdf59967143d5e007e73f4fe6",
       "files": 37,

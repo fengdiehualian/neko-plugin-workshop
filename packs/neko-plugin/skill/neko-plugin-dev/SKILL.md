@@ -44,10 +44,10 @@ description: N.E.K.O.(猫娘计划)插件开发权威规范。写/改/修任何 
 | `examples.md` | 官方示例:Result 类型、配置、定时、消息等 |
 | `advanced.md` | Adapter 与并发编程(网关管线、线程安全) |
 | `best-practices.md` | 最佳实践:Result 一致性、超时、日志、资源清理 |
-| **`market-patterns.md`** | **市场插件写法统计与惯用法(127 个在架插件分析)——动手前必读** |
-| **`market-catalog.md`** | **社区规范(目录/配置/命名/依赖/接口)+ 127 个在架插件索引——按功能找同类参考** |
+| **`market-patterns.md`** | **市场插件写法统计与惯用法(全部在架插件分析)——动手前必读** |
+| **`market-catalog.md`** | **社区规范(目录/配置/命名/依赖/接口)+ 全部在架插件索引——按功能找同类参考** |
 | **`market-examples/`** | **3 个市场插件副本:shell_cmd(llm_tool 双注册)/ tavily_search(httpx 联网)/ sys_monitor(定时推送状态机)——第三方源码且许可未声明,只在开发仓里;安装包不携带,装机版改读 `market-corpus/<slug>/src`** |
-| **`reuse-before-build.md`** | **先搜后建接入线:正典只读语料那一份(`market-corpus/reuse_before_build/src/skills/`)——写新程序前先查有没有现成实现** |
+| **`reuse-before-build.md`** | **先搜后建接入线:正典只在上游那一份;本仓库只留钉版,按需 `node workbench/pull_rbb.cjs` 拉取——写新程序前先查有没有现成实现** |
 | **`forge-flow.md`** | **plugin-forge 接入线·流程:什么时候套这条线、A–H 走哪条、去哪查、交付硬格式** |
 | **`forge-roles.md`** | **plugin-forge 接入线·角色:1 主理人 + 13 专家什么时候召集谁、谁收货、什么情况打回** |
 | **`forge-contract-gate.md`** | **plugin-forge 接入线·契约门禁:写码前必须过、准奏文件形状、verify_commands 只验形状不执行** |
@@ -188,6 +188,6 @@ class MyPlugin(NekoPluginBase):
 
 - 本文件与 `references/` 是**唯一事实来源**。文档站(project-neko.online)更新时,由工作台同步到这里;不要依赖训练记忆里的旧版 SDK。
 - 写任何装饰器/SDK 调用前,若在本文件或 references 里找不到,视为**不存在**,换文档里的等价 API。
-- **动手前先读 `references/market-patterns.md`**(127 个在架插件的真实写法统计):用户一句话能触发的功能必须 `@llm_tool` + `@plugin_entry` 双注册;联网用 httpx 异步+超时;定时提醒必须有防重复状态机;持久化优先 data_path/store。然后翻 `references/market-catalog.md` 按功能找同类插件,直接读其完整源码(全在本机 `<WORKSHOP_DIR>\market-corpus\<slug>\src`,你有全局权限);需要精读同类源码时看 `references/market-examples/`(shell_cmd / tavily_search / sys_monitor 三份市场插件副本;许可未声明,自 v1.2.66 起不再随安装包分发——装机版若该目录不存在,先跑 `node workbench/fetch_corpus.cjs`,再读 `<WORKSHOP_DIR>\market-corpus\<slug>\src`)。
+- **动手前先读 `references/market-patterns.md`**(全部在架插件的真实写法统计):用户一句话能触发的功能必须 `@llm_tool` + `@plugin_entry` 双注册;联网用 httpx 异步+超时;定时提醒必须有防重复状态机;持久化优先 data_path/store。然后翻 `references/market-catalog.md` 按功能找同类插件,直接读其完整源码(全在本机 `<WORKSHOP_DIR>\market-corpus\<slug>\src`,你有全局权限);需要精读同类源码时看 `references/market-examples/`(shell_cmd / tavily_search / sys_monitor 三份市场插件副本;许可未声明,自 v1.2.66 起不再随安装包分发——装机版若该目录不存在,先跑 `node workbench/fetch_corpus.cjs`,再读 `<WORKSHOP_DIR>\market-corpus\<slug>\src`)。
 - 生成完整插件后,对照 `rules.json` 的 `x_hard_rules` 逐条自检(上方铁律已按 R 号标注);修他人代码时,先用 `check` 拿到结构化 issues 再动手。
 - 涉及 UI、Adapter、示例写法时,必须先读对应 reference(`hosted-ui.md` / `advanced.md` / `examples.md`),不要凭印象写。

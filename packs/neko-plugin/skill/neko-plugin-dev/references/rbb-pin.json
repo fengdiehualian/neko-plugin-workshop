@@ -1,0 +1,81 @@
+{
+  "schema": 2,
+  "slug": "reuse_before_build",
+  "kind": "plugin",
+  "vendored": false,
+  "source": "1-dcjiang/neko-reuse-before-build",
+  "ref": "v0.3.22",
+  "commit": "a375629a9a8b96af18809107aa7202c68c1f104d",
+  "version": "0.3.22",
+  "version_source": "plugin.toml",
+  "transport": "zip",
+  "archive_format": "zip",
+  "archive_sha256": "76a4abbda02934f7fba14c87b27fcca96c2145e36104d1b426d169f0fdd5e96e",
+  "computedHash": "3dd0ac682bc2c1bd417b9fe9ec8a5f1afb7fd69bdf59967143d5e007e73f4fe6",
+  "files": 37,
+  "note": "先搜后建(reuse-before-build)的钉版清单。正典只有上游那一份:本仓库不存正文,只在 market-corpus/corpus.lock.json 留 source / 完整 SHA / 树哈希;安装版没有 corpus.lock 时,由 pull_rbb.cjs 以本文件为准就地生成一条。许可 MIT(上游 src/LICENSE,版权人 1-dcjiang),引用时保留署名,见 THIRD_PARTY_NOTICES.md。",
+  "lock": "market-corpus/corpus.lock.json",
+  "corpus_root": "market-corpus/reuse_before_build/src",
+  "pull": "node workbench/pull_rbb.cjs",
+  "verify": "node workbench/fetch_corpus.cjs --locked --only reuse_before_build --verify-only",
+  "verify_note": "带 --only 才是真离线:不加它会处理锁里所有条目,别的语料缺了就会去下载。已落盘时它只算本地树哈希,证明「本地副本等于锁」,不证明「锁等于上游」;要验上游先删 src 再跑(去掉 --verify-only)。",
+  "entry": {
+    "plugin_manifest": "plugin.toml",
+    "skill": "skills/reuse-before-build/SKILL.md",
+    "references": "skills/reuse-before-build/references/",
+    "scripts": "skills/reuse-before-build/scripts/",
+    "license": "LICENSE",
+    "changelog": "CHANGELOG.md"
+  },
+  "release": {
+    "tag": "v0.3.22",
+    "asset": "neko-reuse-before-build-v0.3.22-vendor.zip",
+    "asset_sha256": "ac0d31f21d95d3b12af3fb860795e8507d8f8e122e3ddfa9dbb0d71204c87310",
+    "checksums": "SHA256SUMS.txt",
+    "checksums_sha256": "06ec74ac178586572b2884424a4103b9b0b9a06c106414d8e0b82e83e801b323",
+    "tree_scope": "vendor",
+    "note": "发布镜像；语料树按 commit 的完整源码计算，不拿 vendor 树冒充源码树"
+  },
+  "anchors": [
+    {
+      "id": "plugin-manifest",
+      "file": "src/plugin.toml",
+      "all": [
+        "id = \"reuse_before_build\"",
+        "name = \"先搜后建\"",
+        "version = \""
+      ]
+    },
+    {
+      "id": "skill-identity",
+      "file": "src/skills/reuse-before-build/SKILL.md",
+      "all": [
+        "name: reuse-before-build",
+        "RBB:INVARIANTS:BEGIN",
+        "RBB:INVARIANTS:END"
+      ]
+    },
+    {
+      "id": "prompt-registry",
+      "file": "src/skills/reuse-before-build/prompt-digests.json",
+      "any": [
+        "\"prompts\""
+      ]
+    },
+    {
+      "id": "localization-contract",
+      "file": "src/skills/reuse-before-build/localization.contract.json",
+      "any": [
+        "rules_min"
+      ]
+    },
+    {
+      "id": "rule-numbering",
+      "file": "src/skills/reuse-before-build/scripts/verify_localized.py",
+      "all": [
+        "RULE_RE",
+        "MULTILINE"
+      ]
+    }
+  ]
+}
