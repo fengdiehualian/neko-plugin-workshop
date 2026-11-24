@@ -61,7 +61,12 @@ const C = { g: "\x1b[32m", r: "\x1b[31m", y: "\x1b[33m", d: "\x1b[2m", x: "\x1b[
 
 // ---------- 0. 服务活不活 ----------
 {
-  const r = await localReq("/api/health", { timeout: 8000 })
+  // 连接阶段的挂起不受 http.request 的 timeout 选项保护(timeout 只管连接后的空闲),
+  // 所以再用 race 兜一层:10 秒拿不到结果就按「连不上」处理(issue #26 环境实测)。
+  const r = await Promise.race([
+    localReq("/api/health", { timeout: 8000 }),
+    sleep(10000).then(() => ({ status: 0, error: "health 探测 10s 超时" })),
+  ])
   if (r.status !== 200) {
     console.error(`${C.r}✗ 连不上工坊服务 ${BASE}${C.x} — ${r.error || "HTTP " + r.status}`)
     console.error(`${C.d}  先启动工坊(或在测试目录 bun wb-studio.mjs)再跑本脚本${C.x}`)
@@ -115,9 +120,16 @@ for (let attempt = 0; attempt < MODES.length && !wsUrl; attempt++) {
   if (attempt) { try { chrome.kill() } catch {} await sleep(800) }
   launchChrome(dbgPort + attempt, MODES[attempt])
   const port = dbgPort + attempt
-  for (let i = 0; i < 200 && !wsUrl; i++) {
+  // 等待预算 60 秒;单次轮询用 race 兜住连接阶段挂起(timeout 选项只管连接后的空闲,
+  // TCP connect 本身被静默丢弃时一次能挂 20 秒左右,200 次就是 70 分钟静默——今晚实测)
+  const deadline = Date.now() + 60000
+  for (let i = 0; Date.now() < deadline && !wsUrl; i++) {
     await sleep(150)
-    const r = await localReq("/json/list", { host: "127.0.0.1", port, timeout: 2000 })
+    const poll = Promise.race([
+      localReq("/json/list", { host: "127.0.0.1", port, timeout: 2000 }),
+      sleep(2500).then(() => ({ status: 0, text: "", json: null, error: "poll 超时" })),
+    ])
+    const r = await poll
     const list = Array.isArray(r.json) ? r.json : []
     const page = list.find((t) => t.type === "page")
     if (page && page.webSocketDebuggerUrl) wsUrl = page.webSocketDebuggerUrl
@@ -130,7 +142,13 @@ if (!wsUrl) {
 
 // ---------- 2. 极简 CDP 客户端 ----------
 const ws = new WebSocket(wsUrl)
-await new Promise((res, rej) => { ws.onopen = res; ws.onerror = () => rej(new Error("WebSocket 连接失败")) })
+// 握手必须有超时:实测环境里 WS 可能「既不 open 也不 error」地永远挂着(2026-11-24 连续三轮,
+// 表现为整个套件 0 输出挂死数小时)。挂死必须变成 15 秒内的明确失败,否则没人知道卡在哪。
+await new Promise((res, rej) => {
+  const t = setTimeout(() => rej(new Error(`WebSocket 握手超时(15s):${wsUrl} — Chrome 调试端口在但握手不通,多为残留 headless 实例/端口冲突,清掉孤儿 chrome 重试`)), 15000)
+  ws.onopen = () => { clearTimeout(t); res() }
+  ws.onerror = () => { clearTimeout(t); rej(new Error("WebSocket 连接失败")) }
+})
 let seq = 0
 const pending = new Map()
 const pageErrors = []
