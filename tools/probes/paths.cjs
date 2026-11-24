@@ -40,6 +40,7 @@ function gitExe() {
   return (
     process.env.GIT_BIN ||
     firstExisting([
+      path.join(HOME, "dev", "tools", "PortableGit", "1.3.0", "cmd", "git.exe"),
       path.join(HOME, ".workbuddy", "binaries", "PortableGit", "versions", "1.3.0", "cmd", "git.exe"),
       "C:\\Program Files\\Git\\cmd\\git.exe",
     ]) ||

@@ -61,6 +61,8 @@ def find_ca_bundle():
         return p
     home = os.path.expanduser("~")
     for cand in (
+        os.path.join(home, "dev", "tools", "PortableGit", "1.3.0",
+                     "mingw64", "etc", "ssl", "certs", "ca-bundle.crt"),
         os.path.join(home, ".workbuddy", "binaries", "PortableGit", "versions", "1.3.0",
                      "mingw64", "etc", "ssl", "certs", "ca-bundle.crt"),
         r"C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt",
@@ -118,6 +120,7 @@ def resolve_git():
     if not p:
         home = os.path.expanduser("~")
         for cand in (
+            os.path.join(home, "dev", "tools", "PortableGit", "1.3.0", "cmd", "git.exe"),
             os.path.join(home, ".workbuddy", "binaries", "PortableGit", "versions", "1.3.0", "cmd", "git.exe"),
             r"C:\Program Files\Git\cmd\git.exe",
             r"C:\Program Files (x86)\Git\cmd\git.exe",
