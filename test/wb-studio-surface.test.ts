@@ -190,4 +190,33 @@ describe("wb-studio 对外面快照", () => {
       }
     }
   })
+
+  test("两个页面的每个内联 <script> 都必须能通过语法解析", () => {
+    // 为什么要有这条:SETUP_PAGE/PAGE 是模板字面量,页面 JS 里的字符串转义(如换行)
+    // 要双写反斜杠才安全;写漏一层不会被任何单测看见——模板在加载时就把转义吃掉了,
+    // 服务出去的脚本带着真实换行,整页 JS 直接 SyntaxError,所有按钮静默死亡
+    // (2026-11 附件功能实测踩过:surface 快照只比路由、端到端测试不加载页面,双双 blind)。
+    //
+    // 做法:从源码里抠出模板字面量本体,按服务时的同一方式求值(唯一插值 PROVIDER_PRESETS
+    // 用空数组打桩),再把每个 <script> 的内容交给 new Function 做完整语法解析
+    // (不执行,只 parse;与 bun build 对 served 脚本的解析等价,零子进程开销)。
+    const src = readFileSync(SRC_PATH, "utf8")
+    for (const name of ["SETUP_PAGE", "PAGE"]) {
+      const marker = "const " + name + " = `"
+      const start = src.indexOf(marker)
+      expect(start, name + " 模板没找到").toBeGreaterThan(0)
+      const bodyStart = start + marker.length
+      const bodyEnd = src.indexOf("`", bodyStart)
+      expect(bodyEnd, name + " 的收尾反引号没找到").toBeGreaterThan(bodyStart)
+      const html = eval("var PROVIDER_PRESETS=[];(`" + src.slice(bodyStart, bodyEnd) + "`)") as string
+      const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)]
+        .map((m) => m[1]).filter((s) => s.trim().length > 0)
+      expect(scripts.length, name + " 应至少有一个内联脚本").toBeGreaterThan(0)
+      for (const js of scripts) {
+        let err: unknown = null
+        try { new Function(js) } catch (e) { err = e }
+        expect(err, name + " 有内联脚本语法解析失败(页面 JS 会整段失效): " + String(err)).toBeNull()
+      }
+    }
+  })
 })

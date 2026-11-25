@@ -28,7 +28,8 @@
     "/api/think",
     "/api/thinking",
     "/api/ui",
-    "/api/update"
+    "/api/update",
+    "/api/upload"
   ],
   "patternPaths": [
     "/^\\/api\\/apis\\/([^/]+)$/",
@@ -102,6 +103,7 @@
         "/api/thinking",
         "/api/task",
         "/api/reveal",
+        "/api/upload",
         "/api/download"
       ],
       "pattern": [

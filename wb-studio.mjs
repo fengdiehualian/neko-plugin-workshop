@@ -1794,6 +1794,14 @@ const PAGE = `<!doctype html>
   button{border:0;background:var(--pink);color:var(--on-primary);border-radius:14px;padding:0 26px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
   button:disabled{opacity:.55;cursor:wait}
   button:hover:not(:disabled){background:var(--pink-d)}
+  /* 附件:「＋」圆钮叠在输入区左下角(ghost 描边风);待发附件 chips 一行;拖拽时输入框粉虚线高亮 */
+  #attachBtn{position:absolute;left:10px;bottom:8px;width:26px;height:26px;padding:0;margin:0;border:1.5px solid var(--pink);background:var(--card);color:var(--pink-d);border-radius:50%;font-size:14px;font-weight:700;line-height:1;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center;font-family:inherit}
+  #attachBtn:hover:not(:disabled){background:var(--tint)}
+  /* 文字避开左下角的「＋」钮,别被它压住 */
+  #attachWrap textarea{padding-left:46px;padding-bottom:26px}
+  #attachWrap.drag textarea{border-color:var(--pink);border-style:dashed;background:var(--tint)}
+  #attachChips{display:none;flex-wrap:wrap;gap:6px;margin-top:12px}
+  #attachChips .chip{cursor:default;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .hint{color:var(--muted-2);font-size:12.5px;margin-top:8px;line-height:1.8}
   /* 上下文容量环:直径 18px,占用越高环越满,颜色随阈值变(绿→橙→红) */
   .ctxring{display:inline-flex;align-items:center;vertical-align:-4px;margin-left:1px}
@@ -2089,7 +2097,9 @@ const PAGE = `<!doctype html>
   <div id="chat">
     <div class="msg bot">你好呀!我是哈基米 🐾 把愿望告诉我,我把它做成插件。不知道说什么?点一个试试:<br><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span class="chip" style="cursor:pointer" data-wish="做一个每日提醒喝水的插件,每 45 分钟提醒一次">💧 喝水提醒</span><span class="chip" style="cursor:pointer" data-wish="做一个记事本插件,能存笔记还能搜索">📝 记事本</span><span class="chip" style="cursor:pointer" data-wish="做一个番茄钟插件,每 25 分钟提醒我休息一次">🍅 番茄钟</span><span class="chip" style="cursor:pointer" data-wish="做一个每日诗词插件,每天早上给我推一首诗">📜 每日诗词</span></div></div>
   </div>
-  <form id="f"><textarea id="t" placeholder="说出你的愿望,比如:每天早上 8 点提醒我喝水…" required></textarea><button id="b">开工!</button></form>
+  <div id="attachChips" style="display:none"></div>
+  <form id="f"><span id="attachWrap" style="position:relative;flex:1;display:flex"><textarea id="t" placeholder="说出你的愿望,比如:每天早上 8 点提醒我喝水…" required></textarea><button type="button" id="attachBtn" title="添加附件文件发给 AI(也可直接拖文件进输入框)">＋</button></span><button id="b">开工!</button></form>
+  <input type="file" id="attachFile" multiple style="display:none">
   <div id="thinkrow" title="思考强度:档位越高想得越久、越费 token;自动=交给模型自己决定">
     <span class="thinklab">思考强度</span>
     <span id="thinkbar"><span id="thinkfill"></span><input id="thinkRange" type="range" min="0" max="5" step="1" value="0" aria-label="思考强度"></span>
@@ -2352,6 +2362,44 @@ loadCurrent();
 // 引擎异常横幅:解压不完整/杀软误删时给用户看得懂的指引
 (async()=>{try{const h=await(await fetch('/api/health')).json();if(h.engineError){const d=document.createElement('div');d.className='msg bot err';d.style.maxWidth='100%';d.textContent='⚠ '+h.engineError;chat.insertBefore(d,chat.firstChild);}}catch(e){}})();
 
+// ---------- 附件:发消息时顺带把文件交给 AI(经 /api/upload 落到工作区 uploads/) ----------
+const attachBtn=document.getElementById('attachBtn'),attachFile=document.getElementById('attachFile'),attachChips=document.getElementById('attachChips'),attachWrap=document.getElementById('attachWrap');
+let pendingFiles=[]; // 待发附件 [{name:展示名(带序号去重), file:File}]
+function seqName(name,seq){const d=name.lastIndexOf('.');return d>0?name.slice(0,d)+'('+seq+')'+name.slice(d):name+'('+seq+')'}
+function addAttach(list){
+  let n=0;
+  for(const f of (list||[])){
+    if(!f)continue;
+    const base=String(f.name||'未命名');let nm=base,seq=1;
+    while(pendingFiles.some(x=>x.name===nm)){seq++;nm=seqName(base,seq)} // 同名文件加序号区分
+    pendingFiles.push({name:nm,file:f});n++;
+  }
+  if(n)renderAttach();
+}
+function renderAttach(){
+  if(!pendingFiles.length){attachChips.style.display='none';attachChips.innerHTML='';return}
+  attachChips.style.display='flex';
+  attachChips.innerHTML='';
+  pendingFiles.forEach(function(p,i){
+    const c=document.createElement('span');c.className='chip';c.title=p.name;
+    c.textContent='📎 '+p.name;
+    const x=document.createElement('button');x.type='button';x.textContent='✕';
+    x.title='移除该附件';
+    x.style.cssText='border:0;background:transparent;color:var(--pink-d);font:inherit;font-weight:700;cursor:pointer;padding:0 0 0 4px';
+    x.onclick=function(){pendingFiles.splice(i,1);renderAttach()};
+    c.appendChild(x);
+    attachChips.appendChild(c);
+  });
+}
+attachBtn.onclick=function(){attachFile.click()};
+attachFile.onchange=function(){addAttach(attachFile.files);attachFile.value=''};
+// 拖拽入列:dragover 必须 preventDefault 浏览器才允许 drop;drop 也 preventDefault,别让浏览器直接打开文件
+let dragDepth=0; // dragleave 在子元素间移动时也会触发,按深度计数防止高亮闪烁
+form.addEventListener('dragenter',function(e){e.preventDefault();dragDepth++;attachWrap.classList.add('drag')});
+form.addEventListener('dragover',function(e){e.preventDefault();attachWrap.classList.add('drag')});
+form.addEventListener('dragleave',function(){dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)attachWrap.classList.remove('drag')});
+form.addEventListener('drop',function(e){e.preventDefault();dragDepth=0;attachWrap.classList.remove('drag');if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length)addAttach(e.dataTransfer.files)});
+
 // ---------- 发送 ----------
 let workMode = 'build';
 const stopbtn=document.getElementById('stopbtn');
@@ -2359,7 +2407,42 @@ document.getElementById('modeBuild').onclick=()=>{workMode='build';document.getE
 document.getElementById('modePlan').onclick=()=>{workMode='plan';document.getElementById('modePlan').classList.add('on');document.getElementById('modeBuild').classList.remove('on');};
 form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)return;
   const sentTo=curSession; // 本条任务归属的会话;期间用户可能切走
-  add('user',esc(text)+(workMode==='plan'?' <span style="opacity:.75;font-size:11px">[先出方案]</span>':''));t.value='';b.disabled=true;stopbtn.style.display='';
+  b.disabled=true;t.disabled=true; // 上传期间发送与输入框都禁用(失败路径都复原):串行上传大文件可达数秒,期间放人打字,完成后 t.value='' 会把补打的字静默吞掉
+  // 附件上传:逐个读 base64 传到 workspace/uploads;任一失败→错误气泡、复原按钮,
+  // 直接中止且**不丢用户输入**(输入框、待发附件 chips 都原样保留,改完再点「开工!」重试)
+  let uploads=[]; // [{path:"uploads/新名", orig:用户看到的名字}]
+  if(pendingFiles.length){
+    try{
+      for(const p of pendingFiles){
+        // 前端预检大小上限:6MB(=6000000 字节)base64 后约 8.0MB,稳在全局 8MB 体上限内;
+        // 不预检的话大文件会先撞后端 413,用户看到的是「请求体过大(上限 8MB)」而不是附件上限
+        if(p.file.size>6*1000*1000)throw new Error('附件 '+p.name+' 太大:单个附件最大 6MB,压缩后再发吧');
+        const b64=await new Promise(function(res,rej){
+          const fr=new FileReader();
+          fr.onload=function(){res(String(fr.result||'').split(',')[1]||'')};
+          fr.onerror=function(){rej(new Error('读取附件 '+p.name+' 失败'))};
+          fr.readAsDataURL(p.file);
+        });
+        const r=await fetch('/api/upload',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:p.name,b64:b64})});
+        const j=await r.json().catch(function(){return {}});
+        if(!r.ok||!j.ok)throw new Error('上传附件 '+p.name+' 失败:'+(j.error||('HTTP '+r.status)));
+        uploads.push({path:j.path,orig:p.name});
+      }
+    }catch(upErr){
+      add('err','📎 '+esc(String(upErr&&upErr.message||upErr))+'<div style="margin-top:4px;opacity:.8">这条没发出去:输入内容和待发附件都保留着,处理完再点「开工!」即可。</div>');
+      b.disabled=false;t.disabled=false;t.focus();return;
+    }
+  }
+  t.disabled=false;
+  // 全部上传成功:附加段拼到末尾,告诉 AI 文件在工作区的哪个位置
+  let sendText=text;
+  if(uploads.length){
+    // 注意:PAGE 是模板字面量,JS 串里的换行转义必须双写反斜杠(否则被外层模板
+    // 转义成真实换行,服务出去的脚本直接 SyntaxError,整页 JS 全灭——回归门禁见 surface 测试)
+    sendText+='\\n\\n[附件文件(相对工作区)]\\n'+uploads.map(function(u){return '- '+u.path+'(原名:'+u.orig+')'}).join('\\n');
+  }
+  add('user',esc(text)+(uploads.length?'<br>'+uploads.map(function(u){return '📎 '+esc(u.orig)}).join('<br>'):'')+(workMode==='plan'?' <span style="opacity:.75;font-size:11px">[先出方案]</span>':''));t.value='';stopbtn.style.display='';
+  pendingFiles=[];renderAttach(); // 发送在即,清空待发附件(发送失败也不回填:文件已落盘,重新附上即可)
   const ty=document.createElement('div');ty.className='typing';ty.innerHTML='哈基米正在'+(workMode==='plan'?'思考方案':'写插件')+'<span>🐱…</span>';chat.appendChild(ty);chat.scrollTop=chat.scrollHeight;
   // 专家团模式:实时展示哪些子 Agent 在干活(轮询会诊进度)
   // 注意:专家团状态检查必须与任务提交并行,不能 await 前置——否则冷启动时
@@ -2455,7 +2538,7 @@ form.onsubmit=async e=>{e.preventDefault();const text=t.value.trim();if(!text)re
     }catch(err){}
   },500);
   try{
-    const r=await fetch('/api/task',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,sessionId:sentTo,mode:workMode})});
+    const r=await fetch('/api/task',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:sendText,sessionId:sentTo,mode:workMode})});
     const j=await r.json();
     taskFinished=true;
     clearInterval(pollTimer);ty.remove();
@@ -5525,6 +5608,65 @@ async function runUpdate() {
         return json(500, { ok: false, error: "调用资源管理器失败:" + String(e && e.message || e) })
       }
       return json(200, { ok: true, path: full })
+    }
+    // ---------- 上传附件:聊天输入栏把文件发给 AI,落到工作区 uploads/ ----------
+    if (req.method === "POST" && url.pathname === "/api/upload") {
+      const body = await readBody(req)
+      let b = {}
+      try { b = JSON.parse(body) } catch {}
+      const json = (code, obj) => {
+        res.writeHead(code, { "content-type": "application/json; charset=utf-8" })
+        res.end(JSON.stringify(obj))
+      }
+      const rawName = String(b.name || "").trim()
+      const b64 = String(b.b64 || "")
+      // name/b64 缺失 → 400;请求体被全局 8MB 上限截断导致 JSON 解不开时也落在这里,文案要照顾这种情况
+      if (!rawName || !b64) return json(400, { ok: false, error: "缺少文件名或内容(name/b64);请求体不完整或为空文件也会报这个错" })
+      // 防穿越:先用**原始名**对 uploads 目录本身探测,带 ../ 或绝对路径的名字在这里直接拒——
+      // 不能让后面的 basename 把「../evil.txt」洗白成「evil.txt」混进来。(锚 uploads 而不是
+      // workspace:「../evil.txt」逃出 uploads 后仍落在 workspace 里,相对 workspace 判断不出来)
+      // resolve/relative/startsWith("..") 的模式照抄 /api/reveal;那边是「定位」回 403,这里是上传,按约定回 400
+      const ws = resolve(config.workspace)
+      const upProbe = join(ws, "uploads")
+      const probe = resolve(upProbe, rawName)
+      const relProbe = relative(upProbe, probe)
+      if (!relProbe || relProbe.startsWith("..") || isAbsolute(relProbe)) {
+        return json(400, { ok: false, error: "文件名不合法:不允许路径穿越" })
+      }
+      // 文件名清洗:只留文件名本身;Windows 保留字符(/ \ : * ? " < > | 及控制符)换成下划线
+      const clean = normalize(basename(rawName)).trim().replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
+      if (!clean || clean === "." || clean === "..") return json(400, { ok: false, error: "文件名不合法" })
+      const dot = clean.lastIndexOf(".")
+      const stem = dot > 0 ? clean.slice(0, dot) : clean
+      const ext = dot > 0 ? clean.slice(dot) : ""
+      // 时间戳 + 随机 8 位十六进制短前缀防撞:20261125-ab12cd34-原名.ext(保留原扩展名)
+      const now = new Date()
+      const stamp = now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0")
+      const rand = Math.floor(Math.random() * 0x100000000).toString(16).padStart(8, "0")
+      const newName = `${stamp}-${rand}-${stem}${ext}`
+      // base64 解码:Buffer.from 会静默跳过非法字符,先用正则卡住,再兜一层 try
+      const compact = b64.replace(/\s+/g, "")
+      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(compact)) {
+        return json(400, { ok: false, error: "文件内容不是合法的 base64" })
+      }
+      let buf
+      try { buf = Buffer.from(compact, "base64") } catch { return json(400, { ok: false, error: "文件内容解码失败" }) }
+      if (!buf.length) return json(400, { ok: false, error: "文件内容为空" })
+      // 单文件上限的真实边界:全局请求体上限 8MB(MAX_BODY_BYTES),base64 膨胀 1/3,
+      // 所以 ≥6MiB(6291456 字节)的文件编码后(8388608+信封)必先被全局门禁 413 拦下,
+      // 这个分支靠 HTTP 正常路径到不了——是防御纵深(前端按 6MB=6000000 字节预检,稳在边界内)
+      if (buf.length > 6 * 1024 * 1024) {
+        return json(400, { ok: false, error: "文件太大:单个附件最大 6MB" })
+      }
+      const upDir = join(ws, "uploads")
+      mkdirSync(upDir, { recursive: true })
+      const full = resolve(upDir, newName)
+      const rel = relative(ws, full)
+      if (!rel || rel.startsWith("..") || isAbsolute(rel)) {
+        return json(400, { ok: false, error: "文件名不合法:不允许路径穿越" })
+      }
+      writeFileSync(full, buf)
+      return json(200, { ok: true, path: "uploads/" + newName, name: newName })
     }
     if (req.method === "GET" && url.pathname === "/api/download") {
       const f = url.searchParams.get("f") || ""

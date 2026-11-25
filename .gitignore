@@ -23,3 +23,5 @@ market-corpus/neko-plugin-skill/
 market-corpus/reuse_before_build/
 # 旧版续跑标记已废弃:锁模式只看树哈希,任何 .done 都不该再进仓库
 market-corpus/**/.done
+# 聊天附件上传:用户文件,只属于本机工作区,不进仓库
+workspace/uploads/
