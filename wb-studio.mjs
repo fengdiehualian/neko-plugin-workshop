@@ -1777,12 +1777,12 @@ const PAGE = `<!doctype html>
   /* position:relative 给 #modelPop 当锚(绝对定位行下方右对齐);不挤 128px 滑杆:chip 用 margin-left:auto 顶到行尾 */
   #thinkrow{position:relative;display:flex;align-items:center;gap:8px;margin-top:8px;padding:0 2px}
   .thinklab{flex:0 0 auto;font-size:12.5px;color:var(--muted-2)}
-  /* 思考强度滑杆:定宽收紧(不再占满整行);双层动效——①底流:#thinkfill 内白色亮带缓流;②流星:#thinkbar 全轨划过的白头+拖尾,档位越高越快(均由 .flow+--flow-dur 驱动,auto/关 静止) */
+  /* 思考强度滑杆:定宽收紧(不再占满整行);双层动效——①底流:#thinkfill 内调色环式多彩渐变流动;②流星:#thinkbar 全轨划过的白头+拖尾,档位越高越快(均由 .flow+--flow-dur 驱动,auto/关 静止) */
   #thinkbar{position:relative;flex:0 0 128px;height:14px;display:flex;align-items:center}
   #thinkfill{position:absolute;left:0;top:3px;bottom:3px;width:0%;max-width:100%;border-radius:999px;background:var(--pink);overflow:hidden}
-  /* ①底流带:元素宽 200%(周期=50%元素宽=填充条宽),平移一个周期无缝循环;白色叠加在 var(--pink) 底上;速度=流星÷2.2(--flow-dur 由 JS 设在 #thinkbar) */
-  #thinkfill.flow::after{content:'';position:absolute;top:0;bottom:0;left:-50%;width:200%;background:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.28) 22%,rgba(255,255,255,0) 42%) 0 0/50% 100% repeat-x;animation:thinkbaseflow calc(var(--flow-dur,.9s)*2.2) linear infinite}
-  @keyframes thinkbaseflow{from{transform:translateX(0)}to{transform:translateX(50%)}}
+  /* ①调色环底流:px 周期(120px)四色渐变,首尾同色 → repeating 无缝衔接;暖冷交替(粉→蓝→橙→紫)前后对比鲜明;层左右各超出一个周期,平移恰好 120px 无缝循环;速度=流星÷2.2(--flow-dur 由 JS 设在 #thinkbar);静态底色仍是 var(--pink)(auto/关) */
+  #thinkfill.flow::after{content:'';position:absolute;top:0;bottom:0;left:-120px;right:-120px;background:repeating-linear-gradient(90deg,#ff5f9e 0px,#37b0ff 30px,#ff9d3d 60px,#9b5cff 90px,#ff5f9e 120px);animation:wheelroll calc(var(--flow-dur,.9s)*2.2) linear infinite}
+  @keyframes wheelroll{from{transform:translateX(0)}to{transform:translateX(120px)}}
   /* ②流星:#thinkmeteor 为覆盖整条轨道的裁剪层(overflow:hidden,不裁剪滑杆本身),::before=拖尾、::after=白头;默认停在轨道左端外(透明+屏外),随 .flow 兄弟选择器点亮 */
   #thinkmeteor{position:absolute;left:0;right:0;top:0;bottom:0;overflow:hidden;border-radius:999px;pointer-events:none}
   /* 拖尾为白色渐变:亮段在填充条(var(--pink))与深色背景上可读;浅色未填充轨道上流星轨迹由白头+光晕承载(设计意图) */
@@ -1792,8 +1792,7 @@ const PAGE = `<!doctype html>
   #thinkfill.flow~#thinkmeteor::before,#thinkfill.flow~#thinkmeteor::after{opacity:1;animation:thinkmeteor var(--flow-dur,.9s) linear infinite}
   /* 128=轨道定宽;首尾各留屏外停留(10%+15%)做呼吸感,行程 75% */
   @keyframes thinkmeteor{0%,10%{transform:translateX(-48px)}85%,100%{transform:translateX(128px)}}
-  /* black 主题 --pink=#e7e9ee 是浅色:白色亮带/拖尾叠浅填充上对比≈1.2:1 近乎隐形,改暗色叠加(强度与白叠粉≈1.3:1 持平) */
-  body.theme-black #thinkfill.flow::after{background-image:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.28) 22%,rgba(0,0,0,0) 42%)}
+  /* black 主题:调色环多彩饱和,深底上自然清晰,底流无需覆盖;流星拖尾白色渐变在深底仍可读,保留原暗色变体 */
   body.theme-black #thinkmeteor::before{background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.45))}
   @media (prefers-reduced-motion: reduce){
     #thinkfill.flow::after{animation:none}
