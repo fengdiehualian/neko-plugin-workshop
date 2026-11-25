@@ -1774,7 +1774,8 @@ const PAGE = `<!doctype html>
   .memtxt{flex:1;font-size:13px;color:var(--ink);line-height:1.55;word-break:break-word}
   .memdel{border:0;background:transparent;color:var(--pink-d);font-size:12px;cursor:pointer;padding:2px 6px;flex:0 0 auto}
   .memdel:hover{text-decoration:underline}
-  #thinkrow{display:flex;align-items:center;gap:8px;margin-top:8px;padding:0 2px}
+  /* position:relative 给 #modelPop 当锚(绝对定位行下方右对齐);不挤 128px 滑杆:chip 用 margin-left:auto 顶到行尾 */
+  #thinkrow{position:relative;display:flex;align-items:center;gap:8px;margin-top:8px;padding:0 2px}
   .thinklab{flex:0 0 auto;font-size:12.5px;color:var(--muted-2)}
   /* 思考强度滑杆:定宽收紧(不再占满整行);双层动效——①底流:#thinkfill 内白色亮带缓流;②流星:#thinkbar 全轨划过的白头+拖尾,档位越高越快(均由 .flow+--flow-dur 驱动,auto/关 静止) */
   #thinkbar{position:relative;flex:0 0 128px;height:14px;display:flex;align-items:center}
@@ -1804,6 +1805,23 @@ const PAGE = `<!doctype html>
   #thinkRange::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--card);border:3px solid var(--pink);cursor:pointer}
   #thinkRange:active::-webkit-slider-thumb{transform:scale(1.08)}
   #thinkVal{flex:0 0 46px;text-align:right;font-size:12.5px;font-weight:700;color:var(--pink-d)}
+  /* 快捷切换模型 chip(行尾,紧凑 ghost 风):平时显示当前模型 id,过长省略号截断(title 放全名) */
+  #modelChip{flex:0 1 auto;min-width:42px;max-width:110px;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 11px;border:1px solid var(--border);background:var(--card);color:var(--muted-2);border-radius:999px;font-size:12px;font-weight:700;font-family:inherit;line-height:1.4;cursor:pointer}
+  #modelChip:hover:not(:disabled){border-color:var(--pink);color:var(--pink-d);background:var(--tint)}
+  /* 模型菜单 popover:行下方右对齐,按 API 分组(组头=备注名+使用中标记),组内一行一个模型 */
+  #modelPop{display:none;position:absolute;top:calc(100% + 8px);right:0;z-index:60;min-width:230px;max-width:330px;max-height:320px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 30px var(--shadow);padding:6px}
+  #modelPop.open{display:block}
+  .mp-g{margin:2px 0 6px}
+  .mp-h{display:flex;align-items:center;gap:6px;padding:5px 8px 3px;font-size:11.5px;font-weight:700;color:var(--muted-2)}
+  .mp-h .mp-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mp-cur{flex:0 0 auto;font-size:10.5px;font-weight:700;color:var(--pink-d);background:var(--tint);border:1px solid var(--border);border-radius:999px;padding:1px 7px}
+  .mp-item{display:block;width:100%;text-align:left;padding:6px 10px;border:0;background:transparent;color:var(--ink);border-radius:8px;font-size:12.5px;font-family:inherit;font-weight:400;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mp-item:hover:not(:disabled){background:var(--tint);color:var(--pink-d)}
+  .mp-item.cur{background:var(--tint);color:var(--pink-d);font-weight:700}
+  .mp-item:disabled{opacity:.55;cursor:wait}
+  .mp-msg{padding:8px 10px;font-size:12px;line-height:1.55;color:var(--muted-2);word-break:break-word}
+  /* 错误色用 var(--pink-d):--err-ink 只在 :root 与 theme-black 定义,blue/white 主题下会回退成正文色 */
+  .mp-msg.bad{color:var(--pink-d)}
   form{display:flex;gap:10px;margin-top:14px}
   textarea{flex:1;resize:none;border:2px solid var(--border-soft);border-radius:14px;padding:12px 14px;font-size:15px;font-family:inherit;outline:none;height:74px;background:var(--card);color:var(--ink)}
   textarea:focus{border-color:var(--pink)}
@@ -2120,6 +2138,8 @@ const PAGE = `<!doctype html>
     <span class="thinklab">思考强度</span>
     <span id="thinkbar"><span id="thinkfill"></span><span id="thinkmeteor"></span><input id="thinkRange" type="range" min="0" max="5" step="1" value="0" aria-label="思考强度"></span>
     <span id="thinkVal">自动</span>
+    <button type="button" id="modelChip" title="点击切换模型" aria-haspopup="menu" aria-expanded="false"></button>
+    <div id="modelPop" role="menu" aria-label="切换模型"></div>
   </div>
   <div class="hint"><span id="tokbar"></span><span id="ctxbar"></span><span> · 回车发送,Shift+回车换行;完成后可下载 .neko-plugin 导入 N.E.K.O.</span></div>
   </main>
@@ -3145,6 +3165,125 @@ if(thinkRange){
       setTimeout(paintThink,1500);
     }
   });
+}
+// ---------- 快捷切换模型(thinkrow 行尾 chip):平时显示当前模型 id,点开弹按 API 分组的模型菜单 ----------
+const modelChip=document.getElementById('modelChip'),modelPop=document.getElementById('modelPop');
+let apiSnapshot=null;   // 最近一次 GET /api/apis 的结果(开 popover 时都会重拉)
+let modelBusy=false;    // 切换请求在途:锁住 chip 与菜单行,防连点双切
+function syncModelChip(j){
+  if(!modelChip)return;
+  const en=j&&Array.isArray(j.items)?j.items.find(function(x){return x.id===j.enabledId}):null;
+  if(!en){modelChip.textContent='未配置模型';modelChip.title='点击切换模型(还没启用任何 API)';return}
+  modelChip.textContent=en.modelID||'';
+  modelChip.title=(en.name?en.name+' · ':'')+(en.modelID||'')+'(点击切换模型)';
+}
+async function fetchApiSnapshot(){
+  try{
+    const j=await(await fetch('/api/apis')).json();
+    if(j&&Array.isArray(j.items)){apiSnapshot=j;syncModelChip(j);return j}
+  }catch(e){}
+  return null;
+}
+let modelFlashTimer=null; // flash 提示的自动关闭定时器:重开/关闭菜单前先撤销,防止到点把正在浏览的菜单关掉
+function closeModelPop(){
+  if(!modelPop)return;
+  if(modelFlashTimer){clearTimeout(modelFlashTimer);modelFlashTimer=null}
+  modelPop.classList.remove('open');
+  if(modelChip)modelChip.setAttribute('aria-expanded','false');
+}
+function popMsg(text,bad){
+  if(!modelPop)return;
+  const old=modelPop.querySelector('.mp-msg');
+  if(old)old.remove();
+  const d=document.createElement('div');
+  d.className='mp-msg'+(bad?' bad':'');
+  d.textContent=String(text||'');
+  modelPop.insertBefore(d,modelPop.firstChild);
+}
+function renderModelPop(j){
+  if(!modelPop)return;
+  modelPop.innerHTML='';
+  if(!j){popMsg('模型列表加载失败,稍后再试',true);return}
+  if(!j.items.length){popMsg('还没有配置 API:到 设置 → 模型服务 里添加一套,再回来快捷切换');return}
+  for(const a of j.items){
+    const g=document.createElement('div');g.className='mp-g';
+    const h=document.createElement('div');h.className='mp-h';
+    const hn=document.createElement('span');hn.className='mp-name';hn.textContent=a.name||a.modelID;hn.title=a.name||a.modelID;
+    h.appendChild(hn);
+    if(a.id===j.enabledId){
+      const c=document.createElement('span');c.className='mp-cur';c.textContent='使用中';
+      h.appendChild(c);
+    }
+    g.appendChild(h);
+    const models=Array.isArray(a.models)&&a.models.length?a.models:[a.modelID];
+    for(const m of models){
+      const it=document.createElement('button');
+      it.type='button';it.className='mp-item'+(a.id===j.enabledId&&m===a.modelID?' cur':'');
+      it.textContent=m;it.title=m;
+      it.onclick=async()=>{await switchModel(a.id,m)};
+      g.appendChild(it);
+    }
+    modelPop.appendChild(g);
+  }
+  const curRow=modelPop.querySelector('.mp-item.cur');
+  if(curRow)curRow.scrollIntoView({block:'nearest'});
+}
+async function openModelPop(){
+  if(!modelPop||modelChip.disabled)return;
+  if(modelFlashTimer){clearTimeout(modelFlashTimer);modelFlashTimer=null}
+  modelPop.classList.add('open');
+  modelChip.setAttribute('aria-expanded','true');
+  popMsg('加载中…');
+  renderModelPop(await fetchApiSnapshot());
+}
+async function switchModel(apiId,model){
+  if(modelBusy)return;
+  modelBusy=true;
+  if(modelChip){modelChip.disabled=true;modelChip.textContent='⏳';}
+  if(modelPop)modelPop.querySelectorAll('.mp-item').forEach(function(x){x.disabled=true});
+  try{
+    const r=await fetch('/api/model/switch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({apiId:apiId,model:model})});
+    const j=await r.json();
+    if(j&&j.ok){
+      await fetchApiSnapshot();            // 重拉:chip 文本/当前模型高亮都取最新
+      await loadCtxLimit();                // 跨 API 的单独上下文窗口不同,上下文环刻度也要跟着换(loadCtxLimit 注释:切 API 也走这里)
+      closeModelPop();
+      if(j.warning)flashModelMsg(j.warning);
+    }else{
+      popMsg(j&&j.error?j.error:'切换失败',true);   // 失败:popover 不关,错误就地展示
+      syncModelChip(apiSnapshot);
+    }
+  }catch(e){
+    popMsg('连接出错:'+(e&&e.message?e.message:e),true);
+    syncModelChip(apiSnapshot);
+  }
+  if(modelPop)modelPop.querySelectorAll('.mp-item').forEach(function(x){x.disabled=false});
+  if(modelChip)modelChip.disabled=false;
+  modelBusy=false;
+}
+function flashModelMsg(text){
+  if(!modelPop)return;
+  if(modelFlashTimer){clearTimeout(modelFlashTimer);modelFlashTimer=null}
+  modelPop.innerHTML='';
+  popMsg(text);
+  modelPop.classList.add('open');
+  modelFlashTimer=setTimeout(closeModelPop,2600);
+}
+if(modelChip&&modelPop){
+  modelChip.onclick=()=>{
+    if(modelPop.classList.contains('open'))closeModelPop();
+    else openModelPop();
+  };
+  // popover 外点击 / ESC 关闭
+  document.addEventListener('pointerdown',function(e){
+    if(!modelPop.classList.contains('open'))return;
+    if(modelPop.contains(e.target)||modelChip.contains(e.target))return;
+    closeModelPop();
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape')closeModelPop();
+  });
+  fetchApiSnapshot();
 }
 // 手动压缩当前会话(左下角,和「查看已归档」同位;平时靠自动压缩,这里只是兜底)
 const compactSideBtn=document.getElementById('compactSide');
@@ -5057,6 +5196,56 @@ async function runUpdate() {
       saveUserSettings()
       console.log("[wb-studio] 专家调用来源:" + b.member + " → " + (api.name || apiId) + " · " + model)
       return json(200, await expertsSnapshot())
+    }
+    // ---------- 快捷切换模型(思考行右侧 chip):不进设置面板,点选即换 ----------
+    // 校验照 /api/experts/model 的口径:apiId 必须在 items 里,model 必须属于该 item 的 models[]。
+    // 引擎重启语义镜像既有路由:
+    //   · 跨 API(apiId ≠ enabledId)= POST /api/apis/:id(启用路由,4317-4328 那几行照抄):
+    //     先 12s 连接测试,401/403(密钥确定错误)硬拦——密钥吊销/从未连通过的套件(保存时 enable:false
+    //     不测、编辑非启用项也不测)不能一键切成使用中;软失败(超时/限流/5xx)放行并附警告。
+    //     切 enabledId + saveApis + applyEnabledApi + restartEngineBackground,warning 带「引擎重启中」;
+    //   · 同 API 只换模型 = /api/think POST 的同款情形(不换钥匙/地址,只改 provider 配置里的一项):
+    //     只写回引擎配置并标记 engineConfigStale,引擎在下次任务前自动带新配置重启(/api/think 的既有语义),
+    //     不立刻重启——正跑的任务不受打扰;也不做连接测试(钥匙/地址没变,所选模型在不在服务商侧
+    //     由任务时的报错兜底,页面 errHint 对 model_not_found 有人话解释)。
+    if (url.pathname === "/api/model/switch") {
+      const json = (code, obj) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)) }
+      if (req.method !== "POST") return json(405, { ok: false, error: "只支持 POST" })
+      const body = await readBody(req)
+      let b = {}
+      try { b = JSON.parse(body) } catch {}
+      const apiId = String(b.apiId || "").trim()
+      const model = String(b.model || "").trim()
+      const a = (apis.items || []).find((x) => x.id === apiId)
+      if (!a) return json(400, { ok: false, error: "没有这套 API" })
+      const known = (Array.isArray(a.models) && a.models.length ? a.models : [a.modelID]).filter(Boolean)
+      if (!model || !known.includes(model)) return json(400, { ok: false, error: "该 API 没有这个模型:" + model })
+      // 幂等:切的本来就是"使用中"的那一行 → 直接应答,不落盘/不重写引擎配置/不触发重启
+      if (apis.enabledId === a.id && a.modelID === model) {
+        return json(200, { ok: true, model, apiName: a.name || a.modelID, warning: "" })
+      }
+      const crossApi = apis.enabledId !== a.id
+      let crossWarning = ""
+      if (crossApi) {
+        const test = await testProvider({ baseURL: a.baseURL, apiKey: a.apiKey, modelID: model, protocol: a.protocol }, 12_000)
+        if (isHardTestFail(test)) {
+          return json(400, { ok: false, error: `这套配置当前不可用:${test.error}(未切换,继续用原来的)` })
+        }
+        crossWarning = softWarning(test)
+      }
+      a.modelID = model
+      if (crossApi) apis.enabledId = a.id
+      saveApis()
+      applyEnabledApi()
+      let warning = "已切换模型,引擎下次任务前自动应用"
+      if (crossApi) {
+        restartEngineBackground()
+        warning = (crossWarning ? crossWarning + ";" : "") + "引擎重启中,新模型稍后生效"
+      } else {
+        engineConfigStale = true
+      }
+      console.log("[wb-studio] 快捷切换模型:" + (a.name || a.id) + " · " + model + (crossApi ? "(跨 API,引擎重启中)" : "(同 API)"))
+      return json(200, { ok: true, model, apiName: a.name || a.modelID, warning })
     }
     // ---------- 思考强度(auto/none/low/medium/high/xhigh;落在 settings.json) ----------
     if (url.pathname === "/api/think") {
