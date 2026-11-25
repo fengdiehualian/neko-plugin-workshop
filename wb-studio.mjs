@@ -1776,14 +1776,30 @@ const PAGE = `<!doctype html>
   .memdel:hover{text-decoration:underline}
   #thinkrow{display:flex;align-items:center;gap:8px;margin-top:8px;padding:0 2px}
   .thinklab{flex:0 0 auto;font-size:12.5px;color:var(--muted-2)}
-  /* 思考强度滑杆:定宽收紧(不再占满整行);填充条独立成层,思考开启时有流光,档位越高流得越快 */
+  /* 思考强度滑杆:定宽收紧(不再占满整行);双层动效——①底流:#thinkfill 内白色亮带缓流;②流星:#thinkbar 全轨划过的白头+拖尾,档位越高越快(均由 .flow+--flow-dur 驱动,auto/关 静止) */
   #thinkbar{position:relative;flex:0 0 128px;height:14px;display:flex;align-items:center}
   #thinkfill{position:absolute;left:0;top:3px;bottom:3px;width:0%;max-width:100%;border-radius:999px;background:var(--pink);overflow:hidden}
-  #thinkfill.flow::after{content:'';position:absolute;top:0;bottom:0;left:-24px;right:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 6px,rgba(255,255,255,0) 6px 14px);animation:thinkflow var(--flow-dur,.9s) linear infinite}
-  @keyframes thinkflow{from{transform:translateX(0)}to{transform:translateX(19.8px)}}
-  @media (prefers-reduced-motion: reduce){#thinkfill.flow::after{animation:none}}
+  /* ①底流带:元素宽 200%(周期=50%元素宽=填充条宽),平移一个周期无缝循环;白色叠加在 var(--pink) 底上;速度=流星÷2.2(--flow-dur 由 JS 设在 #thinkbar) */
+  #thinkfill.flow::after{content:'';position:absolute;top:0;bottom:0;left:-50%;width:200%;background:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.28) 22%,rgba(255,255,255,0) 42%) 0 0/50% 100% repeat-x;animation:thinkbaseflow calc(var(--flow-dur,.9s)*2.2) linear infinite}
+  @keyframes thinkbaseflow{from{transform:translateX(0)}to{transform:translateX(50%)}}
+  /* ②流星:#thinkmeteor 为覆盖整条轨道的裁剪层(overflow:hidden,不裁剪滑杆本身),::before=拖尾、::after=白头;默认停在轨道左端外(透明+屏外),随 .flow 兄弟选择器点亮 */
+  #thinkmeteor{position:absolute;left:0;right:0;top:0;bottom:0;overflow:hidden;border-radius:999px;pointer-events:none}
+  /* 拖尾为白色渐变:亮段在填充条(var(--pink))与深色背景上可读;浅色未填充轨道上流星轨迹由白头+光晕承载(设计意图) */
+  #thinkmeteor::before{content:'';position:absolute;left:0;top:5px;width:44px;height:4px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.55));opacity:0;transform:translateX(-48px)}
+  /* 白头带 var(--bg) 描边:轨道底色就是 --bg(main 透明、body 铺 --bg),环在填充条上形成对比边、在未填充轨道上与底色相融不突兀——浅色填充(black 主题 --pink=#e7e9ee)上白头靠它立得住 */
+  #thinkmeteor::after{content:'';position:absolute;left:38px;top:4px;width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px var(--bg),0 0 6px 1px var(--pink);opacity:0;transform:translateX(-48px)}
+  #thinkfill.flow~#thinkmeteor::before,#thinkfill.flow~#thinkmeteor::after{opacity:1;animation:thinkmeteor var(--flow-dur,.9s) linear infinite}
+  /* 128=轨道定宽;首尾各留屏外停留(10%+15%)做呼吸感,行程 75% */
+  @keyframes thinkmeteor{0%,10%{transform:translateX(-48px)}85%,100%{transform:translateX(128px)}}
+  /* black 主题 --pink=#e7e9ee 是浅色:白色亮带/拖尾叠浅填充上对比≈1.2:1 近乎隐形,改暗色叠加(强度与白叠粉≈1.3:1 持平) */
+  body.theme-black #thinkfill.flow::after{background-image:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.28) 22%,rgba(0,0,0,0) 42%)}
+  body.theme-black #thinkmeteor::before{background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.45))}
+  @media (prefers-reduced-motion: reduce){
+    #thinkfill.flow::after{animation:none}
+    #thinkfill.flow~#thinkmeteor::before,#thinkfill.flow~#thinkmeteor::after{animation:none}
+  }
   #thinkRange{position:relative;z-index:1;width:100%;height:14px;margin:0;-webkit-appearance:none;appearance:none;background:transparent;outline:none;cursor:pointer}
-  #thinkRange::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--card);border:3px solid var(--pink);box-shadow:0 1px 4px rgba(226,81,127,.35);cursor:pointer}
+  #thinkRange::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--card);border:3px solid var(--pink);box-shadow:0 1px 4px var(--shadow);cursor:pointer}
   #thinkRange::-moz-range-track{background:transparent}
   #thinkRange::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--card);border:3px solid var(--pink);cursor:pointer}
   #thinkRange:active::-webkit-slider-thumb{transform:scale(1.08)}
@@ -2102,7 +2118,7 @@ const PAGE = `<!doctype html>
   <input type="file" id="attachFile" multiple style="display:none">
   <div id="thinkrow" title="思考强度:档位越高想得越久、越费 token;自动=交给模型自己决定">
     <span class="thinklab">思考强度</span>
-    <span id="thinkbar"><span id="thinkfill"></span><input id="thinkRange" type="range" min="0" max="5" step="1" value="0" aria-label="思考强度"></span>
+    <span id="thinkbar"><span id="thinkfill"></span><span id="thinkmeteor"></span><input id="thinkRange" type="range" min="0" max="5" step="1" value="0" aria-label="思考强度"></span>
     <span id="thinkVal">自动</span>
   </div>
   <div class="hint"><span id="tokbar"></span><span id="ctxbar"></span><span> · 回车发送,Shift+回车换行;完成后可下载 .neko-plugin 导入 N.E.K.O.</span></div>
@@ -2163,14 +2179,14 @@ async function loadCtxLimit(){
 }
 // ---------- 错误解释:识别状态码/关键字,给出最可能的原因,原文折叠保留 ----------
 const ERR_HINTS=[
-  [/\b404\b|not found|model_not_found|model .* not found/i,'接口或模型不存在:检查模型名拼写、地址是否要带 /v1、服务商是否已下架该模型'],
-  [/\b409\b|conflict/i,'资源冲突:通常是重复创建或并发写入(同一会话被另一个窗口同时改),刷新后重试'],
-  [/\b400\b|bad request|invalid_request_error|invalid_request/i,'请求参数不合法:模型名、上下文长度或消息格式不符合服务商要求'],
-  [/\b401\b|unauthorized|invalid.*api.?key|incorrect api key/i,'密钥无效或过期:到设置里重新粘贴 Key'],
-  [/\b403\b|forbidden|permission|not available in the current token plan/i,'没权限或套餐不含该模型:换套餐内的模型,或去服务商申请权限'],
-  [/\b413\b|payload too large|请求体过大/i,'请求体太大:单次输入过长,拆成几段再发'],
-  [/\b429\b|rate.?limit|quota|tpm|rpm/i,'限流或额度不足:等几分钟再试,或换一个 API/模型'],
-  [/\b50[024]\b|internal server error|bad gateway|service unavailable|gateway timeout/i,'服务端异常:对方服务的问题,稍后重试或换 API'],
+  [/\\b404\\b|not found|model_not_found|model .* not found/i,'接口或模型不存在:检查模型名拼写、地址是否要带 /v1、服务商是否已下架该模型'],
+  [/\\b409\\b|conflict/i,'资源冲突:通常是重复创建或并发写入(同一会话被另一个窗口同时改),刷新后重试'],
+  [/\\b400\\b|bad request|invalid_request_error|invalid_request/i,'请求参数不合法:模型名、上下文长度或消息格式不符合服务商要求'],
+  [/\\b401\\b|unauthorized|invalid.*api.?key|incorrect api key/i,'密钥无效或过期:到设置里重新粘贴 Key'],
+  [/\\b403\\b|forbidden|permission|not available in the current token plan/i,'没权限或套餐不含该模型:换套餐内的模型,或去服务商申请权限'],
+  [/\\b413\\b|payload too large|请求体过大/i,'请求体太大:单次输入过长,拆成几段再发'],
+  [/\\b429\\b|rate.?limit|quota|tpm|rpm/i,'限流或额度不足:等几分钟再试,或换一个 API/模型'],
+  [/\\b50[024]\\b|internal server error|bad gateway|service unavailable|gateway timeout/i,'服务端异常:对方服务的问题,稍后重试或换 API'],
   [/ECONNREFUSED|Unable to connect|fetch failed/i,'连不上服务:本地引擎没起来或端口没监听,重启一下工坊'],
   [/ETIMEDOUT|timed? ?out|超时/i,'超时:网络慢或模型长时间没响应,重试或换个模型'],
   [/ENOENT|no such file/i,'找不到文件或命令:检查路径是否正确、程序是否装上'],
@@ -3096,10 +3112,11 @@ thinkVal.style.color=thinkCur===0?'var(--muted-2)':'var(--pink-d)';
 const pct=thinkCur/5*100;
 if(fill){
   fill.style.width=pct+'%';
-  // 思考开启(低/中/高/最高)才有流光;档位越高流得越快(自动/关静止)
+  // 思考开启(低/中/高/最高)底流与流星才动;档位越高越快(自动/关静止)。--flow-dur 挂在 #thinkbar:底流带(#thinkfill 后代)与流星层(#thinkmeteor 后代)都能继承
   const on=thinkCur>=2;
   fill.classList.toggle('flow',on);
-  if(on)fill.style.setProperty('--flow-dur',([0,0,'1.3s','0.9s','0.6s','0.4s'][thinkCur]||'0.9s'));
+  const bar=document.getElementById('thinkbar');
+  if(on&&bar)bar.style.setProperty('--flow-dur',([0,0,'1.3s','0.9s','0.6s','0.4s'][thinkCur]||'0.9s'));
 }
 }
 async function loadThink(){
