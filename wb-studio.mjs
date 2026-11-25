@@ -1774,11 +1774,18 @@ const PAGE = `<!doctype html>
   .memtxt{flex:1;font-size:13px;color:var(--ink);line-height:1.55;word-break:break-word}
   .memdel{border:0;background:transparent;color:var(--pink-d);font-size:12px;cursor:pointer;padding:2px 6px;flex:0 0 auto}
   .memdel:hover{text-decoration:underline}
-  #thinkrow{display:flex;align-items:center;gap:10px;margin-top:9px;padding:0 2px}
+  #thinkrow{display:flex;align-items:center;gap:8px;margin-top:8px;padding:0 2px}
   .thinklab{flex:0 0 auto;font-size:12.5px;color:var(--muted-2)}
-  #thinkRange{flex:1 1 auto;min-width:120px;-webkit-appearance:none;appearance:none;height:8px;border-radius:999px;background:linear-gradient(90deg,var(--tint),var(--pink));outline:none;cursor:pointer}
-  #thinkRange::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--card);border:3px solid var(--pink);box-shadow:0 1px 4px rgba(226,81,127,.35);cursor:pointer}
-  #thinkRange::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--card);border:3px solid var(--pink);cursor:pointer}
+  /* 思考强度滑杆:定宽收紧(不再占满整行);填充条独立成层,思考开启时有流光,档位越高流得越快 */
+  #thinkbar{position:relative;flex:0 0 128px;height:14px;display:flex;align-items:center}
+  #thinkfill{position:absolute;left:0;top:3px;bottom:3px;width:0%;max-width:100%;border-radius:999px;background:var(--pink);overflow:hidden}
+  #thinkfill.flow::after{content:'';position:absolute;top:0;bottom:0;left:-24px;right:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 6px,rgba(255,255,255,0) 6px 14px);animation:thinkflow var(--flow-dur,.9s) linear infinite}
+  @keyframes thinkflow{from{transform:translateX(0)}to{transform:translateX(19.8px)}}
+  @media (prefers-reduced-motion: reduce){#thinkfill.flow::after{animation:none}}
+  #thinkRange{position:relative;z-index:1;width:100%;height:14px;margin:0;-webkit-appearance:none;appearance:none;background:transparent;outline:none;cursor:pointer}
+  #thinkRange::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--card);border:3px solid var(--pink);box-shadow:0 1px 4px rgba(226,81,127,.35);cursor:pointer}
+  #thinkRange::-moz-range-track{background:transparent}
+  #thinkRange::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--card);border:3px solid var(--pink);cursor:pointer}
   #thinkRange:active::-webkit-slider-thumb{transform:scale(1.08)}
   #thinkVal{flex:0 0 46px;text-align:right;font-size:12.5px;font-weight:700;color:var(--pink-d)}
   form{display:flex;gap:10px;margin-top:14px}
@@ -2085,7 +2092,7 @@ const PAGE = `<!doctype html>
   <form id="f"><textarea id="t" placeholder="说出你的愿望,比如:每天早上 8 点提醒我喝水…" required></textarea><button id="b">开工!</button></form>
   <div id="thinkrow" title="思考强度:档位越高想得越久、越费 token;自动=交给模型自己决定">
     <span class="thinklab">思考强度</span>
-    <input id="thinkRange" type="range" min="0" max="5" step="1" value="0" aria-label="思考强度">
+    <span id="thinkbar"><span id="thinkfill"></span><input id="thinkRange" type="range" min="0" max="5" step="1" value="0" aria-label="思考强度"></span>
     <span id="thinkVal">自动</span>
   </div>
   <div class="hint"><span id="tokbar"></span><span id="ctxbar"></span><span> · 回车发送,Shift+回车换行;完成后可下载 .neko-plugin 导入 N.E.K.O.</span></div>
@@ -2999,11 +3006,18 @@ const THINK_LABELS=['自动','关','低','中','高','最高'];
 const thinkRange=document.getElementById('thinkRange'),thinkVal=document.getElementById('thinkVal');
 let thinkCur=0;
 function paintThink(){
-  if(!thinkRange||!thinkVal)return;
-  thinkVal.textContent=THINK_LABELS[thinkCur]||'自动';
-  thinkVal.style.color=thinkCur===0?'var(--muted-2)':'var(--pink-d)';
-  const pct=thinkCur/5*100;
-  thinkRange.style.background='linear-gradient(90deg,var(--pink) 0%,var(--pink) '+pct+'%,var(--border-soft) '+pct+'%,var(--border-soft) 100%)';
+if(!thinkRange||!thinkVal)return;
+const fill=document.getElementById('thinkfill');
+thinkVal.textContent=THINK_LABELS[thinkCur]||'自动';
+thinkVal.style.color=thinkCur===0?'var(--muted-2)':'var(--pink-d)';
+const pct=thinkCur/5*100;
+if(fill){
+  fill.style.width=pct+'%';
+  // 思考开启(低/中/高/最高)才有流光;档位越高流得越快(自动/关静止)
+  const on=thinkCur>=2;
+  fill.classList.toggle('flow',on);
+  if(on)fill.style.setProperty('--flow-dur',([0,0,'1.3s','0.9s','0.6s','0.4s'][thinkCur]||'0.9s'));
+}
 }
 async function loadThink(){
   try{
