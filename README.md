@@ -117,12 +117,6 @@ powershell -File workbench/make-exe.ps1 -Stage "<便携包目录>" -Out setup.ex
 
 MIT
 
-## 贡献者
-
-- **[fengdiehualian](https://github.com/fengdiehualian)** — 项目作者 / Owner,产品设计与开发主持
-
-> 本项目在开发过程中由 AI 编程助手辅助完成工程实现,方向与决策由作者主导。
-
 ## 任意 Agent 底座(本实例新增)
 
 工坊的大脑不再绑定 opencode 引擎,三种方式按需选:
