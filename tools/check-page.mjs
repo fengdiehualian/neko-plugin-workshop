@@ -1097,6 +1097,152 @@ ${AP_PROBE_SRC}
       ? pass('侧边栏「删除」→ DELETE') : fail('侧边栏「删除」', '没发出 DELETE');
   } else fail('侧边栏「删除」', '没找到 .del 按钮');
 
+  // 21.5) 会话搜索框:输入即过滤(范围含已归档)、归档命中带徽标+「取消归档」按钮、
+  // 点归档命中行直接加载、Esc 清空恢复、搜索中点「查看已归档」清空搜索并切视图
+  {
+    const inp = $('#sessSearch');
+    if (!inp) {
+      fail('侧边栏会话搜索框', '找不到 #sessSearch');
+    } else {
+      const sessRows = () => $$('#slist .sitem');
+      const txt = (r) => (r.querySelector('.t') || { textContent: '' }).textContent;
+      // 现场归位:上一用例可能停在归档视图(否则普通视图里看不到未归档造数)
+      if ($('#archbtn').classList.contains('on')) { $('#archbtn').click(); await sleep(500); }
+      // 造数:标题带唯一关键词,一个归档、一个未归档;测完删除还原
+      const mkS = async (title, archived) => {
+        const j = await (await fetch('/api/sessions', { method: 'POST' })).json();
+        await fetch('/api/sessions/' + j.current + '/rename', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title }) });
+        if (archived) await fetch('/api/sessions/' + j.current + '/archive', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: true }) });
+        return j.current;
+      };
+      const kw = '搜索回归' + Date.now().toString(36);
+      const tA = kw + '甲归档', tB = kw + '乙未归档';
+      const idA = await mkS(tA, true);
+      const idB = await mkS(tB, false);
+      // 聚焦刷新缓存:无头环境 document 没有系统焦点时 element.focus() 只改 activeElement
+      // 不派发 focus 事件(实测),真实浏览器点进输入框会派发——手动补一次模拟真实点击聚焦
+      inp.focus(); inp.dispatchEvent(new Event('focus'));
+      await wbWait(() => titles().some((x) => x.indexOf(kw) >= 0), 4000);
+
+      // 输入即过滤:只显示命中行(含已归档)
+      inp.value = kw;
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      await sleep(200);
+      const hits = sessRows().filter((r) => txt(r).indexOf(kw) >= 0);
+      const onlyHits = sessRows().length > 0 && sessRows().every((r) => txt(r).indexOf(kw) >= 0);
+      hits.length === 2 && onlyHits
+        ? pass('搜索框 输入即过滤(含已归档)', '命中 ' + hits.length + ' 行') : fail('搜索框 输入即过滤(含已归档)', '命中=' + hits.length + ' 行数=' + sessRows().length);
+
+      // 归档命中行:带「已归档」徽标 + 按归档行给按钮(📤 取消归档,无 📥 归档)
+      const rowA = hits.find((r) => txt(r) === tA);
+      const rowB = hits.find((r) => txt(r) === tB);
+      const stag = rowA && rowA.querySelector('.stag');
+      (rowA && stag && stag.textContent === '已归档' && rowB && !rowB.querySelector('.stag'))
+        ? pass('搜索框 归档命中行带「已归档」徽标') : fail('搜索框 归档命中行带「已归档」徽标', 'stag=' + (stag && stag.textContent) + ' rowA=' + !!rowA + ' rowB=' + !!rowB);
+      (rowA && rowA.querySelector('.un') && !rowA.querySelector('.arc') && rowB && rowB.querySelector('.arc') && !rowB.querySelector('.un'))
+        ? pass('搜索框 命中行按钮随归档状态') : fail('搜索框 命中行按钮随归档状态', 'A:un=' + !!(rowA && rowA.querySelector('.un')) + ' arc=' + !!(rowA && rowA.querySelector('.arc')));
+
+      // 点归档命中行 → 直接加载该会话(照归档视图点行为,无需切视图)
+      if (rowA) {
+        rowA.click(); await sleep(900);
+        const jNow = await (await fetch('/api/sessions')).json();
+        jNow.current === idA
+          ? pass('搜索框 点归档命中行 → 加载该会话') : fail('搜索框 点归档命中行 → 加载该会话', 'current=' + jNow.current + ' 期望 ' + idA);
+      } else fail('搜索框 点归档命中行 → 加载该会话', '找不到归档命中行');
+
+      // Esc 清空:恢复未归档视图原列表
+      inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await sleep(200);
+      (inp.value === '' && titles().some((x) => x === tB) && !titles().some((x) => x === tA))
+        ? pass('搜索框 Esc 清空恢复原列表') : fail('搜索框 Esc 清空恢复原列表', 'value=' + JSON.stringify(inp.value) + ' 有乙=' + titles().some((x) => x === tB) + ' 有甲=' + titles().some((x) => x === tA));
+
+      // 搜索中点「查看已归档」:应清空搜索并切到归档视图(否则列表恒走过滤分支,按钮像失灵)
+      inp.value = kw;
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      await sleep(150);
+      $('#archbtn').click(); await sleep(600);
+      (inp.value === '' && $('#archbtn').classList.contains('on') && titles().some((x) => x === tA) && !titles().some((x) => x === tB))
+        ? pass('搜索框 搜索中点「查看已归档」清空并切视图') : fail('搜索框 搜索中点「查看已归档」清空并切视图', 'value=' + JSON.stringify(inp.value) + ' on=' + $('#archbtn').classList.contains('on') + ' 有甲=' + titles().some((x) => x === tA) + ' 有乙=' + titles().some((x) => x === tB));
+      // 现场还原:切回普通视图,删掉造数会话
+      if ($('#archbtn').classList.contains('on')) { $('#archbtn').click(); await sleep(500); }
+      await fetch('/api/sessions/' + idA, { method: 'DELETE' });
+      await fetch('/api/sessions/' + idB, { method: 'DELETE' });
+      const left = await waitFor(async () => !(await sess()).some((s) => s.id === idA || s.id === idB));
+      left ? pass('搜索框用例清理造数会话') : fail('搜索框用例清理造数会话', '仍有残留');
+    }
+  }
+
+  // 21.6) 思考强度滑杆(v1.2.75 绿→青→蓝改版):真实计算样式 + 档位状态机(填宽/.flow/变速/auto·关静止/拖动即存)
+  // CSS 字面量钉在 wb-studio-surface 快照里;这里看浏览器真实渲染与 paintThink 行为,顺带测 /api/think 往返
+  {
+    const bar = $('#thinkbar'), fill = $('#thinkfill'), range = $('#thinkRange'), val = $('#thinkVal');
+    if (!bar || !fill || !range || !val) {
+      fail('思考强度滑杆', '缺件 bar=' + !!bar + ' fill=' + !!fill + ' range=' + !!range + ' val=' + !!val);
+    } else {
+      const LV = ['auto', 'none', 'low', 'medium', 'high', 'xhigh'];
+      const LB = ['自动', '关', '低', '中', '高', '最高'];
+      const saved = (((await (await fetch('/api/think')).json()) || {}).level) || 'auto'; // 测完还原
+      // 系统开了「减少动态效果」时动画全停是预期行为:跳过动画断言(状态机/样式照测),别误报
+      const rm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const setLevel = async (i) => {
+        range.value = String(i);
+        fire(range, 'input');
+        fire(range, 'change'); // change 走真实 POST /api/think 落库
+        await sleep(700);
+      };
+      // 结构:胶囊轨道凹槽 + 渐变填充锚 128px + 交互不被流星层挡
+      const trackCs = getComputedStyle(bar, '::before');
+      (trackCs.borderRadius === '999px' && trackCs.backgroundColor !== 'rgba(0, 0, 0, 0)')
+        ? pass('思考强度 胶囊轨道渲染') : fail('思考强度 胶囊轨道渲染', 'radius=' + trackCs.borderRadius + ' bg=' + trackCs.backgroundColor);
+      const csF = getComputedStyle(fill);
+      (String(csF.backgroundSize).indexOf('128px') === 0 && String(csF.backgroundImage).indexOf('linear-gradient') === 0)
+        ? pass('思考强度 填充为渐变且锚定 128px') : fail('思考强度 填充为渐变且锚定 128px', 'size=' + csF.backgroundSize + ' img=' + String(csF.backgroundImage).slice(0, 48));
+      (getComputedStyle($('#thinkmeteor')).pointerEvents === 'none' && getComputedStyle(range).zIndex === '1')
+        ? pass('思考强度 流星层不挡滑杆交互') : fail('思考强度 流星层不挡滑杆交互', 'pe=' + getComputedStyle($('#thinkmeteor')).pointerEvents + ' z=' + getComputedStyle(range).zIndex);
+      // 状态机:逐档断言 填宽/标签/.flow/--flow-dur/两层动画(低/中/高/最高开,自动/关全静止)
+      const anim = () => ({
+        flowOn: fill.classList.contains('flow'),
+        dur: bar.style.getPropertyValue('--flow-dur'),
+        wheel: getComputedStyle(fill, '::after').animationName,
+        meteor: getComputedStyle($('#thinkmeteor'), '::after').animationName,
+        meteorDur: getComputedStyle($('#thinkmeteor'), '::after').animationDuration,
+      });
+      const cases = [
+        { i: 0, w: '0%', d: '' }, { i: 1, w: '20%', d: '' },
+        { i: 2, w: '40%', d: '1.3s' }, { i: 3, w: '60%', d: '0.9s' }, { i: 4, w: '80%', d: '0.6s' }, { i: 5, w: '100%', d: '0.4s' },
+      ];
+      let bad = '';
+      for (const c of cases) {
+        await setLevel(c.i);
+        const a = anim();
+        const on = c.i >= 2;
+        if (fill.style.width !== c.w) bad += '档' + c.i + '宽=' + fill.style.width + ';';
+        if ((val.textContent || '').trim() !== LB[c.i]) bad += '档' + c.i + '标签=' + val.textContent + ';';
+        if (a.flowOn !== on) bad += '档' + c.i + 'flow=' + a.flowOn + ';';
+        if (a.dur !== c.d) bad += '档' + c.i + 'dur=' + a.dur + ';';
+        if (!rm) {
+          if (a.wheel !== (on ? 'wheelroll' : 'none')) bad += '档' + c.i + '底流=' + a.wheel + ';';
+          if (a.meteor !== (on ? 'thinkmeteor' : 'none')) bad += '档' + c.i + '流星=' + a.meteor + ';';
+          if (on && a.meteorDur !== c.d) bad += '档' + c.i + '流星速=' + a.meteorDur + ';';
+        }
+      }
+      bad ? fail('思考强度 档位状态机(填宽/flow/变速/静止)', bad) : pass('思考强度 档位状态机(填宽/flow/变速/静止)', rm ? '6 档全对(动画断言因系统开 reduced-motion 跳过)' : '6 档全对');
+      // 拖动即存:change 发出的 POST 落库,GET 读回一致;再还原原档
+      const lvNow = ((await (await fetch('/api/think')).json()) || {}).level;
+      const posts = calls().filter((c) => c.url.includes('/api/think') && c.method === 'POST');
+      const lastBody = posts.length ? (JSON.parse(posts[posts.length - 1].body) || {}).level : null;
+      (lvNow === 'xhigh' && lastBody === 'xhigh')
+        ? pass('思考强度 拖动即存(POST /api/think)') : fail('思考强度 拖动即存(POST /api/think)', 'GET=' + lvNow + ' POST=' + lastBody);
+      await fetch('/api/think', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ level: saved }) });
+      const si = LV.indexOf(saved);
+      range.value = String(si < 0 ? 0 : si);
+      fire(range, 'input');
+      await sleep(150);
+      const back = ((await (await fetch('/api/think')).json()) || {}).level;
+      back === saved ? pass('思考强度用例还原原档') : fail('思考强度用例还原原档', 'now=' + back + ' want=' + saved);
+    }
+  }
+
   return R;
 })()`)
 }

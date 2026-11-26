@@ -1717,11 +1717,17 @@ const PAGE = `<!doctype html>
   #side h3{margin:0 0 2px;font-size:13px;color:var(--muted);font-weight:700}
   #newbtn{border:0;background:var(--pink);color:#fff;border-radius:10px;padding:9px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
   #newbtn:hover{background:var(--pink-d)}
+  /* 会话搜索框:紧凑小号,聚焦时描边走粉色系 */
+  #sessSearch{border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:10px;padding:7px 10px;font-size:12.5px;font-family:inherit;outline:none;width:100%}
+  #sessSearch:focus{border-color:var(--pink)}
+  #sessSearch::placeholder{color:var(--muted-2)}
   .sitem{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;cursor:pointer;font-size:13.5px;border:1px solid transparent}
   .sitem:hover{background:var(--tint)}
   .sitem.cur{background:var(--tint);border-color:var(--pink);font-weight:700}
   .sitem .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .sitem .n{color:var(--muted-2);font-size:11.5px}
+  /* 搜索命中且已归档的行:行内小徽标(平时归档视图里不重复标,视图切换按钮已说明) */
+  .sitem .stag{flex:none;font-size:10.5px;color:var(--pink-d);background:var(--tint);border:1px solid var(--border);border-radius:6px;padding:1px 5px;line-height:1.4}
   .sitem .ren,.sitem .arc,.sitem .un,.sitem .del{border:0;background:none;color:var(--muted-2);font-size:13px;cursor:pointer;padding:0 2px;line-height:1}
   .sitem .ren:hover,.sitem .arc:hover,.sitem .un:hover{color:var(--pink-d)}
   .sitem .del:hover{color:#c0392b}
@@ -1777,31 +1783,37 @@ const PAGE = `<!doctype html>
   /* position:relative 给 #modelPop 当锚(绝对定位行下方右对齐);不挤 128px 滑杆:chip 用 margin-left:auto 顶到行尾 */
   #thinkrow{position:relative;display:flex;align-items:center;gap:8px;margin-top:8px;padding:0 2px}
   .thinklab{flex:0 0 auto;font-size:12.5px;color:var(--muted-2)}
-  /* 思考强度滑杆:定宽收紧(不再占满整行);双层动效——①底流:#thinkfill 内调色环式多彩渐变流动;②流星:#thinkbar 全轨划过的白头+拖尾,档位越高越快(均由 .flow+--flow-dur 驱动,auto/关 静止) */
+  /* 思考强度滑杆:定宽收紧(不再占满整行);spec 向:全圆角胶囊轨道 + 绿→青→蓝方向渐变填充(左绿=低档,右蓝=高档);双层动效——①底流:#thinkfill 内绿青蓝循环渐变流动;②流星:#thinkbar 全轨划过的白头+拖尾,档位越高越快(均由 .flow+--flow-dur 驱动,auto/关 静止) */
   #thinkbar{position:relative;flex:0 0 128px;height:14px;display:flex;align-items:center}
-  #thinkfill{position:absolute;left:0;top:3px;bottom:3px;width:0%;max-width:100%;border-radius:999px;background:var(--pink);overflow:hidden}
-  /* ①调色环底流:px 周期(120px)四色渐变,首尾同色 → repeating 无缝衔接;暖冷交替(粉→蓝→橙→紫)前后对比鲜明;层左右各超出一个周期,平移恰好 120px 无缝循环;速度=流星÷2.2(--flow-dur 由 JS 设在 #thinkbar);静态底色仍是 var(--pink)(auto/关) */
-  #thinkfill.flow::after{content:'';position:absolute;top:0;bottom:0;left:-120px;right:-120px;background:repeating-linear-gradient(90deg,#ff5f9e 0px,#37b0ff 30px,#ff9d3d 60px,#9b5cff 90px,#ff5f9e 120px);animation:wheelroll calc(var(--flow-dur,.9s)*2.2) linear infinite}
+  /* 胶囊轨道凹槽:比填充条上下各多 1px,auto/关(未填满)时也看得出整条 128px 轨道在哪(spec:横向全圆角胶囊轨道);input z-index:1 盖在上面,不影响拖动 */
+  #thinkbar::before{content:'';position:absolute;left:0;right:0;top:2px;bottom:2px;border-radius:999px;background:var(--tint);border:1px solid var(--border)}
+  /* 渐变锚定 128px 定宽(background-size 不随填充宽度伸缩):填 20% 只露出左端绿、100% 露到右端蓝,即 spec 的'左绿右蓝映射低→高';inset 1px 暗描边补轮廓(black 主题上近不可见,无副作用) */
+  #thinkfill{position:absolute;left:0;top:3px;bottom:3px;width:0%;max-width:100%;border-radius:999px;background:linear-gradient(90deg,#22c55e 0%,#14b8a6 50%,#2f7bf6 100%) no-repeat;background-size:128px 100%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);overflow:hidden}
+  /* 浅色主题(pink/blue/white)绿端/青端加深为深变体:实测 spec 亮绿 #22c55e/#14b8a6 对浅色轨道底(--tint)只有 2.0-2.3:1,低于非文本 UI 的 3:1;换 #15803d/#0d9488 后三主题 3.28-4.55:1 达标,色相不变;black 主题深底上保留 spec 原色(参考图即深色主题,对比 5.84-6.38:1) */
+  body:not(.theme-black) #thinkfill{background:linear-gradient(90deg,#15803d 0%,#0d9488 50%,#2f7bf6 100%) no-repeat;background-size:128px 100%}
+  /* ①底流(spec 配色):px 周期(120px)四色渐变,首尾同色 → repeating 无缝衔接;绿#22c55e→青#14b8a6→蓝#2f7bf6→亮青#67e8f9 全取自 spec 调色板,半透明(.78)叠加让底下的方向渐变透出来;层左右各超出一个周期,平移恰好 120px 无缝循环;速度=流星÷2.2(--flow-dur 由 JS 设在 #thinkbar);auto/关 无 .flow,只剩静态方向渐变 */
+  #thinkfill.flow::after{content:'';position:absolute;top:0;bottom:0;left:-120px;right:-120px;background:repeating-linear-gradient(90deg,rgba(34,197,94,.78) 0px,rgba(20,184,166,.78) 30px,rgba(47,123,246,.78) 60px,rgba(103,232,249,.78) 90px,rgba(34,197,94,.78) 120px);animation:wheelroll calc(var(--flow-dur,.9s)*2.2) linear infinite}
   @keyframes wheelroll{from{transform:translateX(0)}to{transform:translateX(120px)}}
   /* ②流星:#thinkmeteor 为覆盖整条轨道的裁剪层(overflow:hidden,不裁剪滑杆本身),::before=拖尾、::after=白头;默认停在轨道左端外(透明+屏外),随 .flow 兄弟选择器点亮 */
   #thinkmeteor{position:absolute;left:0;right:0;top:0;bottom:0;overflow:hidden;border-radius:999px;pointer-events:none}
-  /* 拖尾为白色渐变:亮段在填充条(var(--pink))与深色背景上可读;浅色未填充轨道上流星轨迹由白头+光晕承载(设计意图) */
+  /* 拖尾为白色渐变:亮段在渐变填充条与深色背景上可读;浅色未填充轨道上流星轨迹由白头+蓝光晕承载(设计意图) */
   #thinkmeteor::before{content:'';position:absolute;left:0;top:5px;width:44px;height:4px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.55));opacity:0;transform:translateX(-48px)}
-  /* 白头带 var(--bg) 描边:轨道底色就是 --bg(main 透明、body 铺 --bg),环在填充条上形成对比边、在未填充轨道上与底色相融不突兀——浅色填充(black 主题 --pink=#e7e9ee)上白头靠它立得住 */
-  #thinkmeteor::after{content:'';position:absolute;left:38px;top:4px;width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px var(--bg),0 0 6px 1px var(--pink);opacity:0;transform:translateX(-48px)}
+  /* 白头带 var(--bg) 描边 + spec 蓝#2f7bf6 柔光晕:环在渐变填充条上形成对比边、在未填充轨道上与底色相融;蓝光晕即 spec '白色圆点带柔光'的流动态(black 主题浅填充段上白头也靠描边+光晕立得住) */
+  #thinkmeteor::after{content:'';position:absolute;left:38px;top:4px;width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px var(--bg),0 0 6px 1px #2f7bf6;opacity:0;transform:translateX(-48px)}
   #thinkfill.flow~#thinkmeteor::before,#thinkfill.flow~#thinkmeteor::after{opacity:1;animation:thinkmeteor var(--flow-dur,.9s) linear infinite}
   /* 128=轨道定宽;首尾各留屏外停留(10%+15%)做呼吸感,行程 75% */
   @keyframes thinkmeteor{0%,10%{transform:translateX(-48px)}85%,100%{transform:translateX(128px)}}
-  /* black 主题:调色环多彩饱和,深底上自然清晰,底流无需覆盖;流星拖尾白色渐变在深底仍可读,保留原暗色变体 */
+  /* black 主题:绿青蓝渐变在深底上自然清晰,底流无需覆盖;流星拖尾白色渐变叠在中亮色填充上对比不足,保留暗色拖尾变体 */
   body.theme-black #thinkmeteor::before{background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.45))}
   @media (prefers-reduced-motion: reduce){
     #thinkfill.flow::after{animation:none}
     #thinkfill.flow~#thinkmeteor::before,#thinkfill.flow~#thinkmeteor::after{animation:none}
   }
   #thinkRange{position:relative;z-index:1;width:100%;height:14px;margin:0;-webkit-appearance:none;appearance:none;background:transparent;outline:none;cursor:pointer}
-  #thinkRange::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--card);border:3px solid var(--pink);box-shadow:0 1px 4px var(--shadow);cursor:pointer}
+  /* thumb=spec 的白色圆点带柔光:白底+spec 蓝#2f7bf6 细环(浅色主题上白点靠环立得住)+蓝色柔光晕;深浅主题同款 */
+  #thinkRange::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #2f7bf6;box-shadow:0 1px 4px var(--shadow),0 0 8px rgba(47,123,246,.45);cursor:pointer}
   #thinkRange::-moz-range-track{background:transparent}
-  #thinkRange::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--card);border:3px solid var(--pink);cursor:pointer}
+  #thinkRange::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid #2f7bf6;box-shadow:0 0 8px rgba(47,123,246,.45);cursor:pointer}
   #thinkRange:active::-webkit-slider-thumb{transform:scale(1.08)}
   #thinkVal{flex:0 0 46px;text-align:right;font-size:12.5px;font-weight:700;color:var(--pink-d)}
   /* 快捷切换模型 chip(行尾,紧凑 ghost 风):平时显示当前模型 id,过长省略号截断(title 放全名) */
@@ -2121,6 +2133,7 @@ const PAGE = `<!doctype html>
 <div id="wrap">
   <aside id="side">
     <h3>对话列表</h3>
+    <input id="sessSearch" placeholder="搜索会话(含已归档)" autocomplete="off" spellcheck="false" title="按标题/条数搜索全部会话,含已归档;Esc 清空">
     <button id="newbtn">+ 新对话</button>
     <div id="slist"></div>
     <button id="archbtn" title="在会话列表和已归档对话之间切换">🗂 查看已归档</button>
@@ -2148,6 +2161,7 @@ const WB_TOKEN="__WB_TOKEN__";
 (function(){const _f=fetch.bind(window);window.fetch=(u,o={})=>{const m=(o.method||"GET").toUpperCase();const h=new Headers(o.headers||{});h.set("x-wb-token",WB_TOKEN);if(m!=="GET"&&!h.has("content-type"))h.set("content-type","application/json");o.headers=h;return _f(u,o)}})();
 const chat=document.getElementById('chat'),form=document.getElementById('f'),t=document.getElementById('t'),b=document.getElementById('b');
 const slist=document.getElementById('slist'),newbtn=document.getElementById('newbtn');
+const sessSearch=document.getElementById('sessSearch');
 let curSession=null;
 // 上下文容量:环状指示(占用≈最近一轮 usage.input+output),刻度来自「当前 API 自己的设置」或全局默认
 let ctxLimit=128000,ctxUsed=0,ctxSource='global',ctxApiName='';
@@ -2289,28 +2303,46 @@ let showArchived=false;
 try{showArchived=localStorage.getItem('wb_showarch')==='1'}catch(e){}
 const archbtn=document.getElementById('archbtn');
 function renderArchBtn(){archbtn.textContent=showArchived?'← 返回对话列表':'🗂 查看已归档';archbtn.classList.toggle('on',showArchived);archbtn.title=showArchived?'返回未归档的对话列表':'查看已归档的对话';}
-archbtn.onclick=()=>{showArchived=!showArchived;try{localStorage.setItem('wb_showarch',showArchived?'1':'0')}catch(e){};renderArchBtn();refreshList();};
+// 搜索激活时点视图切换:顺带清空搜索词再刷新——否则列表恒走文本过滤分支,
+// 切换前后的内容都一样,按钮看起来像失灵(评审 v1.2.75 指出)
+archbtn.onclick=()=>{showArchived=!showArchived;try{localStorage.setItem('wb_showarch',showArchived?'1':'0')}catch(e){};renderArchBtn();sessSearch.value='';refreshList();};
 renderArchBtn();
+// 会话搜索:数据源与列表同一条 GET /api/sessions(它一次就回全部会话、含 archived 标记,
+// 归档与否只是前端按 showArchived 过滤),所以这里存整份全量缓存——搜索天然覆盖已归档,
+// 不用另拉接口/加后端路由;聚焦搜索框时再刷新一次缓存,防别的窗口改过会话。
+let sessCache={current:null,items:[]};
 async function refreshList(){
   const j=await(await fetch('/api/sessions')).json();
+  sessCache=j;
   // 底部状态栏:当前会话的 token 累计(随会话切换/任务完成更新)
   const cur=j.items.find(s=>s.id===j.current);
   const tokbar=document.getElementById('tokbar');
   if(tokbar)tokbar.textContent='本会话 Token 累计:'+fmtTok(cur?cur.tokens||0:0)+' · 消息 '+(cur?cur.count||0:0)+' 条';
-  const items=j.items.filter(s=>showArchived? s.archived : !s.archived);
+  renderSessList();
+}
+// 渲染侧栏会话列表:有搜索词时在全量(含已归档)里按行文本过滤,命中已归档的加「已归档」徽标;
+// 没有搜索词时维持原行为(按 showArchived 过滤)。行文本 = 标题 + 行悬停摘要(消息条数/累计 token)。
+function sessRowText(s){return (s.title||'新对话')+' 消息 '+(s.count||0)+' 条 · 累计 '+fmtTok(s.tokens||0)+' tokens'}
+function renderSessList(){
+  const q=(sessSearch.value||'').trim().toLowerCase(),searching=!!q;
+  const items=searching
+    ?sessCache.items.filter(s=>sessRowText(s).toLowerCase().indexOf(q)>=0)
+    :sessCache.items.filter(s=>showArchived? s.archived : !s.archived);
   slist.innerHTML='';
   if(!items.length){
     const empty=document.createElement('div');
     empty.className='sitem';
-    empty.innerHTML='<span class="sempty">'+(showArchived?'没有已归档的对话':'暂无对话')+'</span>';
+    empty.innerHTML='<span class="sempty">'+(searching?'无匹配':(showArchived?'没有已归档的对话':'暂无对话'))+'</span>';
     slist.appendChild(empty);
   }
   for(const s of items){
     const d=document.createElement('div');
-    d.className='sitem'+(s.id===j.current?' cur':'');
+    d.className='sitem'+(s.id===sessCache.current?' cur':'');
     d.title='消息 '+(s.count||0)+' 条 · 累计 '+fmtTok(s.tokens)+' tokens';
-    d.innerHTML='<span class="t">'+esc(s.title||'新对话')+'</span><span class="n">'+(s.count||'')+'</span>'
-      +(showArchived
+    d.innerHTML='<span class="t">'+esc(s.title||'新对话')+'</span>'
+      +(searching&&s.archived?'<span class="stag" title="该会话已归档">已归档</span>':'')
+      +'<span class="n">'+(s.count||'')+'</span>'
+      +(s.archived
         ?'<button class="un" title="取消归档">📤</button><button class="del" title="删除">🗑</button>'
         :'<button class="ren" title="重命名">✏️</button><button class="arc" title="归档">📥</button><button class="del" title="删除">🗑</button>');
     d.onclick=e=>{if(e.target.closest('button'))return;switchTo(s.id);};
@@ -2345,6 +2377,10 @@ async function refreshList(){
     slist.appendChild(d);
   }
 }
+// 搜索框交互:输入即过滤;Esc 清空并恢复原列表;聚焦时静默同步一次最新全量缓存
+sessSearch.addEventListener('input',renderSessList);
+sessSearch.addEventListener('keydown',e=>{if(e.key==='Escape'){sessSearch.value='';renderSessList();}});
+sessSearch.addEventListener('focus',()=>{refreshList().catch(()=>{})});
 async function switchTo(id){
   const j=await(await fetch('/api/sessions/'+id)).json();
   if(!j.ok)return;

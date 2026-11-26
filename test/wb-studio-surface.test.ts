@@ -219,4 +219,63 @@ describe("wb-studio 对外面快照", () => {
       }
     }
   })
+
+  test("侧栏会话搜索框:HTML 有定义、位于 #newbtn 上方、JS 已接线", () => {
+    // 搜索是纯前端行为(过滤同一份 GET /api/sessions 全量缓存,无新路由,不进快照),
+    // 端到端在 tools/check-page.mjs 的「会话搜索框」段;这里钉结构,防止拆 HTML 时静默丢件:
+    // 元素存在、位置在「新对话」按钮上方、脚本侧真的引用并绑定了输入/Esc 事件。
+    const src = readFileSync(SRC_PATH, "utf8")
+    const marker = "const PAGE = `"
+    const start = src.indexOf(marker)
+    expect(start, "PAGE 模板没找到").toBeGreaterThan(0)
+    const html = eval("var PROVIDER_PRESETS=[];(`" + src.slice(start + marker.length, src.indexOf("`", start + marker.length)) + "`)") as string
+    expect(html, "#sessSearch 输入框没写进 HTML").toContain('<input id="sessSearch"')
+    expect(html, "placeholder 应说明范围含已归档").toContain('placeholder="搜索会话(含已归档)"')
+    // 位置:侧栏内、紧邻 #newbtn 上方(只隔空白)
+    expect(html, "#sessSearch 应在 #side 内、#newbtn 上方")
+      .toMatch(/<aside id="side">[\s\S]*?<input id="sessSearch"[^>]*>\s*<button id="newbtn">/)
+    // 接线:脚本引用 + 输入过滤 + Esc 清空 + 归档徽标样式
+    expect(html, "JS 应引用 sessSearch").toMatch(/getElementById\('sessSearch'\)/)
+    expect(html, "输入事件应触发 renderSessList").toMatch(/addEventListener\('input',renderSessList\)/)
+    expect(html, "Esc 应清空搜索").toMatch(/e\.key==='Escape'\)\{sessSearch\.value='';renderSessList\(\);/)
+    expect(html, "归档命中徽标样式 .stag 应存在").toMatch(/\.sitem \.stag\{/)
+  })
+
+  test("思考强度滑杆:spec 配色与双层动效骨架钉在页面里", () => {
+    // v1.2.75 动效改版(绿→青→蓝渐变填充+胶囊轨道+白thumb蓝环)的回归网:
+    // 端到端在 tools/check-page.mjs 的「思考强度滑杆」段;这里钉 CSS/JS 骨架,防止拆样式时静默丢件
+    // (旧版调色环 #ff5f9e 曾一度只靠人眼看着不回归)。锁的东西全部取自 spec 观察结论。
+    const src = readFileSync(SRC_PATH, "utf8")
+    const marker = "const PAGE = `"
+    const start = src.indexOf(marker)
+    expect(start, "PAGE 模板没找到").toBeGreaterThan(0)
+    const html = eval("var PROVIDER_PRESETS=[];(`" + src.slice(start + marker.length, src.indexOf("`", start + marker.length)) + "`)") as string
+    // 128px 定宽骨架(滑杆不因行内其他元素挤压/伸展)
+    expect(html, "#thinkbar 应保持 128px 定宽").toContain("#thinkbar{position:relative;flex:0 0 128px;height:14px")
+    // spec 形态:全圆角胶囊轨道凹槽(--tint+--border,未填满时也可见)
+    expect(html, "胶囊轨道 #thinkbar::before 应存在").toContain("#thinkbar::before{content:'';position:absolute;left:0;right:0;top:2px;bottom:2px;border-radius:999px;background:var(--tint);border:1px solid var(--border)}")
+    // spec 配色:黑主题=参考图原色绿→青→蓝;浅色主题加深变体(#15803d/#0d9488)保 3:1 对比
+    expect(html, "填充渐变应为 spec 绿→青→蓝").toContain("linear-gradient(90deg,#22c55e 0%,#14b8a6 50%,#2f7bf6 100%) no-repeat;background-size:128px 100%")
+    expect(html, "渐变应锚定 128px(左绿右蓝映射低→高)").toContain("background-size:128px 100%")
+    expect(html, "浅色主题应用深绿/深青变体").toContain("body:not(.theme-black) #thinkfill{background:linear-gradient(90deg,#15803d 0%,#0d9488 50%,#2f7bf6 100%) no-repeat;background-size:128px 100%}")
+    // 双层动效骨架:①底流 wheelroll(spec 色板循环渐变,速度=流星÷2.2)②流星白头蓝光晕
+    expect(html, "底流应为 spec 色板循环渐变").toContain("repeating-linear-gradient(90deg,rgba(34,197,94,.78) 0px,rgba(20,184,166,.78) 30px,rgba(47,123,246,.78) 60px,rgba(103,232,249,.78) 90px,rgba(34,197,94,.78) 120px)")
+    expect(html, "底流 wheelroll 应仍在").toContain("@keyframes wheelroll{from{transform:translateX(0)}to{transform:translateX(120px)}}")
+    expect(html, "流星白头光晕应为 spec 蓝").toContain("box-shadow:0 0 0 1.5px var(--bg),0 0 6px 1px #2f7bf6")
+    expect(html, "流星 128 行程 keyframes 应仍在").toContain("@keyframes thinkmeteor{0%,10%{transform:translateX(-48px)}85%,100%{transform:translateX(128px)}}")
+    // 骨架约束:auto/关 静止由 .flow 驱动、reduced-motion 全停、交互不被遮挡
+    expect(html, "流星点亮应仍由 .flow 兄弟选择器驱动").toContain("#thinkfill.flow~#thinkmeteor::before,#thinkfill.flow~#thinkmeteor::after{opacity:1;animation:thinkmeteor var(--flow-dur,.9s) linear infinite}")
+    expect(html, "reduced-motion 应全停两层").toContain("@media (prefers-reduced-motion: reduce){")
+    expect(html, "流星层不应挡滑杆交互").toContain("#thinkmeteor{position:absolute;left:0;right:0;top:0;bottom:0;overflow:hidden;border-radius:999px;pointer-events:none}")
+    expect(html, "滑杆 input 应盖在最上层").toContain("#thinkRange{position:relative;z-index:1")
+    // thumb=spec 白圆点+蓝环+柔光(webkit/moz 两套)
+    expect(html, "thumb(webkit)应为白底蓝环柔光").toContain("#thinkRange::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #2f7bf6")
+    expect(html, "thumb(moz)应为白底蓝环柔光").toContain("#thinkRange::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid #2f7bf6")
+    // JS 骨架:auto/关(前两档)静止、开启后按档加速(1.3/0.9/0.6/0.4s)
+    expect(html, "paintThink 的 .flow 开关应保留(auto/关 静止)").toContain("const on=thinkCur>=2;")
+    expect(html, "档位速度阶梯应保留").toContain("([0,0,'1.3s','0.9s','0.6s','0.4s'][thinkCur]||'0.9s')")
+    // 旧版调色环/旧 thumb 配色不应残留
+    expect(html, "旧调色环四色(#ff5f9e)不应残留").not.toContain("#ff5f9e")
+    expect(html, "旧 thumb 3px var(--pink) 边不应残留").not.toContain("border:3px solid var(--pink)")
+  })
 })
