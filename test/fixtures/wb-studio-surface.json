@@ -30,7 +30,8 @@
     "/api/thinking",
     "/api/ui",
     "/api/update",
-    "/api/upload"
+    "/api/upload",
+    "/api/usage/stats"
   ],
   "patternPaths": [
     "/^\\/api\\/apis\\/([^/]+)$/",
@@ -82,6 +83,7 @@
         "/api/backend",
         "/api/health",
         "/api/sessions",
+        "/api/usage/stats",
         "/api/sessions",
         "/api/apis",
         "/api/apis",

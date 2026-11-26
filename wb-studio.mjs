@@ -1738,6 +1738,37 @@ const PAGE = `<!doctype html>
   #compactSide{border:0;background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer;padding:8px 10px;border-radius:9px;font-family:inherit;text-align:left}
   #compactSide:hover{background:var(--tint)}
   #compactSide:disabled{opacity:.55;cursor:default}
+  #usagebtn{border:0;background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer;padding:8px 10px;border-radius:9px;font-family:inherit;text-align:left}
+  #usagebtn:hover{background:var(--tint)}
+  /* 用量统计弹层(风格随主题,全走 var(--pink) 系) */
+  #usageModal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:center;justify-content:center}
+  #usageModal.open{display:flex}
+  .ucard{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 40px var(--shadow);width:min(620px,92vw);max-height:82vh;overflow-y:auto;padding:18px 20px;color:var(--ink)}
+  .uhead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .uhead b{flex:1;font-size:15px}
+  .uclose{border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 8px;border-radius:8px;font-family:inherit}
+  .uclose:hover{background:var(--tint);color:var(--pink-d)}
+  .usum{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+  .usum .pill{background:var(--tint);border:1px solid var(--border-soft);border-radius:10px;padding:7px 11px;font-size:12px;color:var(--muted)}
+  .usum .pill b{color:var(--pink-d);font-size:13.5px;margin-left:4px}
+  .utabs{display:flex;gap:6px;margin:0 0 8px}
+  .utab{border:1px solid var(--border-soft);background:transparent;color:var(--muted);border-radius:9px;padding:5px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  .utab.on{background:var(--pink);border-color:var(--pink);color:var(--on-primary);font-weight:700}
+  .urow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px dashed var(--border-soft);font-size:12.5px}
+  .urow .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .urow .bar{flex:0 0 90px;height:6px;border-radius:999px;background:var(--tint);overflow:hidden}
+  .urow .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--pink-d))}
+  .urow .v{flex:0 0 auto;font-weight:700;color:var(--pink-d)}
+  .umsg{padding:10px 4px;font-size:12.5px;color:var(--muted-2)}
+  .uchart{display:flex;align-items:flex-end;gap:3px;height:110px;margin:10px 0 4px}
+  .uchart .col{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+  .uchart .col i{display:block;background:linear-gradient(180deg,var(--pink),var(--pink-d));border-radius:4px 4px 0 0;min-height:2px}
+  .uchart .col i.zero{background:var(--tint)}
+  .uaxis{display:flex;gap:3px;font-size:10px;color:var(--muted-2)}
+  .uaxis span{flex:1;text-align:center;overflow:hidden;white-space:nowrap}
+  .utoggle{display:flex;gap:6px;margin:4px 0 0}
+  .utoggle button{border:1px solid var(--border-soft);background:transparent;color:var(--muted);border-radius:8px;padding:3px 10px;font-size:11.5px;cursor:pointer;font-family:inherit}
+  .utoggle button.on{background:var(--tint);color:var(--pink-d);font-weight:700;border-color:var(--pink)}
   main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:0}
   @media(max-width:760px){
     /* 窄窗口:侧栏和顶栏都收一点,给聊天区留出可用高度(字号放大时尤其明显) */
@@ -2115,6 +2146,12 @@ const PAGE = `<!doctype html>
     <div style="margin-top:14px;color:var(--muted-2);font-size:11.5px">下载完成后工坊会退出,安装器接管并自动重新启动;安装完成后临时文件自动删除。更新不会动 runtime/(密钥、会话、记忆)与 workspace/(插件项目)。</div>
   </div>
 </div>
+<div id="usageModal">
+  <div class="ucard" role="dialog" aria-label="用量统计">
+    <div class="uhead"><b>📊 用量统计</b><button type="button" class="uclose" id="usageClose" title="关闭(Esc)">✕</button></div>
+    <div id="usageBody"></div>
+  </div>
+</div>
 <div id="updModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
   <div style="width:min(430px,90vw);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 12px 40px var(--shadow)">
     <div id="updTitle" style="font-size:16px;font-weight:800;color:var(--ink)">发现新版本</div>
@@ -2142,6 +2179,7 @@ const PAGE = `<!doctype html>
     <div id="slist"></div>
     <button id="archbtn" title="在会话列表和已归档对话之间切换">🗂 查看已归档</button>
     <button id="compactSide" title="把当前会话的上下文压成摘要(平时不用点:任务开始/结束都会自动压缩;会话很长又想马上腾空间时用)">🗜 压缩上下文</button>
+    <button id="usagebtn" title="查看 API 用量统计:总用量,按对话/日期/模型,近 7/30 天趋势">📊 用量统计</button>
   </aside>
   <main>
   <div id="chat">
@@ -3333,6 +3371,72 @@ if(modelChip&&modelPop){
   });
   fetchApiSnapshot();
 }
+// ---------- 用量统计(左下角「📊 用量统计」:总用量 + 按对话/日期/模型 + 近 7/30 天柱状趋势) ----------
+// PAGE 是模板字面量:这里不用反引号模板串,一律单引号拼接,避免换行符转义坑
+const usageModal=document.getElementById('usageModal'),usageBody=document.getElementById('usageBody'),usageBtn=document.getElementById('usagebtn');
+let usageData=null,usageTab='date',usageWin=7;
+function closeUsage(){if(usageModal)usageModal.classList.remove('open')}
+function usageTabBtn(t,label){return '<button type="button" class="utab'+(usageTab===t?' on':'')+'" data-t="'+t+'">'+label+'</button>'}
+function renderUsage(){
+  if(!usageBody||!usageData)return;
+  const t=usageData.total||{};
+  let h='<div class="usum">'
+    +'<span class="pill">总用量<b>'+fmtTok(t.tokens||0)+'</b></span>'
+    +'<span class="pill">计费消息<b>'+(t.messages||0)+'</b></span>'
+    +'<span class="pill">输入<b>'+fmtTok(t.input||0)+'</b></span>'
+    +'<span class="pill">输出<b>'+fmtTok(t.output||0)+'</b></span>'
+    +(t.reasoning?'<span class="pill">含思考<b>'+fmtTok(t.reasoning)+'</b></span>':'')
+    +'</div>';
+  h+='<div class="utabs">'+usageTabBtn('conversation','按对话')+usageTabBtn('date','按日期')+usageTabBtn('model','按模型')+'</div>';
+  let rows=[];
+  if(usageTab==='conversation')rows=(usageData.byConversation||[]).map(function(r){return{n:(r.archived?'[已归档] ':'')+r.title,v:r.tokens}});
+  else if(usageTab==='model')rows=(usageData.byModel||[]).map(function(r){return{n:r.model==='未记录'?'(历史·未记录)':r.model,v:r.tokens}});
+  else rows=(usageData.byDate||[]).slice().reverse().map(function(r){return{n:r.day,v:r.tokens}});
+  const mx=Math.max.apply(null,rows.map(function(r){return r.v}).concat([1]));
+  h+='<div>';
+  if(!rows.length)h+='<div class="umsg">还没有用量数据:发起一次任务后这里就有统计了</div>';
+  rows.slice(0,60).forEach(function(r){
+    h+='<div class="urow"><span class="n" title="'+esc(String(r.n))+'">'+esc(String(r.n))+'</span><span class="bar"><i style="width:'+Math.max(2,Math.round(r.v/mx*100))+'%"></i></span><span class="v">'+fmtTok(r.v)+'</span></div>';
+  });
+  h+='</div>';
+  // 柱状趋势:近 usageWin 天,缺的天补零;柱高=当日/最大值
+  const byD={};(usageData.byDate||[]).forEach(function(r){byD[r.day]=r.tokens});
+  const days=[];const now=new Date();const p2=function(n){return(n<10?'0':'')+n};
+  for(let i=usageWin-1;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);
+    days.push(d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()));}
+  const dm=Math.max(1,Math.max.apply(null,days.map(function(d){return byD[d]||0})));
+  h+='<div style="margin-top:14px"><b style="font-size:13px">近 '+usageWin+' 天趋势</b>'
+    +'<div class="utoggle"><button type="button" class="'+(usageWin===7?'on':'')+'" data-w="7">7 天</button><button type="button" class="'+(usageWin===30?'on':'')+'" data-w="30">30 天</button></div>'
+    +'<div class="uchart">';
+  days.forEach(function(d){const v=byD[d]||0;
+    h+='<div class="col" title="'+d+': '+fmtTok(v)+' tokens"><i class="'+(v?'':'zero')+'" style="height:'+Math.max(2,Math.round(v/dm*100))+'%"></i></div>';});
+  h+='</div><div class="uaxis">';
+  const step=usageWin===7?1:5;
+  days.forEach(function(d,i){h+='<span>'+(i%step===0?d.slice(5):'')+'</span>';});
+  h+='</div></div>';
+  usageBody.innerHTML=h;
+  usageBody.querySelectorAll('.utab').forEach(function(b){b.onclick=function(){usageTab=b.dataset.t;renderUsage();}});
+  usageBody.querySelectorAll('.utoggle button').forEach(function(b){b.onclick=function(){usageWin=Number(b.dataset.w)||7;renderUsage();}});
+}
+async function openUsage(){
+  if(!usageModal)return;
+  usageModal.classList.add('open');
+  usageBody.innerHTML='<div class="umsg">加载中…</div>';
+  try{
+    const r=await fetch('/api/usage/stats');
+    const j=await r.json();
+    if(j&&j.ok){usageData=j;renderUsage();}
+    else usageBody.innerHTML='<div class="umsg">加载失败:'+(j&&j.error||r.status)+'</div>';
+  }catch(e){usageBody.innerHTML='<div class="umsg">连接出错:'+e+'</div>';}
+}
+if(usageBtn){
+  usageBtn.onclick=openUsage;
+}
+if(usageModal){
+  document.getElementById('usageClose').onclick=closeUsage;
+  usageModal.addEventListener('click',function(e){if(e.target===usageModal)closeUsage();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&usageModal.classList.contains('open'))closeUsage();});
+}
 // 手动压缩当前会话(左下角,和「查看已归档」同位;平时靠自动压缩,这里只是兜底)
 const compactSideBtn=document.getElementById('compactSide');
 if(compactSideBtn)compactSideBtn.onclick=async()=>{
@@ -4119,6 +4223,49 @@ const srv = createServer(async (req, res) => {
           tokens: s.totalTokens || 0,
           compactCount: s.compactCount || 0,
         })),
+      }))
+      return
+    }
+    // ---------- 用量统计:聚合全部会话(含已归档)的 usage,按对话/日期/模型;历史消息无 model 归「未记录」 ----------
+    if (req.method === "GET" && url.pathname === "/api/usage/stats") {
+      const total = { messages: 0, input: 0, output: 0, reasoning: 0, tokens: 0 }
+      const byConversation = []
+      const byDate = {}
+      const byModel = {}
+      const pad2 = (n) => (n < 10 ? "0" : "") + n
+      const dayKey = (ts) => {
+        const d = new Date(ts || Date.now())
+        return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate())
+      }
+      for (const s of sessions.items) {
+        let st = 0
+        for (const m of s.messages || []) {
+          const u = m && m.usage
+          if (!u) continue
+          const t = (u.input || 0) + (u.output || 0) + (u.reasoning || 0)
+          if (!t) continue
+          total.messages += 1
+          total.input += u.input || 0
+          total.output += u.output || 0
+          total.reasoning += u.reasoning || 0
+          total.tokens += t
+          st += t
+          const dk = dayKey(m.at || s.updatedAt || s.createdAt)
+          byDate[dk] = (byDate[dk] || 0) + t
+          const mk = String(m.model || "").trim() || "未记录"
+          byModel[mk] = (byModel[mk] || 0) + t
+        }
+        if (st > 0) byConversation.push({ id: s.id, title: s.title || "未命名", archived: !!s.archived, tokens: st })
+      }
+      byConversation.sort((a, b) => b.tokens - a.tokens)
+      const days = Object.keys(byDate).sort()
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
+      res.end(JSON.stringify({
+        ok: true,
+        total,
+        byConversation,
+        byDate: days.map((d) => ({ day: d, tokens: byDate[d] })),
+        byModel: Object.keys(byModel).sort((a, b) => byModel[b] - byModel[a]).map((m) => ({ model: m, tokens: byModel[m] })),
       }))
       return
     }
@@ -5567,6 +5714,8 @@ async function runUpdate() {
       const body = await readBody(req)
       let text = "", sid = null, mode = "build"
       try { const j = JSON.parse(body); text = String(j.text || "").trim(); sid = j.sessionId || null; mode = j.mode === "plan" ? "plan" : "build" } catch {}
+      // 用量统计按模型归因:任务开始时的模型(中途切模型不影响本次归因)
+      const modelAtStart = String(config.model || "").replace(/^custom\//, "").trim()
       if (!text) { res.writeHead(400); res.end(JSON.stringify({ ok: false, error: "需求内容是空的" })); return }
       let s = sid ? getSession(sid) : null
       if (!s) s = getSession(sessions.current) || newSession(null)
@@ -5708,12 +5857,13 @@ async function runUpdate() {
             error: result.ok ? undefined : String(result.error || ""),
             rawError: result.ok ? undefined : (rawErrorText || undefined),
             usage: zTurnTotal > 0 ? zu : undefined,
+            model: zTurnTotal > 0 ? (modelAtStart || undefined) : undefined,
             artifacts: result.artifacts || [],
             modifiedFiles: result.modifiedFiles || [],
             expertPanel: panelBrief,
           })
         } else {
-          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || ""), rawError: rawErrorText || undefined, usage: zTurnTotal > 0 ? zu : undefined, expertPanel: panelBrief })
+          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error || ""), rawError: rawErrorText || undefined, usage: zTurnTotal > 0 ? zu : undefined, model: zTurnTotal > 0 ? (modelAtStart || undefined) : undefined, expertPanel: panelBrief })
         }
         if (s.title === "新对话" && text) {
           s.title = text.replace(/\s+/g, " ").slice(0, 18) + (text.length > 18 ? "…" : "")
@@ -5768,6 +5918,7 @@ async function runUpdate() {
             at: Date.now(),
             thinking: result.thinking || undefined,
             usage: turnTotal > 0 ? u : undefined,
+            model: turnTotal > 0 ? (modelAtStart || undefined) : undefined,
             error: result.ok ? undefined : String(result.error || ""),
             rawError: result.ok ? undefined : (rawErrorText || undefined),
             artifacts: result.artifacts || [],
@@ -5775,7 +5926,7 @@ async function runUpdate() {
             expertPanel: panelBrief,
           })
         } else if (result.error) {
-          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error), rawError: rawErrorText || undefined, usage: turnTotal > 0 ? u : undefined, expertPanel: panelBrief })
+          s.messages.push({ role: "assistant", content: "", at: Date.now(), error: String(result.error), rawError: rawErrorText || undefined, usage: turnTotal > 0 ? u : undefined, model: turnTotal > 0 ? (modelAtStart || undefined) : undefined, expertPanel: panelBrief })
         }
         // 首条用户消息截断为标题
         if (s.title === "新对话" && text) {
