@@ -293,7 +293,7 @@
 
 ### `reuse_before_build`(先搜后建,`1-dcjiang/neko-reuse-before-build`)
 
-- 上游:`1-dcjiang/neko-reuse-before-build`,**MIT**,版权人 `1-dcjiang`(上游 `src/LICENSE`)。2026-11-18 核对。
+- 上游:`1-dcjiang/neko-reuse-before-build`,**MIT**,版权人 `1-dcjiang`(上游 `src/LICENSE`)。2026-11-25 核对(钉版升 0.3.23 后复核,许可未变)。
 - 引用范围:37 个文件(插件源码、`skills/reuse-before-build/` 正典与 references/scripts)。
 - **正文不进本仓库**:上游 commit `32cdf400e6857652496aae455b68e5766cdfb877`(版本 `0.3.23`)钉在
   `market-corpus/corpus.lock.json` 的 `reuse_before_build` 条目(`vendored:false`,只记 source / 完整 SHA / 树哈希),
