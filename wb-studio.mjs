@@ -1819,11 +1819,15 @@ const PAGE = `<!doctype html>
   /* 快捷切换模型 chip(行尾,紧凑 ghost 风):平时显示当前模型 id,过长省略号截断(title 放全名) */
   #modelChip{flex:0 1 auto;min-width:42px;max-width:110px;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 11px;border:1px solid var(--border);background:var(--card);color:var(--muted-2);border-radius:999px;font-size:12px;font-weight:700;font-family:inherit;line-height:1.4;cursor:pointer}
   #modelChip:hover:not(:disabled){border-color:var(--pink);color:var(--pink-d);background:var(--tint)}
-  /* 模型菜单 popover:行下方右对齐,按 API 分组(组头=备注名+使用中标记),组内一行一个模型 */
+  /* 模型菜单 popover:行下方右对齐,按 API 分组(组头=备注名+使用中标记),组内一行一个模型;默认各组折叠只显备注名,点组头展开该 API 的模型(手风琴),使用中的 API 默认展开 */
   #modelPop{display:none;position:absolute;top:calc(100% + 8px);right:0;z-index:60;min-width:230px;max-width:330px;max-height:320px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 30px var(--shadow);padding:6px}
   #modelPop.open{display:block}
   .mp-g{margin:2px 0 6px}
-  .mp-h{display:flex;align-items:center;gap:6px;padding:5px 8px 3px;font-size:11.5px;font-weight:700;color:var(--muted-2)}
+  .mp-g.closed .mp-item{display:none}
+  .mp-h{display:flex;align-items:center;gap:6px;padding:5px 8px 3px;font-size:11.5px;font-weight:700;color:var(--muted-2);cursor:pointer;border-radius:8px}
+  .mp-h:hover{background:var(--tint);color:var(--pink-d)}
+  .mp-arr{flex:0 0 auto;font-size:10px;color:var(--muted-2);transition:transform .15s}
+  .mp-g.closed .mp-arr{transform:rotate(-90deg)}
   .mp-h .mp-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mp-cur{flex:0 0 auto;font-size:10.5px;font-weight:700;color:var(--pink-d);background:var(--tint);border:1px solid var(--border);border-radius:999px;padding:1px 7px}
   .mp-item{display:block;width:100%;text-align:left;padding:6px 10px;border:0;background:transparent;color:var(--ink);border-radius:8px;font-size:12.5px;font-family:inherit;font-weight:400;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -3235,20 +3239,28 @@ function popMsg(text,bad){
   d.textContent=String(text||'');
   modelPop.insertBefore(d,modelPop.firstChild);
 }
+let mpExpandedApi=null; // 折叠态:当前展开的 API(手风琴单开);null=下次渲染取「使用中」
 function renderModelPop(j){
   if(!modelPop)return;
   modelPop.innerHTML='';
   if(!j){popMsg('模型列表加载失败,稍后再试',true);return}
   if(!j.items.length){popMsg('还没有配置 API:到 设置 → 模型服务 里添加一套,再回来快捷切换');return}
+  if(mpExpandedApi===null)mpExpandedApi=j.enabledId||''; // 默认展开使用中的 API,其余只显备注名
   for(const a of j.items){
-    const g=document.createElement('div');g.className='mp-g';
+    const g=document.createElement('div');g.className='mp-g'+(a.id===mpExpandedApi?'':' closed');
     const h=document.createElement('div');h.className='mp-h';
+    const arr=document.createElement('span');arr.className='mp-arr';arr.textContent='▾';
+    h.appendChild(arr);
     const hn=document.createElement('span');hn.className='mp-name';hn.textContent=a.name||a.modelID;hn.title=a.name||a.modelID;
     h.appendChild(hn);
     if(a.id===j.enabledId){
       const c=document.createElement('span');c.className='mp-cur';c.textContent='使用中';
       h.appendChild(c);
     }
+    h.onclick=function(){ // 点组头=展开该 API 的模型;再点已展开的=收起
+      mpExpandedApi=(mpExpandedApi===a.id?'':a.id);
+      renderModelPop(j);
+    };
     g.appendChild(h);
     const models=Array.isArray(a.models)&&a.models.length?a.models:[a.modelID];
     for(const m of models){
@@ -3269,6 +3281,7 @@ async function openModelPop(){
   modelPop.classList.add('open');
   modelChip.setAttribute('aria-expanded','true');
   popMsg('加载中…');
+  mpExpandedApi=null; // 每次打开重置:默认只展开「使用中」的 API
   renderModelPop(await fetchApiSnapshot());
 }
 async function switchModel(apiId,model){
