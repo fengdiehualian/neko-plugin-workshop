@@ -44,8 +44,8 @@ describe("先搜后建接入线:锁与 pin 一致", () => {
   test("锁里有这条,且钉的是完整 SHA", () => {
     expect(entry, "锁里没有 " + pin.slug).toBeTruthy()
     expect(pin.commit, "commit 必须是 40 位完整 SHA").toMatch(/^[0-9a-f]{40}$/)
-    expect(pin.commit).toBe("a375629a9a8b96af18809107aa7202c68c1f104d")
-    expect(pin.ref, "ref 是给人看的 tag;抓取仍以 commit 为准").toBe("v0.3.22")
+    expect(pin.commit).toBe("32cdf400e6857652496aae455b68e5766cdfb877")
+    expect(pin.ref, "ref 是给人看的 tag;抓取仍以 commit 为准").toBe("v0.3.23")
     expect(entry.commit).toBe(pin.commit)
     expect(entry.ref).toBe(pin.ref)
   })

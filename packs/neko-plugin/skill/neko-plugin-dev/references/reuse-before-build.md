@@ -8,7 +8,7 @@
 | 项 | 值 |
 |---|---|
 | 插件 slug | `reuse_before_build` |
-| 插件版本 | `0.3.22` |
+| 插件版本 | `0.3.23` |
 | 显示名 | 先搜后建 |
 | 许可 | MIT(上游 `src/LICENSE`,版权人 `1-dcjiang`) |
 | 上游 | https://github.com/1-dcjiang/neko-reuse-before-build |
