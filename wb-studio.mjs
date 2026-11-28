@@ -3964,6 +3964,9 @@ const updateState = {
 }
 let updateTimer = null
 let updateRunning = false
+// 断点续装的触发闸:resumePendingUpdate 声明在 createServer 回调作用域里(update 系函数的既有 quirky),
+// listen 回调看不见它;改为首个页面/health 请求进来时武装——语义也更对:窗口真开出来了才查有没有没装完的更新
+let pendingResumeArmed = false
 
 const srv = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${config.port}`)
@@ -4004,6 +4007,8 @@ const srv = createServer(async (req, res) => {
   }
   try {
     if (req.method === "GET" && url.pathname === "/") {
+      // 断点续装:页面第一次被打开(=窗口真起来了)再查没装完的已验证更新
+      if (!pendingResumeArmed) { pendingResumeArmed = true; setTimeout(() => { resumePendingUpdate() }, 2500) }
       // 未配置密钥时优先展示引导页;页面内嵌启动时随机 token(__WB_TOKEN__ 占位符注入)
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
       res.end(((hasValidKey() || cliEngineReady()) ? PAGE : SETUP_PAGE).split("__WB_TOKEN__").join(API_TOKEN))
@@ -4195,6 +4200,8 @@ const srv = createServer(async (req, res) => {
       return json(405, { ok: false, error: "不支持的方法" })
     }
     if (req.method === "GET" && url.pathname === "/api/health") {
+      // 断点续装的无窗口兜底(NOWINDOW 测试/无人打开页面时也能查一次)
+      if (!pendingResumeArmed) { pendingResumeArmed = true; setTimeout(() => { resumePendingUpdate() }, 2500) }
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
       res.end(JSON.stringify({
         engine: await engineHealthy(),
@@ -6212,8 +6219,6 @@ const boot = async () => {
     console.log(`[wb-studio] 对话页: ${url}`)
     console.log(`[wb-studio] 工作区: ${config.workspace}`)
     if (config.openBrowser && !process.env.WB_STUDIO_NOWINDOW) openWorkshopWindow(url)
-    // 断点续装:窗口先开出来,再查有没有上次没装成的已验证更新(有就装,进程会退出由安装器接管)
-    setTimeout(() => { resumePendingUpdate() }, 2500)
   })
   // 端口被占(已有实例在跑)以前是未捕获异常:堆栈甩进日志、退出码 1,现象像"工坊自己崩了"。
   // 现在说清楚是谁占了、该怎么处理,并且**不碰 token 文件**,占着端口的实例继续可用。
