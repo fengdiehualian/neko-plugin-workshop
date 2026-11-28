@@ -953,5 +953,29 @@
     }
    ]
   }
+ },
+ "zcode": {
+  "nodeVersion": "v24.14.0",
+  "agentVersion": "0.16.5",
+  "files": [
+   {
+    "path": "node.exe",
+    "license": "MIT",
+    "upstreamRepo": "https://nodejs.org/dist/v24.14.0/",
+    "source": "https://nodejs.org/dist/v24.14.0/"
+   },
+   {
+    "path": "zcode.cjs",
+    "license": "Apache-2.0",
+    "upstreamRepo": "https://github.com/zai-org/ZCode",
+    "source": "随 ZCode 官方发行版分发(客户端内置 bundle,非本仓库构建产物)"
+   },
+   {
+    "path": "provider/zcode-builtin.json",
+    "license": "本仓库 MIT",
+    "upstreamRepo": "",
+    "source": "本仓库生成(工坊内置 provider 清单)"
+   }
+  ]
  }
 }

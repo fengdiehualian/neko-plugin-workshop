@@ -16,7 +16,7 @@ import { spawn } from "node:child_process"
 import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { request as httpRequest } from "node:http"
+import { request as httpRequest, createServer as createHttpServer } from "node:http"
 
 // 本机服务探测走 node:http 直连:undici 的 fetch 会受 http_proxy 环境影响,
 // 在装了代理的机器上连 127.0.0.1 也要绕一圈(实测 2.7s),超时容易误判成"服务没起来"
@@ -78,6 +78,27 @@ if (!CHROME) {
   process.exit(2)
 }
 
+// ---------- 0.5 403-token 桩服务:页面 fetch 包装「自愈」的靶子 ----------
+// 两个页面启动时都把 window.fetch 包了一层:响应是 403 且错误里带「token」→ 置 __WB_STALE、
+// 顶部提示、2 秒后 reload(工坊更新重启后,旧窗口的 token 失效,写请求全部 403 的自愈)。
+// 要测它,响应必须真的**穿过页面那层包装**:页面 JS 的请求先过 check-page 的桩(未知 URL 透传)
+// → 页面包装 → 原生 fetch → 打到这里。由 check-page 桩直接回一个 403 Response 到不了页面包装
+// 那层,等于没测——所以这里起一个真 HTTP 服务。
+// 页面包装会给请求强加 x-wb-token 头(自定义头,跨端口=跨源)→ Chrome 会先发 CORS 预检,
+// 桩服务必须应 OPTIONS;真实响应也要带 ACAO,否则页面包装里 r.clone().json() 读不出错误体。
+const token403 = createHttpServer((req, res) => {
+  const cors = {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-headers": "x-wb-token, content-type",
+  }
+  if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return }
+  res.writeHead(403, { "content-type": "application/json", ...cors })
+  res.end(JSON.stringify({ ok: false, error: "token 校验失败(mock:模拟工坊重启后旧 token 失效)" }))
+})
+await new Promise((r) => token403.listen(0, "127.0.0.1", () => r()))
+const TOKEN403_PORT = token403.address().port
+
 // ---------- 1. 起无头浏览器(固定端口更稳:port=0 时偶发不落 DevToolsActivePort 文件) ----------
 // 正常退出会删掉自己的 profile;被强杀/超时杀掉时不会,一次遗留 5-10MB。
 // 这里顺手清理 6 小时前的旧 profile,避免 Temp 越攒越多。
@@ -110,6 +131,7 @@ function launchChrome(port, headless = "new") {
 function cleanup(code) {
   try { chrome && chrome.kill() } catch {}
   try { rmSync(profile, { recursive: true, force: true }) } catch {}
+  try { token403 && token403.close() } catch {}
   process.exit(code)
 }
 
@@ -300,6 +322,58 @@ if (isSetup) {
     const okMsg = $('#msg').textContent.includes('连上了');
     tested ? pass('「先测一下」→ /api/test', okMsg ? '结果显示连接正常' : '')
       : fail('「先测一下」→ /api/test', '没发出请求');
+
+    // 探测可用模型(issue #49):填好假地址(端口 1,连接立刻被拒)点 #probeBtn。
+    // /api/probe_models 不在桩清单里,会真发请求——服务端连不上 → 页面走
+    // 「探测未获取到模型列表」错误提示分支。断言三件事:
+    //   ① POST /api/probe_models 真的发出去了(calls 里有记录);
+    //   ② #probeTip 有错误路径文案(不是空着不动);
+    //   ③ 按钮回到可点状态(处理函数跑完;中途抛错按钮会永远 disabled)。
+    // 另有全局兜底:未捕获的 promise 异常会进 pageErrors,整轮体检直接判失败。
+    // 必须放在「保存并进入」之前——那个用例 1.2s 后 location.reload(),会把这里的 DOM 冲掉。
+    {
+      const btn = document.getElementById('probeBtn');
+      const tip = document.getElementById('probeTip');
+      if (!btn || !tip) {
+        fail('引导页 探测可用模型按钮', 'btn=' + !!btn + ' tip=' + !!tip + '(元素缺失,点击会 null 抛错)');
+      } else {
+        $('#u').value = 'http://127.0.0.1:1/v1';
+        $('#k').value = 'sk-check-page-probe';
+        const n3 = calls().filter((c) => c.url.includes('/api/probe_models')).length;
+        btn.click();
+        // 轮询要等「提示变了」而不是「提示有了」:点击瞬间就被填上
+        // 「正在获取可用模型列表…」的加载文案,拿非空当完成条件会在响应回来前误判
+        let tipText = '';
+        const t0 = Date.now();
+        while (Date.now() - t0 < 8000) {
+          tipText = (tip.textContent || '').trim();
+          if (tipText && !/正在获取/.test(tipText)) break;
+          await sleep(150);
+        }
+        tipText = (tip.textContent || '').trim()
+        const sent = calls().filter((c) => c.url.includes('/api/probe_models')).length > n3;
+        const msgOk = /探测未获取到模型列表|探测出错|先填好/.test(tipText);
+        const btnBack = !btn.disabled;
+        sent && msgOk && btnBack
+          ? pass('引导页 探测按钮(假地址→错误提示)', tipText.slice(0, 26))
+          : fail('引导页 探测按钮(假地址→错误提示)', 'sent=' + sent + ' msg=' + msgOk + ' tip=' + JSON.stringify(tipText.slice(0, 40)) + ' btnReady=' + btnBack);
+      }
+    }
+
+    // 403 自愈(引导页 fetch 包装):向 403 桩服务发一次请求(走 check-page 桩的透传分支
+    // → 页面包装 → 原生 fetch),响应穿过页面包装,应被识别为 token 失效:
+    // 置 __WB_STALE + 顶部「工坊已重启…」提示。2 秒后的 reload 闭环由宿主侧 5a 断言。
+    // 放在「保存并进入」之前:那个用例成功后 1.2 秒会 reload,别让它冲掉这里的断言窗口。
+    // 标记:sessionStorage 探针 reload 后保留(同页刷新)、window 标记 reload 后消失——5a 拿它们判刷新。
+    try {
+      sessionStorage.setItem('wb403probe', '1')
+      window.__WB_TESTCTX = 1
+      await fetch('http://127.0.0.1:${TOKEN403_PORT}/x', { method: 'POST' })
+      await sleep(400)   // 403 分支里 r.clone().json() 是异步的,给它一点时间
+      const stale = window.__WB_STALE === true
+      const toast = [...document.querySelectorAll('div')].some((d) => (d.textContent || '').indexOf('工坊已重启') >= 0)
+      stale && toast ? pass('403 自愈:token 失效被识别(置 __WB_STALE + 顶部提示)') : fail('403 自愈', 'stale=' + stale + ' toast=' + toast)
+    } catch (e) { fail('403 自愈', String((e && e.message) || e)) }
 
     // 保存并进入 → /api/setup
     const n2 = calls().filter((c) => c.url.includes('/api/setup')).length;
@@ -1243,6 +1317,21 @@ ${AP_PROBE_SRC}
     }
   }
 
+  // 403 自愈(主页 fetch 包装,与引导页同一份拷贝):向 403 桩服务发一次请求
+  // (check-page 桩透传 → 页面包装 → 原生 fetch),响应穿过页面包装,应被识别为
+  // token 失效:置 __WB_STALE + 顶部提示。必须放最后——2 秒后页面会真的 reload,
+  // reload 之后 check-page 的桩与 __calls 都会没掉,后续页面侧用例会全废。
+  // reload 闭环由宿主侧 5a 断言(主页没有别的 reload 源,那条就是 403 专属闭环)。
+  try {
+    sessionStorage.setItem('wb403probe', '1')
+    window.__WB_TESTCTX = 1
+    await fetch('http://127.0.0.1:${TOKEN403_PORT}/x', { method: 'POST' })
+    await sleep(400)   // 403 分支里 r.clone().json() 是异步的,给它一点时间
+    const stale = window.__WB_STALE === true
+    const toast = [...document.querySelectorAll('div')].some((d) => (d.textContent || '').indexOf('工坊已重启') >= 0)
+    stale && toast ? pass('403 自愈:token 失效被识别(置 __WB_STALE + 顶部提示)') : fail('403 自愈', 'stale=' + stale + ' toast=' + toast)
+  } catch (e) { fail('403 自愈', String((e && e.message) || e)) }
+
   return R;
 })()`)
 }
@@ -1252,6 +1341,12 @@ ${AP_PROBE_SRC}
 const SHOT = arg("shot", "")
 if (SHOT) {
   try {
+    // 403 自愈用例之后页面可能已 reload(探针在、window 标记没了=上下文已重建):
+    // reload 后 check-page 的桩随之失效,再 requestSubmit 会真发 /api/task——跳过截图
+    const st = await evalJs(`(() => ({ probe: sessionStorage.getItem('wb403probe') || '', ctx: window.__WB_TESTCTX === 1 }))()`).catch(() => null)
+    if (st && st.probe === '1' && st.ctx === false) {
+      console.log(`${C.y}⚠ 页面已因 403 自愈用例 reload(桩失效),截图跳过${C.x}`)
+    } else {
     // 侧边栏用例会把聊天区重渲染成服务端历史(里面没有 mock 的 modifiedFiles),
     // 所以截图前先补发一条(仍走桩,不落库),让改动列表重新出现在最新一条回复里
     await evalJs(`(() => { const t=document.querySelector('textarea'); if(!t) return false; t.value='截图用:做个喝水提醒插件'; const f=document.querySelector('form'); if(!f) return false; f.requestSubmit(); return true })()`)
@@ -1272,6 +1367,7 @@ if (SHOT) {
       const dbg = await evalJs("document.querySelectorAll('.msg').length + '/' + document.querySelectorAll('.fchg').length").catch(() => "?")
       console.log(`${C.r}没有可截图的改动列表${C.x} (msg/fchg=${dbg})`)
     }
+    } // else(页面没被 403 自愈 reload)结束
   } catch (e) {
     console.log(`${C.r}截图失败: ${e.message}${C.x}`)
   }
@@ -1291,6 +1387,30 @@ if (isSetup) {
 } else {
   const ok = homeHtml.includes('id="chat"') && homeHtml.includes('id="setbtn"')
   apiChecks.push({ name: "主页面 HTML 结构完整", ok, detail: ok ? "找到 #chat / #setbtn" : "缺少关键元素(可能返回的是引导页)" })
+}
+
+// ---------- 5a. 403 自愈闭环:页面侧已断言 __WB_STALE+提示;这里确认 reload 真的发生 ----------
+// 判据:sessionStorage 探针仍在(同页刷新保留)+ window 上的旧标记消失(上下文重建过)。
+// 引导页分支里「保存并进入」自带的 reload 可能抢先触发——那条路径里这一项只证明「刷新发生了」,
+// 403 分支本身的置位/提示断言在页面侧;主页分支没有其它 reload 源,这一项就是 403 专属闭环。
+// 轮询而不是固定等待:reload 落在 2s 定时器 + 页面重载之间,竞态期间 eval 可能短暂失败。
+{
+  let reloaded = false
+  let detail = ""
+  const dl = Date.now() + 8000
+  while (Date.now() < dl && !reloaded) {
+    try {
+      const after = await evalJs(`(() => ({ probe: sessionStorage.getItem('wb403probe') || '', ctx: window.__WB_TESTCTX === 1 }))()`)
+      if (after && after.probe === '1' && after.ctx === false) { reloaded = true; break }
+      detail = JSON.stringify(after)
+    } catch (e) { detail = "eval: " + String((e && e.message) || e) }
+    await sleep(1000)
+  }
+  apiChecks.push({
+    name: "403 自愈:token 失效后页面自动 reload(自愈闭环)",
+    ok: reloaded,
+    detail: reloaded ? "sessionStorage 探针保留 + window 上下文已重建" : "8 秒内没等到刷新:" + detail.slice(0, 80),
+  })
 }
 const probe = async (name, path, init = {}, expect) => {
   const r = await localReq(path, { method: init.method || "GET", body: init.body || null, timeout: 20000, headers: init.headers || H })

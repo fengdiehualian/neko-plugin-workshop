@@ -159,6 +159,14 @@ describe("wb-studio 冒烟", () => {
 
       // 进程还活着 = 上面三次请求没有把服务打崩
       expect(s.child.exitCode).toBeNull()
+
+      // 稳定窗口(v1.2.79 教训):ready 瞬间能回话 ≠ 之后还活着——启动即崩类问题
+      // (断点续装定时器之类迟到抛错的异步初始化)只会在几秒后才显形。
+      // ready 之后再等 7 秒复查一次:进程必须仍在、健康检查必须仍 200。
+      await new Promise((r) => setTimeout(r, 7000))
+      const health2 = await fetch(s.base + "/api/health", { signal: AbortSignal.timeout(2000) })
+      expect(health2.status, "启动 7 秒后 /api/health 仍应 200").toBe(200)
+      expect(s.child.exitCode, "启动 7 秒后进程仍应存活").toBeNull()
     } finally {
       await s.stop()
     }

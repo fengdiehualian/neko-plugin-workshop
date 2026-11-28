@@ -1431,6 +1431,21 @@ function splitCommandSegments(s) {
   return String(s || "").replace(REDIRECT_RE, " ").split(SEGMENT_SPLIT)
 }
 
+// 命令替换体提取(issue #26):`$(git push)`、`git push` 反引号包裹的内层是会被 shell 真执行的命令,
+// 但拆段逻辑看不见 $() 内部,subcommandAfter 的 token 正则 `[^\s"']+` 又会把 `push)` 连右括号一起吃掉,
+// 于是真实推送被当成普通文本放行(实测 `echo $(git push)` 被自动回 once)。
+// 这里把每个替换体单独拎出来按整命令判;嵌套 $() 至少能解出最内层,拦推送形态够用。
+function commandSubstitutionBodies(s) {
+  const out = []
+  const re = /\$\(([^()]*)\)|`([^`]*)`/g
+  let m
+  while ((m = re.exec(String(s || "")))) out.push(String(m[1] != null ? m[1] : m[2] || ""))
+  return out.filter(Boolean)
+}
+// 「括号/编号包裹」的文本形态(issue #26 报告的 `#26 (git push)`):多数是 commit 消息/注释,不执行;
+// 但判定上宁可多问一次,也不让「把 git push 包一层就溜过去」成为可依赖的绕法。
+const WRAPPED_PUSH_RE = /\(\s*git\s+(?:push|send-email)\b[^()]{0,60}\)/i
+
 // 跳过命令行前导的全局选项,返回 { 子命令, 之后剩余部分 }
 function subcommandAfter(s, bin, valued, bare) {
   const head = new RegExp("\\b" + bin + "\\b", "i")
@@ -1471,6 +1486,13 @@ function outwardEvidence(text) {
   if (!whole) return ""
   const byWhole = outwardEvidenceOne(whole)
   if (byWhole) return byWhole
+  // issue #26:命令替换体是 shell 会真执行的内容,单独判一遍(`X=$(git push) && echo done` 实测曾放行)
+  for (const body of commandSubstitutionBodies(whole)) {
+    const why = outwardEvidenceOne(body)
+    if (why) return why + "(藏在命令替换里)"
+  }
+  // issue #26:`#26 (git push)` 这类括号/编号包裹形态也命中
+  if (WRAPPED_PUSH_RE.test(whole)) return "git push(括号/编号包裹形态)"
   for (const seg of splitCommandSegments(whole)) {
     const why = outwardEvidenceOne(String(seg || "").trim())
     if (why) return why

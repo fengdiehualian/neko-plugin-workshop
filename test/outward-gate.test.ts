@@ -271,3 +271,90 @@ describe("判定层的漏口(issue #10 复核第二轮)", () => {
     expect(body, "stale 判据里没有通配 ask 检查,老配置会永不升级").toMatch(/bash\["\*"\][^]{0,40}!==\s*"ask"/)
   })
 })
+
+// issue #26 复核:命令替换体($(git push) 的内层)与「括号/编号包裹」文本形态只有实现没有测试,
+// 这里逐条钉住。断言不止看 outward 布尔,还钉 why 里的路径标记——
+// 「藏在命令替换里」/「括号/编号包裹形态」——保证走的是 #26 那两条新路径,
+// 而不是碰巧被别的规则误打误撞命中(那样实现一回归标记就没了,测试会红)。
+// 所有期望值均与本机探针实测对齐(2026-11-28,bun 探针逐条输出 BLOCK/ALLOW)。
+describe("issue #26:藏在命令替换/括号包裹里的外发写", () => {
+  test("命令替换体 $():内层推送要拦,且走「藏在命令替换里」路径", () => {
+    // 这些形态整串判不出:子命令 token(`push)`)被右括号连吃、或被反引号连吃,
+    // 只有替换体提取这条 #26 路径能拦——所以 why 里必须带「藏在命令替换里」标记。
+    for (const t of [
+      "echo $(git push)",                    // 报告原例:曾整串判不出被自动回 once
+      "X=$(git push) && echo done",          // 赋值体同样会被 shell 执行
+      "echo $(echo $(git push))",            // 嵌套 $():至少解出最内层
+      "echo $(git -C repo push)",            // 带全局选项的替换体
+    ]) {
+      const r = ow(t)
+      expect(r.outward, "应拦:" + t).toBe(true)
+      expect(r.why, "应走命令替换体路径:" + t).toContain("藏在命令替换里")
+    }
+  })
+  test("反引号替换体:内层推送同样要拦(与 $() 同一条路径)", () => {
+    const r = ow("echo `git push`")
+    expect(r.outward).toBe(true)
+    expect(r.why).toContain("藏在命令替换里")
+  })
+  test("替换体里 gh/npm/send-email:同样拦(整串层各自规则先命中,不钉路径)", () => {
+    // 这些不带「藏在命令替换里」标记——整串判定先拦住(push 后还有参数、
+    // 或 gh/npm 规则本来就是全句正则)。替换体路径是兜底不是唯一 catcher,
+    // 只断言「拦」,不把两层判定的先后顺序钉死成实现细节。
+    for (const t of [
+      "echo $(git push origin main)",
+      "echo $(gh release create v1.0.0)",
+      "echo $(npm publish)",
+      "V=$(git send-email --to=x@y.com)",
+    ]) expect(ow(t).outward, "应拦:" + t).toBe(true)
+  })
+  test("命令替换体里只读命令:不拦(门禁不能把人问死)", () => {
+    for (const t of [
+      "echo $(git status)",
+      "X=$(git log --oneline) && echo done",
+      "echo `git status`",
+      "echo $(echo $(git pull))",
+    ]) expect(ow(t).outward, "不该弹窗:" + t).toBe(false)
+  })
+  test("括号/编号包裹形态:#26 (git push) 要拦,且走「括号/编号包裹」路径", () => {
+    for (const t of [
+      "#26 (git push)",              // 报告原例:多半是 commit 消息/注释,但宁可多问一次
+      "(git push)",
+      "回复 (git push) 好了",
+      "#26 (git send-email)",
+      'echo "(git push)"',            // 引号也拦:注释说「不假装能分辨」,这是刻意的保守面
+    ]) {
+      const r = ow(t)
+      expect(r.outward, "应拦:" + t).toBe(true)
+      expect(r.why, "应走括号包裹路径:" + t).toContain("括号/编号包裹形态")
+    }
+  })
+  test("括号里是只读命令 / 纯编号文本:不拦", () => {
+    for (const t of [
+      "#26 (git pull)",
+      "(git status)",
+      "echo '#26'",
+      "git pull",
+      "git status",
+    ]) expect(ow(t).outward, "不该弹窗:" + t).toBe(false)
+  })
+  test("两类形态都必须进人工确认队列,没界面时拒绝(与其它外发写同一待遇)", () => {
+    for (const t of ["echo $(git push)", "#26 (git push)"]) {
+      expect(classifyPermission({ patterns: [t], action: "shell" }, true).reply, t).toBe("confirm")
+      expect(classifyPermission({ patterns: [t], action: "shell" }, false).reply, t).toBe("reject")
+    }
+  })
+  test("引擎侧同样不放行(两侧同源:resolveBashEffect 不为 allow)", () => {
+    for (const t of [
+      "echo $(git push)",
+      "X=$(git push) && echo done",
+      "echo `git push`",
+      "echo $(echo $(git push))",
+      "#26 (git push)",
+      "(git push origin main)",
+      "echo $(gh release create v1.0.0)",
+      "echo $(npm publish)",
+      "V=$(git send-email --to=x@y.com)",
+    ]) expect(resolveBashEffect(t), "引擎不该直接 allow:" + t).not.toBe("allow")
+  })
+})

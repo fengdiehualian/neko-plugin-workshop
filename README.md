@@ -38,7 +38,7 @@
 ├── experts/              # 配套专家团(WorkBuddy/CodeBuddy 专家包,可导入自己的 Agent 底座)
 ├── market-corpus/        # 官方市场插件源码 + 本机补采(Agent 的学习语料;数量运行 `node workbench/corpus_stats.cjs`)
 ├── test/                 # 单元测试(bun test)
-├── workbench/            # 打包工具(make-exe.ps1 一键 SFX 安装器)
+├── workbench/            # 打包与清点工具(build_payload.py 出载荷、make-setup-iexpress.py 打 IExpress 安装器)
 └── 使用说明.txt           # 面向小白的完整说明
 ```
 
@@ -72,7 +72,7 @@
 前置:N.E.K.O. 源码(check/build 依赖)、Node/bun 运行时、一套 OpenAI 兼容(或其它支持协议)的模型服务。
 
 ```bash
-bun install && bun test        # 单元测试(121 项,在仓库根目录执行)
+bun install && bun test        # 单元测试(314 项,在仓库根目录执行)
 bun cli.mjs scaffold neko-plugin reminder \
   --out C:/projects --neko C:/path/to/N.E.K.O \
   --PLUGIN_ID my_reminder --PLUGIN_NAME 提醒 --CLASS_NAME MyReminder
@@ -86,18 +86,21 @@ bun wb-studio.mjs              # 启动网页工坊(127.0.0.1:5099)
 | 单元测试 | `bun test` | 提示词拼装、底座参数/输出解析、重试与熔断判定、规则编号与文档口径一致性、更新包校验判定、外发写判定 |
 | 静态交叉检查 | `python tools/static_check.py` | 页面元素 id、前端 fetch 有没有对应路由、HTML 标签/面板嵌套(更新页签隐形那类 bug) |
 | 语法门禁 | `python tools/syntax_check.py` | py/json/toml/mjs/yml 语法 + TSX 批量转译 |
-| 页面体检 | `node tools/check-page.mjs --mutate` | 真 Chrome 真点击 133 项:更新弹窗进度与 SHA256 校验标记、外发写确认卡能否点拒绝、专家团会诊卡片… |
+| 页面体检 | `node tools/check-page.mjs --mutate` | 真 Chrome 真点击 148 项(未配置时首配页另有 51 项):更新弹窗进度与 SHA256 校验标记、外发写确认卡能否点拒绝、专家团会诊卡片、引导页「探测可用模型」按钮、403 token 失效自愈 reload… |
 
 前三道在 GitHub Actions 里跑(`.github/workflows/ci.yml`,issue #9 要求给门禁一个落点);
 页面体检要起本地实例,发版前手跑。安全相关的端到端复验(引擎随机密码、确认队列、更新包校验)
 用 `node tools/verify-security.cjs`,对**隔离实例**跑,绝不碰用户真实安装实例。
 历史上的临时排查脚本(截图、CDP、市场语料抓取等)统一放在 `tools/probes/`,不进 CI、不被 `bun test` 收集。
 
-发布为绿色一键包(便携运行时 + SFX 安装器):
+发布为绿色一键包(源码 + ZCode 底座 + 自解压安装器),两步:
 
 ```powershell
-powershell -File workbench/make-exe.ps1 -Stage "<便携包目录>" -Out setup.exe
+python workbench/build_payload.py        # 组装 build\payload.zip(源码+_zcode,缺件当场报错)
+python workbench/make-setup-iexpress.py --zip build/payload.zip --out build/N.E.K.O.PluginWorkshop-Setup.exe
 ```
+
+(旧 `make-exe.ps1` 依赖 csc.exe,新版环境里被安全策略拦,已改用 Windows 自带的 IExpress 打 SFX。)
 
 ## 技术要点
 

@@ -417,6 +417,9 @@ function detectNekoRepo() {
   const candidates = [
     config.nekoRepo,
     join(config.workspace, "..", "N.E.K.O"),
+    // 兄弟目录布局(开发机常态):工坊在 <dev>/neko-plugin-workshop,N.E.K.O 在 <dev>/N.E.K.O。
+    // 上面那条只找「工坊文件夹内」的 N.E.K.O(workspace 的上级=工坊根),兄弟目录一直探不到
+    join(dirname(__dirname), "N.E.K.O"),
     join(homedir(), "dev", "N.E.K.O"),
     "C:\\N.E.K.O",
     "D:\\N.E.K.O",
@@ -1521,6 +1524,7 @@ const SETUP_PAGE = `<!doctype html>
     <button id="probeBtn" class="ghost" style="white-space:nowrap;flex-shrink:0">🔍 探测可用模型</button>
   </div>
   <select id="modelSelect" style="display:none;width:100%;margin-top:4px"></select>
+  <div class="tip" id="probeTip" style="display:none"></div>
   <div class="tip">按你的服务商提供的模型名称填写,或点「探测可用模型」自动获取</div>
   <button id="go">保存并进入工坊 →</button>
   <button id="try" class="ghost">🔌 先测一下能不能连上</button>
@@ -1534,7 +1538,34 @@ const SETUP_PAGE = `<!doctype html>
 </div>
 <script>
 const WB_TOKEN="__WB_TOKEN__";
-(function(){const _f=fetch.bind(window);window.fetch=(u,o={})=>{const m=(o.method||"GET").toUpperCase();const h=new Headers(o.headers||{});h.set("x-wb-token",WB_TOKEN);if(m!=="GET"&&!h.has("content-type"))h.set("content-type","application/json");o.headers=h;return _f(u,o)}})();
+(function(){
+  const _f=fetch.bind(window);
+  // 403 自愈:工坊更新后进程重启、token 换了,旧窗口的写请求全部 403「token 校验失败」。
+  // 收到 token 类 403 就提示一次,2 秒后自动刷新页面重新渲染(拿到新 token),别让旧窗口假死。
+  window.fetch=function(u,o){
+    o=o||{};
+    const m=(o.method||"GET").toUpperCase();
+    const h=new Headers(o.headers||{});
+    h.set("x-wb-token",WB_TOKEN);
+    if(m!=="GET"&&!h.has("content-type"))h.set("content-type","application/json");
+    o.headers=h;
+    return _f(u,o).then(function(r){
+      if(r.status===403&&!window.__WB_STALE){
+        r.clone().json().then(function(j){
+          if(j&&String(j.error||"").indexOf("token")>=0){
+            window.__WB_STALE=true;
+            var d=document.createElement("div");
+            d.textContent="工坊已重启(可能刚完成更新),页面即将刷新…";
+            d.style.cssText="position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:99999;background:#3d2b33;color:#fff;padding:10px 18px;border-radius:12px;font-size:13px;font-family:inherit;box-shadow:0 6px 24px rgba(0,0,0,.3)";
+            (document.body||document.documentElement).appendChild(d);
+            setTimeout(function(){location.reload()},2000);
+          }
+        }).catch(function(){});
+      }
+      return r;
+    });
+  };
+})();
 const $=id=>document.getElementById(id);
 const PRESETS=${JSON.stringify(PROVIDER_PRESETS)};
 (function(){
@@ -1574,7 +1605,16 @@ $('go').onclick=async()=>{
     const r=await fetch('/api/setup',{method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({baseURL:$('u').value.trim(),apiKey:$('k').value.trim(),model:$('m').value.trim(),protocol:$('proto').value})});
     const j=await r.json();
-    if(j.ok){msg.textContent='✅ '+(j.warning||'配置成功,正在进入工坊…');msg.className='msg good';setTimeout(()=>location.reload(),1200);}
+    if(j.ok){
+      if(j.warning){
+        // 保存成功但连接测试有提示(如模型名 404):不再 1.2 秒后自动刷新把警告吞掉。
+        // 配置此刻已保存落盘,按钮改为「仍要进入工坊」由用户决定;想改模型名改完再点保存即可。
+        msg.textContent='⚠️ '+(j.warning||'');msg.className='msg good';
+        btn.disabled=false;btn.textContent='仍要进入工坊 →';btn.onclick=()=>location.reload();
+      }else{
+        msg.textContent='✅ 配置成功,正在进入工坊…';msg.className='msg good';setTimeout(()=>location.reload(),1200);
+      }
+    }
     else{msg.textContent='😢 '+(j.error||'配置失败');msg.className='msg bad';btn.disabled=false;}
   }catch(e){msg.textContent='😢 连接出错:'+e;msg.className='msg bad';btn.disabled=false;}
 };
@@ -1601,7 +1641,7 @@ $('probeBtn').onclick=async()=>{
   const u=$('u').value.trim(),k=$('k').value.trim(),p=$('proto').value;
   if(!u||!k){tip.style.display='block';tip.style.color='#e2517f';tip.textContent='先填好 Base URL 和 API Key 再探测';btn.disabled=false;btn.textContent=old;return}
   btn.textContent='⏳ 探测中…';
-  tip.style.display='block';tip.style.color='var(--muted-2)';tip.textContent='正在获取可用模型列表…';
+  tip.style.display='block';tip.style.color='#a08a92';tip.textContent='正在获取可用模型列表…';
   try{
     const r=await fetch('/api/probe_models',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({baseURL:u,apiKey:k,protocol:p})});
     const j=await r.json();
@@ -1612,7 +1652,7 @@ $('probeBtn').onclick=async()=>{
       sel.style.display='block';mi.style.display='none';
       sel.onchange=()=>{mi.value=sel.value;mi.dispatchEvent(new Event('input'))};
       if(mi.value&&j.models.includes(mi.value))sel.value=mi.value;else mi.value=j.models[0];
-      tip.style.display='block';tip.style.color='var(--green,#4caf50)';tip.textContent='探测到 '+j.models.length+' 个可用模型,下拉框选择即可';
+      tip.style.display='block';tip.style.color='#2d7a3a';tip.textContent='探测到 '+j.models.length+' 个可用模型,下拉框选择即可';
     }else{
       sel.style.display='none';mi.style.display='block';
       tip.style.display='block';tip.style.color='#e2517f';
@@ -2156,13 +2196,14 @@ const PAGE = `<!doctype html>
         <div id="updBar" style="height:100%;width:0;background:var(--pink);transition:width .2s"></div>
       </div>
       <div id="updDetail" style="margin-top:6px;font-size:11.5px;color:var(--muted-2)"></div>
+      <button type="button" id="updCancelBox" style="display:none;margin-top:8px;border:1px solid var(--border);background:var(--tint);color:var(--ink);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">✕ 取消下载</button>
     </div>
     <div style="margin-top:14px;color:var(--muted-2);font-size:11.5px">下载完成后工坊会退出,安装器接管并自动重新启动;安装完成后临时文件自动删除。更新不会动 runtime/(密钥、会话、记忆)与 workspace/(插件项目)。</div>
   </div>
 </div>
 <div id="usageModal">
   <div class="ucard" role="dialog" aria-label="用量统计">
-    <div class="uhead"><b>📊 用量统计</b><button type="button" class="uclose" id="usageClose" title="关闭(Esc)">✕</button></div>
+    <div class="uhead"><b>▦ 用量统计</b><button type="button" class="uclose" id="usageClose" title="关闭(Esc)">✕</button></div>
     <div id="usageBody"></div>
   </div>
 </div>
@@ -2193,7 +2234,7 @@ const PAGE = `<!doctype html>
     <div id="slist"></div>
     <button id="archbtn" title="在会话列表和已归档对话之间切换">🗂 查看已归档</button>
     <button id="compactSide" title="把当前会话的上下文压成摘要(平时不用点:任务开始/结束都会自动压缩;会话很长又想马上腾空间时用)">🗜 压缩上下文</button>
-    <button id="usagebtn" title="查看 API 用量统计:总用量,按对话/日期/模型,近 7/30 天趋势">📊 用量统计</button>
+    <button id="usagebtn" title="查看 API 用量统计:总用量,按对话/日期/模型,近 7/30 天趋势">▦ 用量统计</button>
   </aside>
   <main>
   <div id="chat">
@@ -2214,7 +2255,34 @@ const PAGE = `<!doctype html>
 </div>
 <script>
 const WB_TOKEN="__WB_TOKEN__";
-(function(){const _f=fetch.bind(window);window.fetch=(u,o={})=>{const m=(o.method||"GET").toUpperCase();const h=new Headers(o.headers||{});h.set("x-wb-token",WB_TOKEN);if(m!=="GET"&&!h.has("content-type"))h.set("content-type","application/json");o.headers=h;return _f(u,o)}})();
+(function(){
+  const _f=fetch.bind(window);
+  // 403 自愈:工坊更新后进程重启、token 换了,旧窗口的写请求全部 403「token 校验失败」。
+  // 收到 token 类 403 就提示一次,2 秒后自动刷新页面重新渲染(拿到新 token),别让旧窗口假死。
+  window.fetch=function(u,o){
+    o=o||{};
+    const m=(o.method||"GET").toUpperCase();
+    const h=new Headers(o.headers||{});
+    h.set("x-wb-token",WB_TOKEN);
+    if(m!=="GET"&&!h.has("content-type"))h.set("content-type","application/json");
+    o.headers=h;
+    return _f(u,o).then(function(r){
+      if(r.status===403&&!window.__WB_STALE){
+        r.clone().json().then(function(j){
+          if(j&&String(j.error||"").indexOf("token")>=0){
+            window.__WB_STALE=true;
+            var d=document.createElement("div");
+            d.textContent="工坊已重启(可能刚完成更新),页面即将刷新…";
+            d.style.cssText="position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:99999;background:#3d2b33;color:#fff;padding:10px 18px;border-radius:12px;font-size:13px;font-family:inherit;box-shadow:0 6px 24px rgba(0,0,0,.3)";
+            (document.body||document.documentElement).appendChild(d);
+            setTimeout(function(){location.reload()},2000);
+          }
+        }).catch(function(){});
+      }
+      return r;
+    });
+  };
+})();
 const chat=document.getElementById('chat'),form=document.getElementById('f'),t=document.getElementById('t'),b=document.getElementById('b');
 const slist=document.getElementById('slist'),newbtn=document.getElementById('newbtn');
 const sessSearch=document.getElementById('sessSearch');
@@ -2276,7 +2344,7 @@ const ERR_HINTS=[
   [/\\b413\\b|payload too large|请求体过大/i,'请求体太大:单次输入过长,拆成几段再发'],
   [/\\b429\\b|rate.?limit|quota|tpm|rpm/i,'限流或额度不足:等几分钟再试,或换一个 API/模型'],
   [/\\b50[024]\\b|internal server error|bad gateway|service unavailable|gateway timeout/i,'服务端异常:对方服务的问题,稍后重试或换 API'],
-  [/ECONNREFUSED|Unable to connect|fetch failed/i,'连不上服务:本地引擎没起来或端口没监听,重启一下工坊'],
+  [/ECONNREFUSED|Unable to connect|fetch failed/i,'连不上服务:多半是网络或代理问题,检查网络(或加速器)后重试;服务地址写错也会这样,反复失败再考虑重启工坊'],
   [/ETIMEDOUT|timed? ?out|超时/i,'超时:网络慢或模型长时间没响应,重试或换个模型'],
   [/ENOENT|no such file/i,'找不到文件或命令:检查路径是否正确、程序是否装上'],
   [/ENOTFOUND|getaddrinfo/i,'域名解析失败:检查网络/DNS,或服务地址是否写错'],
@@ -2487,7 +2555,22 @@ async function loadCurrent(){
 newbtn.onclick=newChat;
 loadCurrent();
 // 引擎异常横幅:解压不完整/杀软误删时给用户看得懂的指引
-(async()=>{try{const h=await(await fetch('/api/health')).json();if(h.engineError){const d=document.createElement('div');d.className='msg bot err';d.style.maxWidth='100%';d.textContent='⚠ '+h.engineError;chat.insertBefore(d,chat.firstChild);}}catch(e){}})();
+// N.E.K.O 缺失横幅:check/build 插件都靠它,只在 console 里说等于没说
+// 任务进行中(刷新页面后):恢复停止键并禁用发送,免得「停止键消失、再发消息 429」
+(async()=>{try{const h=await(await fetch('/api/health')).json();
+  if(h.engineError){const d=document.createElement('div');d.className='msg bot err';d.style.maxWidth='100%';d.textContent='⚠ '+h.engineError;chat.insertBefore(d,chat.firstChild);}
+  if(h.neko===null||h.neko===undefined||h.neko===''){const d=document.createElement('div');d.className='msg bot err';d.style.maxWidth='100%';d.textContent='⚠ 未找到 N.E.K.O(插件的 check/build 需要它):请把工坊文件夹放到 N.E.K.O 旁边,或在 wb-studio.config.json 的 nekoRepo 里填 N.E.K.O 安装路径';chat.insertBefore(d,chat.firstChild);}
+  if(h.busy){
+    stopbtn.style.display='';
+    b.disabled=true;
+    const ty=document.createElement('div');ty.className='typing';ty.innerHTML='上一条任务还在进行…<span>🐱…</span>';chat.appendChild(ty);chat.scrollTop=chat.scrollHeight;
+    const bk=setInterval(async()=>{
+      try{const p=await(await fetch('/api/health')).json();
+        if(p&&!p.busy){clearInterval(bk);ty.remove();stopbtn.style.display='none';b.disabled=false;loadCurrent();t.focus();}
+      }catch(e){}
+    },1200);
+  }
+}catch(e){}})();
 
 // ---------- 附件:发消息时顺带把文件交给 AI(经 /api/upload 落到工作区 uploads/) ----------
 const attachBtn=document.getElementById('attachBtn'),attachFile=document.getElementById('attachFile'),attachChips=document.getElementById('attachChips'),attachWrap=document.getElementById('attachWrap');
@@ -3033,6 +3116,7 @@ function updShowModal(title,html,okText,onOk,cancelText){
   go.textContent=okText||'知道了';
   cancel.style.display=cancelText?'':'none';
   if(cancelText)cancel.textContent=cancelText;
+  if(cancel.dataset)cancel.dataset.dlcancel=''; // 退出「取消下载」模式,回到普通关闭语义
   UPD.onOk=onOk||null;
   document.getElementById('updModal').style.display='flex';
 }
@@ -3043,7 +3127,12 @@ async function updApi(body,timeoutMs){
   const timer=setTimeout(()=>ctrl.abort(),timeoutMs||25000);
   try{
     const r=await fetch('/api/update',body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:ctrl.signal}:{signal:ctrl.signal});
-    if(!r.ok)throw new Error('HTTP '+r.status);
+    if(!r.ok){
+      // 带出服务端给的人话错误(如 429「任务进行中,完成后再更新」),别只甩 HTTP 状态码
+      let m='HTTP '+r.status;
+      try{const j=await r.json();if(j&&j.error)m=String(j.error)}catch(e){}
+      throw new Error(m);
+    }
     return await r.json();
   }catch(e){
     throw e&&e.name==='AbortError'?new Error('请求超时(网络无响应)'):e;
@@ -3067,6 +3156,8 @@ function updRender(s){
         ph=document.getElementById('updPhase'),det=document.getElementById('updDetail'),msg=document.getElementById('updMsg');
   const busy=UPD_BUSY.indexOf(s.phase)>=0;
   box.style.display=busy?'':'none';
+  const cbx=document.getElementById('updCancelBox');
+  if(cbx)cbx.style.display=(busy&&s.phase==='downloading')?'':'none';
   if(busy){
     if(s.phase==='testing'){bar.style.width='40%';bar.style.animation='updInd 1.1s infinite linear';pct.textContent='';}
     else{bar.style.animation='';bar.style.width=(s.percent||0)+'%';pct.textContent=(s.percent||0)+'%';}
@@ -3105,8 +3196,10 @@ async function updCheck(){
     if(j.hasUpdate){
       UPD.last=j;
       msg.textContent='发现新版本 v'+j.latest;
+      // 更新说明(updSnapshot 已带 notes):正文渲染,换行转 <br>;esc 先转义再替换,防止说明里的 HTML 被直接注入
+      const notesHtml=j.notes?('<div style="margin-top:8px;max-height:170px;overflow:auto;background:var(--tint);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.7">'+esc(String(j.notes)).replace(/\\r?\\n/g,'<br>')+'</div>'):'';
       updShowModal('发现新版本',
-        '当前版本 v'+j.current+' → 最新版本 <b>v'+j.latest+'</b>,不是最新版哦~<br>要现在安装更新吗?<br>来源:'+srcName+
+        '当前版本 v'+j.current+' → 最新版本 <b>v'+j.latest+'</b>,不是最新版哦~'+(notesHtml?'<br><b>更新说明:</b>'+notesHtml:'')+'<br>要现在安装更新吗?<br>来源:'+srcName+
         '<br><span style="color:var(--muted-2);font-size:12px">点「是」会自动测速选更快的通道下载;更新时工坊会自动退出并重启;runtime(密钥/会话/记忆)与 workspace(插件项目)都会保留。</span>',
         '是,立即安装',updStart,'否');
     }else{
@@ -3136,7 +3229,9 @@ function updModalBegin(latest){
   document.getElementById('updMDetail').textContent='';
   document.getElementById('updMPct').textContent='';
   document.getElementById('updGo').style.display='none';
-  document.getElementById('updCancel').style.display='none';
+  const mcb=document.getElementById('updCancel');
+  mcb.style.display='none';
+  if(mcb.dataset)mcb.dataset.dlcancel='';
   document.getElementById('updModal').style.display='flex';
 }
 function updModalProgress(s){
@@ -3144,6 +3239,14 @@ function updModalProgress(s){
   if(!modal||getComputedStyle(modal).display==='none')return; // 用户中途关掉弹窗就只看页签进度,别强行弹回
   const phTxt=UPD_PHASE_TXT[s.phase]||'处理中…';
   document.getElementById('updMPhase').textContent=(s.phase==='downloading'?phTxt+'('+updSrcName(s.source)+')':phTxt)+(s.verified&&(s.phase==='extracting'||s.phase==='applying')?' · ✅ SHA256 已核对':'');
+  // 下载中给出取消键:中止当前下载(换源重试由用户决定,状态复位后可重新点检查更新)
+  const mCancel=document.getElementById('updCancel');
+  if(mCancel){
+    const can=s.phase==='downloading';
+    mCancel.style.display=can?'':'none';
+    if(can)mCancel.textContent='取消下载';
+    if(mCancel.dataset)mCancel.dataset.dlcancel=can?'1':'';
+  }
   const spd=document.getElementById('updMSpeed');
   const st=updSpeedTxt(s);
   if(st&&s.phase!=='extracting'&&s.phase!=='applying'){spd.textContent='通道测速:'+st;spd.style.display='';}
@@ -3166,7 +3269,13 @@ function updRenderModal(s){
 function updStart(){
   // 不关弹窗:确认后弹窗立刻进入进度模式,随后由轮询驱动
   updModalBegin(UPD.last&&UPD.last.latest);
-  updApi({action:'start'},15000).then(j=>{updRender(j);if(j&&UPD_BUSY.indexOf(j.phase)>=0)updModalProgress(j);}).catch(()=>{});
+  updApi({action:'start'},15000).then(j=>{updRender(j);if(j&&UPD_BUSY.indexOf(j.phase)>=0)updModalProgress(j);}).catch(e=>{
+    // 429(任务进行中)等启动失败要给出说法,别让弹窗停在进度态装死
+    const why=(e&&e.message)||'启动更新失败';
+    const umsg=document.getElementById('updMsg');
+    if(umsg){umsg.style.color='#c0392b';umsg.textContent=why}
+    updShowModal('暂时不能更新','<span style="color:#c0392b">'+esc(String(why))+'</span><br><span style="color:var(--muted-2);font-size:12px">等当前任务完成后,回这里点「检查更新」重试即可。</span>','知道了',null);
+  });
   if(UPD.timer)clearInterval(UPD.timer);
   UPD.timer=setInterval(async()=>{
     try{
@@ -3178,7 +3287,23 @@ function updStart(){
 updLoad();
 document.getElementById('updCheck').onclick=updCheck;
 document.getElementById('updGo').onclick=()=>{const fn=UPD.onOk;updCloseModal();if(fn)fn();};
-document.getElementById('updCancel').onclick=updCloseModal;
+// 「取消下载」模式:先叫后端中止当前下载,再关弹窗;普通模式就是关闭
+document.getElementById('updCancel').onclick=async()=>{
+  const c=document.getElementById('updCancel');
+  if(c.dataset&&c.dataset.dlcancel==='1'){
+    c.disabled=true;
+    try{await updApi({action:'cancel'},8000)}catch(e){}
+    c.disabled=false;
+  }
+  updCloseModal();
+};
+// 页签进度区(设置面板内)的取消键:弹窗被关掉时下载仍在跑,这里也能中止
+document.getElementById('updCancelBox').onclick=async()=>{
+  const c=document.getElementById('updCancelBox');
+  c.disabled=true;c.textContent='取消中…';
+  try{await updApi({action:'cancel'},8000)}catch(e){}
+  c.disabled=false;c.style.display='none';c.textContent='✕ 取消下载';
+};
 document.getElementById('updModal').onclick=e=>{if(e.target.id==='updModal')updCloseModal();};
 // 严格校验开关(读后端状态,切换立即生效)
 (async()=>{try{const j=await(await fetch('/api/strict')).json();document.getElementById('strictToggle').checked=!!j.strictVerify;}catch(e){}})();
@@ -4016,6 +4141,10 @@ const updateState = {
 }
 let updateTimer = null
 let updateRunning = false
+// 下载取消闸(POST /api/update {action:"cancel"} 置位并 abort):downloadOne 的 fetch 与读循环挂同一 signal,
+// 取消时挂起的 reader.read() 立刻以 AbortError 退出——连接停滞(无新数据)也即时生效,不用等 30s 停滞看门狗。
+// 每次 runUpdate 开始时重建,取消后不换源、状态复位 idle,让界面回到可重试状态
+let updateCancelFlag = { cancelled: false, ctrl: new AbortController() }
 // 断点续装的触发闸:resumePendingUpdate 声明在 createServer 回调作用域里(update 系函数的既有 quirky),
 // listen 回调看不见它;改为首个页面/health 请求进来时武装——语义也更对:窗口真开出来了才查有没有没装完的更新
 let pendingResumeArmed = false
@@ -4264,6 +4393,8 @@ const srv = createServer(async (req, res) => {
         model: config.model,
         workspace: config.workspace,
         neko: config.nekoRepo || null,
+        // 任务进行中:页面刷新后靠它恢复停止键;此前 busy 只活在任务回调里,页面无从得知
+        busy: !!busy,
       }))
       return
     }
@@ -5029,10 +5160,12 @@ function updateTotalBytes() {
 
 async function downloadOne(url, dest) {
   const fs = require("node:fs")
-  let res = await fetch(url, { headers: { "user-agent": "neko-workshop/" + APP_VERSION }, redirect: "follow" })
+  // 取消信号贯穿 fetch 与读循环:abort 时挂起的 read() 立即退出,不必等停滞看门狗兜底
+  const cancelSignal = updateCancelFlag && updateCancelFlag.ctrl ? updateCancelFlag.ctrl.signal : undefined
+  let res = await fetch(url, { headers: { "user-agent": "neko-workshop/" + APP_VERSION }, redirect: "follow", signal: cancelSignal })
   if (!res.ok || !res.body) {
     // 代理挡了直连/大文件时,换绕过代理再试一次
-    res = await fetch(url, { headers: { "user-agent": "neko-workshop/" + APP_VERSION }, redirect: "follow", proxy: "" })
+    res = await fetch(url, { headers: { "user-agent": "neko-workshop/" + APP_VERSION }, redirect: "follow", proxy: "", signal: cancelSignal })
   }
   if (!res.ok || !res.body) throw new Error("下载失败 HTTP " + res.status)
   // 进度分母兜底:清单没给 size、资产声明也为空(码云 latest 的常态)时,用首响应的 content-length。
@@ -5047,8 +5180,22 @@ async function downloadOne(url, dest) {
   let lastBytes = updateState.received
   try {
     for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
+      // 用户点了「取消下载」:立刻掐断,不再继续拉
+      if (updateCancelFlag && updateCancelFlag.cancelled) throw new Error("已取消下载")
+      // 停滞看门狗:reader.read() 30 秒没有新数据(代理黑洞/镜像半途断流)就放弃该通道,
+      // 由 runUpdate 换下一个源;不让进度条永远停在半路
+      let stall = null
+      let chunk
+      try {
+        chunk = await Promise.race([
+          reader.read(),
+          new Promise((_, rej) => { stall = setTimeout(() => rej(new Error("下载停滞:30 秒没有新数据,已放弃该通道")), 30000) }),
+        ])
+      } finally {
+        if (stall) clearTimeout(stall)
+      }
+      if (chunk.done) break
+      const value = chunk.value
       updateState.received += value.length
       updateState.percent = updateState.total ? Math.min(100, Math.round((updateState.received / updateState.total) * 100)) : 0
       const now = Date.now()
@@ -5060,6 +5207,9 @@ async function downloadOne(url, dest) {
       if (!out.write(Buffer.from(value))) await new Promise((r) => out.once("drain", r))
     }
   } finally {
+    // reader.cancel() 返回 Promise:流已因 abort/停滞出错时会以 rejection 收场,
+    // try/catch 接不住异步拒绝(实测 abort 取消后 bun 会报 unhandled rejection),必须 .catch
+    try { Promise.resolve(reader.cancel()).catch(() => {}) } catch {}
     await new Promise((res2) => out.end(res2))
   }
 }
@@ -5231,6 +5381,12 @@ function scheduleApply(filePath, kind) {
           // 避免 PATH 里混进 Git/MSYS 的同名 find/tar 导致脚本行为异常。
           `cd /d "${__dirname}"`,
           `"${sys}\\tar.exe" -xf "${filePath}" -C "${__dirname}"`,
+          // 解压失败(磁盘满/包半截/被占用):不删包、不删目录、不重启——
+          // pending.json 留在原地,下次工坊启动由 resumePendingUpdate 凭它续装,不会循环弹提示
+          "if errorlevel 1 (",
+          `  echo tar extract failed, payload kept for resume on next start > "${join(UPDATE_DIR, "apply-failed.log")}"`,
+          "  exit /b 1",
+          ")",
           `"${sys}\\cmd.exe" /c start "" "${join(__dirname, "start.cmd")}"`,
         ]
       : [`"${sys}\\cmd.exe" /c start "" /wait "${filePath}"`]
@@ -5281,6 +5437,7 @@ function scheduleApply(filePath, kind) {
 async function runUpdate() {
   if (updateRunning) return updSnapshot()
   updateRunning = true
+  updateCancelFlag = { cancelled: false, ctrl: new AbortController() }
   updateState.phase = "testing"
   updateState.received = 0
   updateState.percent = 0
@@ -5330,10 +5487,22 @@ async function runUpdate() {
       continue
     }
     try {
+      if (updateCancelFlag && updateCancelFlag.cancelled) throw new Error("已取消下载")
       const exe = await downloadFrom(src)
       scheduleApply(exe, updateState.kind)
       return updSnapshot()
     } catch (e) {
+      if (updateCancelFlag && updateCancelFlag.cancelled) {
+        // 用户主动取消:不换源、不报错,复位回 idle,让界面回到可重试状态(残留半截包清掉)
+        updateState.phase = "idle"
+        updateState.error = ""
+        updateState.speed = 0
+        updateState.percent = 0
+        updateState.received = 0
+        try { require("node:fs").rmSync(UPDATE_DIR, { recursive: true, force: true }) } catch {}
+        console.log("[wb-studio] 更新已由用户取消,状态复位 idle")
+        return updSnapshot()
+      }
       lastErr = `${src.source}: ${e.message || e}`
       console.warn("[wb-studio] 更新下载失败,尝试下一个源:", lastErr)
       updateState.speed = 0
@@ -5363,11 +5532,26 @@ async function runUpdate() {
         const action = String(b.action || "")
         if (action === "check") return json(await checkUpdate())
         if (action === "start") {
+          // 任务进行中不更新:更新链会退出本进程,正在跑的任务会被直接杀掉
+          if (busy) {
+            res.writeHead(429, { "content-type": "application/json; charset=utf-8" })
+            res.end(JSON.stringify({ ok: false, error: "任务进行中,完成后再更新" }))
+            return
+          }
           runUpdate().catch((e) => {
             updateState.phase = "error"
             updateState.error = String(e.message || e)
           })
           return json({ ...updSnapshot(), phase: "testing" })
+        }
+        if (action === "cancel") {
+          // 下载中「取消下载」:置标志并 abort —— fetch/reader.read() 挂着同一 signal,
+          // 停滞中的下载也立即退出(不等 30s 看门狗);不换源,由 runUpdate 把状态复位 idle
+          if (updateCancelFlag) {
+            updateCancelFlag.cancelled = true
+            try { updateCancelFlag.ctrl.abort() } catch {}
+          }
+          return json(updSnapshot())
         }
         return json({ ok: false, error: "未知动作:" + action })
       }
@@ -5521,6 +5705,9 @@ async function runUpdate() {
     if (url.pathname === "/api/model/switch") {
       const json = (code, obj) => { res.writeHead(code, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)) }
       if (req.method !== "POST") return json(405, { ok: false, error: "只支持 POST" })
+      // 任务进行中不许切模型:跨 API 切换会重启引擎、同 API 切换会重写引擎配置,
+      // 正在跑的任务会被连累(引擎被杀/配置中途变更),等完成后再切
+      if (busy) return json(429, { ok: false, error: "任务进行中,完成后再切换" })
       const body = await readBody(req)
       let b = {}
       try { b = JSON.parse(body) } catch {}
@@ -5947,10 +6134,21 @@ async function runUpdate() {
         if (zTurnTotal > 0) s.totalTokens = (s.totalTokens || 0) + zTurnTotal
         // ZCode 的报错是底层原文(ProviderBusinessError…),补一层人话翻译,别让用户看天书
         if (useZcode && !result.ok) {
-          if (/tpm\/rpm|rate limit|429|quota|额度|upstream became unavailable|overloaded|queue_full/i.test(rawErrorText)) {
+          if (/\b429\b|tpm\/rpm|rate limit|quota|额度|upstream became unavailable|overloaded|queue_full/i.test(rawErrorText)) {
             result.error = "模型服务限流/额度不足:等几分钟再试,或到设置里换一套 API/模型(免费额度常见,换模型通常立即可用)"
-          } else if (/401|403|unauthor|invalid[^,]{0,20}(key|token)|api[\s_-]?key/i.test(rawErrorText)) {
+          } else if (/\b401\b|\b403\b|unauthor|api[\s_-]?key|incorrect api key|invalid[\s_-]*(?:api[\s_-]*)?(?:key|token)\b/i.test(rawErrorText)) {
+            // 与引擎分支同口径:401/403 加词边界(长数字不再误中);invalid 后只隔空白/_/- 才算密钥字样,
+            // 「invalid request: max tokens…」这类 400 原文不再被翻成密钥错
             result.error = "模型服务拒绝访问:密钥可能不对或已过期,请到设置页重新配置"
+          } else if (/invalid_request(?:_error)?|\b400\b|bad request/i.test(rawErrorText)) {
+            // 400 参数类按原文分流说人话(与引擎分支同款),不再一律归到密钥错
+            if (/model[_ -]?not[_ -]?found|no[_ -]?such[_ -]?model|unknown model|invalid model|unsupported model|模型.*(不存在|不可用|不支持|无效)/i.test(rawErrorText)) {
+              result.error = "服务商不认这个模型:检查模型名拼写,或到设置里换一个模型再试"
+            } else if (/context.{0,30}(?:length|limit|exceed)|maximum.{0,24}(?:context|tokens|length)|too long|too many tokens|上下文.*(超|长)/i.test(rawErrorText)) {
+              result.error = "请求超出服务商限制:上下文或消息太长,开个新对话,或到设置里换长上下文的模型"
+            } else {
+              result.error = "请求参数不合法:模型名、上下文长度或消息格式不符合服务商要求,可稍后重试或换模型"
+            }
           }
         }
         // CLI 底座没有引擎那套错误翻译:零输出且重试过时补一句人话,别把空错误甩给页面
@@ -6060,7 +6258,9 @@ async function runUpdate() {
           if (raw) result.rawError = raw
           if (result.stopped) {
             result.error = "任务已停止"
-          } else if (/401|403|api key|apikey|unauthorized|invalid/i.test(raw)) {
+          } else if (/\b401\b|\b403\b|unauthorized|api[\s_-]?key|apikey|incorrect api key|invalid[\s_-]*(?:api[\s_-]*)?(?:key|token)\b/i.test(raw)) {
+            // 只有 401/403 或明说密钥的字样才算密钥问题;以前裸 `invalid` 把任何 400 invalid_request 都说成密钥错。
+            // invalid 后只隔空白/_/- 才认(「invalid request: max tokens…」不再误中密钥分支)
             result.error = "模型服务拒绝访问:密钥可能不对或已过期,请刷新页面重新配置"
           } else if (/quota|429|rate.?limit|tpm|rpm/i.test(raw)) {
             // 优先把服务商原文里的补救信息(如额度重置时间)带给用户,别用笼统话术盖掉
@@ -6070,8 +6270,17 @@ async function runUpdate() {
               if (m) hint = `:${m[1]}`
             } catch {}
             result.error = `模型服务限流/额度不足${hint || ":等几分钟再试,或检查账户额度"}。也可到设置里切换其他 API 继续`
+          } else if (/invalid_request(?:_error)?|\b400\b|bad request/i.test(raw)) {
+            // 400 参数类按原文分流说人话,不再一律归到密钥错(密钥错在上面 401/403 分支)
+            if (/model[_ -]?not[_ -]?found|no[_ -]?such[_ -]?model|unknown model|invalid model|unsupported model|模型.*(不存在|不可用|不支持|无效)/i.test(raw)) {
+              result.error = "服务商不认这个模型:检查模型名拼写,或到设置里换一个模型再试"
+            } else if (/context.{0,30}(?:length|limit|exceed)|maximum.{0,24}(?:context|tokens|length)|too long|too many tokens|上下文.*(超|长)/i.test(raw)) {
+              result.error = "请求超出服务商限制:上下文或消息太长,开个新对话,或到设置里换长上下文的模型"
+            } else {
+              result.error = "请求参数不合法:模型名、上下文长度或消息格式不符合服务商要求,可稍后重试或换模型"
+            }
           } else if (/Unable to connect|fetch failed|ECONNREFUSED/i.test(raw)) {
-            result.error = "网络连接失败:本地引擎或模型服务连不上。检查网络(或加速器)后重试"
+            result.error = "网络连接失败:多半是网络或代理问题,检查网络(或加速器)后重试;服务地址写错也会这样"
           } else if (!raw.trim()) {
             result.error = result.retries && result.retries.length
               ? noResponseError(result.retries)

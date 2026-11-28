@@ -30,6 +30,9 @@ const FILES = [
   {
     path: "zcode.cjs", role: "agent",
     upstream: "随 ZCode 官方发行版分发(客户端内置 bundle,非本仓库构建产物)",
+    upstreamRepo: "https://github.com/zai-org/ZCode",
+    license: "Apache-2.0",
+    licenseSource: "https://github.com/zai-org/ZCode/blob/main/LICENSE",
     hash_source: "以 ZCode 官方发行包内同名文件比对;升级底座时重新生成本文件",
   },
   {
@@ -44,10 +47,17 @@ function sha256(p) {
 function nodeVersion(p) {
   try { return execFileSync(p, ["--version"], { encoding: "utf8" }).trim() } catch { return "" }
 }
-function agentVersion(p) {
+function agentVersion(p, nodeExe) {
+  // 版本以 CLI 自报为准:直接跑 --version(实测输出形如 0.16.5)。
+  // 正文正则只做兜底:老版本的第一条正则抓到过 0.13.3 —— 那其实是 bundle 内嵌
+  // GLM 原生二进制配置里的 version 字段(zcode 自己的版本在 appVersion:"x.y.z"),
+  // 字面量扫描分不清两者,登记出来就是错的版本(issue #17 复核发现)。
+  try {
+    return execFileSync(nodeExe, [p, "--version"], { encoding: "utf8", timeout: 30000 }).trim()
+  } catch {}
   try {
     const s = fs.readFileSync(p, "latin1")
-    const m = s.match(/"version"\s*:\s*"(\d+\.\d+\.\d+[^"]{0,20})"/) || s.match(/version:\s*['"](\d+\.\d+\.\d+[^'"]{0,20})['"]/) || s.match(/zcode[- _]v?(\d+\.\d+\.\d+)/i)
+    const m = s.match(/appVersion\s*:\s*['"](\d+\.\d+\.\d+[^'"]{0,20})['"]/) || s.match(/zcode[- _]v?(\d+\.\d+\.\d+)/i)
     return m ? m[1] : ""
   } catch { return "" }
 }
@@ -98,8 +108,10 @@ try {
 const files = FILES.map((f) => {
   const p = path.join(SRC, f.path.replace(/\//g, path.sep))
   if (!fs.existsSync(p)) { console.error("缺文件:" + p); process.exit(1) }
+  // 模板里的静态字段(含 zcode.cjs 的 license / upstreamRepo / licenseSource)原样带进登记,
+  // 运行时字段(size/sha256 与 node 的来源)在下面补/覆盖
   const rec = {
-    path: f.path, role: f.role, upstream: f.upstream, hash_source: f.hash_source,
+    ...f,
     size: fs.statSync(p).size, sha256: sha256(p),
   }
   if (f.role === "runtime") {
@@ -114,8 +126,8 @@ const files = FILES.map((f) => {
 const doc = {
   $comment: "随包 ZCode 底座的来源与完整性登记。build_payload.py 打包时逐项比对 size 与 sha256,对不上或缺登记就拒绝出包;`node workbench/collect_zcode.cjs --verify` 再向官方 SHASUMS256.txt 复核 zip 级哈希。",
   nodeVersion: ver,
-  agentVersion: agentVersion(path.join(SRC, "zcode.cjs")),
-  license: "Node.js: MIT(见 LICENSE 与 Node 官方随附第三方许可);zcode.cjs: 随 ZCode 官方发行;provider 清单: 本仓库生成",
+  agentVersion: agentVersion(path.join(SRC, "zcode.cjs"), path.join(SRC, "node.exe")),
+  license: "Node.js: MIT(见 Node 官方 LICENSE 与随附第三方许可);zcode.cjs: Apache-2.0(上游 zai-org/ZCode,见其仓库 LICENSE);provider 清单: 本仓库生成",
   files,
   generatedAt: new Date().toISOString().slice(0, 10),
 }

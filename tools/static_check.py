@@ -1,7 +1,7 @@
 """静态交叉检查:页面元素 id / 前端 fetch 路径 / 服务端路由 / HTML 标签配对。
 
 专门抓「语法没错、运行时静默失效」的那类问题:
-  · JS 用 getElementById('x') 但 HTML 没有 id="x" → 取到 null,按钮点了没反应
+  · JS 用 getElementById('x') / $('x') 但 HTML 没有 id="x" → 取到 null,按钮点了没反应
   · fetch('/api/y') 但服务端没有对应路由 → 404,界面悄悄失败
   · 同一 id 写两次 → querySelector 拿到错的元素
 """
@@ -34,6 +34,9 @@ def check_ids(html, js):
     dup = sorted({i for i in ids if ids.count(i) > 1})
     used = set()
     for pat in (r"getElementById\(\s*['\"]([^'\"]+)['\"]",
+                # 页面自制的 $ 简写(引导页:const $=id=>document.getElementById(id))。
+                # $('x') 不带 # 也是 id 引用;字符类不含 #,不会跟下一行的 $('#x') 模式重叠
+                r"\$\(\s*['\"]([A-Za-z0-9_-]+)['\"]",
                 r"\$\(\s*['\"]#([A-Za-z0-9_-]+)['\"]",
                 r"querySelector(?:All)?\(\s*['\"]#([A-Za-z0-9_-]+)['\"]"):
         used |= set(re.findall(pat, js))

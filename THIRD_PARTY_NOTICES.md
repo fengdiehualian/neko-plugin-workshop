@@ -264,7 +264,7 @@
 | 条目 | 作用 | 来源与许可 |
 |---|---|---|
 | `_zcode/node.exe` | 跑 ZCode 底座的 Node 运行时 | Node.js 官方发行版二进制,MIT 及随附第三方许可;版本见 zcode_bundle.json 的 nodeVersion |
-| `_zcode/zcode.cjs` | ZCode CLI 主体 | 随 ZCode 官方发布分发(第三方,版本见 agentVersion);工坊不修改其内容,仅随包放置 |
+| `_zcode/zcode.cjs` | ZCode CLI 主体 | **Apache-2.0**(上游 https://github.com/zai-org/ZCode,见其仓库 LICENSE);版本 0.16.5;随 ZCode 官方发行版分发(客户端内置 CLI bundle,非本仓库构建产物);工坊不修改其内容,仅随包放置 |
 | `_zcode/provider/zcode-builtin.json` | 工坊内置 provider 清单 | 本仓库生成,随本仓库许可 |
 
 `_engine`(OpenCode 编译版)、`_bin`、`_py`、`_site` 自 v1.2.26 起**从不进安装包**;因此**本安装包仅支持覆盖升级**——
@@ -369,4 +369,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-生成于:2026-11-23
+生成于:2026-11-28

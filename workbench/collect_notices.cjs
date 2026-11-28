@@ -7,6 +7,19 @@ const ROOT = path.resolve(__dirname, "..")
 const CORPUS = path.join(ROOT, "market-corpus")
 const OUT = path.join(ROOT, "THIRD_PARTY_NOTICES.md")
 
+// _zcode 三件的许可/版本/来源以 workbench/zcode_bundle.json 登记为准(issue #17:
+// 声明里要写得出 zcode.cjs 的许可名/版本/来源,不能再只说「随官方发行」;
+// 登记读不到时如实写「见登记文件」,不在这里编)
+const zbBundle = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(ROOT, "workbench", "zcode_bundle.json"), "utf8")) } catch { return null }
+})()
+const zbAgent = zbBundle && Array.isArray(zbBundle.files) ? zbBundle.files.find((f) => f && f.path === "zcode.cjs") : null
+const zcodeAgent = {
+  version: zbBundle && zbBundle.agentVersion ? String(zbBundle.agentVersion) : "",
+  license: zbAgent && zbAgent.license ? String(zbAgent.license) : "",
+  repo: zbAgent && zbAgent.upstreamRepo ? String(zbAgent.upstreamRepo) : "",
+}
+
 const KINDS = [
   ["MIT", /MIT license|Permission is hereby granted, free of charge/i],
   ["Apache-2.0", /Apache License[,\s]+Version 2\.0|apache\.org\/LICENSE-2\.0/i],
@@ -153,7 +166,10 @@ lines.push("")
 lines.push("| 条目 | 作用 | 来源与许可 |")
 lines.push("|---|---|---|")
 lines.push("| `_zcode/node.exe` | 跑 ZCode 底座的 Node 运行时 | Node.js 官方发行版二进制," + (tally["MIT"] ? "MIT 及随附第三方许可" : "MIT(见 Node.js 项目 LICENSE)") + ";版本见 zcode_bundle.json 的 nodeVersion |")
-lines.push("| `_zcode/zcode.cjs` | ZCode CLI 主体 | 随 ZCode 官方发布分发(第三方,版本见 agentVersion);工坊不修改其内容,仅随包放置 |")
+lines.push("| `_zcode/zcode.cjs` | ZCode CLI 主体 | "
+  + (zcodeAgent.license ? "**" + zcodeAgent.license + "**(上游 " + (zcodeAgent.repo || "ZCode 官方") + ",见其仓库 LICENSE)" : "许可未登记(先补 workbench/zcode_bundle.json,别在这里编)")
+  + (zcodeAgent.version ? ";版本 " + zcodeAgent.version : ";版本见登记文件")
+  + ";随 ZCode 官方发行版分发(客户端内置 CLI bundle,非本仓库构建产物);工坊不修改其内容,仅随包放置 |")
 lines.push("| `_zcode/provider/zcode-builtin.json` | 工坊内置 provider 清单 | 本仓库生成,随本仓库许可 |")
 lines.push("")
 lines.push("`_engine`(OpenCode 编译版)、`_bin`、`_py`、`_site` 自 v1.2.26 起**从不进安装包**;因此**本安装包仅支持覆盖升级**——")
@@ -225,7 +241,7 @@ lines.push("")
     if (pin && pin.source) {
       lines.push("### `reuse_before_build`(先搜后建,`" + pin.source + "`)")
       lines.push("")
-      lines.push("- 上游:`" + pin.source + "`,**MIT**,版权人 `1-dcjiang`(上游 `src/LICENSE`)。")
+      lines.push("- 上游:`" + pin.source + "`,**MIT**,版权人 `1-dcjiang`(上游 `src/LICENSE`)。2026-11-25 核对(钉版升 0.3.23 后复核,许可未变)。")
       lines.push("- 引用范围:" + (pin.files || "?") + " 个文件(插件源码、`skills/reuse-before-build/` 正典与 references/scripts)。")
       lines.push("- **正文不进本仓库**:上游 commit `" + (pin.commit || "?") + "`(版本 `" + (pin.version || "?") + "`)钉在")
       lines.push("  `market-corpus/corpus.lock.json` 的 `" + (pin.slug || "reuse_before_build") + "` 条目(`vendored:false`,只记 source / 完整 SHA / 树哈希),")
@@ -308,8 +324,20 @@ lines.push("")
 lines.push("生成于:" + new Date().toISOString().slice(0, 10))
 fs.writeFileSync(OUT, lines.join("\n") + "\n", "utf8")
 
-// 明细表也存一份机器可读版,给测试用
-fs.writeFileSync(path.join(ROOT, "workbench", "notices.json"), JSON.stringify({ total: rows.length, tally, unknown, rows: rows.map((r) => ({ slug: r.slug, license: r.license, file: r.licFile, field: r.meta.licenseField || "" })), vendored }, null, 1) + "\n", "utf8")
+// 明细表也存一份机器可读版,给测试用;_zcode 随包三件的许可/版本/来源一并镜像进来
+// (来源同为 zcode_bundle.json,声明文档与机器可读副本不会各说各话)
+const zcodeSection = zbBundle && Array.isArray(zbBundle.files)
+  ? {
+      nodeVersion: zbBundle.nodeVersion || "",
+      agentVersion: zbBundle.agentVersion || "",
+      files: zbBundle.files.map((f) => ({
+        path: f.path, license: f.license || (f.role === "runtime" ? "MIT" : f.role === "provider" ? "本仓库 MIT" : ""),
+        upstreamRepo: f.upstreamRepo || (f.role === "runtime" ? f.upstream : ""),
+        source: f.upstream || "",
+      })),
+    }
+  : null
+fs.writeFileSync(path.join(ROOT, "workbench", "notices.json"), JSON.stringify({ total: rows.length, tally, unknown, rows: rows.map((r) => ({ slug: r.slug, license: r.license, file: r.licFile, field: r.meta.licenseField || "" })), vendored, zcode: zcodeSection }, null, 1) + "\n", "utf8")
 console.log("目录总数:" + rows.length)
 console.log("许可分布:" + JSON.stringify(tally))
 console.log("未声明清单(前 20):" + unknown.slice(0, 20).join(", "))

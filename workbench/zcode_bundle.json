@@ -1,8 +1,8 @@
 {
   "$comment": "随包 ZCode 底座的来源与完整性登记。build_payload.py 打包时逐项比对 size 与 sha256,对不上或缺登记就拒绝出包;`node workbench/collect_zcode.cjs --verify` 再向官方 SHASUMS256.txt 复核 zip 级哈希。",
   "nodeVersion": "v24.14.0",
-  "agentVersion": "0.13.3",
-  "license": "Node.js: MIT(见 LICENSE 与 Node 官方随附第三方许可);zcode.cjs: 随 ZCode 官方发行;provider 清单: 本仓库生成",
+  "agentVersion": "0.16.5",
+  "license": "Node.js: MIT(见 Node 官方 LICENSE 与随附第三方许可);zcode.cjs: Apache-2.0(上游 zai-org/ZCode,见其仓库 LICENSE);provider 清单: 本仓库生成",
   "files": [
     {
       "path": "node.exe",
@@ -19,6 +19,9 @@
       "path": "zcode.cjs",
       "role": "agent",
       "upstream": "随 ZCode 官方发行版分发(客户端内置 bundle,非本仓库构建产物)",
+      "upstreamRepo": "https://github.com/zai-org/ZCode",
+      "license": "Apache-2.0",
+      "licenseSource": "https://github.com/zai-org/ZCode/blob/main/LICENSE",
       "hash_source": "以 ZCode 官方发行包内同名文件比对;升级底座时重新生成本文件",
       "size": 11416833,
       "sha256": "da61b0663336a65f7cce3dec223678794ccaa58158e304fc0d97b695434a8f01"
