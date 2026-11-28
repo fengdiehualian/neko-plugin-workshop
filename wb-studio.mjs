@@ -3958,6 +3958,7 @@ const updateState = {
   actualSha: "", // 本地对下载文件实算的 SHA256
   verified: false, // 校验通过才允许 scheduleApply
   trustSha: "", // 已验签清单里的 SHA256(issue #12:这才是优先依据)
+  trustSize: 0, // 已验签清单里声明的资产字节数:进度条分母的权威来源(码云 latest 附件的 size 是 null,靠它算 total 会恒 0)
   trustRoot: "", // manifest | agreement | ""
   blockReason: "", // 信任根不足时的人工可读原因(自动更新会被挡在这里)
 }
@@ -4908,7 +4909,7 @@ async function manifestTrust(sources, version) {
         console.log("[wb-studio] 清单验签通过:", s.source, r.manifest.version, r.manifest.sha256.slice(0, 12) + "…",
           r.manifest.size.toLocaleString() + " 字节",
           r.manifest.sourceCommit ? "源码提交 " + String(r.manifest.sourceCommit).slice(0, 7) : "(该版本清单未记录源码提交)")
-        return { sha: r.manifest.sha256, fatal: false, reason: "" }
+        return { sha: r.manifest.sha256, size: Number(r.manifest.size) || 0, fatal: false, reason: "" }
       }
       console.warn("[wb-studio] 清单不可信(" + s.source + "):" + r.reason)
       if (r.fatal) lastFatal = r.reason
@@ -4939,6 +4940,7 @@ async function checkUpdate() {
     // 信任根:只认「说的是本次目标版本」的清单(issue #3)。
     // 低版本的合法清单绝不能拿来给高版本背书 —— 那正是「劫持一端谎报高版本 + 附一张旧真签名」的骗法。
     const trust = await manifestTrust(list, top)
+    updateState.trustSize = Number(trust.size) || 0 // 进度分母:验签清单里的字节数(双渠道互证路径没有清单,保持 0 走资产声明/content-length 兜底)
     const plan = planUpdateTarget(list, trust)
     const best = list.find((s) => cmpVersion(s.version, plan.version) === 0) || list[0]
     updateState.latest = plan.version || best.version
@@ -4972,6 +4974,12 @@ async function downloadOne(url, dest) {
     res = await fetch(url, { headers: { "user-agent": "neko-workshop/" + APP_VERSION }, redirect: "follow", proxy: "" })
   }
   if (!res.ok || !res.body) throw new Error("下载失败 HTTP " + res.status)
+  // 进度分母兜底:清单没给 size、资产声明也为空(码云 latest 的常态)时,用首响应的 content-length。
+  // 只做显示:content-length 与 release API 报的字节数不同源(重定向那一跳尤其如此),完整性仍由 SHA256 硬校验把关
+  if (!updateState.total) {
+    const cl = Number(res.headers.get("content-length") || 0)
+    if (cl > 0) updateState.total = cl
+  }
   const out = fs.createWriteStream(dest)
   const reader = res.body.getReader()
   let lastAt = Date.now()
@@ -5072,7 +5080,9 @@ async function downloadFrom(src) {
   updateState.actualSha = ""
   updateState.received = 0
   updateState.percent = 0
-  updateState.total = src.assets.reduce((n, a) => n + (Number(a.size) || 0), 0)
+  // 进度分母:码云 latest 接口的附件 size 是 null,直接汇总会得 0 → 进度条全程 0%(实测踩过)。
+  // 优先用验签清单声明的字节数(它同时是硬校验字段,最可信);退而求资产声明;再退 downloadOne 里用首响应 content-length 兜底
+  updateState.total = updateState.trustSize || src.assets.reduce((n, a) => n + (Number(a.size) || 0), 0)
   fs.rmSync(UPDATE_DIR, { recursive: true, force: true })
   fs.mkdirSync(UPDATE_DIR, { recursive: true })
   const firstName = String((src.assets[0] || {}).name || "")
@@ -5108,6 +5118,39 @@ async function downloadFrom(src) {
   return exe
 }
 
+// 断点续装:上一次「已验证待安装」的更新如果安装链没跑成(进程树被杀/管道卡死等),
+// 下次启动在这里自愈——重核 SHA 后再走一遍 scheduleApply,而不是让用户白下一次
+async function resumePendingUpdate() {
+  const fs = require("node:fs")
+  try {
+    const p = join(UPDATE_DIR, "pending.json")
+    if (!fs.existsSync(p)) return
+    let j = null
+    try { j = JSON.parse(fs.readFileSync(p, "utf8")) } catch {}
+    if (!j || !j.verified || !j.version || !j.sha || cmpVersion(String(j.version), APP_VERSION) <= 0) {
+      // 已装上(或信息不全):清残留走人
+      fs.rmSync(UPDATE_DIR, { recursive: true, force: true })
+      return
+    }
+    const exe = join(UPDATE_DIR, j.kind === "zip" ? "payload.zip" : "setup.exe")
+    if (!fs.existsSync(exe)) { fs.rmSync(UPDATE_DIR, { recursive: true, force: true }); return }
+    const got = await sha256File(exe)
+    if (String(got).toLowerCase() !== String(j.sha).toLowerCase()) {
+      console.warn("[wb-studio] 残留更新包 SHA 不符,丢弃:", String(got).slice(0, 12) + "…")
+      fs.rmSync(UPDATE_DIR, { recursive: true, force: true })
+      return
+    }
+    console.log("[wb-studio] 检测到未完成的已验证更新 v" + j.version + ",重启安装流程")
+    updateState.latest = String(j.version)
+    updateState.kind = j.kind === "zip" ? "zip" : "exe"
+    updateState.verified = true
+    updateState.actualSha = String(got)
+    scheduleApply(exe, updateState.kind)
+  } catch (e) {
+    console.warn("[wb-studio] 断点续装检查失败:", (e && e.message) || e)
+  }
+}
+
 function scheduleApply(filePath, kind) {
   const fs = require("node:fs")
   // 兜底闸:没通过 SHA256 校验的包绝不落地执行(正常路径在 downloadFrom 里就抛了,
@@ -5136,20 +5179,31 @@ function scheduleApply(filePath, kind) {
     "set /a n=0",
     ":wait",
     "set /a n+=1",
-    "if %n% GTR 90 goto apply",
-    // PID 会被复用:同时按镜像名过滤;找不到 tasklist 就当进程已退出
-    `"${sys}\\tasklist.exe" /FI "PID eq ${process.pid}" /FI "IMAGENAME eq bun.exe" 2>nul | "${sys}\\findstr.exe" /I "bun.exe" >nul`,
+    "if %n% GTR 60 goto apply",
+    // PID 会被复用:同时按镜像名过滤;找不到 tasklist 就当进程已退出。
+    // 检查一律走临时文件、不走活管道:detached 无控制台环境里 tasklist|findstr 的管道 EOF
+    // 偶发不送达,findstr 永远挂在读上,整条安装链冻死(2026-11-28 实测卡了数小时)
+    `"${sys}\\tasklist.exe" /FI "PID eq ${process.pid}" /FI "IMAGENAME eq bun.exe" /FO CSV > "%TEMP%\\neko_upd_chk.tmp" 2>nul`,
+    `"${sys}\\findstr.exe" /I "bun.exe" "%TEMP%\\neko_upd_chk.tmp" >nul 2>&1`,
     "if not errorlevel 1 (",
     "  ping -n 2 127.0.0.1 >nul",
     "  goto wait",
     ")",
     ":apply",
+    `del /f /q "%TEMP%\\neko_upd_chk.tmp" >nul 2>&1`,
     ...apply,
     `del /f /q "${filePath}" >nul 2>&1`,
     `rd /s /q "${UPDATE_DIR}" >nul 2>&1`,
     "exit /b 0",
   ]
   fs.writeFileSync(helper, lines.join("\r\n") + "\r\n", "ascii")
+  // 断点续装凭证:安装链万一没跑成(进程树被杀/管道卡死等),下次启动凭它自愈,不用让用户重新下
+  try {
+    fs.writeFileSync(join(UPDATE_DIR, "pending.json"), JSON.stringify({
+      version: String(updateState.latest || ""), sha: String(updateState.actualSha || ""), kind,
+      verified: true, writtenAt: Date.now(),
+    }))
+  } catch {}
   const { spawn } = require("node:child_process")
   const child = spawn("cmd.exe", ["/c", helper], { detached: true, stdio: "ignore", cwd: __dirname, windowsHide: true })
   child.unref()
@@ -6158,6 +6212,8 @@ const boot = async () => {
     console.log(`[wb-studio] 对话页: ${url}`)
     console.log(`[wb-studio] 工作区: ${config.workspace}`)
     if (config.openBrowser && !process.env.WB_STUDIO_NOWINDOW) openWorkshopWindow(url)
+    // 断点续装:窗口先开出来,再查有没有上次没装成的已验证更新(有就装,进程会退出由安装器接管)
+    setTimeout(() => { resumePendingUpdate() }, 2500)
   })
   // 端口被占(已有实例在跑)以前是未捕获异常:堆栈甩进日志、退出码 1,现象像"工坊自己崩了"。
   // 现在说清楚是谁占了、该怎么处理,并且**不碰 token 文件**,占着端口的实例继续可用。
