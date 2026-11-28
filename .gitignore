@@ -25,3 +25,6 @@ market-corpus/reuse_before_build/
 market-corpus/**/.done
 # 聊天附件上传:用户文件,只属于本机工作区,不进仓库
 workspace/uploads/
+# 开发机上从仓库根前台起 studio 会往 workspace/ 挂技能/写 AGENTS.md(2026-11-28 实测),
+# 全是运行时产物;打包走 git archive 只出已跟踪文件,整目录忽略不影响发布
+workspace/

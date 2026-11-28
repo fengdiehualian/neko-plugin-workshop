@@ -1743,29 +1743,43 @@ const PAGE = `<!doctype html>
   /* 用量统计弹层(风格随主题,全走 var(--pink) 系) */
   #usageModal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:center;justify-content:center}
   #usageModal.open{display:flex}
-  .ucard{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 40px var(--shadow);width:min(620px,92vw);max-height:82vh;overflow-y:auto;padding:18px 20px;color:var(--ink)}
+  /* 弹窗同款基准=updModal 卡片(width:min(430px,90vw)+var(--card)+radius16+padding 22 24+shadow 0 12 40);max-height/overflow 是长列表滚动的刚需,保留 */
+  .ucard{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 40px var(--shadow);width:min(430px,90vw);max-height:82vh;overflow-y:auto;padding:22px 24px;color:var(--ink)}
   .uhead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-  .uhead b{flex:1;font-size:15px}
-  .uclose{border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 8px;border-radius:8px;font-family:inherit}
+  .uhead b{flex:1;font-size:16px;font-weight:800;color:var(--ink)}
+  .uclose{border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 8px;border-radius:9px;font-family:inherit}
   .uclose:hover{background:var(--tint);color:var(--pink-d)}
   .usum{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
   .usum .pill{background:var(--tint);border:1px solid var(--border-soft);border-radius:10px;padding:7px 11px;font-size:12px;color:var(--muted)}
   .usum .pill b{color:var(--pink-d);font-size:13.5px;margin-left:4px}
   .utabs{display:flex;gap:6px;margin:0 0 8px}
-  .utab{border:1px solid var(--border-soft);background:transparent;color:var(--muted);border-radius:9px;padding:5px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
-  .utab.on{background:var(--pink);border-color:var(--pink);color:var(--on-primary);font-weight:700}
+  /* 药丸页签同款=设置面板 .sptab(ghost 底 var(--tint),无边框,13px/700,激活 var(--pink)) */
+  .utab{border:0;background:var(--tint);color:var(--muted);border-radius:9px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .utab:hover{color:var(--pink-d)}
+  .utab.on{background:var(--pink);color:var(--on-primary)}
   .urow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px dashed var(--border-soft);font-size:12.5px}
   .urow .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .urow .bar{flex:0 0 90px;height:6px;border-radius:999px;background:var(--tint);overflow:hidden}
   .urow .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--pink-d))}
   .urow .v{flex:0 0 auto;font-weight:700;color:var(--pink-d)}
   .umsg{padding:10px 4px;font-size:12.5px;color:var(--muted-2)}
-  .uchart{display:flex;align-items:flex-end;gap:3px;height:110px;margin:10px 0 4px}
+  /* 柱状趋势:flex 行=左窄列 Y 轴刻度 + 右图区;刻度与虚线网格同档对齐(0/25/50/75/100%) */
+  .uchartrow{display:flex;align-items:flex-start;gap:6px;margin:10px 0 4px}
+  .uaxisy{position:relative;flex:0 0 auto;min-width:30px;height:110px;text-align:right;font-size:10px;color:var(--muted-2);user-select:none}
+  .uaxisy span{position:absolute;right:0;transform:translateY(-50%);white-space:nowrap}
+  .uchartcol{flex:1;min-width:0;display:flex;flex-direction:column}
+  .uchart{position:relative;display:flex;align-items:flex-end;gap:3px;height:110px;flex:0 0 auto}
+  .ugrid{position:absolute;left:0;right:0;height:0;border-top:1px dashed var(--border-soft);pointer-events:none}
   .uchart .col{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
   .uchart .col i{display:block;background:linear-gradient(180deg,var(--pink),var(--pink-d));border-radius:4px 4px 0 0;min-height:2px}
   .uchart .col i.zero{background:var(--tint)}
+  .uchart .col:hover i{outline:1.5px solid var(--pink);outline-offset:1px;filter:brightness(1.15)}
   .uaxis{display:flex;gap:3px;font-size:10px;color:var(--muted-2)}
   .uaxis span{flex:1;text-align:center;overflow:hidden;white-space:nowrap}
+  /* 柱子悬停 tooltip 卡片(替代原生 title):主题变量全走,绝对定位不撑破弹层布局 */
+  .utip{position:absolute;z-index:20;display:none;pointer-events:none;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:7px 10px;box-shadow:0 4px 14px var(--shadow);font-size:11.5px;line-height:1.6;color:var(--ink);white-space:nowrap}
+  .utip b{color:var(--pink-d)}
+  .utip .upeak{color:var(--pink-d);font-weight:700}
   .utoggle{display:flex;gap:6px;margin:4px 0 0}
   .utoggle button{border:1px solid var(--border-soft);background:transparent;color:var(--muted);border-radius:8px;padding:3px 10px;font-size:11.5px;cursor:pointer;font-family:inherit}
   .utoggle button.on{background:var(--tint);color:var(--pink-d);font-weight:700;border-color:var(--pink)}
@@ -3399,24 +3413,62 @@ function renderUsage(){
     h+='<div class="urow"><span class="n" title="'+esc(String(r.n))+'">'+esc(String(r.n))+'</span><span class="bar"><i style="width:'+Math.max(2,Math.round(r.v/mx*100))+'%"></i></span><span class="v">'+fmtTok(r.v)+'</span></div>';
   });
   h+='</div>';
-  // 柱状趋势:近 usageWin 天,缺的天补零;柱高=当日/最大值
-  const byD={};(usageData.byDate||[]).forEach(function(r){byD[r.day]=r.tokens});
+  // 柱状趋势:近 usageWin 天,缺的天补零;柱高=当日/最大值;左侧补 Y 轴刻度(max、3/4、1/2、1/4、0,max=0 全显 0),图区叠同档虚线网格;悬停出 tooltip 卡片(替代原生 title)
+  const byD={};(usageData.byDate||[]).forEach(function(r){byD[r.day]={tokens:r.tokens||0,messages:r.messages||0}});
   const days=[];const now=new Date();const p2=function(n){return(n<10?'0':'')+n};
   for(let i=usageWin-1;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);
     days.push(d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()));}
-  const dm=Math.max(1,Math.max.apply(null,days.map(function(d){return byD[d]||0})));
+  const dv=function(d){return byD[d]?byD[d].tokens:0};
+  const mx0=Math.max.apply(null,days.map(dv).concat([0]));
+  const dm=Math.max(1,mx0);
+  let ticks=[mx0,Math.round(mx0*3/4),Math.round(mx0/2),Math.round(mx0/4),0];
+  // 倒着比相邻档:极小峰值取整会撞档(如 [1,1,1,0,0])→退成 max/0 两档,免得轴上同值标签连排;
+  // 别用「小于号紧跟字母」的循环条件写法:页脚解析器把页内 JS 当 HTML 文本扫,会被当成标签吞掉
+  for(let i=ticks.length-1;i>0;i--){if(ticks[i]===ticks[i-1]){ticks=[mx0,0];break}}
+  let peakDay='';let wsum=0;
+  days.forEach(function(d){wsum+=dv(d);if(dv(d)>0&&dv(d)===mx0&&!peakDay)peakDay=d;});
   h+='<div style="margin-top:14px"><b style="font-size:13px">近 '+usageWin+' 天趋势</b>'
     +'<div class="utoggle"><button type="button" class="'+(usageWin===7?'on':'')+'" data-w="7">7 天</button><button type="button" class="'+(usageWin===30?'on':'')+'" data-w="30">30 天</button></div>'
-    +'<div class="uchart">';
-  days.forEach(function(d){const v=byD[d]||0;
-    h+='<div class="col" title="'+d+': '+fmtTok(v)+' tokens"><i class="'+(v?'':'zero')+'" style="height:'+Math.max(2,Math.round(v/dm*100))+'%"></i></div>';});
+    +'<div class="uchartrow"><div class="uaxisy">';
+  ticks.forEach(function(tv,i){h+='<span style="top:'+Math.round(i/(ticks.length-1)*100)+'%">'+fmtTok(tv)+'</span>';});
+  h+='</div><div class="uchartcol"><div class="uchart">';
+  ticks.forEach(function(tv,i){h+='<div class="ugrid" style="top:'+Math.round(i/(ticks.length-1)*100)+'%"></div>';});
+  days.forEach(function(d){const v=dv(d);
+    h+='<div class="col" data-day="'+d+'"><i class="'+(v?'':'zero')+'" style="height:'+Math.max(2,Math.round(v/dm*100))+'%"></i></div>';});
   h+='</div><div class="uaxis">';
   const step=usageWin===7?1:5;
   days.forEach(function(d,i){h+='<span>'+(i%step===0?d.slice(5):'')+'</span>';});
-  h+='</div></div>';
+  h+='</div></div></div></div>';
   usageBody.innerHTML=h;
   usageBody.querySelectorAll('.utab').forEach(function(b){b.onclick=function(){usageTab=b.dataset.t;renderUsage();}});
   usageBody.querySelectorAll('.utoggle button').forEach(function(b){b.onclick=function(){usageWin=Number(b.dataset.w)||7;renderUsage();}});
+  // 柱子悬停 tooltip:完整日期/当日 tokens/当日消息数/占窗口百分比/峰值标记;左右夹在图区内不溢出,tooltip 每次随渲染重建(挂在最新 .uchart 上)
+  const chartEl=usageBody.querySelector('.uchart');
+  if(chartEl){
+    const tip=document.createElement('div');tip.className='utip';chartEl.appendChild(tip);
+    const hideTip=function(){tip.style.display='none'};
+    const showTip=function(col){
+      const day=col.dataset.day;const rec=byD[day]||{tokens:0,messages:0};
+      const pct=wsum>0?Math.round(rec.tokens/wsum*100):0;
+      tip.innerHTML='<b>'+day+'</b><br>'+fmtTok(rec.tokens)+' tokens · '+(rec.messages||0)+' 条消息'
+        +'<br>占近 '+usageWin+' 天 '+pct+'%'+(day===peakDay?' <span class="upeak">★ 峰值</span>':'');
+      tip.style.display='block';
+      const cr=chartEl.getBoundingClientRect(),cc=col.getBoundingClientRect();
+      let left=cc.left-cr.left+cc.width/2-tip.offsetWidth/2;
+      const maxL=cr.width-tip.offsetWidth-2;
+      if(left<2)left=2;
+      if(left>maxL)left=Math.max(2,maxL);
+      tip.style.left=left+'px';
+      const bar=col.querySelector('i');const bt=bar?bar.getBoundingClientRect().top:cc.top;
+      let top=bt-cr.top-tip.offsetHeight-6;
+      if(top<2)top=2;
+      tip.style.top=top+'px';
+    };
+    chartEl.querySelectorAll('.col').forEach(function(col){
+      col.addEventListener('mouseenter',function(){showTip(col)});
+      col.addEventListener('mouseleave',hideTip);
+    });
+  }
 }
 async function openUsage(){
   if(!usageModal)return;
@@ -4239,6 +4291,7 @@ const srv = createServer(async (req, res) => {
       const total = { messages: 0, input: 0, output: 0, reasoning: 0, tokens: 0 }
       const byConversation = []
       const byDate = {}
+      const byDateMsg = {}
       const byModel = {}
       const pad2 = (n) => (n < 10 ? "0" : "") + n
       const dayKey = (ts) => {
@@ -4260,6 +4313,7 @@ const srv = createServer(async (req, res) => {
           st += t
           const dk = dayKey(m.at || s.updatedAt || s.createdAt)
           byDate[dk] = (byDate[dk] || 0) + t
+          byDateMsg[dk] = (byDateMsg[dk] || 0) + 1
           const mk = String(m.model || "").trim() || "未记录"
           byModel[mk] = (byModel[mk] || 0) + t
         }
@@ -4272,7 +4326,7 @@ const srv = createServer(async (req, res) => {
         ok: true,
         total,
         byConversation,
-        byDate: days.map((d) => ({ day: d, tokens: byDate[d] })),
+        byDate: days.map((d) => ({ day: d, tokens: byDate[d], messages: byDateMsg[d] || 0 })),
         byModel: Object.keys(byModel).sort((a, b) => byModel[b] - byModel[a]).map((m) => ({ model: m, tokens: byModel[m] })),
       }))
       return

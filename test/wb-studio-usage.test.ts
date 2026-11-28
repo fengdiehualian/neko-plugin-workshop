@@ -139,12 +139,14 @@ describe("wb-studio /api/usage/stats", () => {
       expect(t.reasoning).toBe(20)
       expect(t.tokens).toBe(465)
 
-      const byDate = j.byDate as { day: string, tokens: number }[]
+      const byDate = j.byDate as { day: string, tokens: number, messages: number }[]
       expect(byDate.length).toBe(2)
       expect(byDate[0].day).toBe(dayKeyOf(day2))
       expect(byDate[0].tokens).toBe(165)
+      expect(byDate[0].messages).toBe(2)
       expect(byDate[1].day).toBe(dayKeyOf(day1))
       expect(byDate[1].tokens).toBe(300)
+      expect(byDate[1].messages).toBe(1)
 
       const byModel = j.byModel as { model: string, tokens: number }[]
       expect(byModel.map((x) => x.model).sort()).toEqual(["deepseek-v4.1", "glm-5.3-flash", "未记录"])
